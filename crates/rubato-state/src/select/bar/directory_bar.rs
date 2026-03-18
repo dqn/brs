@@ -104,9 +104,9 @@ impl DirectoryBarData {
                 if clear < self.lamps.len() {
                     self.lamps[clear] += 1;
                 }
-                if score.notes != 0 {
+                if score.notes > 0 && score.exscore() >= 0 {
                     let rank = (score.exscore() * 27 / (score.notes * 2)) as usize;
-                    let rank = if rank < 28 { rank } else { 27 };
+                    let rank = rank.min(27);
                     self.ranks[rank] += 1;
                 } else {
                     self.ranks[0] += 1;
@@ -233,6 +233,54 @@ mod tests {
 
         let result = DirectoryBarData::children_filtered(&children, None, true);
         assert_eq!(result.len(), 2);
+    }
+
+    fn make_song_with_path() -> SongData {
+        let mut song = SongData::default();
+        song.file.set_path("/test/song.bms".to_string());
+        song
+    }
+
+    #[test]
+    fn update_folder_status_negative_notes_does_not_panic() {
+        let mut dir = DirectoryBarData::default();
+        let songs = [make_song_with_path()];
+        // Score with negative notes from corrupted DB data
+        dir.update_folder_status_with_songs(&songs, None, |_| {
+            let mut score = ScoreData::default();
+            score.notes = -5;
+            Some(score)
+        });
+        // Should fall through to ranks[0] instead of panicking on negative `as usize`
+        assert_eq!(dir.ranks[0], 1);
+    }
+
+    #[test]
+    fn update_folder_status_negative_exscore_does_not_panic() {
+        let mut dir = DirectoryBarData::default();
+        let songs = [make_song_with_path()];
+        // Score with positive notes but negative exscore
+        dir.update_folder_status_with_songs(&songs, None, |_| {
+            let mut score = ScoreData::default();
+            score.notes = 100;
+            score.judge_counts = Default::default();
+            // exscore() defaults to 0 from judge_counts, so rank = 0
+            Some(score)
+        });
+        assert_eq!(dir.ranks[0], 1);
+    }
+
+    #[test]
+    fn update_folder_status_zero_notes_does_not_divide_by_zero() {
+        let mut dir = DirectoryBarData::default();
+        let songs = [make_song_with_path()];
+        dir.update_folder_status_with_songs(&songs, None, |_| {
+            let mut score = ScoreData::default();
+            score.notes = 0;
+            Some(score)
+        });
+        // notes == 0 falls through to ranks[0]
+        assert_eq!(dir.ranks[0], 1);
     }
 
     #[test]

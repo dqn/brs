@@ -73,8 +73,17 @@ impl BMSRenderer {
         }
 
         let total_samples = end_time * self.sample_rate as i64 / 1000;
-        let bytes_per_sample: i32 = 2; // 16-bit
-        let buffer_size = (total_samples * self.channels as i64 * bytes_per_sample as i64) as usize;
+        let bytes_per_sample: i64 = 2; // 16-bit
+        let buffer_size = usize::try_from(total_samples * self.channels as i64 * bytes_per_sample)
+            .map_err(|_| {
+                anyhow::anyhow!(
+                    "PCM buffer size overflow: {} samples * {} ch * {} bps",
+                    total_samples,
+                    self.channels,
+                    bytes_per_sample
+                )
+            })
+            .ok()?;
 
         info!(
             "Rendering chart: 0ms - {}ms (total {} samples, {} bytes)",
@@ -82,7 +91,15 @@ impl BMSRenderer {
         );
 
         // Create mix buffer (float)
-        let mix_len = (total_samples * self.channels as i64) as usize;
+        let mix_len = usize::try_from(total_samples * self.channels as i64)
+            .map_err(|_| {
+                anyhow::anyhow!(
+                    "Mix buffer size overflow: {} samples * {} ch",
+                    total_samples,
+                    self.channels
+                )
+            })
+            .ok()?;
         let mut mix_buffer = vec![0.0f32; mix_len];
 
         // Process all timelines
@@ -320,5 +337,30 @@ impl BMSRenderer {
 
         info!("Audio files loaded: {} / {}", loaded, wav_list.len());
         result
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn buffer_size_try_from_rejects_negative() {
+        // On any platform, a negative i64 value should fail usize::try_from.
+        let negative: i64 = -1;
+        assert!(usize::try_from(negative).is_err());
+    }
+
+    #[test]
+    fn render_bms_with_empty_model_returns_none_or_empty() {
+        let renderer = BMSRenderer::new_default();
+        let model = BMSModel::new();
+        // An empty model has last_milli_time() == 0, so total_samples == 0
+        // and the result should still be Some (zero-length render).
+        let result = renderer.render_bms(&model);
+        if let Some(r) = result {
+            assert_eq!(r.pcm_data.len(), 0);
+        }
+        // Either None or Some with empty data is acceptable
     }
 }

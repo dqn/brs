@@ -57,11 +57,11 @@ impl BMSPlayer {
         }
         if let Some(ref mut lr) = self.lanerender {
             let lane_count = self.model.mode().map_or(8, |m| m.key() as usize);
-            // Safety: DrawLaneContext is consumed synchronously within compute_note_draw_commands.
-            // self.model.timelines outlives the context because the function returns before
-            // self is accessed again.
-            let all_timelines: &'static [bms_model::time_line::TimeLine] =
-                unsafe { std::mem::transmute(self.model.timelines.as_slice()) };
+            // Safety: self.model.timelines outlives the DrawLaneContext because the
+            // context is consumed synchronously within compute_note_draw_commands and
+            // self is not accessed again until after the call returns.
+            let all_timelines =
+                unsafe { crate::lane_renderer::TimelinesRef::from_slice(&self.model.timelines) };
             let judge_table = self.judge.judge_table(false);
             let bad_judge_time = judge_table.get(3).map_or(0, |jt| jt[1]);
             // Convert JudgeNote indices to timeline indices for processing/passing LN state.

@@ -74,9 +74,58 @@ pub enum NoteImageType {
     Hidden,
 }
 
+/// A borrowed slice of `TimeLine` values stored as a raw pointer + length.
+///
+/// This exists so that `DrawLaneContext` can be `'static` (required by
+/// `Box<dyn Any>`) without an `unsafe transmute` at every call site.
+/// The single unsafe reconstruction is confined to [`TimelinesRef::as_slice`].
+///
+/// # Safety contract
+/// The caller that creates a `TimelinesRef` must guarantee the source slice
+/// outlives the `DrawLaneContext` that contains it.  In practice the slice
+/// comes from `BMSPlayer.model.timelines` and the context is consumed
+/// synchronously within the same `render_skin_impl` call.
+#[derive(Clone, Copy)]
+pub struct TimelinesRef {
+    ptr: *const TimeLine,
+    len: usize,
+}
+
+// Safety: TimeLine is Send, and the owner guarantees the pointee outlives this handle.
+unsafe impl Send for TimelinesRef {}
+// Safety: TimeLine is Sync, and we only hand out shared references.
+unsafe impl Sync for TimelinesRef {}
+
+impl TimelinesRef {
+    /// Create a new `TimelinesRef` from a slice.
+    ///
+    /// # Safety
+    /// The caller must ensure the slice outlives every use of the returned handle.
+    pub unsafe fn from_slice(slice: &[TimeLine]) -> Self {
+        Self {
+            ptr: slice.as_ptr(),
+            len: slice.len(),
+        }
+    }
+
+    /// Reconstruct the shared slice.
+    ///
+    /// # Safety
+    /// Only valid while the original slice is alive (guaranteed by the contract
+    /// on [`TimelinesRef::from_slice`]).
+    pub unsafe fn as_slice(&self) -> &[TimeLine] {
+        if self.len == 0 {
+            &[]
+        } else {
+            // Safety: caller guarantees the source slice is still alive.
+            unsafe { std::slice::from_raw_parts(self.ptr, self.len) }
+        }
+    }
+}
+
 /// External state required by draw_lane() that comes from BMSPlayer and other subsystems.
 /// This avoids coupling LaneRenderer to BMSPlayer directly.
-pub struct DrawLaneContext<'a> {
+pub struct DrawLaneContext {
     /// Current global time (ms)
     pub time: i64,
     /// Whether TIMER_PLAY is active and its value
@@ -123,8 +172,10 @@ pub struct DrawLaneContext<'a> {
     pub bad_judge_time: i64,
     /// Model's initial BPM
     pub model_bpm: f64,
-    /// All timelines from the model (the full array, not filtered)
-    pub all_timelines: &'a [TimeLine],
+    /// All timelines from the model (the full array, not filtered).
+    /// Stored as a raw-pointer handle to avoid `'static` transmute at call sites.
+    /// Safety: the source slice must outlive this context (see [`TimelinesRef`]).
+    pub all_timelines: TimelinesRef,
     /// Whether to force CN endings display
     pub forced_cn_endings: bool,
 }

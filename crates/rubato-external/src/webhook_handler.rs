@@ -58,6 +58,15 @@ impl WebhookHandler {
     }
 
     pub fn send_webhook_with_image(&self, payload: &str, image_path: &str, webhook_url: &str) {
+        let path = Path::new(image_path);
+        if !path.is_file() {
+            log::warn!(
+                "Webhook screenshot file does not exist or is not a file: {}",
+                image_path
+            );
+            return;
+        }
+
         let result: Result<(), Box<dyn std::error::Error>> = (|| {
             let boundary = format!(
                 "----WebKitFormBoundary{}",
@@ -534,6 +543,19 @@ mod tests {
         // max=1800, numerator=13.0 (AA-): grade_ex_target = ceil(1800 * 14 / 18) = 1400
         // result = 1400 - 1300 = 100
         assert_eq!(WebhookHandler::rank_relative_ex_diff(1300, 1800, 13.0), 100);
+    }
+
+    #[test]
+    fn send_webhook_with_image_returns_early_on_missing_file() {
+        // Calling with a non-existent file should return early (log warning)
+        // without panicking or attempting a network request.
+        let handler = WebhookHandler::new();
+        handler.send_webhook_with_image(
+            r#"{"content":"test"}"#,
+            "/nonexistent/path/screenshot.png",
+            "https://invalid.webhook.url/not-called",
+        );
+        // No panic = success. The function returns before any HTTP call.
     }
 
     #[test]

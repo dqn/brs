@@ -105,20 +105,20 @@ impl TimingDistribution {
     }
 
     pub fn statistic_value_calculate(&mut self) {
-        let mut count = 0;
-        let mut sum = 0;
+        let mut count: i64 = 0;
+        let mut sum: i64 = 0;
         let mut sumf: f32 = 0.0;
 
         for (i, &d) in self.dist.iter().enumerate() {
-            count += d;
-            sum += d * (i as i32 - self.array_center);
+            count += d as i64;
+            sum += d as i64 * (i as i64 - self.array_center as i64);
         }
 
         if count == 0 {
             return;
         }
 
-        self.average = sum as f32 * 1.0 / count as f32;
+        self.average = sum as f32 / count as f32;
 
         for (i, &d) in self.dist.iter().enumerate() {
             sumf += d as f32
@@ -340,5 +340,58 @@ impl AbstractResultData {
 impl Default for AbstractResultData {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn timing_distribution_basic_average() {
+        let mut td = TimingDistribution::new(10);
+        td.add(3);
+        td.add(-3);
+        td.statistic_value_calculate();
+        assert!((td.average() - 0.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn timing_distribution_no_overflow_with_large_counts() {
+        // Simulate a scenario that would overflow i32 accumulators:
+        // range=100, all bins at max. count * offset can exceed i32::MAX.
+        let mut td = TimingDistribution::new(100);
+        // Fill bins so that sum of (d * offset) would overflow i32.
+        // With 201 bins, placing large values at the extremes stresses the accumulator.
+        for i in 0..td.dist.len() {
+            td.dist[i] = 100_000;
+        }
+        // count = 201 * 100_000 = 20_100_000
+        // sum = sum of (100_000 * (i - 100)) for i in 0..201
+        //     = 100_000 * sum(i - 100 for i in 0..201)
+        //     = 100_000 * 0 = 0  (symmetric)
+        // With i32, intermediate products like 100_000 * 100 = 10_000_000 are fine,
+        // but let's use bigger values to actually trigger the issue.
+        td.dist[0] = i32::MAX / 2; // bin at offset -100
+        td.dist[200] = i32::MAX / 2; // bin at offset +100
+        // sum_i64 = (MAX/2)*(-100) + (MAX/2)*(100) + small terms = ~0
+        // count_i64 = MAX/2 + MAX/2 + 199*100_000 = ~2^31 + 19_900_000
+        // This would overflow i32 for count alone.
+        td.statistic_value_calculate();
+        // The key assertion: no panic, and average is near 0 (symmetric distribution).
+        assert!(
+            td.average().abs() < 1.0,
+            "average should be near 0, got {}",
+            td.average()
+        );
+        assert!(td.std_dev() > 0.0, "std_dev should be positive");
+    }
+
+    #[test]
+    fn timing_distribution_empty_does_not_divide_by_zero() {
+        let mut td = TimingDistribution::new(10);
+        td.statistic_value_calculate();
+        assert_eq!(td.average(), f32::MAX);
+        assert_eq!(td.std_dev(), -1.0);
     }
 }

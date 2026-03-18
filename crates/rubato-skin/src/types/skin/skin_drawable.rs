@@ -382,7 +382,7 @@ impl rubato_core::main_state::SkinDrawable for Skin {
             log::warn!("compute_note_draw_commands: LaneRenderer downcast failed");
             return;
         };
-        let Ok(ctx) = ctx.downcast::<rubato_play::lane_renderer::DrawLaneContext<'_>>() else {
+        let Ok(ctx) = ctx.downcast::<rubato_play::lane_renderer::DrawLaneContext>() else {
             log::warn!("compute_note_draw_commands: DrawLaneContext downcast failed");
             return;
         };

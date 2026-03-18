@@ -10,7 +10,9 @@
 use bms_model::bms_model::{BMSModel, LNTYPE_LONGNOTE};
 use bms_model::note::Note;
 use bms_model::time_line::TimeLine;
-use rubato_play::lane_renderer::{DrawCommand, DrawLaneContext, LaneRenderer, NoteImageType};
+use rubato_play::lane_renderer::{
+    DrawCommand, DrawLaneContext, LaneRenderer, NoteImageType, TimelinesRef,
+};
 use rubato_play::skin::note::SkinLane;
 use serde::{Deserialize, Serialize};
 
@@ -157,7 +159,7 @@ fn make_lanes_7k() -> Vec<SkinLane> {
         .collect()
 }
 
-fn make_ctx(all_timelines: &[TimeLine]) -> DrawLaneContext<'_> {
+fn make_ctx(all_timelines: &[TimeLine]) -> DrawLaneContext {
     DrawLaneContext {
         time: 0,
         timer_play: Some(0),
@@ -181,7 +183,8 @@ fn make_ctx(all_timelines: &[TimeLine]) -> DrawLaneContext<'_> {
         hell_charge_judges: vec![false; 8],
         bad_judge_time: 0,
         model_bpm: 120.0,
-        all_timelines,
+        // Safety: all_timelines outlives the DrawLaneContext in all test uses.
+        all_timelines: unsafe { TimelinesRef::from_slice(all_timelines) },
         forced_cn_endings: false,
     }
 }
