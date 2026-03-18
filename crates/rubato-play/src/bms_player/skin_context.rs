@@ -124,6 +124,11 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayRenderContext<
         Some((prop.border, prop.max))
     }
 
+    fn gauge_min(&self) -> f32 {
+        self.gauge
+            .map_or(0.0, |g| g.gauge_by_type(g.gauge_type()).property().min)
+    }
+
     fn is_mode_changed(&self) -> bool {
         self.is_mode_changed
     }

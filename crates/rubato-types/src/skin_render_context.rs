@@ -514,6 +514,12 @@ pub trait SkinRenderContext: TimerAccess {
         None
     }
 
+    /// Returns the minimum gauge value for the current gauge type.
+    /// Used by SkinGauge for the result-screen fill animation (Java: getProperty().min).
+    fn gauge_min(&self) -> f32 {
+        0.0
+    }
+
     /// Returns the gauge type for result screen rendering.
     fn result_gauge_type(&self) -> i32 {
         self.gauge_type()

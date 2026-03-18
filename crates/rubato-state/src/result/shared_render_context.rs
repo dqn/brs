@@ -572,6 +572,14 @@ pub fn gauge_border_max(resource: &PlayerResource, gauge_type: i32) -> Option<(f
     Some((prop.border, prop.max))
 }
 
+/// Returns the minimum gauge value for the current gauge type.
+/// Used by SkinGauge for the result-screen fill animation (Java: getProperty().min).
+pub fn gauge_min(resource: &PlayerResource, gauge_type: i32) -> f32 {
+    resource
+        .groove_gauge()
+        .map_or(0.0, |g| g.gauge_by_type(gauge_type).property().min)
+}
+
 /// Returns the cached rubato_types TimingDistribution for the result screen.
 pub fn get_timing_distribution(
     data: &AbstractResultData,

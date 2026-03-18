@@ -116,6 +116,21 @@ impl SkinGauge {
             self.max = max;
         }
 
+        // Result screen: animate gauge fill from min to final value over
+        // starttime..endtime. Java: SkinGauge.prepare() lines 161-175.
+        if state.is_result_state() {
+            let starttime = self.starttime as i64;
+            let endtime = self.endtime as i64;
+            let gauge_min = state.gauge_min();
+            if time < starttime {
+                self.value = gauge_min;
+            } else if time < endtime && endtime > starttime {
+                let progress = self.max * (time - starttime) as f32 / (endtime - starttime) as f32;
+                self.value = self.value.min(progress.max(gauge_min));
+            }
+            // else: time >= endtime, keep the synced value as-is
+        }
+
         // Update animation
         // FLICKERING only uses duration (not animation_range), so only guard it
         // against duration <= 0. RANDOM/INCREASE/DECREASE need both checks.
@@ -197,7 +212,7 @@ impl SkinGauge {
     }
 
     pub fn draw(&mut self, sprite: &mut SkinObjectRenderer) {
-        if self.images.is_empty() || self.parts <= 0 {
+        if self.images.is_empty() || self.parts <= 0 || self.max <= 0.0 {
             return;
         }
 
@@ -1355,5 +1370,223 @@ mod tests {
             (gauge.border - 80.0).abs() < f32::EPSILON,
             "border should remain at default when gauge_border_max returns None"
         );
+    }
+
+    // --- Regression: Finding 1 - Result-screen gauge fill animation ---
+    // Java SkinGauge.prepare() lines 161-175: on result screens, the gauge bar
+    // animates from min to the final value over starttime..endtime.
+
+    /// MockMainState that simulates a result screen with configurable gauge min.
+    struct ResultMockState {
+        gauge_value: f32,
+        gauge_type: i32,
+        border_max: Option<(f32, f32)>,
+        gauge_min: f32,
+    }
+
+    impl rubato_types::timer_access::TimerAccess for ResultMockState {
+        fn now_time(&self) -> i64 {
+            0
+        }
+        fn now_micro_time(&self) -> i64 {
+            0
+        }
+        fn micro_timer(&self, _: rubato_types::timer_id::TimerId) -> i64 {
+            i64::MIN
+        }
+        fn timer(&self, _: rubato_types::timer_id::TimerId) -> i64 {
+            i64::MIN
+        }
+        fn now_time_for(&self, _: rubato_types::timer_id::TimerId) -> i64 {
+            0
+        }
+        fn is_timer_on(&self, _: rubato_types::timer_id::TimerId) -> bool {
+            false
+        }
+    }
+
+    impl rubato_types::skin_render_context::SkinRenderContext for ResultMockState {
+        fn gauge_value(&self) -> f32 {
+            self.gauge_value
+        }
+        fn gauge_type(&self) -> i32 {
+            self.gauge_type
+        }
+        fn gauge_border_max(&self) -> Option<(f32, f32)> {
+            self.border_max
+        }
+        fn gauge_min(&self) -> f32 {
+            self.gauge_min
+        }
+        fn current_state_type(&self) -> Option<rubato_types::main_state_type::MainStateType> {
+            Some(rubato_types::main_state_type::MainStateType::Result)
+        }
+    }
+
+    impl crate::reexports::MainState for ResultMockState {}
+
+    #[test]
+    fn result_screen_before_starttime_shows_min() {
+        let images: Vec<Vec<Option<TextureRegion>>> = vec![vec![Some(TextureRegion::new()); 6]];
+        let mut gauge = SkinGauge::new(images, 0, 0, 50, ANIMATION_RANDOM, 2, 100);
+        gauge.starttime = 100;
+        gauge.endtime = 600;
+
+        let state = ResultMockState {
+            gauge_value: 80.0,
+            gauge_type: 0,
+            border_max: Some((80.0, 100.0)),
+            gauge_min: 2.0,
+        };
+        // time=50 < starttime=100: value should be gauge min (2.0)
+        gauge.prepare(50, &state);
+        assert!(
+            (gauge.value - 2.0).abs() < 1e-6,
+            "before starttime, value should be gauge min (2.0), got {}",
+            gauge.value
+        );
+    }
+
+    #[test]
+    fn result_screen_at_starttime_begins_animation() {
+        let images: Vec<Vec<Option<TextureRegion>>> = vec![vec![Some(TextureRegion::new()); 6]];
+        let mut gauge = SkinGauge::new(images, 0, 0, 50, ANIMATION_RANDOM, 2, 100);
+        gauge.starttime = 100;
+        gauge.endtime = 600;
+
+        let state = ResultMockState {
+            gauge_value: 80.0,
+            gauge_type: 0,
+            border_max: Some((80.0, 100.0)),
+            gauge_min: 2.0,
+        };
+        // time=100, starttime=100, endtime=600: progress = max * 0 / 500 = 0
+        // value = min(80, max(0, 2)) = min(80, 2) = 2.0
+        gauge.prepare(100, &state);
+        assert!(
+            (gauge.value - 2.0).abs() < 1e-6,
+            "at starttime, value should be gauge min, got {}",
+            gauge.value
+        );
+    }
+
+    #[test]
+    fn result_screen_mid_animation_interpolates() {
+        let images: Vec<Vec<Option<TextureRegion>>> = vec![vec![Some(TextureRegion::new()); 6]];
+        let mut gauge = SkinGauge::new(images, 0, 0, 50, ANIMATION_RANDOM, 2, 100);
+        gauge.starttime = 0;
+        gauge.endtime = 500;
+
+        let state = ResultMockState {
+            gauge_value: 80.0,
+            gauge_type: 0,
+            border_max: Some((80.0, 100.0)),
+            gauge_min: 2.0,
+        };
+        // time=250, starttime=0, endtime=500: progress = 100 * 250/500 = 50
+        // value = min(80, max(50, 2)) = min(80, 50) = 50.0
+        gauge.prepare(250, &state);
+        assert!(
+            (gauge.value - 50.0).abs() < 1e-6,
+            "mid-animation, value should be 50.0, got {}",
+            gauge.value
+        );
+    }
+
+    #[test]
+    fn result_screen_after_endtime_shows_final() {
+        let images: Vec<Vec<Option<TextureRegion>>> = vec![vec![Some(TextureRegion::new()); 6]];
+        let mut gauge = SkinGauge::new(images, 0, 0, 50, ANIMATION_RANDOM, 2, 100);
+        gauge.starttime = 0;
+        gauge.endtime = 500;
+
+        let state = ResultMockState {
+            gauge_value: 80.0,
+            gauge_type: 0,
+            border_max: Some((80.0, 100.0)),
+            gauge_min: 2.0,
+        };
+        // time=500 >= endtime=500: value should be the final gauge value (80.0)
+        gauge.prepare(500, &state);
+        assert!(
+            (gauge.value - 80.0).abs() < 1e-6,
+            "after endtime, value should be final gauge value (80.0), got {}",
+            gauge.value
+        );
+    }
+
+    #[test]
+    fn result_screen_animation_clamped_to_final_value() {
+        // When the animation progress exceeds the final gauge value, the result
+        // should be clamped to the final value via min(value, progress).
+        let images: Vec<Vec<Option<TextureRegion>>> = vec![vec![Some(TextureRegion::new()); 6]];
+        let mut gauge = SkinGauge::new(images, 0, 0, 50, ANIMATION_RANDOM, 2, 100);
+        gauge.starttime = 0;
+        gauge.endtime = 100;
+
+        let state = ResultMockState {
+            gauge_value: 30.0, // final value is low
+            gauge_type: 0,
+            border_max: Some((80.0, 100.0)),
+            gauge_min: 2.0,
+        };
+        // time=80, starttime=0, endtime=100: progress = 100 * 80/100 = 80.0
+        // value = min(30, max(80, 2)) = min(30, 80) = 30.0 (clamped to final)
+        gauge.prepare(80, &state);
+        assert!(
+            (gauge.value - 30.0).abs() < 1e-6,
+            "animation should be clamped to final value (30.0), got {}",
+            gauge.value
+        );
+    }
+
+    #[test]
+    fn result_screen_animation_not_applied_on_play_screen() {
+        // On non-result screens, the animation should NOT be applied.
+        let images: Vec<Vec<Option<TextureRegion>>> = vec![vec![Some(TextureRegion::new()); 6]];
+        let mut gauge = SkinGauge::new(images, 0, 0, 50, ANIMATION_RANDOM, 2, 100);
+        gauge.starttime = 100;
+        gauge.endtime = 600;
+
+        // GaugeMockState does not report is_result_state() == true
+        let state = GaugeMockState {
+            gauge_value: 80.0,
+            gauge_type: 0,
+            border_max: Some((80.0, 100.0)),
+        };
+        // time=50 < starttime=100, but not a result screen
+        gauge.prepare(50, &state);
+        assert!(
+            (gauge.value - 80.0).abs() < 1e-6,
+            "on non-result screen, value should be the live gauge value (80.0), got {}",
+            gauge.value
+        );
+    }
+
+    // --- Regression: Finding 2 - Division by max==0 in draw() ---
+
+    #[test]
+    fn draw_returns_early_when_max_zero() {
+        let images: Vec<Vec<Option<TextureRegion>>> = vec![vec![Some(TextureRegion::new()); 6]];
+        let mut gauge = SkinGauge::new(images, 0, 0, 10, ANIMATION_RANDOM, 2, 100);
+        gauge.images = vec![TextureRegion::new(); 6];
+        gauge.value = 50.0;
+        gauge.max = 0.0; // zero max would cause NaN/Inf
+        gauge.data.region = crate::reexports::Rectangle::new(0.0, 0.0, 100.0, 20.0);
+        let mut renderer = SkinObjectRenderer::new();
+        // Should not panic or produce NaN -- early return
+        gauge.draw(&mut renderer);
+    }
+
+    #[test]
+    fn draw_returns_early_when_max_negative() {
+        let images: Vec<Vec<Option<TextureRegion>>> = vec![vec![Some(TextureRegion::new()); 6]];
+        let mut gauge = SkinGauge::new(images, 0, 0, 10, ANIMATION_RANDOM, 2, 100);
+        gauge.images = vec![TextureRegion::new(); 6];
+        gauge.value = 50.0;
+        gauge.max = -1.0; // negative max
+        gauge.data.region = crate::reexports::Rectangle::new(0.0, 0.0, 100.0, 20.0);
+        let mut renderer = SkinObjectRenderer::new();
+        gauge.draw(&mut renderer);
     }
 }
