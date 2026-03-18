@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::hash::Hash;
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard};
 
 /// ResourceCacheElement - wraps a resource with a generation counter
 struct ResourceCacheElement<V> {
@@ -17,6 +17,11 @@ impl<V> ResourceCacheElement<V> {
             generation: 0,
         }
     }
+}
+
+/// Acquire a mutex lock, recovering from poison if a thread panicked while holding it.
+fn lock_or_recover<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+    mutex.lock().unwrap_or_else(|e| e.into_inner())
 }
 
 /// ResourcePool - pools resources with generation-based eviction.
@@ -49,10 +54,7 @@ where
 
     /// Returns true if the key exists in the pool
     pub fn exists(&self, key: &K) -> bool {
-        let map = self
-            .resource_map
-            .lock()
-            .expect("resource_map lock poisoned");
+        let map = lock_or_recover(&self.resource_map);
         map.contains_key(key)
     }
 
@@ -62,10 +64,7 @@ where
     where
         F: FnOnce(&K) -> Option<V>,
     {
-        let mut map = self
-            .resource_map
-            .lock()
-            .expect("resource_map lock poisoned");
+        let mut map = lock_or_recover(&self.resource_map);
         if let Some(elem) = map.get_mut(key) {
             elem.generation = 0;
             return Some(());
@@ -82,10 +81,7 @@ where
     /// Get a reference to the resource by key (if it exists in pool).
     /// Does NOT attempt to load.
     pub fn get_cached(&self, key: &K) -> bool {
-        let mut map = self
-            .resource_map
-            .lock()
-            .expect("resource_map lock poisoned");
+        let mut map = lock_or_recover(&self.resource_map);
         if let Some(elem) = map.get_mut(key) {
             elem.generation = 0;
             true
@@ -100,33 +96,32 @@ where
     where
         F: FnMut(V),
     {
-        let mut map = self
-            .resource_map
-            .lock()
-            .expect("resource_map lock poisoned");
-        let mut removes = Vec::new();
+        let evicted: Vec<V> = {
+            let mut map = lock_or_recover(&self.resource_map);
+            let mut removes = Vec::new();
 
-        for (key, value) in map.iter_mut() {
-            if value.generation == self.maxgen {
-                removes.push(key.clone());
-            } else {
-                value.generation += 1;
+            for (key, value) in map.iter_mut() {
+                if value.generation == self.maxgen {
+                    removes.push(key.clone());
+                } else {
+                    value.generation += 1;
+                }
             }
-        }
 
-        for key in removes {
-            if let Some(elem) = map.remove(&key) {
-                dispose_fn(elem.resource);
-            }
+            removes
+                .into_iter()
+                .filter_map(|key| map.remove(&key).map(|elem| elem.resource))
+                .collect()
+        };
+
+        for resource in evicted {
+            dispose_fn(resource);
         }
     }
 
     /// Returns the number of resources currently in the pool
     pub fn size(&self) -> usize {
-        let map = self
-            .resource_map
-            .lock()
-            .expect("resource_map lock poisoned");
+        let map = lock_or_recover(&self.resource_map);
         map.len()
     }
 
@@ -135,12 +130,13 @@ where
     where
         F: FnMut(V),
     {
-        let mut map = self
-            .resource_map
-            .lock()
-            .expect("resource_map lock poisoned");
-        for (_, elem) in map.drain() {
-            dispose_fn(elem.resource);
+        let drained: Vec<V> = {
+            let mut map = lock_or_recover(&self.resource_map);
+            map.drain().map(|(_, elem)| elem.resource).collect()
+        };
+
+        for resource in drained {
+            dispose_fn(resource);
         }
     }
 
@@ -149,10 +145,7 @@ where
     where
         F2: FnOnce(&V) -> R,
     {
-        let map = self
-            .resource_map
-            .lock()
-            .expect("resource_map lock poisoned");
+        let map = lock_or_recover(&self.resource_map);
         map.get(key).map(|elem| f(&elem.resource))
     }
 
@@ -161,10 +154,7 @@ where
     where
         F2: FnOnce(&mut V) -> R,
     {
-        let mut map = self
-            .resource_map
-            .lock()
-            .expect("resource_map lock poisoned");
+        let mut map = lock_or_recover(&self.resource_map);
         map.get_mut(key).map(|elem| f(&mut elem.resource))
     }
 
@@ -176,10 +166,7 @@ where
         L: FnOnce(&K) -> Option<V>,
         F2: FnOnce(&V) -> R,
     {
-        let mut map = self
-            .resource_map
-            .lock()
-            .expect("resource_map lock poisoned");
+        let mut map = lock_or_recover(&self.resource_map);
         if let Some(elem) = map.get_mut(key) {
             elem.generation = 0;
             return Some(f(&elem.resource));
@@ -348,5 +335,64 @@ mod tests {
         let pool: ResourcePool<String, i32> = ResourcePool::new(1);
         let result = pool.with_resource(&"missing".to_string(), |v| *v);
         assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_dispose_fn_panic_does_not_poison_lock() {
+        let pool: ResourcePool<String, i32> = ResourcePool::new(1);
+        pool.get(&"a".to_string(), |_| Some(1));
+        pool.get(&"b".to_string(), |_| Some(2));
+
+        // Panic inside dispose_fn. Because dispose_fn runs outside the lock,
+        // the pool's Mutex should not be poisoned.
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            pool.dispose(|_v| {
+                panic!("intentional panic in dispose_fn");
+            });
+        }));
+        assert!(result.is_err());
+
+        // The pool's lock must not be poisoned; further operations should work.
+        assert!(!pool.resource_map.is_poisoned());
+        // Some resources may have been drained before the panic, but the pool
+        // should still be usable for new insertions.
+        pool.get(&"c".to_string(), |_| Some(3));
+        assert!(pool.exists(&"c".to_string()));
+    }
+
+    #[test]
+    fn test_dispose_old_fn_panic_does_not_poison_lock() {
+        let pool: ResourcePool<String, i32> = ResourcePool::new(0);
+        pool.get(&"x".to_string(), |_| Some(10));
+
+        // maxgen=0 means generation 0 == maxgen, so dispose_old evicts immediately.
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            pool.dispose_old(|_v| {
+                panic!("intentional panic in dispose_old callback");
+            });
+        }));
+        assert!(result.is_err());
+
+        // The pool's lock must not be poisoned.
+        assert!(!pool.resource_map.is_poisoned());
+        pool.get(&"y".to_string(), |_| Some(20));
+        assert!(pool.exists(&"y".to_string()));
+    }
+
+    #[test]
+    fn test_lock_or_recover_after_poison() {
+        let pool: ResourcePool<String, i32> = ResourcePool::new(1);
+        pool.get(&"key".to_string(), |_| Some(42));
+
+        // Manually poison the mutex.
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _guard = pool.resource_map.lock().expect("lock");
+            panic!("intentional poison");
+        }));
+        assert!(pool.resource_map.is_poisoned());
+
+        // Operations should still work via lock_or_recover.
+        assert!(pool.exists(&"key".to_string()));
+        assert_eq!(pool.size(), 1);
     }
 }

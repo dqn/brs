@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard};
 
 use log::error;
 use serde::Deserialize;
@@ -41,13 +41,16 @@ pub trait ScoreDatabaseAccess: Send + Sync {
     fn score_data(&self, sha256: &str, mode: i32) -> Option<ScoreData>;
 }
 
+/// Acquire a mutex lock, recovering from poison if a thread panicked while holding it.
+fn lock_or_recover<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+    mutex.lock().unwrap_or_else(|e| e.into_inner())
+}
+
 pub struct LR2IRConnection;
 
 impl LR2IRConnection {
     pub fn set_score_database_accessor(accessor: Box<dyn ScoreDatabaseAccess>) {
-        let mut guard = SCORE_DATABASE_ACCESSOR
-            .lock()
-            .expect("SCORE_DATABASE_ACCESSOR lock poisoned");
+        let mut guard = lock_or_recover(&SCORE_DATABASE_ACCESSOR);
         *guard = Some(accessor);
     }
 
@@ -130,9 +133,7 @@ impl LR2IRConnection {
         );
 
         let score_data = {
-            let cache = LR2_IR_RANKING_CACHE
-                .lock()
-                .expect("LR2_IR_RANKING_CACHE lock poisoned");
+            let cache = lock_or_recover(&LR2_IR_RANKING_CACHE);
             cache.get(&request_url).cloned()
         };
 
@@ -150,9 +151,7 @@ impl LR2IRConnection {
                         match Self::convert_xml_to_ranking(&xml) {
                             Some(ranking) => {
                                 let entries = ranking.to_rubato_score_data(chart);
-                                let mut cache = LR2_IR_RANKING_CACHE
-                                    .lock()
-                                    .expect("LR2_IR_RANKING_CACHE lock poisoned");
+                                let mut cache = lock_or_recover(&LR2_IR_RANKING_CACHE);
                                 if cache.len() >= RANKING_CACHE_MAX_ENTRIES {
                                     cache.clear();
                                 }
@@ -176,9 +175,7 @@ impl LR2IRConnection {
 
         // Get local score
         let local_score = {
-            let accessor = SCORE_DATABASE_ACCESSOR
-                .lock()
-                .expect("SCORE_DATABASE_ACCESSOR lock poisoned");
+            let accessor = lock_or_recover(&SCORE_DATABASE_ACCESSOR);
             if let Some(ref acc) = *accessor {
                 let lntype = if chart.has_undefined_ln {
                     chart.lntype
@@ -599,9 +596,7 @@ mod tests {
 
         // Hold the cache lock for the entire test to avoid interference
         // from concurrent tests that also touch the global cache.
-        let mut cache = LR2_IR_RANKING_CACHE
-            .lock()
-            .expect("LR2_IR_RANKING_CACHE lock poisoned");
+        let mut cache = lock_or_recover(&LR2_IR_RANKING_CACHE);
         cache.clear();
 
         // --- Below capacity: no eviction ---
@@ -635,5 +630,29 @@ mod tests {
 
         // Clean up
         cache.clear();
+    }
+
+    // --- lock_or_recover tests ---
+
+    #[test]
+    fn test_lock_or_recover_healthy_mutex() {
+        let mutex = Mutex::new(42);
+        let guard = lock_or_recover(&mutex);
+        assert_eq!(*guard, 42);
+    }
+
+    #[test]
+    fn test_lock_or_recover_poisoned_mutex() {
+        let mutex = Mutex::new(42);
+        // Poison the mutex by panicking while holding the lock.
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _guard = mutex.lock().expect("lock");
+            panic!("intentional poison");
+        }));
+        assert!(mutex.is_poisoned());
+
+        // lock_or_recover should recover instead of panicking.
+        let guard = lock_or_recover(&mutex);
+        assert_eq!(*guard, 42);
     }
 }
