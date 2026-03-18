@@ -258,22 +258,18 @@ impl MusicResult {
         self.stop_sound_inner(SoundType::ResultFail);
         self.stop_sound_inner(SoundType::ResultClose);
 
-        // Join the IR send thread if it is still running.
+        // Detach the IR send thread if it is still running.
+        // The thread is self-bounded (sends scores + fetches ranking, then exits),
+        // so it is safe to let it run past the result screen exit.
+        // We avoid blocking the render thread with sleep-based polling.
         if let Some(handle) = self.ir_thread.take() {
-            // The thread is bounded (sends scores + fetches ranking, then exits).
-            // Give it a reasonable timeout so we don't block shutdown indefinitely.
-            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
-            while !handle.is_finished() {
-                if std::time::Instant::now() >= deadline {
-                    log::warn!("MusicResult IR send thread did not finish within 10s timeout");
-                    break;
+            if handle.is_finished() {
+                if let Err(e) = handle.join() {
+                    log::warn!("MusicResult IR send thread panicked: {:?}", e);
                 }
-                std::thread::sleep(std::time::Duration::from_millis(50));
-            }
-            if handle.is_finished()
-                && let Err(e) = handle.join()
-            {
-                log::warn!("MusicResult IR send thread panicked: {:?}", e);
+            } else {
+                log::warn!("MusicResult IR send thread still running at shutdown; detaching");
+                // Drop the JoinHandle without joining -- thread continues in background.
             }
         }
     }
@@ -1062,6 +1058,30 @@ mod tests {
     fn test_shutdown_does_not_panic() {
         let mut mr = MusicResult::default();
         <MusicResult as MainState>::shutdown(&mut mr);
+    }
+
+    #[test]
+    fn test_shutdown_does_not_block_on_long_running_ir_thread() {
+        // Regression: do_shutdown() used to poll with thread::sleep(50ms) in a loop
+        // up to 10 seconds, blocking the render thread. It should now return quickly
+        // even if the IR thread is still running.
+        let mut mr = MusicResult::default();
+        // Spawn a thread that sleeps for a long time (simulating a slow IR send)
+        let handle = std::thread::spawn(|| {
+            std::thread::sleep(std::time::Duration::from_secs(60));
+        });
+        mr.ir_thread = Some(handle);
+
+        let start = std::time::Instant::now();
+        mr.do_shutdown();
+        let elapsed = start.elapsed();
+
+        // Should complete in well under 1 second (non-blocking check + log warning)
+        assert!(
+            elapsed < std::time::Duration::from_secs(1),
+            "do_shutdown() blocked for {:?}, expected non-blocking",
+            elapsed
+        );
     }
 
     #[test]

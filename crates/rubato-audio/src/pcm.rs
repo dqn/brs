@@ -222,11 +222,7 @@ impl PCMLoader {
 
         // Trim trailing silence
         let mut bytes = self.pcm_data.len() as i32;
-        let frame_size = if self.channels > 1 {
-            self.bits_per_sample / 4
-        } else {
-            self.bits_per_sample / 8
-        };
+        let frame_size = self.channels * self.bits_per_sample / 8;
         if frame_size == 0 {
             bail!(
                 "invalid WAV: bits_per_sample {} too small",
@@ -1046,15 +1042,82 @@ mod tests {
 
         // We can't call load_pcm (it re-reads the file), but the logic under test
         // is in the post-load section. Let's verify the arithmetic directly.
-        let frame_size = if loader.channels > 1 {
-            loader.bits_per_sample / 4
-        } else {
-            loader.bits_per_sample / 8
-        };
+        let frame_size = loader.channels * loader.bits_per_sample / 8;
         assert_eq!(frame_size, 0, "frame_size should be 0 for bps=7 mono");
 
         let sample_frame = loader.channels * loader.bits_per_sample / 8;
         assert_eq!(sample_frame, 0, "sample_frame should be 0 for bps=7 mono");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Helper: build a WAV byte buffer with custom channels and bits_per_sample.
+    fn build_wav_bytes_custom(pcm_data: &[u8], channels: u16, bits_per_sample: u16) -> Vec<u8> {
+        let data_size = pcm_data.len() as u32;
+        let file_size = 36 + data_size;
+        let block_align = channels * bits_per_sample / 8;
+        let byte_rate = 44100u32 * block_align as u32;
+        let mut buf = Vec::new();
+        buf.extend_from_slice(b"RIFF");
+        buf.extend_from_slice(&file_size.to_le_bytes());
+        buf.extend_from_slice(b"WAVE");
+        buf.extend_from_slice(b"fmt ");
+        buf.extend_from_slice(&16u32.to_le_bytes());
+        buf.extend_from_slice(&1u16.to_le_bytes()); // format: PCM
+        buf.extend_from_slice(&channels.to_le_bytes());
+        buf.extend_from_slice(&44100u32.to_le_bytes());
+        buf.extend_from_slice(&byte_rate.to_le_bytes());
+        buf.extend_from_slice(&block_align.to_le_bytes());
+        buf.extend_from_slice(&bits_per_sample.to_le_bytes());
+        buf.extend_from_slice(b"data");
+        buf.extend_from_slice(&data_size.to_le_bytes());
+        buf.extend_from_slice(pcm_data);
+        buf
+    }
+
+    #[test]
+    fn trailing_silence_trim_frame_size_uses_channels() {
+        // Regression: frame_size used `bits_per_sample / 4` for stereo (multi-channel),
+        // which is only correct for 2-channel. The correct formula is
+        // `channels * bits_per_sample / 8`.
+        //
+        // For a 4-channel, 16-bit WAV:
+        //   Old buggy:  frame_size = 16 / 4 = 4 (wrong, should be 8)
+        //   Correct:    frame_size = 4 * 16 / 8 = 8
+        //
+        // To expose the bug, we need data whose length is aligned to 4 but NOT to 8.
+        // 12 bytes: 12 % 4 = 0 (aligned to buggy frame_size), 12 % 8 = 4 (NOT aligned to correct).
+        //
+        // With the buggy code: bytes = 12 - (12 % 4) = 12 (no trim for alignment).
+        // Then sample_frame=8, loop checks 12-8..12 = bytes[4..12] -- but that's a
+        // misaligned frame boundary (middle of frame 0 + start of frame 1).
+        //
+        // With the fix: bytes = 12 - (12 % 8) = 8. Then loop checks 0..8, which is
+        // the real frame boundary, and finds non-silent data -> keeps 8 bytes.
+        let mut pcm_data = Vec::new();
+        // First 8 bytes = frame 0 (non-silent): 4 channels x 2 bytes
+        pcm_data.extend_from_slice(&[0x01, 0x00, 0x02, 0x00, 0x03, 0x00, 0x04, 0x00]);
+        // 4 extra bytes: partial frame (silent), triggers misalignment with buggy code
+        pcm_data.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]);
+        assert_eq!(pcm_data.len(), 12);
+
+        let wav_bytes = build_wav_bytes_custom(&pcm_data, 4, 16);
+        let dir = std::env::temp_dir().join("rubato_test_frame_size_channels");
+        std::fs::create_dir_all(&dir).unwrap();
+        let wav_path = dir.join("4ch_misaligned.wav");
+        std::fs::write(&wav_path, &wav_bytes).unwrap();
+
+        let mut loader = PCMLoader::new();
+        loader.load_pcm(&wav_path).unwrap();
+
+        // After correct alignment (12 -> 8) and trimming, the non-silent frame (8 bytes) remains.
+        assert_eq!(
+            loader.pcm_data.len(),
+            8,
+            "4-channel WAV with 12 bytes of data should align to 8 and keep the non-silent frame; \
+             got {} bytes instead of 8",
+            loader.pcm_data.len()
+        );
 
         let _ = std::fs::remove_dir_all(&dir);
     }

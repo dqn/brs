@@ -36,28 +36,38 @@ impl ScoreDataImporter {
                             .unwrap_or(0)
                             .max(0) as usize;
                         let mut sd = ScoreData::default();
-                        sd.judge_counts.epg =
-                            score.get("perfect").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
-                        sd.judge_counts.egr =
-                            score.get("great").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
-                        sd.judge_counts.egd =
-                            score.get("good").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
-                        sd.judge_counts.ebd =
-                            score.get("bad").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
-                        sd.judge_counts.epr =
-                            score.get("poor").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
-                        sd.minbp = score.get("minbp").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+                        sd.judge_counts.epg = Self::clamp_i64_to_i32(
+                            score.get("perfect").and_then(|v| v.as_i64()).unwrap_or(0),
+                        );
+                        sd.judge_counts.egr = Self::clamp_i64_to_i32(
+                            score.get("great").and_then(|v| v.as_i64()).unwrap_or(0),
+                        );
+                        sd.judge_counts.egd = Self::clamp_i64_to_i32(
+                            score.get("good").and_then(|v| v.as_i64()).unwrap_or(0),
+                        );
+                        sd.judge_counts.ebd = Self::clamp_i64_to_i32(
+                            score.get("bad").and_then(|v| v.as_i64()).unwrap_or(0),
+                        );
+                        sd.judge_counts.epr = Self::clamp_i64_to_i32(
+                            score.get("poor").and_then(|v| v.as_i64()).unwrap_or(0),
+                        );
+                        sd.minbp = Self::clamp_i64_to_i32(
+                            score.get("minbp").and_then(|v| v.as_i64()).unwrap_or(0),
+                        );
                         sd.clear = if clear_idx < clears.len() {
                             clears[clear_idx]
                         } else {
                             0
                         };
-                        sd.playcount =
-                            score.get("playcount").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
-                        sd.clearcount = score
-                            .get("clearcount")
-                            .and_then(|v| v.as_i64())
-                            .unwrap_or(0) as i32;
+                        sd.playcount = Self::clamp_i64_to_i32(
+                            score.get("playcount").and_then(|v| v.as_i64()).unwrap_or(0),
+                        );
+                        sd.clearcount = Self::clamp_i64_to_i32(
+                            score
+                                .get("clearcount")
+                                .and_then(|v| v.as_i64())
+                                .unwrap_or(0),
+                        );
                         sd.sha256 = song[0].file.sha256.clone();
                         sd.notes = song[0].chart.notes;
                         // LR2 had no LN mode concept. For songs with undefined LN,
@@ -119,6 +129,11 @@ impl ScoreDataImporter {
         log::info!("Score import complete - imported count: {}", result.len());
     }
 
+    /// Clamp an i64 value from external data to i32 range, preventing silent wrapping.
+    fn clamp_i64_to_i32(val: i64) -> i32 {
+        val.clamp(0, i32::MAX as i64) as i32
+    }
+
     fn read_lr2_scores(path: &str) -> anyhow::Result<Vec<HashMap<String, serde_json::Value>>> {
         let conn = rusqlite::Connection::open(path)?;
         let mut stmt = conn.prepare("SELECT * FROM score")?;
@@ -148,5 +163,48 @@ impl ScoreDataImporter {
             result.push(row?);
         }
         Ok(result)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn clamp_i64_to_i32_prevents_wrapping_on_overflow() {
+        // Regression: values exceeding i32::MAX were cast with `as i32`,
+        // silently wrapping to negative numbers.
+        let overflow_val: i64 = i32::MAX as i64 + 1;
+        let result = ScoreDataImporter::clamp_i64_to_i32(overflow_val);
+        assert_eq!(
+            result,
+            i32::MAX,
+            "i64 value {} should clamp to i32::MAX ({}), not wrap to {}",
+            overflow_val,
+            i32::MAX,
+            overflow_val as i32
+        );
+    }
+
+    #[test]
+    fn clamp_i64_to_i32_preserves_normal_values() {
+        assert_eq!(ScoreDataImporter::clamp_i64_to_i32(0), 0);
+        assert_eq!(ScoreDataImporter::clamp_i64_to_i32(100), 100);
+        assert_eq!(
+            ScoreDataImporter::clamp_i64_to_i32(i32::MAX as i64),
+            i32::MAX
+        );
+    }
+
+    #[test]
+    fn clamp_i64_to_i32_clamps_negative_to_zero() {
+        assert_eq!(ScoreDataImporter::clamp_i64_to_i32(-1), 0);
+        assert_eq!(ScoreDataImporter::clamp_i64_to_i32(i64::MIN), 0);
+    }
+
+    #[test]
+    fn clamp_i64_to_i32_clamps_large_positive() {
+        assert_eq!(ScoreDataImporter::clamp_i64_to_i32(i64::MAX), i32::MAX);
+        assert_eq!(ScoreDataImporter::clamp_i64_to_i32(5_000_000_000), i32::MAX);
     }
 }
