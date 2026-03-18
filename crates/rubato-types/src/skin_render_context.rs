@@ -509,7 +509,7 @@ pub trait SkinRenderContext: TimerAccess {
         &[]
     }
 
-    /// Returns (border, max) for gauge rendering on result screens.
+    /// Returns (border, max) for the current gauge type's properties.
     fn gauge_border_max(&self) -> Option<(f32, f32)> {
         None
     }

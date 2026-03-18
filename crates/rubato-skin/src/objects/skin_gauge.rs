@@ -108,9 +108,13 @@ impl SkinGauge {
     pub fn prepare(&mut self, time: i64, state: &dyn MainState) {
         self.data.prepare(time, state);
 
-        // Sync gauge value and type from game state
+        // Sync gauge value, type, border, and max from game state
         self.value = state.gauge_value();
         self.gauge_type = state.gauge_type();
+        if let Some((border, max)) = state.gauge_border_max() {
+            self.border = border;
+            self.max = max;
+        }
 
         // Update animation
         // FLICKERING only uses duration (not animation_range), so only guard it
@@ -774,10 +778,11 @@ mod tests {
     // SkinGauge.prepare() was not reading gauge value from MainState,
     // causing the gauge display to always show 0% regardless of actual state.
 
-    /// MockMainState with configurable gauge value and type.
+    /// MockMainState with configurable gauge value, type, and border/max.
     struct GaugeMockState {
         gauge_value: f32,
         gauge_type: i32,
+        border_max: Option<(f32, f32)>,
     }
 
     impl rubato_types::timer_access::TimerAccess for GaugeMockState {
@@ -808,6 +813,9 @@ mod tests {
         fn gauge_type(&self) -> i32 {
             self.gauge_type
         }
+        fn gauge_border_max(&self) -> Option<(f32, f32)> {
+            self.border_max
+        }
     }
 
     impl crate::reexports::MainState for GaugeMockState {}
@@ -824,6 +832,7 @@ mod tests {
         let state = GaugeMockState {
             gauge_value: 75.0,
             gauge_type: 2,
+            border_max: None,
         };
         gauge.prepare(100, &state);
 
@@ -847,6 +856,7 @@ mod tests {
         let state1 = GaugeMockState {
             gauge_value: 50.0,
             gauge_type: 0,
+            border_max: None,
         };
         gauge.prepare(100, &state1);
         assert!((gauge.value - 50.0).abs() < f32::EPSILON);
@@ -855,6 +865,7 @@ mod tests {
         let state2 = GaugeMockState {
             gauge_value: 30.0,
             gauge_type: 0,
+            border_max: None,
         };
         gauge.prepare(200, &state2);
         assert!(
@@ -874,6 +885,7 @@ mod tests {
         let state = GaugeMockState {
             gauge_value: 50.0,
             gauge_type: 0,
+            border_max: None,
         };
 
         // Collect animation values over 10 consecutive time steps.
@@ -1206,6 +1218,7 @@ mod tests {
         let state = GaugeMockState {
             gauge_value: 50.0,
             gauge_type: 0,
+            border_max: None,
         };
         gauge.prepare(75, &state);
 
@@ -1225,6 +1238,7 @@ mod tests {
         let state = GaugeMockState {
             gauge_value: 50.0,
             gauge_type: 0,
+            border_max: None,
         };
         gauge.prepare(75, &state);
 
@@ -1254,6 +1268,92 @@ mod tests {
         assert!(
             remainder.abs() < 1e-6,
             "epsilon comparison should detect near-zero remainder ({remainder})"
+        );
+    }
+
+    // --- Regression: gauge border/max must update from live gauge state ---
+    // Java's SkinGauge.prepare() reads max and border from the active gauge
+    // type's properties every frame. If the gauge type changes mid-play
+    // (e.g. EASY -> HARD), the border coloring must reflect the new type.
+
+    #[test]
+    fn prepare_syncs_border_and_max_from_state() {
+        let images: Vec<Vec<Option<TextureRegion>>> = vec![vec![Some(TextureRegion::new()); 6]];
+        let mut gauge = SkinGauge::new(images, 0, 0, 50, ANIMATION_RANDOM, 2, 100);
+        // Defaults: max=100.0, border=80.0
+        assert!((gauge.max - 100.0).abs() < f32::EPSILON);
+        assert!((gauge.border - 80.0).abs() < f32::EPSILON);
+
+        // Simulate HARD gauge: border=30, max=100
+        let state = GaugeMockState {
+            gauge_value: 50.0,
+            gauge_type: 2,
+            border_max: Some((30.0, 100.0)),
+        };
+        gauge.prepare(100, &state);
+
+        assert!(
+            (gauge.border - 30.0).abs() < f32::EPSILON,
+            "prepare() should update border from gauge state, got {}",
+            gauge.border
+        );
+        assert!(
+            (gauge.max - 100.0).abs() < f32::EPSILON,
+            "prepare() should update max from gauge state, got {}",
+            gauge.max
+        );
+    }
+
+    #[test]
+    fn prepare_updates_border_max_on_gauge_type_change() {
+        let images: Vec<Vec<Option<TextureRegion>>> = vec![vec![Some(TextureRegion::new()); 6]];
+        let mut gauge = SkinGauge::new(images, 0, 0, 50, ANIMATION_RANDOM, 2, 100);
+
+        // Frame 1: EASY gauge (border=80, max=100)
+        let state1 = GaugeMockState {
+            gauge_value: 50.0,
+            gauge_type: 0,
+            border_max: Some((80.0, 100.0)),
+        };
+        gauge.prepare(100, &state1);
+        assert!((gauge.border - 80.0).abs() < f32::EPSILON);
+        assert!((gauge.max - 100.0).abs() < f32::EPSILON);
+
+        // Frame 2: gauge type changes to HARD (border=30, max=100)
+        let state2 = GaugeMockState {
+            gauge_value: 40.0,
+            gauge_type: 2,
+            border_max: Some((30.0, 100.0)),
+        };
+        gauge.prepare(200, &state2);
+        assert!(
+            (gauge.border - 30.0).abs() < f32::EPSILON,
+            "border should update when gauge type changes, got {}",
+            gauge.border
+        );
+        assert_eq!(gauge.gauge_type, 2);
+    }
+
+    #[test]
+    fn prepare_keeps_defaults_when_no_border_max_available() {
+        let images: Vec<Vec<Option<TextureRegion>>> = vec![vec![Some(TextureRegion::new()); 6]];
+        let mut gauge = SkinGauge::new(images, 0, 0, 50, ANIMATION_RANDOM, 2, 100);
+
+        // State returns None for gauge_border_max (e.g. no gauge initialized)
+        let state = GaugeMockState {
+            gauge_value: 50.0,
+            gauge_type: 0,
+            border_max: None,
+        };
+        gauge.prepare(100, &state);
+
+        assert!(
+            (gauge.max - 100.0).abs() < f32::EPSILON,
+            "max should remain at default when gauge_border_max returns None"
+        );
+        assert!(
+            (gauge.border - 80.0).abs() < f32::EPSILON,
+            "border should remain at default when gauge_border_max returns None"
         );
     }
 }

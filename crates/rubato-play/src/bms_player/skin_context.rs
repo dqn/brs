@@ -118,6 +118,12 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayRenderContext<
         self.gauge.is_some_and(|g| g.gauge().is_max())
     }
 
+    fn gauge_border_max(&self) -> Option<(f32, f32)> {
+        let g = self.gauge?;
+        let prop = g.gauge_by_type(g.gauge_type()).property();
+        Some((prop.border, prop.max))
+    }
+
     fn is_mode_changed(&self) -> bool {
         self.is_mode_changed
     }
