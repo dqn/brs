@@ -33,6 +33,15 @@ impl MSADPCMDecoder {
             bail!("MSADPCMDecoder: channels must be non-zero");
         }
         let block_size = block_align;
+        // Header: 7 bytes per channel (1 predictor + 2 delta + 2 sample1 + 2 sample2).
+        if block_size < channels * 7 {
+            bail!(
+                "MSADPCMDecoder: block_align {} too small for {} channels (need at least {})",
+                block_align,
+                channels,
+                channels * 7
+            );
+        }
         // sizeof(header) = 7
         // each header contains two samples
         // channels * 2 + (blockSize - channels * sizeof(header)) * 2 ==> (blockSize - channels * 6) * 2
