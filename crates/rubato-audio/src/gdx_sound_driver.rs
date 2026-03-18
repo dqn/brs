@@ -569,6 +569,9 @@ impl GdxSoundDriver {
             if let Some(entry) = self.file_cache.get(path) {
                 let base_sound = &entry.sound;
                 for &(starttime, duration) in note_entries {
+                    // Clamp negative values to 0 to prevent wrapping to usize::MAX.
+                    let starttime = starttime.max(0);
+                    let duration = duration.max(0);
                     if starttime == 0 && duration == 0 {
                         self.wav_sounds.insert(*wav_id, base_sound.clone());
                     } else {
@@ -1005,6 +1008,73 @@ mod tests {
 
         assert!(wav_sounds.contains_key(&42));
         assert_eq!(wav_sounds.len(), 1);
+    }
+
+    /// Regression: negative starttime/duration must be clamped to 0,
+    /// not wrap to usize::MAX via `as usize` cast.
+    #[test]
+    fn finalize_load_clamps_negative_starttime_and_duration() {
+        let sound = StaticSoundData {
+            sample_rate: 44100,
+            frames: Arc::from(vec![Frame::ZERO; 100]),
+            settings: StaticSoundSettings::default(),
+            slice: None,
+        };
+        let mut file_cache: HashMap<String, FileCacheEntry> = HashMap::new();
+        file_cache.insert(
+            "/test/sound.wav".to_string(),
+            FileCacheEntry {
+                sound: sound.clone(),
+                generation: 0,
+            },
+        );
+
+        // Both negative: should clamp to (0, 0) and insert as whole-file wav_sound
+        let load_tasks: Vec<LoadTask> =
+            vec![(1, "/test/sound.wav".to_string(), vec![(-100, -200)])];
+
+        let mut wav_sounds: HashMap<i32, StaticSoundData> = HashMap::new();
+        let mut slicesound: HashMap<i32, Vec<SliceWav<StaticSoundData>>> = HashMap::new();
+        for (wav_id, path, note_entries) in &load_tasks {
+            if let Some(entry) = file_cache.get(path) {
+                let base_sound = &entry.sound;
+                for &(st, dur) in note_entries {
+                    let st = st.max(0);
+                    let dur = dur.max(0);
+                    if st == 0 && dur == 0 {
+                        wav_sounds.insert(*wav_id, base_sound.clone());
+                    } else {
+                        let sample_rate = base_sound.sample_rate as i64;
+                        let start_frame = (st * sample_rate / 1_000_000) as usize;
+                        let duration_frames = (dur * sample_rate / 1_000_000) as usize;
+                        let total_frames = base_sound.frames.len();
+                        let end_frame = if duration_frames == 0 {
+                            total_frames
+                        } else {
+                            (start_frame + duration_frames).min(total_frames)
+                        };
+                        if start_frame < total_frames {
+                            let mut sliced = base_sound.clone();
+                            sliced.slice = Some((start_frame, end_frame));
+                            slicesound
+                                .entry(*wav_id)
+                                .or_default()
+                                .push(SliceWav::new(st, dur, sliced));
+                        }
+                    }
+                }
+            }
+        }
+
+        // (-100, -200) clamped to (0, 0) -> should be in wav_sounds, not slicesound
+        assert!(
+            wav_sounds.contains_key(&1),
+            "negative times should clamp to whole-file"
+        );
+        assert!(
+            slicesound.is_empty(),
+            "no slice should be created for clamped-to-zero values"
+        );
     }
 
     /// Verify that finalize_load handles sliced sounds correctly.

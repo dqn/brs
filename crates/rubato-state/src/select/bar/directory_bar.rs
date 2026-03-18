@@ -105,7 +105,8 @@ impl DirectoryBarData {
                     self.lamps[clear] += 1;
                 }
                 if score.notes != 0 {
-                    let rank = (score.exscore() * 27 / (score.notes * 2)) as usize;
+                    // Use i64 to avoid i32 overflow in exscore * 27.
+                    let rank = (score.exscore() as i64 * 27 / (score.notes as i64 * 2)) as usize;
                     let rank = if rank < 28 { rank } else { 27 };
                     self.ranks[rank] += 1;
                 } else {
@@ -233,6 +234,31 @@ mod tests {
 
         let result = DirectoryBarData::children_filtered(&children, None, true);
         assert_eq!(result.len(), 2);
+    }
+
+    /// Regression: exscore * 27 must not overflow i32 for large scores.
+    #[test]
+    fn update_folder_status_large_exscore_no_overflow() {
+        let mut dir = DirectoryBarData::default();
+
+        // exscore = (epg + lpg) * 2 + egr + lgr = (40_000_000 + 0) * 2 + 0 + 0 = 80_000_000
+        // 80_000_000 * 27 = 2_160_000_000 which overflows i32::MAX (2_147_483_647).
+        let mut song = SongData::default();
+        song.file.set_path("/some/path.bms".to_string());
+
+        let score = ScoreData {
+            judge_counts: rubato_types::score_data::JudgeCounts {
+                epg: 40_000_000,
+                ..Default::default()
+            },
+            notes: 40_000_000,
+            ..Default::default()
+        };
+
+        dir.update_folder_status_with_songs(&[song], None, |_| Some(score.clone()));
+
+        // rank = 80_000_000 * 27 / (40_000_000 * 2) = 27 (capped to 27)
+        assert_eq!(dir.ranks[27], 1);
     }
 
     #[test]
