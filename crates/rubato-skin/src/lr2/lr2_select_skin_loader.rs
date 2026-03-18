@@ -397,6 +397,9 @@ impl LR2SelectSkinLoaderState {
             }
             "DST_BAR_LAMP" => {
                 let mut values = lr2_skin_loader::parse_int(str_parts);
+                if values[1] < 0 || values[1] >= BARLAMP_COUNT as i32 {
+                    return;
+                }
                 if values[5] < 0 {
                     values[3] += values[5];
                     values[5] = -values[5];
@@ -465,6 +468,9 @@ impl LR2SelectSkinLoaderState {
             }
             "DST_BAR_MY_LAMP" => {
                 let mut values = lr2_skin_loader::parse_int(str_parts);
+                if values[1] < 0 || values[1] >= BARLAMP_COUNT as i32 {
+                    return;
+                }
                 if values[5] < 0 {
                     values[3] += values[5];
                     values[5] = -values[5];
@@ -533,6 +539,9 @@ impl LR2SelectSkinLoaderState {
             }
             "DST_BAR_RIVAL_LAMP" => {
                 let mut values = lr2_skin_loader::parse_int(str_parts);
+                if values[1] < 0 || values[1] >= BARLAMP_COUNT as i32 {
+                    return;
+                }
                 if values[5] < 0 {
                     values[3] += values[5];
                     values[5] = -values[5];
@@ -592,6 +601,9 @@ impl LR2SelectSkinLoaderState {
             }
             "DST_BAR_TROPHY" => {
                 let mut values = lr2_skin_loader::parse_int(str_parts);
+                if values[1] < 0 || values[1] >= BARTROPHY_COUNT as i32 {
+                    return;
+                }
                 if values[5] < 0 {
                     values[3] += values[5];
                     values[5] = -values[5];
@@ -646,6 +658,9 @@ impl LR2SelectSkinLoaderState {
             }
             "DST_BAR_LABEL" => {
                 let mut values = lr2_skin_loader::parse_int(str_parts);
+                if values[1] < 0 || values[1] >= BARLABEL_COUNT as i32 {
+                    return;
+                }
                 if values[5] < 0 {
                     values[3] += values[5];
                     values[5] = -values[5];
@@ -905,5 +920,69 @@ mod tests {
         let parts = make_str_parts(-1);
         loader.process_select_command("DST_BAR_BODY_ON", &parts);
         assert!(loader.barimageon.iter().all(|v| v.is_none()));
+    }
+
+    #[test]
+    fn dst_bar_lamp_negative_index_returns_early() {
+        let mut loader = make_loader();
+        let parts = make_str_parts(-1);
+        loader.process_select_command("DST_BAR_LAMP", &parts);
+        assert!(loader.barlamp.iter().all(|v| v.is_none()));
+    }
+
+    #[test]
+    fn dst_bar_lamp_overflow_index_returns_early() {
+        let mut loader = make_loader();
+        let parts = make_str_parts(BARLAMP_COUNT as i32);
+        loader.process_select_command("DST_BAR_LAMP", &parts);
+        assert!(loader.barlamp.iter().all(|v| v.is_none()));
+    }
+
+    #[test]
+    fn dst_bar_my_lamp_negative_index_returns_early() {
+        let mut loader = make_loader();
+        let parts = make_str_parts(-1);
+        loader.process_select_command("DST_BAR_MY_LAMP", &parts);
+        assert!(loader.barmylamp.iter().all(|v| v.is_none()));
+    }
+
+    #[test]
+    fn dst_bar_rival_lamp_negative_index_returns_early() {
+        let mut loader = make_loader();
+        let parts = make_str_parts(-1);
+        loader.process_select_command("DST_BAR_RIVAL_LAMP", &parts);
+        assert!(loader.barrivallamp.iter().all(|v| v.is_none()));
+    }
+
+    #[test]
+    fn dst_bar_trophy_negative_index_returns_early() {
+        let mut loader = make_loader();
+        let parts = make_str_parts(-1);
+        loader.process_select_command("DST_BAR_TROPHY", &parts);
+        assert!(loader.bartrophy.iter().all(|v| v.is_none()));
+    }
+
+    #[test]
+    fn dst_bar_trophy_overflow_index_returns_early() {
+        let mut loader = make_loader();
+        let parts = make_str_parts(BARTROPHY_COUNT as i32);
+        loader.process_select_command("DST_BAR_TROPHY", &parts);
+        assert!(loader.bartrophy.iter().all(|v| v.is_none()));
+    }
+
+    #[test]
+    fn dst_bar_label_negative_index_returns_early() {
+        let mut loader = make_loader();
+        let parts = make_str_parts(-1);
+        loader.process_select_command("DST_BAR_LABEL", &parts);
+        assert!(loader.barlabel.iter().all(|v| v.is_none()));
+    }
+
+    #[test]
+    fn dst_bar_label_overflow_index_returns_early() {
+        let mut loader = make_loader();
+        let parts = make_str_parts(BARLABEL_COUNT as i32);
+        loader.process_select_command("DST_BAR_LABEL", &parts);
+        assert!(loader.barlabel.iter().all(|v| v.is_none()));
     }
 }

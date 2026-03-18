@@ -151,6 +151,7 @@ fn resolve_judge_child_skin_object(
         loader.usecim,
         scale_x,
         scale_y,
+        &loader.filemap,
     )?;
     apply_runtime_skin_object_data(&mut obj, &obj_data, &src, &loader.dstr);
     Some(obj)
@@ -567,6 +568,7 @@ mod tests {
                 width: 1920.0,
                 height: 1080.0,
             },
+            &loader.filemap,
         )
         .expect("runtime skin should convert");
 

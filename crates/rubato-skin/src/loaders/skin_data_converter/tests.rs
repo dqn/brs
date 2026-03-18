@@ -117,6 +117,7 @@ fn test_convert_empty_skin_data() {
         Path::new("/test/skin.json"),
         false,
         &dst,
+        &HashMap::new(),
     );
 
     assert!(skin.is_some());
@@ -172,6 +173,7 @@ fn test_convert_skin_data_with_image_by_id() {
         Path::new("/test/skin.json"),
         false,
         &dst,
+        &HashMap::new(),
     );
 
     assert!(skin.is_some());
@@ -204,6 +206,7 @@ fn test_option_wiring() {
         Path::new("/test/skin.json"),
         false,
         &dst,
+        &HashMap::new(),
     );
 
     let skin = skin.unwrap();
@@ -239,6 +242,7 @@ fn test_offset_wiring() {
         Path::new("/test/skin.json"),
         false,
         &dst,
+        &HashMap::new(),
     );
 
     let skin = skin.unwrap();
@@ -267,6 +271,7 @@ fn test_fadeout_input_scene() {
         Path::new("/test/skin.json"),
         false,
         &dst,
+        &HashMap::new(),
     );
 
     let skin = skin.unwrap();
@@ -300,6 +305,7 @@ fn test_custom_timer_registration() {
         Path::new("/test/skin.json"),
         false,
         &dst,
+        &HashMap::new(),
     );
 
     let skin = skin.unwrap();
@@ -374,6 +380,7 @@ fn test_convert_with_destinations() {
         Path::new("/test/skin.json"),
         false,
         &dst,
+        &HashMap::new(),
     );
 
     let skin = skin.unwrap();
@@ -435,6 +442,7 @@ fn test_convert_with_mouse_rect() {
         Path::new("/test/skin.json"),
         false,
         &dst,
+        &HashMap::new(),
     );
 
     let skin = skin.unwrap();
@@ -458,6 +466,7 @@ fn test_bga_returns_some() {
         false,
         1.0,
         1.0,
+        &HashMap::new(),
     );
     assert!(bga.is_some());
     assert_eq!(bga.unwrap().type_name(), "SkinBGA");
@@ -491,6 +500,7 @@ fn test_gauge_graph_from_color_strings() {
         false,
         1.0,
         1.0,
+        &HashMap::new(),
     );
     assert!(gg.is_some());
     assert_eq!(gg.unwrap().type_name(), "SkinGaugeGraph");
@@ -527,6 +537,7 @@ fn test_gauge_graph_from_color_array() {
         false,
         1.0,
         1.0,
+        &HashMap::new(),
     );
     assert!(gg.is_some());
     assert_eq!(gg.unwrap().type_name(), "SkinGaugeGraph");
@@ -552,6 +563,7 @@ fn test_gauge_returns_some() {
         false,
         1.0,
         1.0,
+        &HashMap::new(),
     );
     assert!(gauge.is_some());
     assert_eq!(gauge.unwrap().type_name(), "SkinGauge");
@@ -581,6 +593,7 @@ fn test_hidden_cover_no_texture_returns_none() {
         false,
         1.0,
         1.0,
+        &HashMap::new(),
     );
     assert!(hidden.is_none());
 }
@@ -609,6 +622,7 @@ fn test_lift_cover_no_texture_returns_none() {
         false,
         1.0,
         1.0,
+        &HashMap::new(),
     );
     assert!(lift.is_none());
 }
@@ -630,6 +644,7 @@ fn test_pmchara_returns_some() {
         false,
         1.0,
         1.0,
+        &HashMap::new(),
     );
     assert!(pm.is_some());
     // PmChara returns a placeholder SkinImage
@@ -653,6 +668,7 @@ fn test_search_text_region_returns_none() {
         false,
         1.0,
         1.0,
+        &HashMap::new(),
     );
     // SearchTextRegion is a skin property, not a SkinObject
     assert!(sr.is_none());
@@ -676,6 +692,7 @@ fn test_imageset_empty_returns_none() {
         false,
         1.0,
         1.0,
+        &HashMap::new(),
     );
     assert!(is.is_none());
 }
@@ -698,6 +715,7 @@ fn test_imageset_nonempty_returns_placeholder() {
         false,
         1.0,
         1.0,
+        &HashMap::new(),
     );
     assert!(is.is_some());
     assert_eq!(is.unwrap().type_name(), "Image");
@@ -715,6 +733,7 @@ fn test_note_judge_songlist_return_some() {
         false,
         1.0,
         1.0,
+        &HashMap::new(),
     );
     assert!(note.is_some());
     assert_eq!(note.unwrap().type_name(), "SkinNote");
@@ -729,6 +748,7 @@ fn test_note_judge_songlist_return_some() {
         false,
         1.0,
         1.0,
+        &HashMap::new(),
     );
     assert!(judge.is_some());
     assert_eq!(judge.unwrap().type_name(), "SkinJudge");
@@ -744,6 +764,7 @@ fn test_note_judge_songlist_return_some() {
         false,
         1.0,
         1.0,
+        &HashMap::new(),
     );
     assert!(bar.is_some());
     assert_eq!(bar.unwrap().type_name(), "SkinBar");
@@ -793,6 +814,7 @@ fn build_select_bar_data_propagates_graph_from_songlist() {
         false,
         1.0,
         1.0,
+        &HashMap::new(),
     );
 
     // graph_type should be propagated from the DistributionGraph object
@@ -857,6 +879,7 @@ fn build_select_bar_data_preserves_bitmap_bar_text_objects() {
         false,
         1.0,
         1.0,
+        &HashMap::new(),
     );
 
     assert!(
@@ -950,6 +973,7 @@ fn build_select_bar_data_scales_bitmap_bar_text_and_graph_region() {
         false,
         scale_x,
         scale_y,
+        &HashMap::new(),
     );
 
     let text = result
@@ -995,6 +1019,7 @@ fn build_select_bar_data_without_graph_leaves_defaults() {
         false,
         1.0,
         1.0,
+        &HashMap::new(),
     );
 
     // When no graph is set, fields should remain at defaults
@@ -1055,6 +1080,7 @@ fn build_select_bar_data_propagates_graph_type_for_normal_graph() {
         false,
         1.0,
         1.0,
+        &HashMap::new(),
     );
 
     assert_eq!(result.graph_type, Some(0));

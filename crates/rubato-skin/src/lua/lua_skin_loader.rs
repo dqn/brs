@@ -550,6 +550,7 @@ mod tests {
             &path,
             loader.json_loader.usecim,
             &loader.json_loader.dstr,
+            &loader.json_loader.filemap,
         )
         .expect("ECFN play Lua skin should convert into runtime Skin");
 
@@ -587,6 +588,7 @@ mod tests {
             &path,
             loader.json_loader.usecim,
             &loader.json_loader.dstr,
+            &loader.json_loader.filemap,
         )
         .expect("ECFN select Lua skin should convert into runtime Skin");
 
@@ -619,6 +621,7 @@ mod tests {
             &path,
             loader.json_loader.usecim,
             &loader.json_loader.dstr,
+            &loader.json_loader.filemap,
         )
         .expect("ECFN select Lua skin should convert into runtime Skin");
 
@@ -661,6 +664,7 @@ mod tests {
             &path,
             loader.json_loader.usecim,
             &loader.json_loader.dstr,
+            &loader.json_loader.filemap,
         )
         .expect("ECFN select Lua skin should convert into runtime Skin");
 

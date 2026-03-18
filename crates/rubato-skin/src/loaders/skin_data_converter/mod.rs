@@ -34,8 +34,17 @@ pub(crate) fn convert_runtime_object(
     usecim: bool,
     scale_x: f32,
     scale_y: f32,
+    filemap: &HashMap<String, String>,
 ) -> Option<crate::types::skin::SkinObject> {
-    convert_skin_object(object_type, source_map, skin_path, usecim, scale_x, scale_y)
+    convert_skin_object(
+        object_type,
+        source_map,
+        skin_path,
+        usecim,
+        scale_x,
+        scale_y,
+        filemap,
+    )
 }
 
 /// Converts SkinHeaderData into a SkinHeader.
@@ -167,6 +176,7 @@ pub fn convert_skin_data(
     skin_path: &Path,
     usecim: bool,
     dstr: &Resolution,
+    filemap: &HashMap<String, String>,
 ) -> Option<Skin> {
     // Determine source resolution
     let src = header_data.source_resolution.clone().unwrap_or(Resolution {
@@ -230,6 +240,7 @@ pub fn convert_skin_data(
                 usecim,
                 scale_x,
                 scale_y,
+                filemap,
             )
         };
 
@@ -350,6 +361,7 @@ pub fn convert_skin_data(
             {
                 skin.select_bar_data = Some(build_select_bar_data(
                     bar_data, *center, clickable, source_map, skin_path, usecim, scale_x, scale_y,
+                    filemap,
                 ));
             }
         }
