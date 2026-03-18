@@ -3,6 +3,7 @@ use std::sync::Mutex;
 use log::{error, warn};
 
 use crate::ir_connection::IRConnection;
+use rubato_types::sync_utils::lock_or_recover;
 
 /// Registry entry for an IR connection implementation
 pub struct IRConnectionEntry {
@@ -29,7 +30,7 @@ pub struct IRConnectionManager;
 impl IRConnectionManager {
     /// Get all available IR connection names
     pub fn all_available_ir_connection_name() -> Vec<String> {
-        let entries = IR_CONNECTIONS.lock().expect("IR_CONNECTIONS lock poisoned");
+        let entries = lock_or_recover(&IR_CONNECTIONS);
         let names: Vec<String> = entries.iter().map(|e| e.name.clone()).collect();
         if names.is_empty() {
             warn!("No IR connections registered. IR features are disabled.");
@@ -42,7 +43,7 @@ impl IRConnectionManager {
         if name.is_empty() {
             return None;
         }
-        let entries = IR_CONNECTIONS.lock().expect("IR_CONNECTIONS lock poisoned");
+        let entries = lock_or_recover(&IR_CONNECTIONS);
         for entry in entries.iter() {
             if entry.name == name {
                 return Some((entry.factory)());
@@ -53,7 +54,7 @@ impl IRConnectionManager {
 
     /// Get the home URL for an IR by name. Returns None if not found.
     pub fn home_url(name: &str) -> Option<String> {
-        let entries = IR_CONNECTIONS.lock().expect("IR_CONNECTIONS lock poisoned");
+        let entries = lock_or_recover(&IR_CONNECTIONS);
         for entry in entries.iter() {
             if entry.name == name {
                 return entry.home.clone();

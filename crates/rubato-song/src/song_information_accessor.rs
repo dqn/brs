@@ -4,6 +4,7 @@ use bms_model::bms_model::BMSModel;
 use rubato_core::sqlite_database_accessor::{Column, SQLiteDatabaseAccessor, Table};
 use rubato_core::validatable::remove_invalid_elements_vec;
 use rubato_types::song_information_db::SongInformationDb;
+use rubato_types::sync_utils::lock_or_recover;
 use rusqlite::Connection;
 use rusqlite::hooks::{AuthAction, AuthContext, Authorization};
 
@@ -70,7 +71,7 @@ impl SongInformationAccessor {
         // Hold the lock for the entire authorizer lifecycle to prevent
         // another thread from seeing the read-only authorizer during
         // concurrent write operations.
-        let conn = self.conn.lock().expect("conn lock poisoned");
+        let conn = lock_or_recover(&self.conn);
         conn.authorizer(Some(read_only_authorizer));
         let result = match Self::query_informations_on_conn(&conn, &query, &[]) {
             Ok(infos) => remove_invalid_elements_vec(infos),
@@ -133,7 +134,7 @@ impl SongInformationAccessor {
     }
 
     pub fn start_update(&self) -> anyhow::Result<()> {
-        let conn = self.conn.lock().expect("conn lock poisoned");
+        let conn = lock_or_recover(&self.conn);
         conn.execute_batch("BEGIN TRANSACTION")?;
         Ok(())
     }
@@ -146,7 +147,7 @@ impl SongInformationAccessor {
     }
 
     pub fn end_update(&self) {
-        let conn = self.conn.lock().expect("conn lock poisoned");
+        let conn = lock_or_recover(&self.conn);
         if let Err(e) = conn.execute_batch("COMMIT") {
             log::error!("Error committing update: {}", e);
         }
@@ -157,7 +158,7 @@ impl SongInformationAccessor {
         sql: &str,
         params: &[&str],
     ) -> anyhow::Result<Vec<SongInformation>> {
-        let conn = self.conn.lock().expect("conn lock poisoned");
+        let conn = lock_or_recover(&self.conn);
         Self::query_informations_on_conn(&conn, sql, params)
     }
 
@@ -212,7 +213,7 @@ impl SongInformationAccessor {
     }
 
     fn insert_information(&self, info: &SongInformation) -> anyhow::Result<()> {
-        let conn = self.conn.lock().expect("conn lock poisoned");
+        let conn = lock_or_recover(&self.conn);
         self.base.insert_with_values(
             &conn,
             "information",

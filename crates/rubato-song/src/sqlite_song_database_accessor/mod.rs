@@ -20,6 +20,7 @@ use crate::song_database_accessor::SongDatabaseAccessor;
 use crate::song_database_update_listener::SongDatabaseUpdateListener;
 use crate::song_utils;
 use rubato_types::song_information_db::SongInformationDb;
+use rubato_types::sync_utils::lock_or_recover;
 
 /// Escape SQL LIKE wildcard characters (`%`, `_`, `\`) so that they are
 /// treated as literal characters in a `LIKE ... ESCAPE '\'` clause.
@@ -139,7 +140,7 @@ impl SQLiteSongDatabaseAccessor {
     }
 
     fn create_table(&self) -> anyhow::Result<()> {
-        let conn = self.conn.lock().expect("conn lock poisoned");
+        let conn = lock_or_recover(&self.conn);
         self.base.validate(&conn)?;
 
         // Check if sha256 is primary key in song table (migration check)
@@ -225,7 +226,7 @@ impl SQLiteSongDatabaseAccessor {
     }
 
     fn query_songs(&self, sql: &str, params: &[&dyn rusqlite::types::ToSql]) -> Vec<SongData> {
-        let conn = self.conn.lock().expect("conn lock poisoned");
+        let conn = lock_or_recover(&self.conn);
         match Self::query_songs_with_conn(&conn, sql, params) {
             Ok(songs) => songs,
             Err(e) => {
@@ -279,7 +280,7 @@ impl SQLiteSongDatabaseAccessor {
     }
 
     fn query_folders(&self, sql: &str, params: &[&dyn rusqlite::types::ToSql]) -> Vec<FolderData> {
-        let conn = self.conn.lock().expect("conn lock poisoned");
+        let conn = lock_or_recover(&self.conn);
         match Self::query_folders_with_conn(&conn, sql, params) {
             Ok(folders) => folders,
             Err(e) => {

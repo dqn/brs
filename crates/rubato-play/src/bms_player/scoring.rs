@@ -1,4 +1,5 @@
 use super::*;
+use rubato_types::sync_utils::lock_or_recover;
 
 impl BMSPlayer {
     /// Sync judge states from JudgeManager's internal note_states back to the
@@ -309,10 +310,7 @@ impl BMSPlayer {
     /// double-update.
     pub fn update_judge(&mut self, judge: i32, time: i64) {
         if self.judge.combo() == 0 {
-            self.bga
-                .lock()
-                .expect("bga lock poisoned")
-                .set_misslayer_tme(time);
+            lock_or_recover(&self.bga).set_misslayer_tme(time);
         }
 
         // Full combo check
