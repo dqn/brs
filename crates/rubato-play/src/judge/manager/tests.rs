@@ -1778,3 +1778,64 @@ fn keysound_events_cleared_at_start_of_update() {
         "Keysound events from a previous update() should be cleared"
     );
 }
+
+// =========================================================================
+// Regression: mark() i32 parameter truncates for songs over 35 minutes
+// =========================================================================
+
+#[test]
+fn autoplay_judges_notes_past_35_minutes() {
+    // 36 minutes = 2,160,000 ms = 2,160,000,000 us
+    // As i32 ms: 2,160,000,000 > i32::MAX (2,147,483,647), so it would wrap
+    // to a negative value when cast as i32, causing mark() to seek from the
+    // beginning of the note array every frame.
+    let time_36min_us: i64 = 36 * 60 * 1_000_000; // 2,160,000,000 us
+    let model = make_model_with_notes(&[time_36min_us]);
+    let notes = build_judge_notes(&model);
+    let jp = crate::judge_property::lr2();
+
+    let config = JudgeConfig {
+        notes: &notes,
+        mode: &Mode::BEAT_7K,
+        ln_type: LnType::LongNote,
+        judge_rank: 100,
+        judge_window_rate: [100, 100, 100],
+        scratch_judge_window_rate: [100, 100, 100],
+        algorithm: JudgeAlgorithm::Combo,
+        autoplay: true,
+        judge_property: &jp,
+        lane_property: None,
+        auto_adjust_enabled: false,
+        is_play_or_practice: false,
+        judgeregion: 1,
+    };
+    let mut jm = JudgeManager::from_config(&config);
+
+    let gp = crate::gauge_property::GaugeProperty::Lr2;
+    let mut gauge = GrooveGauge::new(&model, GrooveGauge::NORMAL, &gp);
+
+    let lp = LaneProperty::new(&Mode::BEAT_7K);
+    let key_count = lp.key_lane_assign().len();
+    let key_states = vec![false; key_count];
+    let key_times = vec![i64::MIN; key_count];
+
+    // Prime
+    jm.update(-1, &notes, &key_states, &key_times, &mut gauge);
+
+    // Advance time past the note (step in 10ms increments near the note)
+    let mut time = time_36min_us - 500_000; // start 500ms before note
+    while time <= time_36min_us + 500_000 {
+        jm.update(time, &notes, &key_states, &key_times, &mut gauge);
+        time += 10_000; // 10ms steps
+    }
+
+    // The note at 36 minutes should be judged as PGREAT by autoplay.
+    // Before the fix, the i32 truncation in mark() would cause the note
+    // to be skipped or processed incorrectly.
+    assert_eq!(
+        jm.score().judge_counts.epg + jm.score().judge_counts.lpg,
+        1,
+        "Note at 36 minutes should be auto-judged as PGREAT"
+    );
+    assert_eq!(jm.past_notes(), 1, "The note should be counted as past");
+}

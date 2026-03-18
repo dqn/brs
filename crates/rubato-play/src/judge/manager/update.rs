@@ -33,10 +33,8 @@ impl JudgeManager {
 
         // --- Pass-through loop ---
         for lane_idx in 0..lane_count {
-            self.lane_states[lane_idx].mark(
-                ((self.prevmtime + self.mjudgestart - 100000) / 1000) as i32,
-                notes,
-            );
+            self.lane_states[lane_idx]
+                .mark((self.prevmtime + self.mjudgestart - 100000) / 1000, notes);
             let mut next_inclease = false;
 
             // Check if any key assigned to this lane is pressed

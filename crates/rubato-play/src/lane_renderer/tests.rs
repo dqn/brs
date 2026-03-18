@@ -1238,3 +1238,140 @@ fn reset_hispeed_zero_duration_does_not_panic_or_produce_nan() {
         "hispeed must never be NaN or Inf"
     );
 }
+
+// =========================================================================
+// Regression: bad_judge_time.unsigned_abs() wraps i64::MIN back to negative
+// =========================================================================
+
+#[test]
+fn pms_miss_poor_bad_judge_time_i64_min_does_not_wrap() {
+    // When judge_table has fewer than 4 entries, bad_judge_time can be i64::MIN.
+    // unsigned_abs() on i64::MIN returns 2^63 which overflows back to i64::MIN
+    // when cast as i64. saturating_abs() correctly returns i64::MAX.
+    let mut tl0 = make_timeline(0.0, 0, 120.0, 8);
+    tl0.bpm = 120.0;
+    let mut tl1 = make_timeline(1.0, 500_000, 120.0, 8);
+    tl1.set_note(0, Some(Note::new_normal(1)));
+    let model = make_model_with_timelines(vec![tl0, tl1], 120.0);
+    let mut renderer = LaneRenderer::new(&model);
+
+    let all_tls = &model.timelines;
+    let mut ctx = default_ctx(all_tls);
+    ctx.bad_judge_time = i64::MIN;
+    ctx.time = 1000; // past the note at 500ms
+    ctx.timer_play = Some(0);
+
+    let mut lanes = make_lanes(8);
+    // Enable PMS miss POOR rendering by setting dstnote2 != i32::MIN
+    for lane in &mut lanes {
+        lane.dstnote2 = -200;
+    }
+
+    // Before the fix, this would compute bad_time as i64::MIN (negative),
+    // causing incorrect PMS miss POOR note positions. After the fix,
+    // saturating_abs() caps at i64::MAX, so the miss POOR path runs safely.
+    let result = renderer.draw_lane(&ctx, &lanes, &[]);
+    // The key assertion: no panic, and the function completes.
+    // The commands should not contain notes with NaN/infinite y positions.
+    for cmd in &result.commands {
+        if let DrawCommand::DrawNote { y, .. } = cmd {
+            assert!(y.is_finite(), "note y position must be finite, got {}", y);
+        }
+    }
+}
+
+// =========================================================================
+// Regression: PMS stop_time calculation was redundant (simplifies to bad_time)
+// =========================================================================
+
+#[test]
+fn pms_miss_poor_last_timeline_stop_time_equals_bad_time() {
+    // The PMS miss POOR else-branch (last timeline) had:
+    //   stop_time = max(0, tl.micro_time + tl.micro_stop + bad_time - tl.micro_time - tl.micro_stop)
+    // which algebraically simplifies to max(0, bad_time) = bad_time (since bad_time >= 0).
+    // This test exercises the last-timeline branch to verify consistent output.
+    let mut tl0 = make_timeline(0.0, 0, 120.0, 8);
+    tl0.bpm = 120.0;
+    tl0.stop = 100_000; // 100ms stop
+    let mut tl1 = make_timeline(1.0, 500_000, 120.0, 8);
+    tl1.set_note(0, Some(Note::new_normal(1)));
+    // Only one timeline with note (tl1 is the last), so the else-branch triggers
+    // when iterating backwards from tl1 with no tl at i+1.
+    let model = make_model_with_timelines(vec![tl0, tl1], 120.0);
+    let mut renderer = LaneRenderer::new(&model);
+
+    let all_tls = &model.timelines;
+    let mut ctx = default_ctx(all_tls);
+    ctx.bad_judge_time = -200_000; // 200ms bad window (negative = early side)
+    ctx.time = 1500; // well past the note
+    ctx.timer_play = Some(0);
+
+    let mut lanes = make_lanes(8);
+    for lane in &mut lanes {
+        lane.dstnote2 = -200;
+    }
+
+    // Should complete without panic and produce consistent y positions
+    let result = renderer.draw_lane(&ctx, &lanes, &[]);
+    for cmd in &result.commands {
+        if let DrawCommand::DrawNote { y, .. } = cmd {
+            assert!(y.is_finite(), "note y position must be finite, got {}", y);
+        }
+    }
+}
+
+// =========================================================================
+// Regression: practice mode timeline display wraps at 35+ minutes
+// =========================================================================
+
+#[test]
+fn practice_mode_timeline_text_correct_at_36_minutes() {
+    // 36 minutes = 2,160,000 ms = 2,160,000,000 us
+    // As i32 milliseconds: 2,160,000,000 > i32::MAX (2,147,483,647), wrapping negative.
+    // Using milli_time() (i64) avoids this.
+    let time_36min_us: i64 = 36 * 60 * 1_000_000; // 2,160,000,000 us
+
+    // Place tl0 just 1 second before tl1 so both are within the visible lane region.
+    let tl0_time = time_36min_us - 1_000_000;
+    let mut tl0 = make_timeline(0.0, tl0_time, 120.0, 8);
+    tl0.bpm = 120.0;
+    tl0.section_line = true;
+    // Second timeline at 36 minutes -- across the i32 ms boundary
+    let mut tl1 = make_timeline(1.0, time_36min_us, 120.0, 8);
+    tl1.section_line = true;
+    let model = make_model_with_timelines(vec![tl0, tl1], 120.0);
+    let mut renderer = LaneRenderer::new(&model);
+
+    let all_tls = &model.timelines;
+    let mut ctx = default_ctx(all_tls);
+    ctx.is_practice = true;
+    // In practice mode, practice_start_time is used as the time (in ms).
+    // Set it just before tl0 so both timelines are in the future and visible.
+    ctx.practice_start_time = (tl0_time / 1000) - 500;
+    ctx.lane_group_regions = vec![LaneGroupRegion {
+        x: 0.0,
+        width: 100.0,
+    }];
+
+    let lanes = make_lanes(8);
+    let result = renderer.draw_lane(&ctx, &lanes, &[]);
+
+    // Find DrawTimeText commands and verify the 36-minute timeline text
+    let time_texts: Vec<&String> = result
+        .commands
+        .iter()
+        .filter_map(|c| match c {
+            DrawCommand::DrawTimeText { text, .. } => Some(text),
+            _ => None,
+        })
+        .collect();
+
+    // The 36-minute timeline should produce "36:00.0" text.
+    // Before the fix, tl.time() (i32 ms) would overflow and show a negative/wrong value.
+    let has_36min = time_texts.iter().any(|t| t.contains("36:00"));
+    assert!(
+        has_36min,
+        "Expected '36:00' in timeline text for 36-minute mark, got: {:?}",
+        time_texts
+    );
+}

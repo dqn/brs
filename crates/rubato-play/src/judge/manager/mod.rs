@@ -65,14 +65,14 @@ struct LaneIterState {
 }
 
 impl LaneIterState {
-    fn mark(&mut self, time_ms: i32, notes: &[JudgeNote]) {
+    fn mark(&mut self, time_ms: i64, notes: &[JudgeNote]) {
         while self.base_pos < self.note_indices.len().saturating_sub(1)
-            && (notes[self.note_indices[self.base_pos + 1]].time_us / 1000) < time_ms as i64
+            && (notes[self.note_indices[self.base_pos + 1]].time_us / 1000) < time_ms
         {
             self.base_pos += 1;
         }
         while self.base_pos > 0
-            && (notes[self.note_indices[self.base_pos]].time_us / 1000) > time_ms as i64
+            && (notes[self.note_indices[self.base_pos]].time_us / 1000) > time_ms
         {
             self.base_pos -= 1;
         }

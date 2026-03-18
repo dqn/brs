@@ -265,7 +265,7 @@ impl LaneRenderer {
                 // Timeline display (practice mode)
                 if show_timeline
                     && i > 0
-                    && (tl.time() / 1000) > (all_tl[timelines[i - 1]].time() / 1000)
+                    && (tl.milli_time() / 1000) > (all_tl[timelines[i - 1]].milli_time() / 1000)
                 {
                     commands.push(DrawCommand::DrawTimeLine {
                         y_offset: (y - hl as f64) as i32,
@@ -274,9 +274,9 @@ impl LaneRenderer {
                         commands.push(DrawCommand::DrawTimeText {
                             text: format!(
                                 "{:2}:{:02}.{:1}",
-                                tl.time() / 60000,
-                                (tl.time() / 1000) % 60,
-                                (tl.time() / 100) % 10
+                                tl.milli_time() / 60000,
+                                (tl.milli_time() / 1000) % 60,
+                                (tl.milli_time() / 100) % 10
                             ),
                             x: r.x + 4.0,
                             y: y as f32 + 20.0,
@@ -604,7 +604,7 @@ impl LaneRenderer {
 
         // PMS miss POOR rendering
         if lanes[0].dstnote2 != i32::MIN {
-            let bad_time = ctx.bad_judge_time.unsigned_abs() as i64;
+            let bad_time = ctx.bad_judge_time.saturating_abs();
             let mut orgy2 = lanes[0].dstnote2 as f64;
             if orgy2 < -(lanes[0].region_height as f64) {
                 orgy2 = -(lanes[0].region_height as f64);
@@ -636,10 +636,11 @@ impl LaneRenderer {
                     let mut j = i;
                     while j + 1 < tl_count && all_tl[timelines[j + 1]].micro_time() < microtime {
                         if all_tl[timelines[j + 1]].micro_time()
-                            > tl.micro_time() + tl.micro_stop() + bad_time
+                            > tl.micro_time().saturating_add(tl.micro_stop()).saturating_add(bad_time)
                         {
+                            let bad_deadline = tl.micro_time().saturating_add(tl.micro_stop()).saturating_add(bad_time);
                             let stop_time = 0i64.max(
-                                tl.micro_time() + tl.micro_stop() + bad_time
+                                bad_deadline
                                     - all_tl[timelines[j]].micro_time()
                                     - all_tl[timelines[j]].micro_stop(),
                             );
@@ -655,10 +656,11 @@ impl LaneRenderer {
                     }
                     if all_tl[timelines[j]].micro_time() + all_tl[timelines[j]].micro_stop()
                         < microtime
-                        && microtime > tl.micro_time() + tl.micro_stop() + bad_time
+                        && microtime > tl.micro_time().saturating_add(tl.micro_stop()).saturating_add(bad_time)
                     {
+                        let bad_deadline = tl.micro_time().saturating_add(tl.micro_stop()).saturating_add(bad_time);
                         let stop_time = 0i64.max(
-                            tl.micro_time() + tl.micro_stop() + bad_time
+                            bad_deadline
                                 - all_tl[timelines[j]].micro_time()
                                 - all_tl[timelines[j]].micro_stop(),
                         );
@@ -671,13 +673,11 @@ impl LaneRenderer {
                             / 240000000.0;
                     }
                 } else if tl.micro_time() + tl.micro_stop() < microtime
-                    && microtime > tl.micro_time() + tl.micro_stop() + bad_time
+                    && microtime > tl.micro_time().saturating_add(tl.micro_stop()).saturating_add(bad_time)
                 {
-                    let stop_time = 0i64.max(
-                        tl.micro_time() + tl.micro_stop() + bad_time
-                            - tl.micro_time()
-                            - tl.micro_stop(),
-                    );
+                    // Algebraically: max(0, micro_time + micro_stop + bad_time - micro_time - micro_stop)
+                    // simplifies to max(0, bad_time). Since bad_time is already non-negative, this is just bad_time.
+                    let stop_time = bad_time;
                     y -= (microtime - tl.micro_time() - tl.micro_stop() - stop_time) as f64
                         * rxhs2
                         * tl.bpm
