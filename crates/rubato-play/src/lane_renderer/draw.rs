@@ -551,6 +551,7 @@ impl LaneRenderer {
                                             } else {
                                                 dy as f32
                                             };
+                                            let ln_height = ln_height.max(0.0);
                                             self.draw_long_note_commands(
                                                 &mut commands,
                                                 ctx,
