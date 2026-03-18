@@ -796,6 +796,12 @@ impl GdxSoundDriver {
     }
 }
 
+impl Drop for GdxSoundDriver {
+    fn drop(&mut self) {
+        self.dispose();
+    }
+}
+
 /// Add note entry to notemap, deduplicating by (starttime, duration).
 /// Translated from AbstractAudioDriver.addNoteList()
 pub(crate) fn add_note_entry(notemap: &mut HashMap<i32, Vec<(i64, i64)>>, n: &Note) {

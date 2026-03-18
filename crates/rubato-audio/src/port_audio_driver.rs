@@ -657,3 +657,9 @@ impl PortAudioDriver {
         }
     }
 }
+
+impl Drop for PortAudioDriver {
+    fn drop(&mut self) {
+        self.dispose();
+    }
+}
