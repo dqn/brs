@@ -38,7 +38,9 @@ impl PatternModifier for AutoplayModifier {
             let mut remove = false;
 
             if self.margin > 0 {
-                while timelines[pos].time() < timelines[i].time() - self.margin as i64 {
+                while pos < tl_len
+                    && timelines[pos].time() < timelines[i].time() - self.margin as i64
+                {
                     for (lane, ln_active) in lns.iter_mut().enumerate() {
                         if let Some(note) = timelines[pos].note(lane as i32)
                             && note.is_long()

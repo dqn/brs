@@ -363,6 +363,7 @@ impl BMSPlayer {
                         gauge += 1;
                     }
                 }
+                gauge = gauge.min(rubato_types::groove_gauge::EXHARDCLASS);
                 gauge
             }
             None => config_gauge,
