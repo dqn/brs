@@ -20,8 +20,9 @@ impl AudioData {
     fn from_float_pcm(pcm: &FloatPCM) -> Self {
         let start = pcm.start as usize;
         let len = pcm.len as usize;
+        let end = (start + len).min(pcm.sample.len());
         AudioData {
-            samples: pcm.sample[start..start + len].to_vec(),
+            samples: pcm.sample[start.min(end)..end].to_vec(),
             channels: pcm.channels as u16,
             sample_rate: pcm.sample_rate as u32,
         }

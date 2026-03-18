@@ -147,7 +147,7 @@ impl FloatPCM {
     ///
     /// Translated from: FloatPCM.getSample
     fn get_sample(&self, sample: i32) -> Vec<f32> {
-        if self.channels == 0 || self.sample_rate == 0 || sample == 0 {
+        if self.channels == 0 || self.sample_rate == 0 || sample <= 0 {
             return Vec::new();
         }
         let new_len = (((self.sample.len() as i64 / self.channels as i64) * sample as i64
