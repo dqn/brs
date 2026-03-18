@@ -358,9 +358,10 @@ fn download_daemon_thread_run(state: DownloadDaemonState) {
     }
 
     log::info!("IPFS Thread終了");
-    // If download ipfs thread is still alive, we can't force-kill it in Rust
-    // but we can drop the handle
-    drop(download_ipfs_handle);
+    // Join the IPFS download thread if it exists, to avoid detaching it
+    if let Some(handle) = download_ipfs_handle.take() {
+        let _ = handle.join();
+    }
     dispose.store(false, Ordering::SeqCst);
     download.store(false, Ordering::SeqCst);
     alive.store(false, Ordering::SeqCst);

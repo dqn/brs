@@ -254,9 +254,9 @@ impl Event for PlayerConfigCycleEvent {
         };
         let current = (self.get)(config);
         let next = if arg1 >= 0 {
-            (current + 1) % self.count
+            (current + 1).rem_euclid(self.count)
         } else {
-            (current + self.count - 1) % self.count
+            (current - 1).rem_euclid(self.count)
         };
         (self.set)(config, next);
         state.play_option_change_sound();
@@ -290,9 +290,9 @@ impl Event for PlayConfigCycleEvent {
         };
         let current = (self.get)(pc);
         let next = if arg1 >= 0 {
-            (current + 1) % self.count
+            (current + 1).rem_euclid(self.count)
         } else {
-            (current + self.count - 1) % self.count
+            (current - 1).rem_euclid(self.count)
         };
         (self.set)(pc, next);
         state.play_option_change_sound();
@@ -354,9 +354,9 @@ impl Event for ConfigCycleEvent {
         };
         let current = (self.get)(config);
         let next = if arg1 >= 0 {
-            (current + 1) % self.count
+            (current + 1).rem_euclid(self.count)
         } else {
-            (current + self.count - 1) % self.count
+            (current - 1).rem_euclid(self.count)
         };
         (self.set)(config, next);
         state.play_option_change_sound();
