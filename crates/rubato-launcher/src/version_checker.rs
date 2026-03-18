@@ -7,6 +7,9 @@ pub use rubato_core::version::Version;
 /// Translated from: MainLoader.GithubVersionChecker
 ///
 /// Lazily fetches version info from GitHub API on first access.
+///
+/// **Threading**: `message()` and `download_url()` perform blocking HTTP on first call.
+/// Must be called from a background thread, not the UI/render thread.
 #[derive(Clone, Debug, Default)]
 pub struct VersionChecker {
     message: Option<String>,

@@ -220,6 +220,8 @@ impl LauncherUi {
                     );
                     ui.end_row();
 
+                    // Config values used as indices: negative i32 wraps to huge usize via
+                    // `as usize`, but .get() returns None and falls through to the default.
                     let analog_modes = ["Ver 2", "Ver 1"];
                     let selected_label = analog_modes
                         .get(controller.analog_scratch_mode as usize)

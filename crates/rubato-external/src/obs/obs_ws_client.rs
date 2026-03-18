@@ -506,6 +506,9 @@ impl ObsWsClient {
 
                             notify_message = "Recording stopped".to_string();
 
+                            // Path comes from OBS server's outputPath event field.
+                            // Safe because: (1) default OBS host is 127.0.0.1, (2) is_file()
+                            // guard prevents directory deletion, (3) desktop-only app context.
                             if let Some(path) = path_to_delete {
                                 tokio::spawn(async move {
                                     let p = Path::new(&path);

@@ -366,6 +366,8 @@ impl DifficultyTableParser {
         } else {
             Vec::new()
         };
+        // Java parity: zip truncates to the shorter side. When merge has fewer
+        // entries than data_urls, extra URLs get no merge config (empty map default).
         let data_urls = dt.table.data_url.clone();
         for (url, m) in data_urls.iter().zip(merge.iter()) {
             mergerule.insert(url.clone(), m.clone());
