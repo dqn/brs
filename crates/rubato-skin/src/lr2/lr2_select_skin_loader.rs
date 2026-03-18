@@ -122,6 +122,9 @@ impl LR2SelectSkinLoaderState {
                     .unwrap_or(0);
                 if gr < 100 {
                     let values = lr2_skin_loader::parse_int(str_parts);
+                    if values[1] < 0 {
+                        return;
+                    }
                     let images = self.csv.source_image(&values);
                     if let Some(images) = images {
                         let idx = values[1] as usize;
@@ -134,6 +137,9 @@ impl LR2SelectSkinLoaderState {
             }
             "DST_BAR_BODY_OFF" => {
                 let mut values = lr2_skin_loader::parse_int(str_parts);
+                if values[1] < 0 {
+                    return;
+                }
                 if values[5] < 0 {
                     values[3] += values[5];
                     values[5] = -values[5];
@@ -187,6 +193,9 @@ impl LR2SelectSkinLoaderState {
             }
             "DST_BAR_BODY_ON" => {
                 let mut values = lr2_skin_loader::parse_int(str_parts);
+                if values[1] < 0 {
+                    return;
+                }
                 if values[5] < 0 {
                     values[3] += values[5];
                     values[5] = -values[5];
@@ -847,5 +856,54 @@ impl LR2SkinLoaderAccess for LR2SelectSkinLoaderState {
         }
 
         log::debug!("LR2SelectSkinLoader: assembled objects into skin");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_loader() -> LR2SelectSkinLoaderState {
+        let src = Resolution {
+            width: 640.0,
+            height: 480.0,
+        };
+        let dst = Resolution {
+            width: 1280.0,
+            height: 960.0,
+        };
+        LR2SelectSkinLoaderState::new(src, dst, false, String::new())
+    }
+
+    /// Build a str_parts vec where index 1 is the bar index and remaining slots are "0".
+    fn make_str_parts(bar_index: i32) -> Vec<String> {
+        let mut parts: Vec<String> = vec!["0".to_string(); 22];
+        parts[1] = bar_index.to_string();
+        parts
+    }
+
+    #[test]
+    fn src_bar_body_negative_index_returns_early() {
+        let mut loader = make_loader();
+        let parts = make_str_parts(-1);
+        // Should not panic or modify state
+        loader.process_select_command("SRC_BAR_BODY", &parts);
+        assert!(loader.barimage.iter().all(|v| v.is_none()));
+    }
+
+    #[test]
+    fn dst_bar_body_off_negative_index_returns_early() {
+        let mut loader = make_loader();
+        let parts = make_str_parts(-1);
+        loader.process_select_command("DST_BAR_BODY_OFF", &parts);
+        assert!(loader.barimageoff.iter().all(|v| v.is_none()));
+    }
+
+    #[test]
+    fn dst_bar_body_on_negative_index_returns_early() {
+        let mut loader = make_loader();
+        let parts = make_str_parts(-1);
+        loader.process_select_command("DST_BAR_BODY_ON", &parts);
+        assert!(loader.barimageon.iter().all(|v| v.is_none()));
     }
 }
