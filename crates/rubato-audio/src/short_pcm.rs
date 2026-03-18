@@ -106,7 +106,7 @@ impl ShortPCM {
     ///
     /// Translated from: ShortPCM.changeSampleRate
     pub fn change_sample_rate(&self, sample: i32) -> ShortPCM {
-        if self.sample_rate == 0 || self.channels == 0 || sample == 0 {
+        if self.sample_rate == 0 || self.channels == 0 || sample <= 0 {
             return ShortPCM::new(self.channels, sample, 0, 0, Vec::new());
         }
         let samples = self.get_sample(sample);
@@ -148,7 +148,7 @@ impl ShortPCM {
     ///
     /// Translated from: ShortPCM.getSample
     fn get_sample(&self, sample: i32) -> Vec<i16> {
-        if self.channels == 0 || self.sample_rate == 0 || sample == 0 {
+        if self.channels == 0 || self.sample_rate == 0 || sample <= 0 {
             return Vec::new();
         }
         let new_len = (((self.sample.len() as i64 / self.channels as i64) * sample as i64
@@ -624,6 +624,23 @@ mod tests {
         assert_eq!(pcm.sample[0], expected);
         // Verify it's NOT the saturated value
         assert_ne!(pcm.sample[0], i16::MAX);
+    }
+
+    #[test]
+    fn change_sample_rate_negative_returns_empty() {
+        // Negative sample rate must not cause usize wrap / OOM panic.
+        let pcm = ShortPCM::new(1, 44100, 0, 4, vec![100, 200, 300, 400]);
+        let result = pcm.change_sample_rate(-1);
+        assert_eq!(result.sample.len(), 0);
+        assert_eq!(result.len, 0);
+    }
+
+    #[test]
+    fn change_sample_rate_negative_large_returns_empty() {
+        let pcm = ShortPCM::new(1, 44100, 0, 4, vec![100, 200, 300, 400]);
+        let result = pcm.change_sample_rate(i32::MIN);
+        assert_eq!(result.sample.len(), 0);
+        assert_eq!(result.len, 0);
     }
 }
 

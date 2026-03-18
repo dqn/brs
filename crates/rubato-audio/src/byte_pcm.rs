@@ -98,7 +98,7 @@ impl BytePCM {
     ///
     /// Translated from: BytePCM.changeSampleRate
     pub fn change_sample_rate(&self, sample: i32) -> BytePCM {
-        if self.sample_rate == 0 || self.channels == 0 || sample == 0 {
+        if self.sample_rate == 0 || self.channels == 0 || sample <= 0 {
             return BytePCM::new(self.channels, sample, 0, 0, Vec::new());
         }
         let samples = self.get_sample(sample);
@@ -140,7 +140,7 @@ impl BytePCM {
     ///
     /// Translated from: BytePCM.getSample
     fn get_sample(&self, sample: i32) -> Vec<u8> {
-        if self.channels == 0 || self.sample_rate == 0 || sample == 0 {
+        if self.channels == 0 || self.sample_rate == 0 || sample <= 0 {
             return Vec::new();
         }
         let new_len = (((self.sample.len() as i64 / self.channels as i64) * sample as i64
@@ -600,5 +600,22 @@ mod tests {
         let pcm = BytePCM::new(1, 44100, 10, 4, vec![100, 50]);
         let result = pcm.slice(0, 0);
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn change_sample_rate_negative_returns_empty() {
+        // Negative sample rate must not cause usize wrap / OOM panic.
+        let pcm = BytePCM::new(1, 44100, 0, 4, vec![10, 20, 30, 40]);
+        let result = pcm.change_sample_rate(-1);
+        assert_eq!(result.sample.len(), 0);
+        assert_eq!(result.len, 0);
+    }
+
+    #[test]
+    fn change_sample_rate_negative_large_returns_empty() {
+        let pcm = BytePCM::new(1, 44100, 0, 4, vec![10, 20, 30, 40]);
+        let result = pcm.change_sample_rate(i32::MIN);
+        assert_eq!(result.sample.len(), 0);
+        assert_eq!(result.len, 0);
     }
 }

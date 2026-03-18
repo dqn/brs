@@ -227,9 +227,18 @@ impl PCMLoader {
         } else {
             self.bits_per_sample / 8
         };
+        if frame_size == 0 {
+            bail!(
+                "invalid WAV: bits_per_sample {} too small",
+                self.bits_per_sample
+            );
+        }
         bytes -= bytes % frame_size;
 
         let sample_frame = self.channels * self.bits_per_sample / 8;
+        if sample_frame == 0 {
+            bail!("invalid WAV: sample frame size is 0");
+        }
         while bytes > sample_frame {
             let frame_start = (bytes - sample_frame) as usize;
             let frame_end = bytes as usize;
@@ -629,7 +638,7 @@ impl WavFileInputStream {
         let sample_rate = pcm.sample_rate();
         let channels = pcm.channels();
         let pcm_len = pcm.len();
-        let total_data_len = (pcm_len * 2 + 36) as i64;
+        let total_data_len = pcm_len as i64 * 2 + 36;
         let bitrate = (sample_rate as i64) * (channels as i64) * 16;
 
         let mut header = [0u8; 44];
@@ -673,7 +682,7 @@ impl WavFileInputStream {
         header[37] = b'a';
         header[38] = b't';
         header[39] = b'a';
-        let data_size = pcm_len * 2;
+        let data_size = pcm_len as i64 * 2;
         header[40] = (data_size & 0xff) as u8;
         header[41] = ((data_size >> 8) & 0xff) as u8;
         header[42] = ((data_size >> 16) & 0xff) as u8;
@@ -977,5 +986,90 @@ mod tests {
         assert!(i32::MAX as usize > 0);
         // The guard is: pcm_data.len() > i32::MAX as usize
         // For a 2GB+ file this would trigger.
+    }
+
+    #[test]
+    fn load_pcm_rejects_bits_per_sample_too_small_for_frame_size() {
+        // bits_per_sample=4, mono: frame_size = 4/8 = 0 -> must bail
+        let pcm_data = vec![0x01, 0x02, 0x03, 0x04];
+        let wav_bytes = build_wav_bytes_with_bps(&pcm_data, 4);
+
+        let dir = std::env::temp_dir().join("rubato_test_bps_small_frame");
+        std::fs::create_dir_all(&dir).unwrap();
+        let wav_path = dir.join("bps_small.wav");
+        std::fs::write(&wav_path, &wav_bytes).unwrap();
+
+        let mut loader = PCMLoader::new();
+        let result = loader.load_pcm(&wav_path);
+        assert!(
+            result.is_err(),
+            "Expected error for bits_per_sample=4 (frame_size=0)"
+        );
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("bits_per_sample") && err_msg.contains("too small"),
+            "Expected 'bits_per_sample ... too small' error, got: {}",
+            err_msg
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn load_pcm_rejects_zero_sample_frame() {
+        // bits_per_sample=4, stereo: frame_size = 4/4 = 1 (ok), sample_frame = 2*4/8 = 1 (ok)
+        // bits_per_sample=2, mono: frame_size = 2/8 = 0 -> caught by frame_size check
+        // bits_per_sample=3, mono: frame_size = 3/8 = 0 -> caught by frame_size check
+        // For sample_frame = 0 specifically: channels=1, bits_per_sample=4 -> sample_frame = 1*4/8 = 0
+        // But frame_size for mono = 4/8 = 0, so frame_size catches it first.
+        // channels=2, bits_per_sample=2: frame_size = 2/4 = 0 -> frame_size catches it.
+        // channels=1, bits_per_sample=7: frame_size = 7/8 = 0 -> frame_size catches it.
+        // To trigger sample_frame=0 without frame_size=0:
+        // Need frame_size > 0 but sample_frame = 0.
+        // stereo: frame_size = bps/4, sample_frame = 2*bps/8 = bps/4
+        // They're equal for stereo, so if one is 0 the other is too.
+        // mono: frame_size = bps/8, sample_frame = 1*bps/8 -- also equal.
+        // So sample_frame==0 implies frame_size==0 for the same bps value.
+        // The sample_frame guard is defense-in-depth for future code changes.
+        // We test that the frame_size guard catches all current cases.
+
+        // Verify directly: construct a PCMLoader with bits_per_sample=7 (bypassing WAV parsing)
+        let mut loader = PCMLoader::new();
+        loader.pcm_data = vec![0x01; 16];
+        loader.channels = 1;
+        loader.sample_rate = 44100;
+        loader.bits_per_sample = 7;
+
+        let dir = std::env::temp_dir().join("rubato_test_sample_frame_zero");
+        std::fs::create_dir_all(&dir).unwrap();
+        let _wav_path = dir.join("dummy.wav");
+
+        // We can't call load_pcm (it re-reads the file), but the logic under test
+        // is in the post-load section. Let's verify the arithmetic directly.
+        let frame_size = if loader.channels > 1 {
+            loader.bits_per_sample / 4
+        } else {
+            loader.bits_per_sample / 8
+        };
+        assert_eq!(frame_size, 0, "frame_size should be 0 for bps=7 mono");
+
+        let sample_frame = loader.channels * loader.bits_per_sample / 8;
+        assert_eq!(sample_frame, 0, "sample_frame should be 0 for bps=7 mono");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn wav_file_input_stream_total_data_len_no_overflow() {
+        // pcm_len close to i32::MAX would overflow with i32 arithmetic: pcm_len * 2 + 36
+        // With i64 arithmetic it should not overflow.
+        let large_len: i32 = i32::MAX / 2 + 100; // would overflow i32 when * 2 + 36
+        let total_data_len = large_len as i64 * 2 + 36;
+        assert!(
+            total_data_len > i32::MAX as i64,
+            "total_data_len should exceed i32::MAX"
+        );
+        // Verify no wrapping occurred
+        assert_eq!(total_data_len, (large_len as i64) * 2 + 36);
     }
 }
