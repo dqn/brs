@@ -298,7 +298,8 @@ impl MainState for BMSPlayer {
         // Reuse existing BGAProcessor (injected via set_bga_processor from PlayerResource)
         // to preserve the texture cache between plays. Only update timelines for the new model.
         // Java: bga = resource.getBGAManager(); (BMSPlayer.java line 545)
-        if let Ok(mut bga) = self.bga.lock() {
+        {
+            let mut bga = lock_or_recover(&self.bga);
             bga.set_model_timelines(&self.model);
             bga.get_misslayer_duration =
                 self.player_config.display_settings.misslayer_duration as i64;

@@ -73,7 +73,11 @@ impl rubato_types::skin_render_context::SkinRenderContext for CourseResultRender
                 25 => Some(bms_model::mode::Mode::KEYBOARD_24K),
                 50 => Some(bms_model::mode::Mode::KEYBOARD_24K_DOUBLE),
                 _ => None,
-            }?;
+            };
+            let song_mode = match song_mode {
+                Some(m) => m,
+                None => continue,
+            };
             if let Some(mode) = current_mode.as_ref() {
                 if *mode != song_mode {
                     return None;
@@ -82,11 +86,12 @@ impl rubato_types::skin_render_context::SkinRenderContext for CourseResultRender
                 current_mode = Some(song_mode);
             }
         }
+        let resolved_mode = current_mode.unwrap_or(bms_model::mode::Mode::BEAT_7K);
         Some(
             &self
                 .resource
                 .player_config()
-                .play_config_ref(current_mode?)
+                .play_config_ref(resolved_mode)
                 .playconfig,
         )
     }

@@ -512,7 +512,7 @@ impl MusicResult {
                             {
                                 self.data.gauge_type = (self.data.gauge_type + 1) % 6;
                             } else {
-                                self.data.gauge_type = (self.data.gauge_type - 5) % 3 + 6;
+                                self.data.gauge_type = (self.data.gauge_type.max(5) - 5) % 3 + 6;
                             }
                         } else if self.property.assign(i).is_some()
                             && input_processor.key_state(i)
