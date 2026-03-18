@@ -36,7 +36,7 @@ impl CurrentDirGuard {
 
 impl Drop for CurrentDirGuard {
     fn drop(&mut self) {
-        std::env::set_current_dir(&self.original).unwrap();
+        let _ = std::env::set_current_dir(&self.original);
     }
 }
 

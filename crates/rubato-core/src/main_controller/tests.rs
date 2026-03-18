@@ -3,6 +3,7 @@ use crate::config::SelectConfig;
 use crate::config_pkg::key_configuration::KeyConfiguration;
 use crate::config_pkg::skin_configuration::SkinConfiguration;
 use crate::main_state::MainStateData;
+use rubato_types::test_support::CurrentDirGuard;
 
 /// A minimal test state that implements MainState for testing state dispatch.
 struct TestState {
@@ -1503,8 +1504,7 @@ static CWD_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
 fn test_exit_sets_exit_requested_flag() {
     let _lock = CWD_MUTEX.lock().expect("mutex poisoned");
     let dir = tempfile::tempdir().unwrap();
-    let original_dir = std::env::current_dir().unwrap();
-    std::env::set_current_dir(dir.path()).unwrap();
+    let _cwd = CurrentDirGuard::set(dir.path());
 
     let mc = make_test_controller();
     assert!(!mc.is_exit_requested());
@@ -1512,8 +1512,6 @@ fn test_exit_sets_exit_requested_flag() {
     mc.exit();
 
     assert!(mc.is_exit_requested());
-
-    std::env::set_current_dir(original_dir).unwrap();
 }
 
 #[test]
@@ -1521,9 +1519,7 @@ fn test_exit_calls_save_config() {
     let _lock = CWD_MUTEX.lock().expect("mutex poisoned");
     let dir = tempfile::tempdir().unwrap();
     let config_path = dir.path().join("config_sys.json");
-
-    let original_dir = std::env::current_dir().unwrap();
-    std::env::set_current_dir(dir.path()).unwrap();
+    let _cwd = CurrentDirGuard::set(dir.path());
 
     let mc = make_test_controller();
     mc.exit();
@@ -1533,16 +1529,13 @@ fn test_exit_calls_save_config() {
         config_path.exists(),
         "config_sys.json should be written by exit()"
     );
-
-    std::env::set_current_dir(original_dir).unwrap();
 }
 
 #[test]
 fn test_save_config_writes_config_sys_json() {
     let _lock = CWD_MUTEX.lock().expect("mutex poisoned");
     let dir = tempfile::tempdir().unwrap();
-    let original_dir = std::env::current_dir().unwrap();
-    std::env::set_current_dir(dir.path()).unwrap();
+    let _cwd = CurrentDirGuard::set(dir.path());
 
     let mc = make_test_controller();
     mc.save_config();
@@ -1557,16 +1550,13 @@ fn test_save_config_writes_config_sys_json() {
         deserialized.display.window_width,
         mc.config.display.window_width
     );
-
-    std::env::set_current_dir(original_dir).unwrap();
 }
 
 #[test]
 fn test_save_config_writes_player_config_json() {
     let _lock = CWD_MUTEX.lock().expect("mutex poisoned");
     let dir = tempfile::tempdir().unwrap();
-    let original_dir = std::env::current_dir().unwrap();
-    std::env::set_current_dir(dir.path()).unwrap();
+    let _cwd = CurrentDirGuard::set(dir.path());
 
     let mut config = Config::default();
     config.paths.playerpath = dir.path().join("player").to_string_lossy().to_string();
@@ -1592,8 +1582,6 @@ fn test_save_config_writes_player_config_json() {
     let contents = std::fs::read_to_string(&player_config_path).unwrap();
     let deserialized: PlayerConfig = serde_json::from_str(&contents).unwrap();
     assert_eq!(deserialized.name, "TestName");
-
-    std::env::set_current_dir(original_dir).unwrap();
 }
 
 #[test]

@@ -519,23 +519,21 @@ mod tests {
     use super::*;
 
     use rubato_core::player_config::PlayerConfig;
+    use rubato_types::test_support::CurrentDirGuard;
 
     static CWD_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
     #[test]
     fn load_skin_from_config_resolves_default_decide_skin_from_package_dir() {
         let _lock = CWD_MUTEX.lock().unwrap();
-        let original_dir = std::env::current_dir().unwrap();
         let package_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        std::env::set_current_dir(&package_dir).unwrap();
+        let _cwd = CurrentDirGuard::set(&package_dir);
 
         let skin = load_skin_from_config(
             &Config::default(),
             &PlayerConfig::default(),
             SkinType::Decide.id(),
         );
-
-        std::env::set_current_dir(original_dir).unwrap();
 
         assert!(
             skin.is_some(),

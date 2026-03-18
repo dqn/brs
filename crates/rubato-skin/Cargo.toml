@@ -29,6 +29,7 @@ ffmpeg = ["dep:ffmpeg-next"]
 [dev-dependencies]
 criterion.workspace = true
 proptest.workspace = true
+rubato-types = { workspace = true, features = ["test-support"] }
 
 [[bench]]
 name = "skin_loader_bench"
