@@ -267,6 +267,14 @@ impl rubato_types::skin_render_context::SkinRenderContext for CourseResultMouseC
         Some(rubato_types::main_state_type::MainStateType::CourseResult)
     }
 
+    fn player_config_ref(&self) -> Option<&rubato_types::player_config::PlayerConfig> {
+        shared_render_context::player_config_ref(&self.result.resource)
+    }
+
+    fn config_ref(&self) -> Option<&rubato_types::config::Config> {
+        shared_render_context::config_ref(&self.result.main)
+    }
+
     fn execute_event(&mut self, id: i32, _arg1: i32, _arg2: i32) {
         if let Some(index) = shared_render_context::replay_index_from_event_id(id) {
             self.result.save_replay_data(index);

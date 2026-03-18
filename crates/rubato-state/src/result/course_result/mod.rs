@@ -1906,4 +1906,36 @@ mod tests {
             "Replay mode should not write score to database"
         );
     }
+
+    // ============================================================
+    // CourseResultMouseContext player_config_ref / config_ref delegation tests
+    // ============================================================
+
+    #[test]
+    fn course_result_mouse_context_player_config_ref_returns_some() {
+        let mut cr = make_course_result_for_mouse();
+        let mut timer = rubato_core::timer_manager::TimerManager::new();
+        let ctx = render_context::CourseResultMouseContext {
+            timer: &mut timer,
+            result: &mut cr,
+        };
+        assert!(
+            ctx.player_config_ref().is_some(),
+            "CourseResultMouseContext::player_config_ref() must delegate to resource"
+        );
+    }
+
+    #[test]
+    fn course_result_mouse_context_config_ref_returns_some() {
+        let mut cr = make_course_result_for_mouse();
+        let mut timer = rubato_core::timer_manager::TimerManager::new();
+        let ctx = render_context::CourseResultMouseContext {
+            timer: &mut timer,
+            result: &mut cr,
+        };
+        assert!(
+            ctx.config_ref().is_some(),
+            "CourseResultMouseContext::config_ref() must delegate to main controller"
+        );
+    }
 }

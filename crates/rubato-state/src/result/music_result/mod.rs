@@ -1458,4 +1458,36 @@ mod tests {
         assert_eq!(ctx.string_value(120), "YOU");
         assert_eq!(ctx.string_value(121), "");
     }
+
+    // ============================================================
+    // ResultMouseContext player_config_ref / config_ref delegation tests
+    // ============================================================
+
+    #[test]
+    fn result_mouse_context_player_config_ref_returns_some() {
+        let mut mr = make_result_for_mouse();
+        let mut timer = TimerManager::new();
+        let ctx = render_context::ResultMouseContext {
+            timer: &mut timer,
+            result: &mut mr,
+        };
+        assert!(
+            ctx.player_config_ref().is_some(),
+            "ResultMouseContext::player_config_ref() must delegate to resource"
+        );
+    }
+
+    #[test]
+    fn result_mouse_context_config_ref_returns_some() {
+        let mut mr = make_result_for_mouse();
+        let mut timer = TimerManager::new();
+        let ctx = render_context::ResultMouseContext {
+            timer: &mut timer,
+            result: &mut mr,
+        };
+        assert!(
+            ctx.config_ref().is_some(),
+            "ResultMouseContext::config_ref() must delegate to main controller"
+        );
+    }
 }

@@ -101,6 +101,23 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideRenderContex
         }
     }
 
+    fn image_index_value(&self, id: i32) -> i32 {
+        match id {
+            // Java IntegerPropertyFactory ID 308 (lnmode): on Decide screen, override
+            // from chart data when the chart explicitly defines LN types.
+            308 => {
+                if let Some(song) = self.resource.songdata()
+                    && let Some(override_val) =
+                        rubato_types::skin_render_context::compute_lnmode_from_chart(&song.chart)
+                {
+                    return override_val;
+                }
+                self.default_image_index_value(id)
+            }
+            _ => self.default_image_index_value(id),
+        }
+    }
+
     fn integer_value(&self, id: i32) -> i32 {
         match id {
             // Song BPM from songdata
@@ -1234,6 +1251,132 @@ mod tests {
             ctx.integer_value(1164),
             0,
             "negative length seconds should be 0"
+        );
+    }
+
+    // ============================================================
+    // DecideRenderContext image_index_value ID 308 (lnmode) tests
+    // ============================================================
+
+    #[test]
+    fn decide_render_context_lnmode_308_override_longnote() {
+        let mut resource = SongLengthResource::with_length_ms(0);
+        resource.song.chart.feature = rubato_types::song_data::FEATURE_LONGNOTE;
+        let mut timer = TimerManager::new();
+        let main = MainControllerRef::new(Box::new(NullMainController));
+        let ctx = DecideRenderContext {
+            timer: &mut timer,
+            resource: &resource,
+            main: &main,
+        };
+        use rubato_types::skin_render_context::SkinRenderContext;
+        assert_eq!(
+            ctx.image_index_value(308),
+            0,
+            "ID 308 should return 0 (LN) when chart has FEATURE_LONGNOTE"
+        );
+    }
+
+    #[test]
+    fn decide_render_context_lnmode_308_override_chargenote() {
+        let mut resource = SongLengthResource::with_length_ms(0);
+        resource.song.chart.feature = rubato_types::song_data::FEATURE_CHARGENOTE;
+        let mut timer = TimerManager::new();
+        let main = MainControllerRef::new(Box::new(NullMainController));
+        let ctx = DecideRenderContext {
+            timer: &mut timer,
+            resource: &resource,
+            main: &main,
+        };
+        use rubato_types::skin_render_context::SkinRenderContext;
+        assert_eq!(
+            ctx.image_index_value(308),
+            1,
+            "ID 308 should return 1 (CN) when chart has FEATURE_CHARGENOTE"
+        );
+    }
+
+    #[test]
+    fn decide_render_context_lnmode_308_override_hellchargenote() {
+        let mut resource = SongLengthResource::with_length_ms(0);
+        resource.song.chart.feature = rubato_types::song_data::FEATURE_HELLCHARGENOTE;
+        let mut timer = TimerManager::new();
+        let main = MainControllerRef::new(Box::new(NullMainController));
+        let ctx = DecideRenderContext {
+            timer: &mut timer,
+            resource: &resource,
+            main: &main,
+        };
+        use rubato_types::skin_render_context::SkinRenderContext;
+        assert_eq!(
+            ctx.image_index_value(308),
+            2,
+            "ID 308 should return 2 (HCN) when chart has FEATURE_HELLCHARGENOTE"
+        );
+    }
+
+    #[test]
+    fn decide_render_context_lnmode_308_no_override_falls_through() {
+        // No LN features -> falls through to config-based default
+        let resource = SongLengthResource::with_length_ms(0);
+        let mut timer = TimerManager::new();
+        let main = MainControllerRef::new(Box::new(NullMainController));
+        let ctx = DecideRenderContext {
+            timer: &mut timer,
+            resource: &resource,
+            main: &main,
+        };
+        use rubato_types::skin_render_context::SkinRenderContext;
+        // default_image_index_value uses player_config.play_settings.lnmode (default 0)
+        let default_lnmode = ctx.player_config_ref().unwrap().play_settings.lnmode;
+        assert_eq!(
+            ctx.image_index_value(308),
+            default_lnmode,
+            "ID 308 should fall through to config lnmode when chart has no LN features"
+        );
+    }
+
+    #[test]
+    fn decide_render_context_lnmode_308_undefined_ln_falls_through() {
+        // UNDEFINEDLN set -> no override (has_undefined_long_note is true)
+        let mut resource = SongLengthResource::with_length_ms(0);
+        resource.song.chart.feature = rubato_types::song_data::FEATURE_UNDEFINEDLN;
+        let mut timer = TimerManager::new();
+        let main = MainControllerRef::new(Box::new(NullMainController));
+        let ctx = DecideRenderContext {
+            timer: &mut timer,
+            resource: &resource,
+            main: &main,
+        };
+        use rubato_types::skin_render_context::SkinRenderContext;
+        let default_lnmode = ctx.player_config_ref().unwrap().play_settings.lnmode;
+        assert_eq!(
+            ctx.image_index_value(308),
+            default_lnmode,
+            "ID 308 should fall through when chart has FEATURE_UNDEFINEDLN"
+        );
+    }
+
+    #[test]
+    fn decide_render_context_lnmode_308_no_songdata_falls_through() {
+        let resource = NullPlayerResource::new();
+        let mut timer = TimerManager::new();
+        let main = MainControllerRef::new(Box::new(NullMainController));
+        let ctx = DecideRenderContext {
+            timer: &mut timer,
+            resource: &resource,
+            main: &main,
+        };
+        use rubato_types::skin_render_context::SkinRenderContext;
+        // No songdata -> falls through to config-based default
+        let default_lnmode = ctx
+            .player_config_ref()
+            .map(|pc| pc.play_settings.lnmode)
+            .unwrap_or(0);
+        assert_eq!(
+            ctx.image_index_value(308),
+            default_lnmode,
+            "ID 308 should fall through when no songdata available"
         );
     }
 }
