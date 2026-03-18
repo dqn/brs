@@ -203,6 +203,10 @@ pub fn source_image(
     if divy <= 0 {
         divy = 1;
     }
+    // Clamp to prevent overflow when both divx and divy are large i32 values
+    // from deserialized JSON. 1024 is far beyond any realistic sprite sheet subdivision.
+    divx = divx.min(1024);
+    divy = divy.min(1024);
     let mut images = Vec::with_capacity((divx * divy) as usize);
     for i in 0..divx {
         for j in 0..divy {
@@ -275,4 +279,46 @@ pub(crate) fn resolve_wildcard_path(pattern: &str) -> Option<String> {
         }
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn source_image_clamps_large_divx_divy() {
+        // Regression: when divx and divy are large i32 values from deserialized JSON,
+        // (divx * divy) as usize can overflow. The function must clamp them.
+        let image = Texture {
+            width: 100,
+            height: 100,
+            ..Default::default()
+        };
+        // Without clamping, 50000 * 50000 = 2_500_000_000 which overflows i32.
+        let regions = source_image(&image, 0, 0, 100, 100, 50000, 50000);
+        // After clamping to 1024, result should be 1024*1024 = 1_048_576 regions.
+        assert_eq!(regions.len(), 1024 * 1024);
+    }
+
+    #[test]
+    fn source_image_normal_values_work() {
+        let image = Texture {
+            width: 128,
+            height: 64,
+            ..Default::default()
+        };
+        let regions = source_image(&image, 0, 0, 128, 64, 4, 2);
+        assert_eq!(regions.len(), 8);
+    }
+
+    #[test]
+    fn source_image_negative_div_treated_as_one() {
+        let image = Texture {
+            width: 64,
+            height: 64,
+            ..Default::default()
+        };
+        let regions = source_image(&image, 0, 0, 64, 64, -5, -3);
+        assert_eq!(regions.len(), 1);
+    }
 }
