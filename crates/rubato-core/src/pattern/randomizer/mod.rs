@@ -103,6 +103,7 @@ impl RandomizerBase {
             hnotes[lane as usize] = tl.hidden_note(lane).cloned();
         }
 
+        // Safety: x values come from modify_lanes which are validated lane indices (0..mode_key).
         for (&x, &y) in &permutation_map {
             let n = notes[x as usize].take();
             let hn = hnotes[x as usize].take();

@@ -191,6 +191,9 @@ impl BMSRenderer {
         }
     }
 
+    /// Note: if pcm.start is negative, `as usize` wraps to a huge value and the
+    /// `src_index >= samples.len()` guard immediately exits the loop (silent no-op).
+    /// This matches Java's behavior where negative offsets produce no audio.
     fn mix_short_pcm(
         &self,
         pcm: &crate::short_pcm::ShortPCM,
@@ -216,6 +219,7 @@ impl BMSRenderer {
         }
     }
 
+    /// See `mix_short_pcm` note: negative pcm.start wraps to huge usize and exits immediately.
     fn mix_float_pcm(
         &self,
         pcm: &crate::float_pcm::FloatPCM,
@@ -241,6 +245,7 @@ impl BMSRenderer {
         }
     }
 
+    /// See `mix_short_pcm` note: negative pcm.start wraps to huge usize and exits immediately.
     fn mix_byte_pcm(
         &self,
         pcm: &crate::byte_pcm::BytePCM,

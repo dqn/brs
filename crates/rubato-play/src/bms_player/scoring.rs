@@ -185,6 +185,8 @@ impl BMSPlayer {
         score.encode_ghost(Some(&ghost));
 
         score.passnotes = self.judge.past_notes();
+        // total_notes >= past_notes() in normal play (past_notes counts judged notes).
+        // Subtraction is safe: all values are small i32 (max ~10k notes).
         score.minbp = score.judge_counts.ebd
             + score.judge_counts.lbd
             + score.judge_counts.epr
