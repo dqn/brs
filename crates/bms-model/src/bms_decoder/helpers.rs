@@ -80,7 +80,7 @@ pub(super) fn process_command_word(
             handler: |model, arg| {
                 match arg.parse::<i32>() {
                     Ok(player) => {
-                        if (1..3).contains(&player) {
+                        if (1..=3).contains(&player) {
                             model.player = player;
                         } else {
                             return Some(DecodeLog::new(

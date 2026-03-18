@@ -61,7 +61,17 @@ impl BMSONDecoder {
             convert_hex_string(&hasher.finalize())
         };
 
-        let bmson_data: bmson::Bmson = serde_json::from_slice(&file_bytes).ok()?;
+        let bmson_data: bmson::Bmson = match serde_json::from_slice(&file_bytes) {
+            Ok(data) => data,
+            Err(utf8_err) => {
+                log::warn!(
+                    "BMSON UTF-8 parse failed, trying Shift_JIS fallback: {}",
+                    utf8_err
+                );
+                let (decoded, _, _) = encoding_rs::SHIFT_JIS.decode(&file_bytes);
+                serde_json::from_str(&decoded).ok()?
+            }
+        };
         model.sha256 = sha256_hash;
 
         model.title = bmson_data.info.title.clone();
@@ -1315,6 +1325,50 @@ mod tests {
             has_zero_bpm_warning,
             "should log a warning about zero BPM at STOP event, logs: {:?}",
             decoder.log.iter().map(|l| &l.message).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn test_decode_shift_jis_bmson() {
+        // Regression: BMSON files from Japanese authors may use Shift_JIS encoding.
+        // The decoder should fall back to Shift_JIS when UTF-8 parsing fails.
+        let dir = tempfile::tempdir().expect("failed to create temp dir");
+        let path = dir.path().join("sjis.bmson");
+
+        // Build a valid BMSON JSON string, then encode it as Shift_JIS bytes.
+        // The title contains Japanese text that differs between UTF-8 and Shift_JIS.
+        let json_str = r#"{
+            "version": "1.0.0",
+            "info": {
+                "title": "テスト曲",
+                "mode_hint": "beat-7k",
+                "init_bpm": 120.0,
+                "resolution": 240,
+                "judge_rank": 100,
+                "total": 300.0,
+                "level": 1
+            },
+            "lines": [{"y": 0}],
+            "bpm_events": [],
+            "stop_events": [],
+            "scroll_events": [],
+            "sound_channels": [],
+            "mine_channels": [],
+            "key_channels": []
+        }"#;
+        let (sjis_bytes, _, _) = encoding_rs::SHIFT_JIS.encode(json_str);
+        std::fs::write(&path, sjis_bytes.as_ref()).expect("failed to write");
+
+        let mut decoder = BMSONDecoder::new(crate::bms_model::LnType::LongNote);
+        let model = decoder.decode_path(&path);
+        assert!(
+            model.is_some(),
+            "Shift_JIS encoded BMSON should be decoded via fallback"
+        );
+        assert_eq!(
+            model.unwrap().title,
+            "テスト曲",
+            "title should be correctly decoded from Shift_JIS"
         );
     }
 }

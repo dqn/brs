@@ -1002,6 +1002,23 @@ mod tests {
     }
 
     #[test]
+    fn decode_player_3_double_play_accepted() {
+        // Regression: #PLAYER 3 (double play) was rejected because (1..3) excludes 3.
+        let mut decoder = BMSDecoder::new();
+        let data = make_bms_bytes(&["#BPM 120", "#PLAYER 3"]);
+        let model = decoder.decode_bytes(&data, false, None);
+        assert!(model.is_some());
+        assert_eq!(model.unwrap().player, 3);
+        assert!(
+            !decoder
+                .log
+                .iter()
+                .any(|l| l.message.contains("#PLAYERに規定外の数字")),
+            "#PLAYER 3 should be accepted without warning"
+        );
+    }
+
+    #[test]
     fn decode_player_invalid() {
         let mut decoder = BMSDecoder::new();
         let data = make_bms_bytes(&["#BPM 120", "#PLAYER 5"]);
