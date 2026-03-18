@@ -19,8 +19,8 @@ use super::result_key_property::{ResultKey, ResultKeyProperty};
 use super::result_skin_data::ResultSkinData;
 
 use super::{
-    BMSPlayerModeType, ControlKeys, IRCourseData, KeyCommand, MainController, PlayerResource,
-    RankingData,
+    BMSPlayerModeType, ControlKeys, FreqTrainerMenu, IRCourseData, KeyCommand, MainController,
+    PlayerResource, RankingData,
 };
 use rubato_core::ir_config::{IR_SEND_ALWAYS, IR_SEND_COMPLETE_SONG, IR_SEND_UPDATE_SCORE};
 
@@ -103,8 +103,9 @@ impl CourseResult {
             for model in &models[course_gauge_size..] {
                 let mut list: Vec<Vec<f32>> = Vec::with_capacity(gauge_type_length);
                 for _type_idx in 0..gauge_type_length {
-                    let last_note_time = model.last_note_time();
-                    let fa = vec![0.0f32; ((last_note_time + 500) / 500) as usize];
+                    let last_note_milli_time = model.last_note_milli_time().max(0);
+                    let slots = ((last_note_milli_time + 500) / 500).min(100_000) as usize;
+                    let fa = vec![0.0f32; slots];
                     list.push(fa);
                 }
                 gauge_fill_data.push(list);
@@ -585,14 +586,23 @@ impl CourseResult {
             .set_target_score(self.data.oldscore.exscore(), target_exscore, total_notes);
         self.data.score.update_score(Some(&newscore));
 
-        if let Some(models) = self.resource.course_bms_models() {
-            self.main.play_data_accessor().write_score_data_course(
-                &newscore,
-                models,
-                lnmode,
-                random,
-                &self.resource.constraint(),
-                self.resource.is_update_course_score(),
+        if self.resource.play_mode().mode == BMSPlayerModeType::Play
+            && !(FreqTrainerMenu::is_freq_trainer_enabled() && FreqTrainerMenu::is_freq_negative())
+        {
+            if let Some(models) = self.resource.course_bms_models() {
+                self.main.play_data_accessor().write_score_data_course(
+                    &newscore,
+                    models,
+                    lnmode,
+                    random,
+                    &self.resource.constraint(),
+                    self.resource.is_update_course_score(),
+                );
+            }
+        } else {
+            info!(
+                "Play mode is {:?}, course score not registered",
+                self.resource.play_mode().mode
             );
         }
 
@@ -1716,6 +1726,184 @@ mod tests {
             ctx.image_index_value(308),
             42,
             "No LN override -> should fall through to player_config lnmode"
+        );
+    }
+
+    // --- Regression: gauge fill allocation with extreme last_note_time (Finding 1) ---
+
+    #[test]
+    fn test_gauge_fill_slots_negative_last_note_time_does_not_panic() {
+        // Regression: when last_note_milli_time() exceeds i32::MAX (~2.1 billion ms),
+        // last_note_time() (i32) wraps to negative. The old code used last_note_time()
+        // and cast ((negative + 500) / 500) as usize, which wraps to a huge value,
+        // causing OOM or panic. The fix uses last_note_milli_time().max(0) with a
+        // reasonable upper bound.
+        use bms_model::mode::Mode;
+        use bms_model::note::Note;
+        use bms_model::time_line::TimeLine;
+
+        let mut model = bms_model::bms_model::BMSModel::new();
+        model.set_mode(Mode::BEAT_7K);
+
+        // Create a timeline at ~3 billion milliseconds (exceeds i32::MAX = 2,147,483,647).
+        // In microseconds: 3_000_000_000 * 1000 = 3_000_000_000_000
+        let extreme_time_us: i64 = 3_000_000_000_000;
+        let mut tl = TimeLine::new(0.0, extreme_time_us, 8);
+        tl.set_note(0, Some(Note::new_normal(1)));
+        model.timelines.push(tl);
+
+        // Verify the bug condition: last_note_time() wraps negative
+        assert!(
+            model.last_note_time() < 0,
+            "Precondition: last_note_time() should overflow to negative for extreme times"
+        );
+
+        // Verify the fix: using last_note_milli_time().max(0) with upper bound
+        let last_note_milli_time = model.last_note_milli_time().max(0);
+        let slots = ((last_note_milli_time + 500) / 500).min(100_000) as usize;
+
+        // The uncapped value would be 3_000_000_000 / 500 = 6_000_000, capped to 100_000
+        assert_eq!(slots, 100_000, "Slots should be capped at 100_000");
+        // Should not panic or allocate excessively
+        let fa = vec![0.0f32; slots];
+        assert_eq!(fa.len(), 100_000);
+    }
+
+    #[test]
+    fn test_gauge_fill_slots_normal_last_note_time() {
+        // Verify normal case still works correctly with the fix
+        use bms_model::mode::Mode;
+        use bms_model::note::Note;
+        use bms_model::time_line::TimeLine;
+
+        let mut model = bms_model::bms_model::BMSModel::new();
+        model.set_mode(Mode::BEAT_7K);
+
+        // 120 seconds = 120_000 ms. time is in microseconds: 120_000 * 1000 = 120_000_000
+        let time_us: i64 = 120_000_000;
+        let mut tl = TimeLine::new(0.0, time_us, 8);
+        tl.set_note(0, Some(Note::new_normal(1)));
+        model.timelines.push(tl);
+
+        let last_note_milli_time = model.last_note_milli_time().max(0);
+        let slots = ((last_note_milli_time + 500) / 500).min(100_000) as usize;
+
+        // 120_000 ms -> (120_000 + 500) / 500 = 241 slots
+        assert_eq!(slots, 241, "Normal 2-minute song should produce ~241 slots");
+    }
+
+    #[test]
+    fn test_gauge_fill_slots_zero_last_note_time() {
+        // Empty model with no notes should produce 0 slots (no division issues)
+        let model = bms_model::bms_model::BMSModel::new();
+
+        let last_note_milli_time = model.last_note_milli_time().max(0);
+        let slots = ((last_note_milli_time + 500) / 500).min(100_000) as usize;
+
+        // 0 ms -> (0 + 500) / 500 = 1
+        assert_eq!(slots, 1, "Empty model should produce 1 slot");
+    }
+
+    // --- Regression: update_score_database play mode guard (Finding 2) ---
+
+    /// Build a CourseResult with a real DB-backed PlayDataAccessor, for testing
+    /// score write guards.
+    fn make_course_result_with_mode(mode: BMSPlayerModeType) -> CourseResult {
+        let config = make_test_config(&format!("cr-mode-{:?}", mode));
+        let main = MainController::new(Box::new(TestMainControllerAccess::new(config)));
+        let mut mock = MockPlayerResourceForIR::new_with_course_score();
+        // Set up course_score_data so update_score_database doesn't early-return
+        mock.course_score = Some(ScoreData {
+            notes: 100,
+            ..Default::default()
+        });
+        let mut resource =
+            PlayerResource::new(Box::new(mock), crate::result::BMSPlayerMode::new(mode));
+        // Provide course models so write_score_data_course has data
+        resource.course_bms_models = Some(vec![bms_model::bms_model::BMSModel::default()]);
+        CourseResult::new(
+            main,
+            resource,
+            rubato_core::timer_manager::TimerManager::new(),
+        )
+    }
+
+    #[test]
+    fn test_update_score_database_autoplay_does_not_write() {
+        // Regression: CourseResult.update_score_database() wrote course score
+        // without play mode guards, unlike MusicResult which gates writes on
+        // BMSPlayerModeType::Play. In Autoplay mode, score should NOT be persisted.
+        let mut cr = make_course_result_with_mode(BMSPlayerModeType::Autoplay);
+
+        // Call update_score_database -- should complete without panic
+        cr.update_score_database();
+
+        // Verify the method still processes score properties (oldscore, score display)
+        // even though it doesn't write to DB
+        // (oldscore defaults to empty since DB has no prior score)
+        assert_eq!(cr.data.oldscore.exscore(), 0);
+
+        // Verify score was NOT written by reading back from DB
+        let score = cr.main.play_data_accessor().read_score_data_course(
+            cr.resource.course_bms_models().unwrap(),
+            0, // lnmode
+            0, // random
+            &cr.resource.constraint(),
+        );
+        assert!(
+            score.is_none(),
+            "Autoplay mode should not write score to database"
+        );
+    }
+
+    #[test]
+    fn test_update_score_database_play_mode_completes() {
+        // Verify that Play mode path completes successfully and processes
+        // score properties (oldscore, score display).
+        let mut cr = make_course_result_with_mode(BMSPlayerModeType::Play);
+
+        // Should complete without panic and reach the write path
+        cr.update_score_database();
+
+        // Verify score properties were processed
+        assert_eq!(cr.data.oldscore.exscore(), 0, "No prior score in fresh DB");
+    }
+
+    #[test]
+    fn test_update_score_database_practice_does_not_write() {
+        // Practice mode should also be gated (not Play)
+        let mut cr = make_course_result_with_mode(BMSPlayerModeType::Practice);
+
+        cr.update_score_database();
+
+        let score = cr.main.play_data_accessor().read_score_data_course(
+            cr.resource.course_bms_models().unwrap(),
+            0,
+            0,
+            &cr.resource.constraint(),
+        );
+        assert!(
+            score.is_none(),
+            "Practice mode should not write score to database"
+        );
+    }
+
+    #[test]
+    fn test_update_score_database_replay_does_not_write() {
+        // Replay mode should also be gated (not Play)
+        let mut cr = make_course_result_with_mode(BMSPlayerModeType::Replay);
+
+        cr.update_score_database();
+
+        let score = cr.main.play_data_accessor().read_score_data_course(
+            cr.resource.course_bms_models().unwrap(),
+            0,
+            0,
+            &cr.resource.constraint(),
+        );
+        assert!(
+            score.is_none(),
+            "Replay mode should not write score to database"
         );
     }
 }
