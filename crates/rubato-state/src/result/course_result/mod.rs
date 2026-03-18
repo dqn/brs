@@ -1938,4 +1938,101 @@ mod tests {
             "CourseResultMouseContext::config_ref() must delegate to main controller"
         );
     }
+
+    // ============================================================
+    // CourseResultMouseContext set_float_value volume slider tests
+    // ============================================================
+
+    /// Mock MainControllerAccess that captures update_audio_config calls.
+    struct VolumeCapturingAccess {
+        config: rubato_types::config::Config,
+        player_config: rubato_types::player_config::PlayerConfig,
+        captured_audio:
+            std::sync::Arc<std::sync::Mutex<Vec<rubato_types::audio_config::AudioConfig>>>,
+    }
+
+    impl VolumeCapturingAccess {
+        fn new(
+            captured: std::sync::Arc<
+                std::sync::Mutex<Vec<rubato_types::audio_config::AudioConfig>>,
+            >,
+        ) -> Self {
+            let mut config = rubato_types::config::Config::default();
+            config.audio = Some(rubato_types::audio_config::AudioConfig::default());
+            Self {
+                config,
+                player_config: rubato_types::player_config::PlayerConfig::default(),
+                captured_audio: captured,
+            }
+        }
+    }
+
+    impl rubato_types::main_controller_access::MainControllerAccess for VolumeCapturingAccess {
+        fn config(&self) -> &rubato_types::config::Config {
+            &self.config
+        }
+        fn player_config(&self) -> &rubato_types::player_config::PlayerConfig {
+            &self.player_config
+        }
+        fn change_state(&mut self, _state: rubato_core::main_state::MainStateType) {}
+        fn save_config(&self) -> anyhow::Result<()> {
+            Ok(())
+        }
+        fn exit(&self) -> anyhow::Result<()> {
+            Ok(())
+        }
+        fn save_last_recording(&self, _reason: &str) {}
+        fn update_song(&mut self, _path: Option<&str>) {}
+        fn player_resource(
+            &self,
+        ) -> Option<&dyn rubato_types::player_resource_access::PlayerResourceAccess> {
+            None
+        }
+        fn player_resource_mut(
+            &mut self,
+        ) -> Option<&mut dyn rubato_types::player_resource_access::PlayerResourceAccess> {
+            None
+        }
+        fn update_audio_config(&self, audio: rubato_types::audio_config::AudioConfig) {
+            self.captured_audio.lock().unwrap().push(audio);
+        }
+    }
+
+    #[test]
+    fn course_result_mouse_context_set_float_value_propagates_volume() {
+        // Regression: volume slider writes (IDs 17-19) on the course result screen
+        // must propagate to MainController via update_audio_config, not be silently dropped.
+        let captured: std::sync::Arc<
+            std::sync::Mutex<Vec<rubato_types::audio_config::AudioConfig>>,
+        > = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+
+        let main = MainController::new(Box::new(VolumeCapturingAccess::new(captured.clone())));
+        let mut resource = PlayerResource::new(
+            Box::new(MockPlayerResourceForIR::new_with_course_score()),
+            crate::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
+        );
+        resource.course_bms_models = Some(vec![bms_model::bms_model::BMSModel::default()]);
+        let mut cr = CourseResult::new(
+            main,
+            resource,
+            rubato_core::timer_manager::TimerManager::new(),
+        );
+
+        let mut timer = rubato_core::timer_manager::TimerManager::new();
+        {
+            let mut ctx = render_context::CourseResultMouseContext {
+                timer: &mut timer,
+                result: &mut cr,
+            };
+            ctx.set_float_value(17, 0.8);
+            ctx.set_float_value(18, 0.6);
+            ctx.set_float_value(19, 0.4);
+        }
+
+        let calls = captured.lock().unwrap();
+        assert_eq!(calls.len(), 3, "should have 3 update_audio_config calls");
+        assert_eq!(calls[0].systemvolume, 0.8);
+        assert_eq!(calls[1].keyvolume, 0.6);
+        assert_eq!(calls[2].bgvolume, 0.4);
+    }
 }

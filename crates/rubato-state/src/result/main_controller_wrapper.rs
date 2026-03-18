@@ -143,6 +143,10 @@ impl MainController {
         self.inner.sound_path(sound)
     }
 
+    pub fn update_audio_config(&self, audio: rubato_types::audio_config::AudioConfig) {
+        self.inner.update_audio_config(audio);
+    }
+
     // ---- Locally-stored components (types not on MainControllerAccess trait) ----
 
     pub fn input_processor(&mut self) -> &mut BMSPlayerInputProcessor {

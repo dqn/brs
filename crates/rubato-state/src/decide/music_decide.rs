@@ -56,6 +56,10 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideRenderContex
         self.resource.songdata()
     }
 
+    fn score_data_ref(&self) -> Option<&rubato_core::score_data::ScoreData> {
+        self.resource.score_data()
+    }
+
     fn current_play_config_ref(&self) -> Option<&rubato_types::play_config::PlayConfig> {
         let mode = self
             .resource
@@ -814,6 +818,7 @@ mod tests {
         song: rubato_types::song_data::SongData,
         config: rubato_types::config::Config,
         player_config: rubato_types::player_config::PlayerConfig,
+        score: Option<rubato_core::score_data::ScoreData>,
     }
 
     impl SongLengthResource {
@@ -824,6 +829,7 @@ mod tests {
                 song,
                 config: rubato_types::config::Config::default(),
                 player_config: rubato_types::player_config::PlayerConfig::default(),
+                score: None,
             }
         }
     }
@@ -839,7 +845,7 @@ mod tests {
 
     impl rubato_types::player_resource_access::ScoreAccess for SongLengthResource {
         fn score_data(&self) -> Option<&rubato_core::score_data::ScoreData> {
-            None
+            self.score.as_ref()
         }
         fn rival_score_data(&self) -> Option<&rubato_core::score_data::ScoreData> {
             None
@@ -1377,6 +1383,54 @@ mod tests {
             ctx.image_index_value(308),
             default_lnmode,
             "ID 308 should fall through when no songdata available"
+        );
+    }
+
+    // ============================================================
+    // DecideRenderContext score_data_ref / image_index 370/371 tests
+    // ============================================================
+
+    #[test]
+    fn decide_render_context_image_index_370_returns_clear_type() {
+        // Regression: image_index_value(370) must return the clear type from
+        // score_data_ref, not -1. Without score_data_ref delegation, the
+        // default trait method returns None and 370 maps to -1.
+        let mut resource = SongLengthResource::with_length_ms(0);
+        let mut score = rubato_core::score_data::ScoreData::default();
+        score.clear = 5; // e.g. ClearType::FullCombo
+        resource.score = Some(score);
+
+        let mut timer = TimerManager::new();
+        let main = MainControllerRef::new(Box::new(NullMainController));
+        let ctx = DecideRenderContext {
+            timer: &mut timer,
+            resource: &resource,
+            main: &main,
+        };
+        use rubato_types::skin_render_context::SkinRenderContext;
+        assert_eq!(
+            ctx.image_index_value(370),
+            5,
+            "ID 370 (cleartype) should return score_data.clear, not -1"
+        );
+    }
+
+    #[test]
+    fn decide_render_context_image_index_370_no_score_returns_minus_one() {
+        // When no score data is available, 370 should still return -1.
+        let resource = SongLengthResource::with_length_ms(0);
+        let mut timer = TimerManager::new();
+        let main = MainControllerRef::new(Box::new(NullMainController));
+        let ctx = DecideRenderContext {
+            timer: &mut timer,
+            resource: &resource,
+            main: &main,
+        };
+        use rubato_types::skin_render_context::SkinRenderContext;
+        assert_eq!(
+            ctx.image_index_value(370),
+            -1,
+            "ID 370 should return -1 when no score data is available"
         );
     }
 }
