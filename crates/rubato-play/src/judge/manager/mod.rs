@@ -147,6 +147,10 @@ impl MultiBadCollector {
         if !self.enabled || tnote.is_none() {
             return;
         }
+        if self.mjudge.len() < 4 {
+            self.clear();
+            return;
+        }
         let tnote_idx = tnote.expect("tnote");
 
         // Find tnote's dmtime in the collector

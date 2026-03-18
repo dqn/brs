@@ -137,23 +137,29 @@ impl TimeLine {
 
     pub fn set_note(&mut self, lane: i32, note: Option<Note>) {
         let lane = lane as usize;
+        let Some(slot) = self.notes.get_mut(lane) else {
+            return;
+        };
         if let Some(mut n) = note {
             n.set_section(self.section);
             n.set_micro_time(self.time);
-            self.notes[lane] = Some(n);
+            *slot = Some(n);
         } else {
-            self.notes[lane] = None;
+            *slot = None;
         }
     }
 
     pub fn set_hidden_note(&mut self, lane: i32, note: Option<Note>) {
         let lane = lane as usize;
+        let Some(slot) = self.hiddennotes.get_mut(lane) else {
+            return;
+        };
         if let Some(mut n) = note {
             n.set_section(self.section);
             n.set_micro_time(self.time);
-            self.hiddennotes[lane] = Some(n);
+            *slot = Some(n);
         } else {
-            self.hiddennotes[lane] = None;
+            *slot = None;
         }
     }
 
