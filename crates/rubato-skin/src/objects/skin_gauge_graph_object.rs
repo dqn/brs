@@ -48,6 +48,8 @@ pub struct SkinGaugeGraphObject {
     border_line: [Color; 6],
 
     // Runtime state for gauge graph rendering
+    /// Sentinel -1 means "not yet assigned". All index usages are guarded by bounds
+    /// checks (TYPE_TABLE.len(), Vec::get()), so -1 as usize safely falls through to defaults.
     current_type: i32,
     color: usize,
     gaugehistory: Vec<f32>,
@@ -345,6 +347,10 @@ impl SkinGaugeGraphObject {
         }
 
         if self.shapetex.is_none() {
+            // Guard against zero/negative dimensions from deserialized skin data.
+            if region_width <= 0.0 || region_height <= 0.0 {
+                return;
+            }
             self.redraw = false;
             let width = region_width as i32;
             let height = region_height as i32;
@@ -387,6 +393,8 @@ impl SkinGaugeGraphObject {
             let gauge_len = self.gaugehistory.len() as f32;
             if gauge_len > 0.0 && max > 0.0 {
                 for (i, &f2) in self.gaugehistory.iter().enumerate() {
+                    // Section boundaries drawn at x = (i-1)/gauge_len. First entry is always
+                    // > 0 (populated from cumulative type_history lengths), so i-1 >= 0 in practice.
                     if self.section.contains(&(i as i32)) {
                         shape.set_color(&Color::value_of("ffffff"));
                         shape.draw_line(
