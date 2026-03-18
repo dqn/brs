@@ -392,6 +392,37 @@ impl PlayConfigurationView {
         // skinController.commit()
         self.skin_controller.commit();
 
+        // Copy back mutated fields from sub-controller clones into self.player,
+        // so the disk write below includes all sub-controller mutations.
+        if let Some(ref mut player) = self.player {
+            if let Some(ir_p) = self.ir_controller.player() {
+                player.irconfig = ir_p.irconfig.clone();
+            }
+            if let Some(input_p) = self.input_controller.player() {
+                player.mode5 = input_p.mode5.clone();
+                player.mode7 = input_p.mode7.clone();
+                player.mode9 = input_p.mode9.clone();
+                player.mode10 = input_p.mode10.clone();
+                player.mode14 = input_p.mode14.clone();
+                player.mode24 = input_p.mode24.clone();
+                player.mode24double = input_p.mode24double.clone();
+            }
+            if let Some(ms_p) = self.music_select_controller.player() {
+                player.select_settings.is_random_select = ms_p.select_settings.is_random_select;
+                player.play_settings.chart_replication_mode =
+                    ms_p.play_settings.chart_replication_mode.clone();
+            }
+            if let Some(stream_p) = self.stream_controller.player() {
+                player.enable_request = stream_p.enable_request;
+                player.notify_request = stream_p.notify_request;
+                player.max_request_count = stream_p.max_request_count;
+            }
+            if let Some(skin_p) = self.skin_controller.player() {
+                player.skin = skin_p.skin.clone();
+                player.skin_history = skin_p.skin_history.clone();
+            }
+        }
+
         if let (Some(config), Some(player)) = (&self.config, &self.player)
             && let Err(e) = PlayerConfig::write(&config.paths.playerpath, player)
         {

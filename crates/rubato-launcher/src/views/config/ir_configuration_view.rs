@@ -218,6 +218,11 @@ impl IRConfigurationView {
             !(self.primary.is_some() && self.irname.as_ref() == self.primary.as_ref());
     }
 
+    /// Returns a reference to the internal player config clone, if set.
+    pub fn player(&self) -> Option<&PlayerConfig> {
+        self.player.as_ref()
+    }
+
     /// Opens the IR home URL in the browser (called from egui click handler)
     pub fn open_home_url(&self) {
         if !self.irhome.is_empty() {

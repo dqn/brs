@@ -990,3 +990,154 @@ fn test_import_score_data_from_lr2_clear_mapping() {
         );
     }
 }
+
+// ---- Regression: sub-controller clone divergence fix ----
+
+/// Regression test: IR controller mutations must be copied back to self.player
+/// during commit_player() so they are persisted to disk.
+///
+/// Without the copy-back fix, self.player retains stale irconfig data
+/// because the IR controller commits to its own cloned PlayerConfig.
+#[test]
+fn test_commit_player_copies_back_ir_controller_mutations() {
+    let mut view = initialized_view();
+    view.config = Some(Config::default());
+
+    let mut player = PlayerConfig::default();
+    // Start self.player with a non-empty irconfig to detect stale retention
+    let stale_ir = rubato_core::ir_config::IRConfig {
+        irname: "StaleIR".to_string(),
+        userid: "stale_user".to_string(),
+        ..Default::default()
+    };
+    player.irconfig = vec![Some(stale_ir)];
+    view.player = Some(player);
+    view.playconfig = Some(PlayMode::BEAT_7K);
+
+    // Set up IR controller with empty irconfig (simulating user clearing IR).
+    // In test context no IR connection names are registered, so after update+commit
+    // the IR controller's player will have empty irconfig.
+    let mut ir_player = view.player.as_ref().unwrap().clone();
+    ir_player.irconfig = vec![];
+    view.ir_controller.update(&mut ir_player);
+
+    view.commit_player();
+
+    let committed = view.player.as_ref().unwrap();
+    // Before the fix, committed.irconfig would still contain StaleIR
+    // because the IR controller wrote to its own clone and self.player was never updated.
+    assert!(
+        committed.irconfig.is_empty(),
+        "IR config should be copied back from ir_controller (empty after clearing)"
+    );
+}
+
+/// Regression test: stream controller mutations must be copied back to self.player
+/// during commit_player().
+#[test]
+fn test_commit_player_copies_back_stream_controller_mutations() {
+    let mut view = initialized_view();
+    view.config = Some(Config::default());
+
+    let mut player = PlayerConfig::default();
+    player.enable_request = false;
+    player.notify_request = false;
+    player.max_request_count = 0;
+    view.player = Some(player);
+    view.playconfig = Some(PlayMode::BEAT_7K);
+
+    // Set up stream controller with modified values
+    let mut stream_player = view.player.as_ref().unwrap().clone();
+    stream_player.enable_request = true;
+    stream_player.notify_request = true;
+    stream_player.max_request_count = 42;
+    view.stream_controller.update(&stream_player);
+
+    view.commit_player();
+
+    let committed = view.player.as_ref().unwrap();
+    assert!(
+        committed.enable_request,
+        "enable_request should be copied back from stream_controller"
+    );
+    assert!(
+        committed.notify_request,
+        "notify_request should be copied back from stream_controller"
+    );
+    assert_eq!(
+        committed.max_request_count, 42,
+        "max_request_count should be copied back from stream_controller"
+    );
+}
+
+/// Regression test: music select controller mutations must be copied back
+/// to self.player during commit_player().
+#[test]
+fn test_commit_player_copies_back_music_select_controller_mutations() {
+    let mut view = initialized_view();
+    view.config = Some(Config::default());
+
+    let mut player = PlayerConfig::default();
+    player.select_settings.is_random_select = false;
+    player.play_settings.chart_replication_mode = "OFF".to_string();
+    view.player = Some(player);
+    view.playconfig = Some(PlayMode::BEAT_7K);
+
+    // Set up music select controller with modified values
+    let mut ms_player = view.player.as_ref().unwrap().clone();
+    ms_player.select_settings.is_random_select = true;
+    ms_player.play_settings.chart_replication_mode = "ALWAYS".to_string();
+    view.music_select_controller.update_player(&ms_player);
+
+    view.commit_player();
+
+    let committed = view.player.as_ref().unwrap();
+    assert!(
+        committed.select_settings.is_random_select,
+        "is_random_select should be copied back from music_select_controller"
+    );
+    assert_eq!(
+        committed.play_settings.chart_replication_mode, "ALWAYS",
+        "chart_replication_mode should be copied back from music_select_controller"
+    );
+}
+
+/// Regression test: input controller mutations (play mode configs) must be
+/// copied back to self.player during commit_player().
+///
+/// The input controller's commit_mode() writes UI state (inputduration, jkoc_hack,
+/// etc.) into its own player clone's mode config. Without the copy-back fix,
+/// these writes would be lost because self.player is a separate clone.
+#[test]
+fn test_commit_player_copies_back_input_controller_mutations() {
+    let mut view = initialized_view();
+    view.config = Some(Config::default());
+
+    let mut player = PlayerConfig::default();
+    // Set self.player's mode7 keyboard duration to a known stale value
+    player.mode7.keyboard.duration = 1;
+    view.player = Some(player);
+    view.playconfig = Some(PlayMode::BEAT_7K);
+
+    // Set up the input controller with a player that has a different keyboard duration.
+    // update() reads keyboard.duration from the controller configs into self.inputduration.
+    // We must set controller durations too, since update_mode's loop overwrites inputduration.
+    let mut input_player = view.player.as_ref().unwrap().clone();
+    input_player.mode7.keyboard.duration = 777;
+    for c in &mut input_player.mode7.controller {
+        c.duration = 777;
+    }
+    view.input_controller.update(&mut input_player);
+
+    view.commit_player();
+
+    let committed = view.player.as_ref().unwrap();
+    // The input controller's commit_mode() writes self.inputduration (777) into
+    // its internal player clone. The copy-back then copies mode7 from the input
+    // controller's player into self.player. Without the fix, self.player would
+    // still have duration=1.
+    assert_eq!(
+        committed.mode7.keyboard.duration, 777,
+        "mode7 keyboard duration should be copied back from input_controller"
+    );
+}

@@ -20,6 +20,11 @@ pub struct StreamEditorView {
 }
 
 impl StreamEditorView {
+    /// Returns a reference to the internal player config clone, if set.
+    pub fn player(&self) -> Option<&PlayerConfig> {
+        self.player.as_ref()
+    }
+
     // public void initialize(URL arg0, ResourceBundle arg1)
     pub fn initialize(&mut self) {
         // (empty in Java)

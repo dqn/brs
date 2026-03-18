@@ -125,6 +125,11 @@ impl InputConfigurationView {
         Self::default()
     }
 
+    /// Returns a reference to the internal player config clone, if set.
+    pub fn player(&self) -> Option<&PlayerConfig> {
+        self.player.as_ref()
+    }
+
     // public void initialize(URL location, ResourceBundle resources)
     pub fn initialize(&mut self) {
         // inputconfig.getItems().setAll(PlayConfigurationView.PlayMode.values());
