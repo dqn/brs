@@ -414,6 +414,13 @@ pub trait SkinRenderContext: TimerAccess {
         None
     }
 
+    /// Propagate the current audio config to the audio driver.
+    /// Called after Lua `set_volume_*` functions modify `config_mut().audio` so
+    /// the changes reach MainController (same pattern as the UI volume slider fix).
+    fn notify_audio_config_changed(&mut self) {
+        // default no-op
+    }
+
     /// Plays the option change sound for click/slider-driven config changes.
     fn play_option_change_sound(&mut self) {
         // default no-op

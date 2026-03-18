@@ -272,6 +272,7 @@ impl MainStateAccessor {
                 {
                     audio.systemvolume = value;
                 }
+                state.notify_audio_config_changed();
                 Ok(true)
             })?;
             table.set("set_volume_sys", set_volume_sys_func)?;
@@ -298,6 +299,7 @@ impl MainStateAccessor {
                 {
                     audio.keyvolume = value;
                 }
+                state.notify_audio_config_changed();
                 Ok(true)
             })?;
             table.set("set_volume_key", set_volume_key_func)?;
@@ -324,6 +326,7 @@ impl MainStateAccessor {
                 {
                     audio.bgvolume = value;
                 }
+                state.notify_audio_config_changed();
                 Ok(true)
             })?;
             table.set("set_volume_bg", set_volume_bg_func)?;
@@ -489,6 +492,8 @@ mod tests {
         audio_stop_log: RefCell<Vec<String>>,
         /// Records execute_event calls: (id, arg1, arg2)
         event_log: RefCell<Vec<(i32, i32, i32)>>,
+        /// Records notify_audio_config_changed calls count
+        audio_config_changed_count: RefCell<u32>,
     }
 
     impl Default for LuaTestState {
@@ -505,6 +510,7 @@ mod tests {
                 audio_play_log: RefCell::new(Vec::new()),
                 audio_stop_log: RefCell::new(Vec::new()),
                 event_log: RefCell::new(Vec::new()),
+                audio_config_changed_count: RefCell::new(0),
             }
         }
     }
@@ -579,6 +585,10 @@ mod tests {
 
         fn execute_event(&mut self, id: i32, arg1: i32, arg2: i32) {
             self.event_log.borrow_mut().push((id, arg1, arg2));
+        }
+
+        fn notify_audio_config_changed(&mut self) {
+            *self.audio_config_changed_count.borrow_mut() += 1;
         }
     }
 
@@ -861,5 +871,64 @@ mod tests {
         let (_lua, table) = setup_lua_with_state(&mut state);
         let func: mlua::Result<mlua::Function> = table.get("audio_stop");
         assert!(func.is_ok(), "audio_stop function should be exported");
+    }
+
+    #[test]
+    fn test_set_volume_sys_calls_notify_audio_config_changed() {
+        // Regression: Lua set_volume_sys must propagate changes to audio driver
+        // via notify_audio_config_changed, not just modify the local config clone.
+        let mut state = LuaTestState::default();
+        state.config.audio = Some(rubato_types::audio_config::AudioConfig::default());
+        let (_lua, table) = setup_lua_with_state(&mut state);
+        let func: mlua::Function = table.get("set_volume_sys").unwrap();
+        let _: bool = func.call(0.75f32).unwrap();
+        assert_eq!(
+            *state.audio_config_changed_count.borrow(),
+            1,
+            "set_volume_sys should call notify_audio_config_changed"
+        );
+        assert_eq!(
+            state.config.audio.as_ref().unwrap().systemvolume,
+            0.75,
+            "config should be updated"
+        );
+    }
+
+    #[test]
+    fn test_set_volume_key_calls_notify_audio_config_changed() {
+        let mut state = LuaTestState::default();
+        state.config.audio = Some(rubato_types::audio_config::AudioConfig::default());
+        let (_lua, table) = setup_lua_with_state(&mut state);
+        let func: mlua::Function = table.get("set_volume_key").unwrap();
+        let _: bool = func.call(0.5f32).unwrap();
+        assert_eq!(
+            *state.audio_config_changed_count.borrow(),
+            1,
+            "set_volume_key should call notify_audio_config_changed"
+        );
+        assert_eq!(
+            state.config.audio.as_ref().unwrap().keyvolume,
+            0.5,
+            "config should be updated"
+        );
+    }
+
+    #[test]
+    fn test_set_volume_bg_calls_notify_audio_config_changed() {
+        let mut state = LuaTestState::default();
+        state.config.audio = Some(rubato_types::audio_config::AudioConfig::default());
+        let (_lua, table) = setup_lua_with_state(&mut state);
+        let func: mlua::Function = table.get("set_volume_bg").unwrap();
+        let _: bool = func.call(0.25f32).unwrap();
+        assert_eq!(
+            *state.audio_config_changed_count.borrow(),
+            1,
+            "set_volume_bg should call notify_audio_config_changed"
+        );
+        assert_eq!(
+            state.config.audio.as_ref().unwrap().bgvolume,
+            0.25,
+            "config should be updated"
+        );
     }
 }

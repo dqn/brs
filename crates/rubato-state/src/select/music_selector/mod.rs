@@ -198,6 +198,14 @@ impl rubato_types::skin_render_context::SkinRenderContext for SelectSkinContext<
         Some(&mut self.selector.app_config)
     }
 
+    fn notify_audio_config_changed(&mut self) {
+        if let Some(audio) = self.selector.app_config.audio.clone()
+            && let Some(ref main) = self.selector.main
+        {
+            main.update_audio_config(audio);
+        }
+    }
+
     fn selected_play_config_mut(&mut self) -> Option<&mut rubato_types::play_config::PlayConfig> {
         self.selector.get_selected_play_config_mut()
     }

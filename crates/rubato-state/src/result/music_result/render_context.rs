@@ -300,4 +300,10 @@ impl rubato_types::skin_render_context::SkinRenderContext for ResultMouseContext
             self.result.main.update_audio_config(audio);
         }
     }
+
+    fn notify_audio_config_changed(&mut self) {
+        if let Some(audio) = self.result.main.config().audio.clone() {
+            self.result.main.update_audio_config(audio);
+        }
+    }
 }
