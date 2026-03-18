@@ -127,7 +127,8 @@ impl RandomTrainerMenu {
                 crate::modmenu::random_trainer::RandomTrainer::set_active(trainer_enabled);
                 if trainer_enabled {
                     let current = get_lane_order_string();
-                    let trainer = crate::modmenu::random_trainer::RandomTrainer::lane_order();
+                    let trainer =
+                        crate::modmenu::random_trainer::RandomTrainer::get_current_lane_order();
                     if current != trainer {
                         crate::modmenu::random_trainer::RandomTrainer::set_lane_order(&current);
                     }

@@ -148,6 +148,12 @@ impl RandomTrainer {
             .expect("BLACK_WHITE_PERMUTE lock poisoned") = black_white_permute;
     }
 
+    /// Returns the current lane order string without shuffling.
+    pub fn get_current_lane_order() -> String {
+        init_defaults();
+        LANE_ORDER.lock().expect("LANE_ORDER lock poisoned").clone()
+    }
+
     pub fn set_lane_order(number: &str) {
         *LANE_ORDER.lock().expect("LANE_ORDER lock poisoned") = number.to_string();
     }
@@ -333,5 +339,30 @@ mod tests {
         let map = RandomTrainer::get_random_seed_map();
         assert!(map.is_some());
         assert!(map.unwrap().is_empty());
+    }
+
+    // --- get_current_lane_order ---
+
+    #[test]
+    fn test_get_current_lane_order_returns_stable_value() {
+        // Regression: lane_order() shuffles on every call, causing per-frame
+        // re-randomization when used as a read operation.
+        // get_current_lane_order() must return the same value on repeated calls.
+        let _g = reset_globals();
+        RandomTrainer::set_lane_order("3142567");
+        let first = RandomTrainer::get_current_lane_order();
+        let second = RandomTrainer::get_current_lane_order();
+        assert_eq!(first, "3142567");
+        assert_eq!(
+            first, second,
+            "get_current_lane_order must be stable across calls"
+        );
+    }
+
+    #[test]
+    fn test_get_current_lane_order_reflects_set_lane_order() {
+        let _g = reset_globals();
+        RandomTrainer::set_lane_order("7654321");
+        assert_eq!(RandomTrainer::get_current_lane_order(), "7654321");
     }
 }
