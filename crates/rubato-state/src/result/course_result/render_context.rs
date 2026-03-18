@@ -115,6 +115,23 @@ impl rubato_types::skin_render_context::SkinRenderContext for CourseResultRender
         shared_render_context::judge_count(self.data, judge, fast)
     }
 
+    fn image_index_value(&self, id: i32) -> i32 {
+        match id {
+            // Java IntegerPropertyFactory ID 308 (lnmode): on CourseResult, override
+            // from chart data when the chart explicitly defines LN types.
+            308 => {
+                if let Some(song) = self.resource.songdata()
+                    && let Some(override_val) =
+                        rubato_types::skin_render_context::compute_lnmode_from_chart(&song.chart)
+                {
+                    return override_val;
+                }
+                self.default_image_index_value(id)
+            }
+            _ => self.default_image_index_value(id),
+        }
+    }
+
     fn integer_value(&self, id: i32) -> i32 {
         shared_render_context::integer_value(self.data, self.timer.now_time(), id)
     }
@@ -150,10 +167,32 @@ impl rubato_types::skin_render_context::SkinRenderContext for CourseResultRender
                 .resource
                 .songdata()
                 .map_or_else(String::new, |s| s.metadata.subtitle.clone()),
+            12 => self.resource.songdata().map_or_else(String::new, |s| {
+                if s.metadata.subtitle.is_empty() {
+                    s.metadata.title.clone()
+                } else {
+                    format!("{} {}", s.metadata.title, s.metadata.subtitle)
+                }
+            }),
+            13 => self
+                .resource
+                .songdata()
+                .map_or_else(String::new, |s| s.metadata.genre.clone()),
             14 => self
                 .resource
                 .songdata()
                 .map_or_else(String::new, |s| s.metadata.artist.clone()),
+            15 => self
+                .resource
+                .songdata()
+                .map_or_else(String::new, |s| s.metadata.subartist.clone()),
+            16 => self.resource.songdata().map_or_else(String::new, |s| {
+                if s.metadata.subartist.is_empty() {
+                    s.metadata.artist.clone()
+                } else {
+                    format!("{} {}", s.metadata.artist, s.metadata.subartist)
+                }
+            }),
             120..=129 => shared_render_context::ranking_name(self.data, id - 120),
             _ => String::new(),
         }

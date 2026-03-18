@@ -302,6 +302,10 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayMouseContext<'
         Some(rubato_types::main_state_type::MainStateType::Play)
     }
 
+    fn config_ref(&self) -> Option<&rubato_types::config::Config> {
+        Some(&self.player.config)
+    }
+
     fn change_state(&mut self, state: rubato_types::main_state_type::MainStateType) {
         self.player.pending.pending_state_change = Some(state);
     }
@@ -1011,5 +1015,37 @@ mod tests {
         let metadata = make_metadata("Test", "", "", "", "");
         let ctx = make_render_ctx_with_metadata(metadata);
         assert_eq!(ctx.string_value(999), "");
+    }
+
+    // ============================================================
+    // PlayMouseContext config_ref() delegation test
+    // ============================================================
+
+    #[test]
+    fn play_mouse_context_config_ref_returns_some() {
+        let timer = Box::leak(Box::new(TimerManager::new()));
+        let player = Box::leak(Box::new(BMSPlayer::new(
+            bms_model::bms_model::BMSModel::new(),
+        )));
+        let ctx = PlayMouseContext { timer, player };
+        assert!(
+            ctx.config_ref().is_some(),
+            "PlayMouseContext::config_ref() must delegate to player.config"
+        );
+    }
+
+    #[test]
+    fn play_mouse_context_config_ref_reads_bga_mode() {
+        let timer = Box::leak(Box::new(TimerManager::new()));
+        let player = Box::leak(Box::new(BMSPlayer::new(
+            bms_model::bms_model::BMSModel::new(),
+        )));
+        // BGA mode default is 0 (ON); image_index_value(72) reads it
+        let ctx = PlayMouseContext { timer, player };
+        assert_eq!(
+            ctx.image_index_value(72),
+            0,
+            "PlayMouseContext should read BGA mode from config via config_ref()"
+        );
     }
 }

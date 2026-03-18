@@ -1504,4 +1504,218 @@ mod tests {
         assert_eq!(ctx.string_value(120), "YOU");
         assert_eq!(ctx.string_value(121), "");
     }
+
+    // ---- CourseResultRenderContext string_value IDs 12,13,15,16 regression ----
+
+    /// Helper: build a CourseResultRenderContext whose resource carries the given SongData.
+    fn make_course_render_ctx_with_songdata(
+        song: rubato_types::song_data::SongData,
+    ) -> (
+        PlayerResource,
+        AbstractResultData,
+        MainController,
+        rubato_core::timer_manager::TimerManager,
+    ) {
+        let mut mock = MockPlayerResourceForIR::new_with_course_score();
+        mock.song_data = Some(song);
+        let resource = PlayerResource::new(
+            Box::new(mock),
+            crate::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
+        );
+        let data = AbstractResultData::new();
+        let main = MainController::new(Box::new(crate::result::NullMainController));
+        let timer = rubato_core::timer_manager::TimerManager::new();
+        (resource, data, main, timer)
+    }
+
+    #[test]
+    fn test_course_result_string_value_fulltitle_with_subtitle() {
+        let mut song = rubato_types::song_data::SongData::default();
+        song.metadata.title = "MainTitle".to_string();
+        song.metadata.subtitle = "[HARD]".to_string();
+        let (resource, data, main, mut timer) = make_course_render_ctx_with_songdata(song);
+        let ctx = CourseResultRenderContext {
+            timer: &mut timer,
+            data: &data,
+            resource: &resource,
+            main: &main,
+        };
+        assert_eq!(ctx.string_value(12), "MainTitle [HARD]");
+    }
+
+    #[test]
+    fn test_course_result_string_value_fulltitle_without_subtitle() {
+        let mut song = rubato_types::song_data::SongData::default();
+        song.metadata.title = "OnlyTitle".to_string();
+        let (resource, data, main, mut timer) = make_course_render_ctx_with_songdata(song);
+        let ctx = CourseResultRenderContext {
+            timer: &mut timer,
+            data: &data,
+            resource: &resource,
+            main: &main,
+        };
+        assert_eq!(ctx.string_value(12), "OnlyTitle");
+    }
+
+    #[test]
+    fn test_course_result_string_value_genre() {
+        let mut song = rubato_types::song_data::SongData::default();
+        song.metadata.genre = "Techno".to_string();
+        let (resource, data, main, mut timer) = make_course_render_ctx_with_songdata(song);
+        let ctx = CourseResultRenderContext {
+            timer: &mut timer,
+            data: &data,
+            resource: &resource,
+            main: &main,
+        };
+        assert_eq!(ctx.string_value(13), "Techno");
+    }
+
+    #[test]
+    fn test_course_result_string_value_subartist() {
+        let mut song = rubato_types::song_data::SongData::default();
+        song.metadata.subartist = "feat. B".to_string();
+        let (resource, data, main, mut timer) = make_course_render_ctx_with_songdata(song);
+        let ctx = CourseResultRenderContext {
+            timer: &mut timer,
+            data: &data,
+            resource: &resource,
+            main: &main,
+        };
+        assert_eq!(ctx.string_value(15), "feat. B");
+    }
+
+    #[test]
+    fn test_course_result_string_value_fullartist_with_subartist() {
+        let mut song = rubato_types::song_data::SongData::default();
+        song.metadata.artist = "ArtistA".to_string();
+        song.metadata.subartist = "feat. B".to_string();
+        let (resource, data, main, mut timer) = make_course_render_ctx_with_songdata(song);
+        let ctx = CourseResultRenderContext {
+            timer: &mut timer,
+            data: &data,
+            resource: &resource,
+            main: &main,
+        };
+        assert_eq!(ctx.string_value(16), "ArtistA feat. B");
+    }
+
+    #[test]
+    fn test_course_result_string_value_fullartist_without_subartist() {
+        let mut song = rubato_types::song_data::SongData::default();
+        song.metadata.artist = "OnlyArtist".to_string();
+        let (resource, data, main, mut timer) = make_course_render_ctx_with_songdata(song);
+        let ctx = CourseResultRenderContext {
+            timer: &mut timer,
+            data: &data,
+            resource: &resource,
+            main: &main,
+        };
+        assert_eq!(ctx.string_value(16), "OnlyArtist");
+    }
+
+    #[test]
+    fn test_course_result_string_value_no_songdata_returns_empty() {
+        let resource = PlayerResource::default();
+        let data = AbstractResultData::new();
+        let main = MainController::new(Box::new(crate::result::NullMainController));
+        let mut timer = rubato_core::timer_manager::TimerManager::new();
+        let ctx = CourseResultRenderContext {
+            timer: &mut timer,
+            data: &data,
+            resource: &resource,
+            main: &main,
+        };
+        // All song metadata IDs should return empty when no songdata
+        for id in [10, 11, 12, 13, 14, 15, 16] {
+            assert_eq!(
+                ctx.string_value(id),
+                "",
+                "ID {id} should be empty without songdata"
+            );
+        }
+    }
+
+    // ---- CourseResultRenderContext image_index_value ID 308 (lnmode) regression ----
+
+    #[test]
+    fn test_course_result_lnmode_308_override_longnote() {
+        let mut song = rubato_types::song_data::SongData::default();
+        // Set feature to have LN but not undefined LN
+        song.chart.feature = rubato_types::song_data::FEATURE_LONGNOTE;
+        let (resource, data, main, mut timer) = make_course_render_ctx_with_songdata(song);
+        let ctx = CourseResultRenderContext {
+            timer: &mut timer,
+            data: &data,
+            resource: &resource,
+            main: &main,
+        };
+        assert_eq!(
+            ctx.image_index_value(308),
+            0,
+            "LN chart should override lnmode to 0"
+        );
+    }
+
+    #[test]
+    fn test_course_result_lnmode_308_override_chargenote() {
+        let mut song = rubato_types::song_data::SongData::default();
+        song.chart.feature = rubato_types::song_data::FEATURE_CHARGENOTE;
+        let (resource, data, main, mut timer) = make_course_render_ctx_with_songdata(song);
+        let ctx = CourseResultRenderContext {
+            timer: &mut timer,
+            data: &data,
+            resource: &resource,
+            main: &main,
+        };
+        assert_eq!(
+            ctx.image_index_value(308),
+            1,
+            "CN chart should override lnmode to 1"
+        );
+    }
+
+    #[test]
+    fn test_course_result_lnmode_308_override_hellchargenote() {
+        let mut song = rubato_types::song_data::SongData::default();
+        song.chart.feature = rubato_types::song_data::FEATURE_HELLCHARGENOTE;
+        let (resource, data, main, mut timer) = make_course_render_ctx_with_songdata(song);
+        let ctx = CourseResultRenderContext {
+            timer: &mut timer,
+            data: &data,
+            resource: &resource,
+            main: &main,
+        };
+        assert_eq!(
+            ctx.image_index_value(308),
+            2,
+            "HCN chart should override lnmode to 2"
+        );
+    }
+
+    #[test]
+    fn test_course_result_lnmode_308_no_override_falls_through_to_config() {
+        // Chart has no LN features -> should fall through to config's lnmode
+        let mut mock = MockPlayerResourceForIR::new_with_course_score();
+        mock.song_data = Some(rubato_types::song_data::SongData::default());
+        mock.player_config.play_settings.lnmode = 42;
+        let resource = PlayerResource::new(
+            Box::new(mock),
+            crate::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
+        );
+        let data = AbstractResultData::new();
+        let main = MainController::new(Box::new(crate::result::NullMainController));
+        let mut timer = rubato_core::timer_manager::TimerManager::new();
+        let ctx = CourseResultRenderContext {
+            timer: &mut timer,
+            data: &data,
+            resource: &resource,
+            main: &main,
+        };
+        assert_eq!(
+            ctx.image_index_value(308),
+            42,
+            "No LN override -> should fall through to player_config lnmode"
+        );
+    }
 }
