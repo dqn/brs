@@ -38,6 +38,9 @@ impl JavaRandom {
         ((high << 27) + low) as f64 / (1i64 << 53) as f64
     }
 
+    /// # Panics
+    /// Panics if `bound <= 0` (matches Java's `IllegalArgumentException`).
+    /// Callers deriving bounds from note counts must guard against empty charts.
     pub fn next_int_bounded(&mut self, bound: i32) -> i32 {
         assert!(bound > 0, "bound must be positive");
         // Power of 2

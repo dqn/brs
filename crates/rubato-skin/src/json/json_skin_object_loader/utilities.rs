@@ -205,6 +205,8 @@ pub fn source_image(
     }
     // Clamp to prevent overflow when both divx and divy are large i32 values
     // from deserialized JSON. 1024 is far beyond any realistic sprite sheet subdivision.
+    // Worst case allocation: 1024*1024 = ~1M TextureRegion objects (~40 MB). Acceptable
+    // since this only happens for malformed skin files, not normal usage.
     divx = divx.min(1024);
     divy = divy.min(1024);
     let mut images = Vec::with_capacity((divx * divy) as usize);

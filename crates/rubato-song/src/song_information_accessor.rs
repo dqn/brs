@@ -97,6 +97,9 @@ impl SongInformationAccessor {
         }
     }
 
+    /// Performance note: issues one SQL query per song (O(N) round trips) and
+    /// O(N*M) matching. Java parity. For large libraries, consider batching with
+    /// `WHERE sha256 IN (...)` and a HashMap-based join.
     pub fn information_for_songs(&self, songs: &mut [SongData]) {
         let mut infos: Vec<SongInformation> = Vec::new();
 
