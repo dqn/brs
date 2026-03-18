@@ -105,7 +105,8 @@ impl DirectoryBarData {
                     self.lamps[clear] += 1;
                 }
                 if score.notes > 0 && score.exscore() >= 0 {
-                    let rank = (score.exscore() * 27 / (score.notes * 2)) as usize;
+                    // Use i64 to avoid i32 overflow in exscore * 27.
+                    let rank = (score.exscore() as i64 * 27 / (score.notes as i64 * 2)) as usize;
                     let rank = rank.min(27);
                     self.ranks[rank] += 1;
                 } else {
@@ -245,13 +246,11 @@ mod tests {
     fn update_folder_status_negative_notes_does_not_panic() {
         let mut dir = DirectoryBarData::default();
         let songs = [make_song_with_path()];
-        // Score with negative notes from corrupted DB data
         dir.update_folder_status_with_songs(&songs, None, |_| {
             let mut score = ScoreData::default();
             score.notes = -5;
             Some(score)
         });
-        // Should fall through to ranks[0] instead of panicking on negative `as usize`
         assert_eq!(dir.ranks[0], 1);
     }
 
@@ -259,12 +258,10 @@ mod tests {
     fn update_folder_status_negative_exscore_does_not_panic() {
         let mut dir = DirectoryBarData::default();
         let songs = [make_song_with_path()];
-        // Score with positive notes but negative exscore
         dir.update_folder_status_with_songs(&songs, None, |_| {
             let mut score = ScoreData::default();
             score.notes = 100;
             score.judge_counts = Default::default();
-            // exscore() defaults to 0 from judge_counts, so rank = 0
             Some(score)
         });
         assert_eq!(dir.ranks[0], 1);
@@ -279,8 +276,25 @@ mod tests {
             score.notes = 0;
             Some(score)
         });
-        // notes == 0 falls through to ranks[0]
         assert_eq!(dir.ranks[0], 1);
+    }
+
+    /// Regression: exscore * 27 must not overflow i32 for large scores.
+    #[test]
+    fn update_folder_status_large_exscore_no_overflow() {
+        let mut dir = DirectoryBarData::default();
+        let mut song = SongData::default();
+        song.file.set_path("/some/path.bms".to_string());
+        let score = ScoreData {
+            judge_counts: rubato_types::score_data::JudgeCounts {
+                epg: 40_000_000,
+                ..Default::default()
+            },
+            notes: 40_000_000,
+            ..Default::default()
+        };
+        dir.update_folder_status_with_songs(&[song], None, |_| Some(score.clone()));
+        assert_eq!(dir.ranks[27], 1);
     }
 
     #[test]

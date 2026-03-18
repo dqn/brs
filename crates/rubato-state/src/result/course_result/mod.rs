@@ -435,21 +435,12 @@ impl CourseResult {
         self.stop_sound_inner(SoundType::CourseClose);
         self.stop_sound_inner(SoundType::ResultClose);
 
-        // Join the IR send thread if it is still running.
-        if let Some(handle) = self.ir_thread.take() {
-            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
-            while !handle.is_finished() {
-                if std::time::Instant::now() >= deadline {
-                    log::warn!("CourseResult IR send thread did not finish within 10s timeout");
-                    break;
-                }
-                std::thread::sleep(std::time::Duration::from_millis(50));
-            }
-            if handle.is_finished()
-                && let Err(e) = handle.join()
-            {
-                log::warn!("CourseResult IR send thread panicked: {:?}", e);
-            }
+        // Detach the IR send thread -- it is bounded (sends scores + fetches
+        // ranking, then exits) so we do not need to block shutdown waiting for it.
+        // Dropping the JoinHandle detaches the thread; it will finish in the
+        // background without blocking the main/render thread.
+        if let Some(_handle) = self.ir_thread.take() {
+            log::info!("CourseResult: detaching IR send thread on shutdown");
         }
     }
 
@@ -906,6 +897,31 @@ mod tests {
         <CourseResult as MainState>::dispose(&mut cr);
 
         assert!(cr.main_data.skin.is_none(), "dispose should clear skin");
+    }
+
+    /// Regression: shutdown() must not block on a long-running IR thread.
+    /// The thread is detached (JoinHandle dropped), not sleep-polled.
+    #[test]
+    fn shutdown_does_not_block_on_ir_thread() {
+        let mut cr = make_default();
+        // Inject a thread that sleeps for a long time
+        let handle = std::thread::spawn(|| {
+            std::thread::sleep(std::time::Duration::from_secs(60));
+        });
+        cr.ir_thread = Some(handle);
+
+        let start = std::time::Instant::now();
+        cr.shutdown();
+        let elapsed = start.elapsed();
+
+        // shutdown() should return nearly instantly (detach, not join)
+        assert!(
+            elapsed < std::time::Duration::from_secs(1),
+            "shutdown() blocked for {:?}, should be non-blocking",
+            elapsed
+        );
+        // The thread handle should have been taken
+        assert!(cr.ir_thread.is_none());
     }
 
     // ---- IR processing tests ----
