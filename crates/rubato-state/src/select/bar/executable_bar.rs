@@ -54,6 +54,10 @@ impl ExecutableBar {
     }
 
     fn _get_song_data(&self) -> SongData {
+        if self.songs.is_empty() {
+            return SongData::default();
+        }
+
         let mut queue = lock_or_recover(&self.queue);
         if queue.is_empty() {
             drop(queue);

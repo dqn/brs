@@ -76,6 +76,10 @@ impl PracticeProperty {
         self.doubleop = self.doubleop.rem_euclid(DPRANDOM.len() as i32);
         self.graphtype = self.graphtype.rem_euclid(GRAPHTYPESTR.len() as i32);
         self.freq = self.freq.clamp(50, 200);
+        self.starttime = self.starttime.max(0);
+        self.endtime = self.endtime.max(self.starttime);
+        self.startgauge = self.startgauge.clamp(0, 100);
+        self.judgerank = self.judgerank.clamp(1, 400);
     }
 }
 
