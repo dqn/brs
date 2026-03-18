@@ -288,10 +288,9 @@ fn compute_note_draw_commands_produces_commands() {
     );
 
     // 4. Build a DrawLaneContext with TIMER_PLAY active.
-    // Safety: all_timelines is consumed synchronously within compute_note_draw_commands;
-    // model.timelines outlives the call. Same pattern as render_skin_impl.
-    let all_timelines: &'static [TimeLine] =
-        unsafe { std::mem::transmute(model.timelines.as_slice()) };
+    // Safety: model.timelines outlives the DrawLaneContext (consumed synchronously below).
+    let all_timelines =
+        unsafe { rubato_play::lane_renderer::TimelinesRef::from_slice(&model.timelines) };
     let draw_ctx = DrawLaneContext {
         time: 1000,
         timer_play: Some(0), // TIMER_PLAY started at time 0

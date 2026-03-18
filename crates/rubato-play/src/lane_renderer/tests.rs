@@ -22,7 +22,7 @@ fn make_timeline(section: f64, time_us: i64, bpm: f64, notesize: i32) -> TimeLin
     tl
 }
 
-fn default_ctx(all_timelines: &[TimeLine]) -> DrawLaneContext<'_> {
+fn default_ctx(all_timelines: &[TimeLine]) -> DrawLaneContext {
     DrawLaneContext {
         time: 0,
         timer_play: Some(0),
@@ -46,7 +46,8 @@ fn default_ctx(all_timelines: &[TimeLine]) -> DrawLaneContext<'_> {
         hell_charge_judges: vec![false; 8],
         bad_judge_time: 0,
         model_bpm: 120.0,
-        all_timelines,
+        // Safety: all_timelines outlives the DrawLaneContext in every test.
+        all_timelines: unsafe { TimelinesRef::from_slice(all_timelines) },
         forced_cn_endings: false,
     }
 }

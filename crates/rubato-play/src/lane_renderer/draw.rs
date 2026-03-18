@@ -79,7 +79,9 @@ impl LaneRenderer {
 
         // Get the filtered timelines (indices into all_timelines)
         let timelines = &self.timeline_indices;
-        let all_tl = ctx.all_timelines;
+        // Safety: the source slice (BMSPlayer.model.timelines) outlives this
+        // synchronous draw_lane() call.
+        let all_tl = unsafe { ctx.all_timelines.as_slice() };
 
         // Resolve timelines: for each index, get the actual TimeLine reference
         // Build a local vec of references for the filtered timelines
