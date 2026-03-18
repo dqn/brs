@@ -139,9 +139,8 @@ impl StreamController {
         self.shutdown.store(true, Ordering::SeqCst);
 
         // Dispose commands owned by the reader thread
-        if let Some(ref shared) = self.shared_commands
-            && let Ok(mut cmds) = shared.lock()
-        {
+        if let Some(ref shared) = self.shared_commands {
+            let mut cmds = lock_or_recover(shared);
             for cmd in cmds.iter_mut() {
                 cmd.dispose();
             }
