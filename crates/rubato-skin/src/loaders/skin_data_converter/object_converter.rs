@@ -59,6 +59,7 @@ pub(super) fn convert_skin_object(
     usecim: bool,
     scale_x: f32,
     scale_y: f32,
+    filemap: &HashMap<String, String>,
 ) -> Option<SkinObject> {
     match obj_type {
         SkinObjectType::Unknown => None,
@@ -82,7 +83,7 @@ pub(super) fn convert_skin_object(
             is_movie,
         } => convert_image(
             src, *x, *y, *w, *h, *divx, *divy, *timer, *cycle, *len, *ref_id, *is_movie,
-            source_map, skin_path, usecim,
+            source_map, skin_path, usecim, filemap,
         ),
 
         SkinObjectType::ImageSet {
@@ -94,7 +95,7 @@ pub(super) fn convert_skin_object(
         } => convert_image_set(images, *ref_id, *value),
 
         SkinObjectType::ResolvedImageSet { images, ref_id } => {
-            resolve_image_set(images, *ref_id, source_map, skin_path, usecim)
+            resolve_image_set(images, *ref_id, source_map, skin_path, usecim, filemap)
         }
 
         SkinObjectType::Number {
@@ -136,6 +137,7 @@ pub(super) fn convert_skin_object(
             source_map,
             skin_path,
             usecim,
+            filemap,
         ),
 
         SkinObjectType::Float {
@@ -180,6 +182,7 @@ pub(super) fn convert_skin_object(
             source_map,
             skin_path,
             usecim,
+            filemap,
         ),
 
         SkinObjectType::Text {
@@ -253,6 +256,7 @@ pub(super) fn convert_skin_object(
             source_map,
             skin_path,
             usecim,
+            filemap,
         ),
 
         SkinObjectType::Graph {
@@ -290,6 +294,7 @@ pub(super) fn convert_skin_object(
             source_map,
             skin_path,
             usecim,
+            filemap,
         ),
 
         SkinObjectType::DistributionGraph { graph_type, .. } => {
@@ -483,6 +488,7 @@ pub(super) fn convert_skin_object(
             source_map,
             skin_path,
             usecim,
+            filemap,
         ),
 
         SkinObjectType::Note => {
@@ -518,6 +524,7 @@ pub(super) fn convert_skin_object(
             source_map,
             skin_path,
             usecim,
+            filemap,
         ),
 
         SkinObjectType::LiftCover {
@@ -548,6 +555,7 @@ pub(super) fn convert_skin_object(
             source_map,
             skin_path,
             usecim,
+            filemap,
         ),
 
         SkinObjectType::Bga { bga_expand } => {
@@ -599,6 +607,7 @@ fn convert_image(
     source_map: &mut HashMap<String, SourceData>,
     skin_path: &Path,
     usecim: bool,
+    filemap: &HashMap<String, String>,
 ) -> Option<SkinObject> {
     if is_movie {
         // Movie sources: resolve source ID through source_map to get actual file path,
@@ -614,7 +623,7 @@ fn convert_image(
         return Some(SkinObject::Image(SkinImage::new_with_movie(movie_source)));
     }
 
-    let tex = get_texture_for_src(src.as_deref(), source_map, skin_path, usecim)?;
+    let tex = get_texture_for_src(src.as_deref(), source_map, skin_path, usecim, filemap)?;
     let srcimg = source_image(&tex, x, y, w, h, divx, divy);
 
     if len > 1 {
@@ -686,8 +695,9 @@ fn convert_number(
     source_map: &mut HashMap<String, SourceData>,
     skin_path: &Path,
     usecim: bool,
+    filemap: &HashMap<String, String>,
 ) -> Option<SkinObject> {
-    let tex = get_texture_for_src(src.as_deref(), source_map, skin_path, usecim)?;
+    let tex = get_texture_for_src(src.as_deref(), source_map, skin_path, usecim, filemap)?;
     let images = source_image(&tex, x, y, w, h, divx, divy);
     let timer_val = timer.unwrap_or(0);
 
@@ -798,11 +808,12 @@ fn convert_float(
     source_map: &mut HashMap<String, SourceData>,
     skin_path: &Path,
     usecim: bool,
+    filemap: &HashMap<String, String>,
 ) -> Option<SkinObject> {
     // SkinFloat construction requires complex image splitting.
     // For now, create a stub that won't crash but won't render either.
     warn!("Float conversion creates placeholder (full SkinFloat image splitting deferred)");
-    let tex = get_texture_for_src(src.as_deref(), source_map, skin_path, usecim);
+    let tex = get_texture_for_src(src.as_deref(), source_map, skin_path, usecim, filemap);
     tex.as_ref()?;
     let tex = tex.expect("tex");
     let images = source_image(&tex, x, y, w, h, divx, divy);
@@ -1091,8 +1102,9 @@ fn convert_slider(
     source_map: &mut HashMap<String, SourceData>,
     skin_path: &Path,
     usecim: bool,
+    filemap: &HashMap<String, String>,
 ) -> Option<SkinObject> {
-    let tex = get_texture_for_src(src.as_deref(), source_map, skin_path, usecim)?;
+    let tex = get_texture_for_src(src.as_deref(), source_map, skin_path, usecim, filemap)?;
     let images = source_image(&tex, x, y, w, h, divx, divy);
     let timer_val = timer.unwrap_or(0);
     let type_id = value.unwrap_or(slider_type);
@@ -1121,8 +1133,9 @@ fn convert_graph(
     source_map: &mut HashMap<String, SourceData>,
     skin_path: &Path,
     usecim: bool,
+    filemap: &HashMap<String, String>,
 ) -> Option<SkinObject> {
-    let tex = get_texture_for_src(src.as_deref(), source_map, skin_path, usecim)?;
+    let tex = get_texture_for_src(src.as_deref(), source_map, skin_path, usecim, filemap)?;
     let images = source_image(&tex, x, y, w, h, divx, divy);
     let timer_val = timer.unwrap_or(0);
     if let Some(val) = value {
@@ -1349,6 +1362,7 @@ fn convert_gauge(
     source_map: &mut HashMap<String, SourceData>,
     skin_path: &Path,
     usecim: bool,
+    filemap: &HashMap<String, String>,
 ) -> Option<SkinObject> {
     // Resolve gauge node IDs to TextureRegion images via source_map.
     // Each node string references a source entry; resolve to a full-texture TextureRegion.
@@ -1356,7 +1370,7 @@ fn convert_gauge(
     // With 36 nodes, each maps 1:1 to a slot.
     let mut resolved_nodes: Vec<Option<TextureRegion>> = Vec::with_capacity(nodes.len());
     for node_id in nodes {
-        let tex = get_texture_for_src(Some(node_id), source_map, skin_path, usecim);
+        let tex = get_texture_for_src(Some(node_id), source_map, skin_path, usecim, filemap);
         resolved_nodes.push(tex.map(TextureRegion::from_texture));
     }
 
@@ -1418,12 +1432,13 @@ fn convert_hidden_cover(
     source_map: &mut HashMap<String, SourceData>,
     skin_path: &Path,
     usecim: bool,
+    filemap: &HashMap<String, String>,
 ) -> Option<SkinObject> {
     // HiddenCover: create SkinHidden with texture and disappear line.
     // Java: new SkinHidden(getSourceImage(tex,...), timer, cycle)
     //       setDisapearLine(disapearLine * scaleY)
     //       offsets += [OFFSET_LIFT, OFFSET_HIDDEN_COVER]
-    let tex = get_texture_for_src(src.as_deref(), source_map, skin_path, usecim);
+    let tex = get_texture_for_src(src.as_deref(), source_map, skin_path, usecim, filemap);
     if let Some(tex) = tex {
         let srcimg = source_image(&tex, x, y, w, h, divx, divy);
         let timer_val = timer.unwrap_or(0);
@@ -1454,9 +1469,10 @@ fn convert_lift_cover(
     source_map: &mut HashMap<String, SourceData>,
     skin_path: &Path,
     usecim: bool,
+    filemap: &HashMap<String, String>,
 ) -> Option<SkinObject> {
     // LiftCover: same as HiddenCover but offset list only adds OFFSET_LIFT.
-    let tex = get_texture_for_src(src.as_deref(), source_map, skin_path, usecim);
+    let tex = get_texture_for_src(src.as_deref(), source_map, skin_path, usecim, filemap);
     if let Some(tex) = tex {
         let srcimg = source_image(&tex, x, y, w, h, divx, divy);
         let timer_val = timer.unwrap_or(0);

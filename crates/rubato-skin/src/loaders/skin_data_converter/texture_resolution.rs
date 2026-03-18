@@ -1,18 +1,23 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use crate::json::json_skin_loader::{ResolvedImageEntry, SourceData, SourceDataType};
+use crate::json::json_skin_loader::{
+    ResolvedImageEntry, SourceData, SourceDataType, get_path_with_filemap,
+};
 use crate::json::json_skin_object_loader::{source_image, utilities::resolve_wildcard_path};
 use crate::objects::skin_image::SkinImage;
 use crate::reexports::TextureRegion;
 use crate::types::skin::SkinObject;
 
 /// Loads a texture from the source map, resolving the source ID path.
+/// Applies filemap substitution to the resolved path, matching the behavior of
+/// `utilities::texture()` in `json_skin_object_loader`.
 pub(super) fn get_texture_for_src(
     src_id: Option<&str>,
     source_map: &mut HashMap<String, SourceData>,
     skin_path: &Path,
     _usecim: bool,
+    filemap: &HashMap<String, String>,
 ) -> Option<crate::reexports::Texture> {
     let src_id = src_id?;
 
@@ -38,11 +43,13 @@ pub(super) fn get_texture_for_src(
     // but this format concatenation does not. Absolute source paths are extremely rare in
     // practice (skins use relative paths).
     let image_path = format!("{}/{}", parent, data_path);
+    // Apply filemap substitution to the full path, matching utilities::texture() behavior.
+    let image_file = get_path_with_filemap(&image_path, filemap);
 
-    let resolved_path = if std::path::Path::new(&image_path).exists() {
-        Some(image_path)
-    } else if image_path.contains('*') {
-        resolve_wildcard_path(&image_path)
+    let resolved_path = if std::path::Path::new(&image_file).exists() {
+        Some(image_file)
+    } else if image_file.contains('*') {
+        resolve_wildcard_path(&image_file)
     } else {
         None
     };
@@ -71,6 +78,7 @@ pub(super) fn resolve_image_set(
     source_map: &mut HashMap<String, SourceData>,
     skin_path: &Path,
     usecim: bool,
+    filemap: &HashMap<String, String>,
 ) -> Option<SkinObject> {
     if entries.is_empty() {
         return None;
@@ -78,7 +86,8 @@ pub(super) fn resolve_image_set(
     let images: Vec<Vec<TextureRegion>> = entries
         .iter()
         .filter_map(|entry| {
-            let tex = get_texture_for_src(entry.src.as_deref(), source_map, skin_path, usecim)?;
+            let tex =
+                get_texture_for_src(entry.src.as_deref(), source_map, skin_path, usecim, filemap)?;
             Some(source_image(
                 &tex, entry.x, entry.y, entry.w, entry.h, entry.divx, entry.divy,
             ))

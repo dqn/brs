@@ -198,6 +198,7 @@ pub fn load_skin_from_config(
             &path,
             loader.usecim,
             &loader.dstr,
+            &loader.filemap,
         );
 
         if let Ok(guard) = RESOURCE.lock()
@@ -218,6 +219,7 @@ pub fn load_skin_from_config(
             &path,
             loader.json_loader.usecim,
             &loader.json_loader.dstr,
+            &loader.json_loader.filemap,
         );
 
         if let Ok(guard) = RESOURCE.lock()
@@ -278,6 +280,7 @@ pub fn load_skin_from_path_with_state(
             &path,
             loader.usecim,
             &loader.dstr,
+            &loader.filemap,
         )
     } else if skin_path.ends_with(".luaskin") {
         let mut loader = crate::lua::lua_skin_loader::LuaSkinLoader::new_with_state(state, &config);
@@ -290,6 +293,7 @@ pub fn load_skin_from_path_with_state(
             &path,
             loader.json_loader.usecim,
             &loader.json_loader.dstr,
+            &loader.json_loader.filemap,
         )
     } else {
         let dst = crate::reexports::Resolution {

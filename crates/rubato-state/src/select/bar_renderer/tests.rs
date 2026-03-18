@@ -352,6 +352,7 @@ fn test_bar_renderer_render_draws_ecfn_loaded_songlist_bitmap_bartext_quads() {
         &path,
         loader.json_loader.usecim,
         &loader.json_loader.dstr,
+        &loader.json_loader.filemap,
     )
     .expect("ECFN select Lua skin should convert into runtime Skin");
     let mut bar_data = skin
@@ -433,6 +434,7 @@ fn test_bar_renderer_centers_ecfn_loaded_songlist_bitmap_bartext_vertically() {
         &path,
         loader.json_loader.usecim,
         &loader.json_loader.dstr,
+        &loader.json_loader.filemap,
     )
     .expect("ECFN select Lua skin should convert into runtime Skin");
     let mut bar_data = skin

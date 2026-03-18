@@ -26,6 +26,7 @@ pub(super) fn build_select_bar_data(
     usecim: bool,
     scale_x: f32,
     scale_y: f32,
+    filemap: &HashMap<String, String>,
 ) -> crate::select_bar_data::SelectBarData {
     crate::select_bar_data::SelectBarData {
         barimageon: convert_bar_sub_images(
@@ -35,6 +36,7 @@ pub(super) fn build_select_bar_data(
             usecim,
             scale_x,
             scale_y,
+            filemap,
         ),
         barimageoff: convert_bar_sub_images(
             &bar_data.listoff,
@@ -43,6 +45,7 @@ pub(super) fn build_select_bar_data(
             usecim,
             scale_x,
             scale_y,
+            filemap,
         ),
         center_bar: center,
         clickable_bar: clickable.to_vec(),
@@ -53,6 +56,7 @@ pub(super) fn build_select_bar_data(
             usecim,
             scale_x,
             scale_y,
+            filemap,
         ),
         bartext: convert_bar_sub_text(
             &bar_data.text,
@@ -61,6 +65,7 @@ pub(super) fn build_select_bar_data(
             usecim,
             scale_x,
             scale_y,
+            filemap,
         ),
         barlamp: convert_bar_sub_images(
             &bar_data.lamp,
@@ -69,6 +74,7 @@ pub(super) fn build_select_bar_data(
             usecim,
             scale_x,
             scale_y,
+            filemap,
         ),
         barmylamp: convert_bar_sub_images(
             &bar_data.playerlamp,
@@ -77,6 +83,7 @@ pub(super) fn build_select_bar_data(
             usecim,
             scale_x,
             scale_y,
+            filemap,
         ),
         barrivallamp: convert_bar_sub_images(
             &bar_data.rivallamp,
@@ -85,6 +92,7 @@ pub(super) fn build_select_bar_data(
             usecim,
             scale_x,
             scale_y,
+            filemap,
         ),
         bartrophy: convert_bar_sub_images(
             &bar_data.trophy,
@@ -93,6 +101,7 @@ pub(super) fn build_select_bar_data(
             usecim,
             scale_x,
             scale_y,
+            filemap,
         ),
         barlabel: convert_bar_sub_images(
             &bar_data.label,
@@ -101,9 +110,16 @@ pub(super) fn build_select_bar_data(
             usecim,
             scale_x,
             scale_y,
+            filemap,
         ),
         graph_type: resolve_graph_type(bar_data.graph.as_ref()),
-        graph_images: resolve_graph_images(bar_data.graph.as_ref(), source_map, skin_path, usecim),
+        graph_images: resolve_graph_images(
+            bar_data.graph.as_ref(),
+            source_map,
+            skin_path,
+            usecim,
+            filemap,
+        ),
         graph_region: resolve_graph_region(bar_data.graph.as_ref(), scale_x, scale_y),
     }
 }
@@ -115,6 +131,7 @@ fn convert_bar_sub_images(
     usecim: bool,
     scale_x: f32,
     scale_y: f32,
+    filemap: &HashMap<String, String>,
 ) -> Vec<Option<SkinImage>> {
     objs.iter()
         .map(|opt_obj| {
@@ -126,6 +143,7 @@ fn convert_bar_sub_images(
                 usecim,
                 scale_x,
                 scale_y,
+                filemap,
             )?;
             if let SkinObject::Image(mut img) = skin_obj {
                 apply_scaled_destinations(&mut img.data, &obj_data.destinations, scale_x, scale_y);
@@ -144,6 +162,7 @@ fn convert_bar_sub_text(
     usecim: bool,
     scale_x: f32,
     scale_y: f32,
+    filemap: &HashMap<String, String>,
 ) -> Vec<Option<crate::skin_text::SkinTextEnum>> {
     objs.iter()
         .map(|opt_obj| {
@@ -155,6 +174,7 @@ fn convert_bar_sub_text(
                 usecim,
                 scale_x,
                 scale_y,
+                filemap,
             )?;
             match skin_obj {
                 SkinObject::TextFont(mut stf) => {
@@ -188,6 +208,7 @@ fn convert_bar_sub_numbers(
     usecim: bool,
     scale_x: f32,
     scale_y: f32,
+    filemap: &HashMap<String, String>,
 ) -> Vec<Option<SkinNumber>> {
     objs.iter()
         .map(|opt_obj| {
@@ -199,6 +220,7 @@ fn convert_bar_sub_numbers(
                 usecim,
                 scale_x,
                 scale_y,
+                filemap,
             )?;
             if let SkinObject::Number(mut num) = skin_obj {
                 apply_scaled_destinations(&mut num.data, &obj_data.destinations, scale_x, scale_y);
@@ -257,6 +279,7 @@ fn resolve_graph_images(
     source_map: &mut HashMap<String, SourceData>,
     skin_path: &Path,
     usecim: bool,
+    filemap: &HashMap<String, String>,
 ) -> Option<Vec<TextureRegion>> {
     let graph = graph?;
     let (src, x, y, w, h, divx, divy) = match &graph.object_type {
@@ -282,7 +305,7 @@ fn resolve_graph_images(
         } => (src.as_deref(), *x, *y, *w, *h, *divx, *divy),
         _ => return None,
     };
-    let tex = get_texture_for_src(src, source_map, skin_path, usecim)?;
+    let tex = get_texture_for_src(src, source_map, skin_path, usecim, filemap)?;
     Some(source_image(&tex, x, y, w, h, divx, divy))
 }
 
