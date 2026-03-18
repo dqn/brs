@@ -294,7 +294,7 @@ impl KeyBoardInputProcesseor {
         let accept_input = !rubato_types::skin_widget_focus::focus();
         if accept_input && !self.textmode {
             for (i, &key) in self.keys.iter().enumerate() {
-                if key < 0 {
+                if key < 0 || key as usize >= self.keystate.len() {
                     continue;
                 }
                 let key_idx = key as usize;
@@ -410,10 +410,12 @@ impl KeyBoardInputProcesseor {
 
     pub fn mouse_moved(&self, x: i32, y: i32, callback: &mut dyn KeyboardCallback) -> bool {
         callback.set_mouse_moved(true);
-        callback.set_mouse_x(x * self.resolution.width() / GdxGraphics::get_width());
-        callback.set_mouse_y(
-            self.resolution.height() - y * self.resolution.height() / GdxGraphics::get_height(),
-        );
+        let gw = GdxGraphics::get_width();
+        let gh = GdxGraphics::get_height();
+        if gw > 0 && gh > 0 {
+            callback.set_mouse_x(x * self.resolution.width() / gw);
+            callback.set_mouse_y(self.resolution.height() - y * self.resolution.height() / gh);
+        }
         false
     }
 
@@ -442,10 +444,12 @@ impl KeyBoardInputProcesseor {
         callback: &mut dyn KeyboardCallback,
     ) -> bool {
         callback.set_mouse_button(button);
-        callback.set_mouse_x(x * self.resolution.width() / GdxGraphics::get_width());
-        callback.set_mouse_y(
-            self.resolution.height() - y * self.resolution.height() / GdxGraphics::get_height(),
-        );
+        let gw = GdxGraphics::get_width();
+        let gh = GdxGraphics::get_height();
+        if gw > 0 && gh > 0 {
+            callback.set_mouse_x(x * self.resolution.width() / gw);
+            callback.set_mouse_y(self.resolution.height() - y * self.resolution.height() / gh);
+        }
         callback.set_mouse_pressed(true);
         false
     }
@@ -457,10 +461,12 @@ impl KeyBoardInputProcesseor {
         _point: i32,
         callback: &mut dyn KeyboardCallback,
     ) -> bool {
-        callback.set_mouse_x(x * self.resolution.width() / GdxGraphics::get_width());
-        callback.set_mouse_y(
-            self.resolution.height() - y * self.resolution.height() / GdxGraphics::get_height(),
-        );
+        let gw = GdxGraphics::get_width();
+        let gh = GdxGraphics::get_height();
+        if gw > 0 && gh > 0 {
+            callback.set_mouse_x(x * self.resolution.width() / gw);
+            callback.set_mouse_y(self.resolution.height() - y * self.resolution.height() / gh);
+        }
         callback.set_mouse_dragged(true);
         false
     }
@@ -631,15 +637,104 @@ mod tests {
         assert!(!proc.is_key_pressed_with_modifiers(1000, 0, &[]));
     }
 
+    // -- Finding 1: play key polling bounds check --
+
+    #[test]
+    fn test_poll_with_out_of_range_play_key_does_not_panic() {
+        let shared_state = SharedKeyState::new();
+        let _guard = crate::gdx_compat::set_shared_key_state_guarded(shared_state);
+
+        let mut proc = make_processor();
+        // Set a play key to out-of-bounds value (>= 256)
+        proc.keys = vec![256, 512, 1000];
+
+        let mut events = TestCallback::default();
+        // Should not panic -- out-of-range keys are skipped
+        proc.poll(0, &mut events);
+        assert!(events.key_changes.is_empty());
+    }
+
+    // -- Finding 2: mouse methods zero dimension guard --
+
+    #[test]
+    fn test_mouse_moved_zero_dimensions_does_not_panic() {
+        let shared_state = SharedKeyState::new();
+        shared_state.set_window_size(0, 0);
+        let _guard = crate::gdx_compat::set_shared_key_state_guarded(shared_state);
+
+        let proc = make_processor();
+        let mut events = TestCallback::default();
+        // Should not panic or divide by zero
+        proc.mouse_moved(100, 200, &mut events);
+        // Mouse moved flag is set but coordinates are not updated
+        assert!(events.mouse_moved);
+        assert!(events.mouse_x.is_none());
+        assert!(events.mouse_y.is_none());
+    }
+
+    #[test]
+    fn test_touch_down_zero_dimensions_does_not_panic() {
+        let shared_state = SharedKeyState::new();
+        shared_state.set_window_size(0, 0);
+        let _guard = crate::gdx_compat::set_shared_key_state_guarded(shared_state);
+
+        let proc = make_processor();
+        let mut events = TestCallback::default();
+        // Should not panic or divide by zero
+        proc.touch_down(100, 200, 0, 0, &mut events);
+        // Mouse pressed flag is set but coordinates are not updated
+        assert!(events.mouse_pressed);
+        assert!(events.mouse_x.is_none());
+        assert!(events.mouse_y.is_none());
+    }
+
+    #[test]
+    fn test_touch_dragged_zero_dimensions_does_not_panic() {
+        let shared_state = SharedKeyState::new();
+        shared_state.set_window_size(0, 0);
+        let _guard = crate::gdx_compat::set_shared_key_state_guarded(shared_state);
+
+        let proc = make_processor();
+        let mut events = TestCallback::default();
+        // Should not panic or divide by zero
+        proc.touch_dragged(100, 200, 0, &mut events);
+        // Mouse dragged flag is set but coordinates are not updated
+        assert!(events.mouse_dragged);
+        assert!(events.mouse_x.is_none());
+        assert!(events.mouse_y.is_none());
+    }
+
+    #[test]
+    fn test_mouse_moved_nonzero_dimensions_updates_coordinates() {
+        let shared_state = SharedKeyState::new();
+        shared_state.set_window_size(1920, 1080);
+        let _guard = crate::gdx_compat::set_shared_key_state_guarded(shared_state);
+
+        let proc = make_processor();
+        let mut events = TestCallback::default();
+        proc.mouse_moved(960, 540, &mut events);
+        assert!(events.mouse_moved);
+        assert!(events.mouse_x.is_some());
+        assert!(events.mouse_y.is_some());
+    }
+
     /// Minimal KeyboardCallback implementation for testing
     #[derive(Default)]
     struct TestCallback {
         start_changed: Option<bool>,
         select_changed: Option<bool>,
+        key_changes: Vec<(usize, bool)>,
+        mouse_moved: bool,
+        mouse_pressed: bool,
+        mouse_dragged: bool,
+        mouse_x: Option<i32>,
+        mouse_y: Option<i32>,
     }
 
     impl KeyboardCallback for TestCallback {
-        fn key_changed_from_keyboard(&mut self, _microtime: i64, _key: usize, _pressed: bool) {}
+        fn key_changed_from_keyboard(&mut self, _microtime: i64, key: usize, pressed: bool) {
+            self.key_changes.push((key, pressed));
+        }
         fn start_changed(&mut self, pressed: bool) {
             self.start_changed = Some(pressed);
         }
@@ -647,12 +742,22 @@ mod tests {
             self.select_changed = Some(pressed);
         }
         fn set_analog_state(&mut self, _key: usize, _is_analog: bool, _value: f32) {}
-        fn set_mouse_moved(&mut self, _moved: bool) {}
-        fn set_mouse_x(&mut self, _x: i32) {}
-        fn set_mouse_y(&mut self, _y: i32) {}
+        fn set_mouse_moved(&mut self, moved: bool) {
+            self.mouse_moved = moved;
+        }
+        fn set_mouse_x(&mut self, x: i32) {
+            self.mouse_x = Some(x);
+        }
+        fn set_mouse_y(&mut self, y: i32) {
+            self.mouse_y = Some(y);
+        }
         fn set_mouse_button(&mut self, _button: i32) {}
-        fn set_mouse_pressed(&mut self, _pressed: bool) {}
-        fn set_mouse_dragged(&mut self, _dragged: bool) {}
+        fn set_mouse_pressed(&mut self, pressed: bool) {
+            self.mouse_pressed = pressed;
+        }
+        fn set_mouse_dragged(&mut self, dragged: bool) {
+            self.mouse_dragged = dragged;
+        }
         fn add_scroll_x(&mut self, _amount: f32) {}
         fn add_scroll_y(&mut self, _amount: f32) {}
     }
