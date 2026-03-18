@@ -601,9 +601,16 @@ fn convert_image(
     usecim: bool,
 ) -> Option<SkinObject> {
     if is_movie {
-        // Movie sources: create SkinImage with SkinSourceMovie
-        let movie_path = src.as_deref().unwrap_or("");
-        let movie_source = crate::skin_source_movie::SkinSourceMovie::new(movie_path);
+        // Movie sources: resolve source ID through source_map to get actual file path,
+        // then create SkinImage with SkinSourceMovie
+        let src_id = src.as_deref()?;
+        let data_path = source_map.get(src_id)?.path.clone();
+        let parent = skin_path
+            .parent()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_default();
+        let movie_path = format!("{}/{}", parent, data_path);
+        let movie_source = crate::skin_source_movie::SkinSourceMovie::new(&movie_path);
         return Some(SkinObject::Image(SkinImage::new_with_movie(movie_source)));
     }
 

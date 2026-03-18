@@ -34,6 +34,9 @@ pub(super) fn get_texture_for_src(
         .parent()
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_default();
+    // Java parity note: Java's new File(parent, child) ignores parent if child is absolute,
+    // but this format concatenation does not. Absolute source paths are extremely rare in
+    // practice (skins use relative paths).
     let image_path = format!("{}/{}", parent, data_path);
 
     let resolved_path = if std::path::Path::new(&image_path).exists() {

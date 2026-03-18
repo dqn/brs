@@ -54,6 +54,8 @@ impl KeyConfiguration {
             if idx < pmc.midi.keys.len() {
                 pmc.midi.keys[idx] = None;
             }
+        // Java parity: keyboard.start/select are intentionally NOT cleared here
+        // (only mouse_scratch, controller, and MIDI are cleared for START/SELECT deletion)
         } else if index == -1 {
             pmc.keyboard.mouse_scratch_config.start = NO_ASSIGN;
             for cc in pmc.controller.iter_mut() {

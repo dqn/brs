@@ -25,6 +25,7 @@ impl SystemSoundManager {
         let mut bgms = Vec::new();
         let mut sounds = Vec::new();
 
+        // Java parity: resolves relative to CWD via canonicalize(), matching Java's Paths.get(path).toAbsolutePath()
         if let Some(bp) = bgmpath
             && !bp.is_empty()
         {

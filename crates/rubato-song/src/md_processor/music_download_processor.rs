@@ -393,44 +393,53 @@ fn download_ipfs_thread_run(ipfs: &str, ipfspath: &str, path: &str, message: Arc
         .expect("failed to build HTTP client");
     let download_ok = match client.get(&url_str).send() {
         Ok(mut response) => {
-            let _ = fs::create_dir_all("ipfs");
-            match fs::File::create("ipfs/bms.tar.gz") {
-                Ok(mut out) => {
-                    let chunk_size = 1024 * 512;
-                    let mut total: i64 = 0;
-                    let mut buf = vec![0u8; chunk_size];
-                    let mut write_ok = true;
-                    loop {
-                        use std::io::Read;
-                        match response.read(&mut buf) {
-                            Ok(0) => break,
-                            Ok(n) => {
-                                total += n as i64;
-                                *message.lock().expect("message lock poisoned") =
-                                    format!("downloading:{} {}MB", path, total / 1024 / 1024);
-                                if out.write_all(&buf[..n]).is_err() {
-                                    log::error!(
-                                        "Failed to write download data at offset {}",
-                                        total
-                                    );
+            if !response.status().is_success() {
+                log::error!(
+                    "IPFS download failed with status {}: {}",
+                    response.status(),
+                    url_str
+                );
+                false
+            } else {
+                let _ = fs::create_dir_all("ipfs");
+                match fs::File::create("ipfs/bms.tar.gz") {
+                    Ok(mut out) => {
+                        let chunk_size = 1024 * 512;
+                        let mut total: i64 = 0;
+                        let mut buf = vec![0u8; chunk_size];
+                        let mut write_ok = true;
+                        loop {
+                            use std::io::Read;
+                            match response.read(&mut buf) {
+                                Ok(0) => break,
+                                Ok(n) => {
+                                    total += n as i64;
+                                    *message.lock().expect("message lock poisoned") =
+                                        format!("downloading:{} {}MB", path, total / 1024 / 1024);
+                                    if out.write_all(&buf[..n]).is_err() {
+                                        log::error!(
+                                            "Failed to write download data at offset {}",
+                                            total
+                                        );
+                                        write_ok = false;
+                                        break;
+                                    }
+                                }
+                                Err(e) => {
+                                    log::error!("Download read error: {}", e);
                                     write_ok = false;
                                     break;
                                 }
                             }
-                            Err(e) => {
-                                log::error!("Download read error: {}", e);
-                                write_ok = false;
-                                break;
-                            }
                         }
+                        if write_ok && out.flush().is_err() {
+                            log::error!("Failed to flush output");
+                            write_ok = false;
+                        }
+                        write_ok
                     }
-                    if write_ok && out.flush().is_err() {
-                        log::error!("Failed to flush output");
-                        write_ok = false;
-                    }
-                    write_ok
+                    Err(_) => false,
                 }
-                Err(_) => false,
             }
         }
         Err(_) => {
@@ -442,11 +451,13 @@ fn download_ipfs_thread_run(ipfs: &str, ipfspath: &str, path: &str, message: Arc
     if download_ok {
         // Extract tar.gz
         let gz_path = std::path::Path::new("ipfs/bms.tar.gz");
+        let mut extraction_ok = true;
         if gz_path.exists() {
             let gz_file = match fs::File::open(gz_path) {
                 Ok(f) => f,
                 Err(e) => {
                     log::error!("Failed to open tar.gz: {}", e);
+                    let _ = fs::remove_file(gz_path);
                     return;
                 }
             };
@@ -502,19 +513,26 @@ fn download_ipfs_thread_run(ipfs: &str, ipfspath: &str, path: &str, message: Arc
                                         entry_path,
                                         e
                                     );
+                                    extraction_ok = false;
                                 }
                             }
                             Err(e) => {
                                 log::warn!("Skipping malformed tar entry: {}", e);
+                                extraction_ok = false;
                             }
                         }
                     }
                 }
                 Err(e) => {
                     log::error!("Failed to read tar.gz entries: {}", e);
+                    extraction_ok = false;
                 }
             }
             let _ = fs::remove_file(gz_path);
+            if !extraction_ok {
+                log::error!("Extraction failed; skipping move phase");
+                return;
+            }
         }
     }
 
@@ -526,8 +544,9 @@ fn download_ipfs_thread_run(ipfs: &str, ipfspath: &str, path: &str, message: Arc
             if !dest_path.exists() {
                 let _ = fs::create_dir_all(&dest_path);
             }
-            let mut all_moved = true;
+            let mut all_moved = false;
             if let Ok(entries) = fs::read_dir(&dir) {
+                all_moved = true;
                 for entry in entries.flatten() {
                     let src = entry.path();
                     let dest =
@@ -536,6 +555,8 @@ fn download_ipfs_thread_run(ipfs: &str, ipfspath: &str, path: &str, message: Arc
                         all_moved = false;
                     }
                 }
+            } else {
+                log::error!("Failed to read directory {:?}; skipping cleanup", dir);
             }
             if all_moved {
                 let _ = fs::remove_dir_all(&dir).or_else(|_| fs::remove_file(&dir));

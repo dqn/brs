@@ -121,6 +121,7 @@ impl TableDataAccessor {
         Some(url_to_table_name)
     }
 
+    // Java parity: does not create tabledir; caller (launcher) is expected to ensure it exists
     pub fn write(&self, td: &mut TableData) {
         let path =
             PathBuf::from(&self.tabledir).join(format!("{}.bmt", Self::get_file_name(&td.url)));

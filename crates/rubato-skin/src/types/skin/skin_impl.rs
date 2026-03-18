@@ -404,7 +404,7 @@ impl Skin {
             // Periodic diagnostic: log draw gate results every 300 frames
             static FRAME: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
             let frame_num = FRAME.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-            if frame_num.is_multiple_of(300) {
+            if frame_num.is_multiple_of(300) && log::log_enabled!(log::Level::Info) {
                 let mut drawable: std::collections::HashMap<&str, usize> =
                     std::collections::HashMap::new();
                 let mut skipped: std::collections::HashMap<&str, usize> =

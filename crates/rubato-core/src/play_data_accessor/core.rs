@@ -50,6 +50,7 @@ impl PlayDataAccessor {
         }
     }
 
+    // Java parity: uses config.playername directly; caller is responsible for ensuring it matches the resolved player profile
     pub fn new(config: &Config) -> Self {
         let player = config.playername.clone().unwrap_or_default();
         let playerpath = config.paths.playerpath.clone();

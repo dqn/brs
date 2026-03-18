@@ -39,6 +39,10 @@ impl SkinTextImageSourceData {
     }
 
     pub fn set_path(&mut self, index: i32, path: String) {
+        if index < 0 {
+            log::warn!("set_path called with negative index: {}", index);
+            return;
+        }
         let idx = index as usize;
         while self.paths.len() <= idx {
             self.paths.push(None);
@@ -47,6 +51,9 @@ impl SkinTextImageSourceData {
     }
 
     pub fn path(&self, index: i32) -> Option<&str> {
+        if index < 0 {
+            return None;
+        }
         self.paths.get(index as usize).and_then(|p| p.as_deref())
     }
 
