@@ -100,7 +100,8 @@ impl CourseResult {
                 .groove_gauge()
                 .map(|g| g.gauge_type_length())
                 .unwrap_or(9);
-            for model in &models[course_gauge_size..] {
+            let safe_offset = course_gauge_size.min(models.len());
+            for model in &models[safe_offset..] {
                 let mut list: Vec<Vec<f32>> = Vec::with_capacity(gauge_type_length);
                 for _type_idx in 0..gauge_type_length {
                     let last_note_milli_time = model.last_note_milli_time().max(0);
@@ -497,7 +498,7 @@ impl CourseResult {
                     && input_processor.key_state(i)
                     && input_processor.reset_key_changed_time(i)
                 {
-                    self.data.gauge_type = (self.data.gauge_type - 5) % 3 + 6;
+                    self.data.gauge_type = (self.data.gauge_type.max(5) - 5) % 3 + 6;
                 } else if self.property.assign(i).is_some()
                     && input_processor.key_state(i)
                     && input_processor.reset_key_changed_time(i)

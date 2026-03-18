@@ -58,7 +58,7 @@ impl JudgeManager {
             .unwrap_or_else(|| LaneProperty::new(config.mode));
 
         let lane_count = config.mode.key() as usize;
-        let player_count = config.mode.player() as usize;
+        let player_count = config.mode.player().max(1) as usize;
         let keys_per_player = lane_count / player_count;
 
         // Build judge windows
