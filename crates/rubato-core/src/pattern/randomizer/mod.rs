@@ -349,25 +349,13 @@ impl Randomizer {
             }
             Randomizer::Spiral(r) => {
                 r.base.set_modify_lanes(lanes);
-                // Accepted trade-off: first next_int_bounded call's value is always
-                // overwritten (by line below or the else branch), consuming one extra
-                // RNG step. Without the Java source, we cannot verify whether this
-                // matches the original's RNG sequence. Preserved as-is for safety.
-                r.increment = r
-                    .base
-                    .random
-                    .next_int_bounded((lanes.len().max(1) + 1) as i32)
-                    as usize;
-                if r.increment == 0 && !lanes.is_empty() {
-                    r.increment = 1;
+                // Java: this.increment = random.nextInt(lanes.length - 1) + 1;
+                // Single RNG call matching Java parity.
+                r.increment = if lanes.len() > 1 {
+                    r.base.random.next_int_bounded((lanes.len() - 1) as i32) as usize + 1
                 } else {
-                    let upper = lanes.len().max(1);
-                    r.increment = if upper > 1 {
-                        r.base.random.next_int_bounded((upper - 1) as i32) as usize + 1
-                    } else {
-                        1
-                    };
-                }
+                    1
+                };
                 r.head = 0;
                 r.cycle = lanes.len();
             }
@@ -643,6 +631,34 @@ mod tests {
     fn spiral_randomizer_default_trait() {
         let r = SpiralRandomizer::default();
         assert_eq!(r.increment, 0);
+    }
+
+    #[test]
+    fn spiral_set_modify_lanes_consumes_one_rng_call() {
+        // Java SpiralRandomizer.setModifyLanes() calls random.nextInt(lanes.length - 1) + 1
+        // exactly once. The Rust version was consuming 2 RNG calls (one discarded).
+        // Verify by comparing RNG state after set_modify_lanes with a control
+        // that manually consumes exactly 1 call.
+        let lanes: Vec<i32> = (0..7).collect();
+        let seed = 42i64;
+
+        // Run set_modify_lanes through the Randomizer enum (which delegates to Spiral arm)
+        let config = PlayerConfig::default();
+        let mut r = Randomizer::create(Random::Spiral, &Mode::BEAT_7K, &config);
+        r.set_random_seed(seed);
+        r.set_modify_lanes(&lanes);
+        // After set_modify_lanes, consume one more RNG value to observe the state
+        let val_after = r.base_mut().random.next_int_bounded(1000);
+
+        // Control: manually consume exactly 1 RNG call (matching Java)
+        let mut control = crate::pattern::java_random::JavaRandom::new(seed);
+        let _single_call = control.next_int_bounded((lanes.len() - 1) as i32);
+        let control_val = control.next_int_bounded(1000);
+
+        assert_eq!(
+            val_after, control_val,
+            "After set_modify_lanes, RNG state should match consuming exactly 1 call"
+        );
     }
 
     // -- AllScratchRandomizer --
