@@ -202,7 +202,7 @@ impl SkinSource for SkinSourceMovie {
         {
             use crate::reexports::Texture;
 
-            let mut guard = self.decoder.lock().ok()?;
+            let mut guard = rubato_types::sync_utils::lock_or_recover(&self.decoder);
             let decoder = guard.as_mut()?;
             let (rgba_data, width, height) = decoder.decode_frame(time)?;
 
