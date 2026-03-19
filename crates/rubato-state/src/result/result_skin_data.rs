@@ -24,7 +24,7 @@ impl ResultSkinData {
         timing_skin.fadeout = skin.fadeout();
         Self {
             skin: timing_skin,
-            ranktime: skin.ranktime,
+            ranktime: skin.ranktime(),
         }
     }
 

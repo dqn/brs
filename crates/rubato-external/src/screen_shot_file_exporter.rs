@@ -200,23 +200,16 @@ impl ScreenShotFileExporter {
 
 impl Drop for ScreenShotFileExporter {
     fn drop(&mut self) {
-        // Join the webhook thread on drop to prevent orphaned threads.
+        // Webhook sends are fire-and-forget. Let any in-flight thread
+        // finish on its own instead of busy-waiting up to 10s, which
+        // would freeze the render thread during shutdown.
+        // If the thread finished, join to collect panics; otherwise detach (drop the JoinHandle).
         if let Ok(mut guard) = self.webhook_thread.lock()
             && let Some(handle) = guard.take()
+            && handle.is_finished()
+            && let Err(e) = handle.join()
         {
-            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
-            while !handle.is_finished() {
-                if std::time::Instant::now() >= deadline {
-                    log::warn!("Webhook send thread did not finish within 10s timeout on drop");
-                    break;
-                }
-                std::thread::sleep(std::time::Duration::from_millis(50));
-            }
-            if handle.is_finished()
-                && let Err(e) = handle.join()
-            {
-                log::warn!("Webhook send thread panicked: {:?}", e);
-            }
+            log::warn!("Webhook send thread panicked: {:?}", e);
         }
     }
 }

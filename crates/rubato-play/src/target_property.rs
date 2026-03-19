@@ -408,6 +408,9 @@ pub struct InternetRankingTargetProperty {
     ir_result_rx: Option<std::sync::mpsc::Receiver<ScoreData>>,
     /// Whether async IR loading has been initiated for the current song.
     loading_initiated: bool,
+    /// JoinHandle for the background IR fetch thread. Stored to prevent
+    /// unbounded thread accumulation during rapid song navigation.
+    fetch_handle: Option<std::thread::JoinHandle<()>>,
 }
 
 impl InternetRankingTargetProperty {
@@ -419,6 +422,7 @@ impl InternetRankingTargetProperty {
             target_score: ScoreData::default(),
             ir_result_rx: None,
             loading_initiated: false,
+            fetch_handle: None,
         }
     }
 
@@ -441,6 +445,21 @@ impl InternetRankingTargetProperty {
         if self.loading_initiated {
             return;
         }
+
+        // If a previous fetch thread is still running, skip spawning a new one
+        // to prevent unbounded thread accumulation during rapid song navigation.
+        // The old thread will finish on its own; its result is discarded because
+        // reset_loading() already dropped the old receiver.
+        if let Some(ref handle) = self.fetch_handle
+            && !handle.is_finished()
+        {
+            return;
+        }
+        // Join the finished previous thread (if any) to clean up resources.
+        if let Some(handle) = self.fetch_handle.take() {
+            let _ = handle.join();
+        }
+
         self.loading_initiated = true;
 
         // Capture the player's saved EX score for IRTarget::Next baseline
@@ -449,7 +468,7 @@ impl InternetRankingTargetProperty {
         let (tx, rx) = std::sync::mpsc::channel();
         self.ir_result_rx = Some(rx);
 
-        std::thread::spawn(move || {
+        let handle = std::thread::spawn(move || {
             let mut ranking = rubato_ir::ranking_data::RankingData::new();
             ranking.load_song(&*connection, &chart, local_score.as_ref());
 
@@ -497,12 +516,17 @@ impl InternetRankingTargetProperty {
                 let _ = tx.send(score);
             }
         });
+        self.fetch_handle = Some(handle);
     }
 
     /// Reset loading state (e.g., when switching to a new song).
     pub fn reset_loading(&mut self) {
         self.ir_result_rx = None;
         self.loading_initiated = false;
+        // Note: fetch_handle is intentionally NOT cleared here.
+        // The old thread continues running but its result is discarded
+        // (the receiver was dropped above). initiate_load() will check
+        // if the handle is finished before spawning a new thread.
     }
 
     /// Translated from: Java InternetRankingTargetProperty.getTarget(MainController)

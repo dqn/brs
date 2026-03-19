@@ -281,6 +281,7 @@ impl LR2SkinLoaderAccess for LR2ResultSkinLoaderState {
             skin.add(SkinObject::TimingDistributionGraph(obj));
         }
 
+        // Propagate ranktime to the Skin so ResultSkinData can read it.
         skin.ranktime = self.ranktime;
     }
 }
