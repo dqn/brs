@@ -168,7 +168,7 @@ impl LR2SelectSkinLoaderState {
                     let dstw = safe_div_f32(self.csv.dst.width, self.csv.src.width);
                     let dsth = safe_div_f32(self.csv.dst.height, self.csv.src.height);
                     let offsets = lr2_skin_loader::read_offset(str_parts, 21);
-                    img.data.set_destination_with_int_timer_ops(
+                    img.data.set_destination_with_int_timer_and_offsets(
                         &DestinationParams {
                             time: values[2] as i64,
                             x: values[3] as f32 * dstw,
@@ -187,6 +187,9 @@ impl LR2SelectSkinLoaderState {
                             loop_val: values[16],
                         },
                         values[17],
+                        values[18],
+                        values[19],
+                        values[20],
                         &offsets,
                     );
                 }
@@ -224,7 +227,7 @@ impl LR2SelectSkinLoaderState {
                     let dstw = safe_div_f32(self.csv.dst.width, self.csv.src.width);
                     let dsth = safe_div_f32(self.csv.dst.height, self.csv.src.height);
                     let offsets = lr2_skin_loader::read_offset(str_parts, 21);
-                    img.data.set_destination_with_int_timer_ops(
+                    img.data.set_destination_with_int_timer_and_offsets(
                         &DestinationParams {
                             time: values[2] as i64,
                             x: values[3] as f32 * dstw,
@@ -243,6 +246,9 @@ impl LR2SelectSkinLoaderState {
                             loop_val: values[16],
                         },
                         values[17],
+                        values[18],
+                        values[19],
+                        values[20],
                         &offsets,
                     );
                 }
@@ -359,7 +365,7 @@ impl LR2SelectSkinLoaderState {
                     let dstw = safe_div_f32(self.csv.dst.width, self.csv.src.width);
                     let dsth = safe_div_f32(self.csv.dst.height, self.csv.src.height);
                     let offsets = lr2_skin_loader::read_offset(str_parts, 21);
-                    sn.data.set_destination_with_int_timer_ops(
+                    sn.data.set_destination_with_int_timer_and_offsets(
                         &DestinationParams {
                             time: values[2] as i64,
                             x: values[3] as f32 * dstw,
@@ -378,6 +384,9 @@ impl LR2SelectSkinLoaderState {
                             loop_val: values[16],
                         },
                         values[17],
+                        values[18],
+                        values[19],
+                        values[20],
                         &offsets,
                     );
                 }
@@ -428,7 +437,7 @@ impl LR2SelectSkinLoaderState {
                         if uid < self.barlamp.len()
                             && let Some(ref mut lamp) = self.barlamp[uid]
                         {
-                            lamp.data.set_destination_with_int_timer_ops(
+                            lamp.data.set_destination_with_int_timer_and_offsets(
                                 &DestinationParams {
                                     time: values[2] as i64,
                                     x: values[3] as f32 * dstw,
@@ -447,6 +456,9 @@ impl LR2SelectSkinLoaderState {
                                     loop_val: values[16],
                                 },
                                 values[17],
+                                values[18],
+                                values[19],
+                                values[20],
                                 &offsets,
                             );
                         }
@@ -499,7 +511,7 @@ impl LR2SelectSkinLoaderState {
                         if uid < self.barmylamp.len()
                             && let Some(ref mut lamp) = self.barmylamp[uid]
                         {
-                            lamp.data.set_destination_with_int_timer_ops(
+                            lamp.data.set_destination_with_int_timer_and_offsets(
                                 &DestinationParams {
                                     time: values[2] as i64,
                                     x: values[3] as f32 * dstw,
@@ -518,6 +530,9 @@ impl LR2SelectSkinLoaderState {
                                     loop_val: values[16],
                                 },
                                 values[17],
+                                values[18],
+                                values[19],
+                                values[20],
                                 &offsets,
                             );
                         }
@@ -570,7 +585,7 @@ impl LR2SelectSkinLoaderState {
                         if uid < self.barrivallamp.len()
                             && let Some(ref mut lamp) = self.barrivallamp[uid]
                         {
-                            lamp.data.set_destination_with_int_timer_ops(
+                            lamp.data.set_destination_with_int_timer_and_offsets(
                                 &DestinationParams {
                                     time: values[2] as i64,
                                     x: values[3] as f32 * dstw,
@@ -589,6 +604,9 @@ impl LR2SelectSkinLoaderState {
                                     loop_val: values[16],
                                 },
                                 values[17],
+                                values[18],
+                                values[19],
+                                values[20],
                                 &offsets,
                             );
                         }
@@ -629,7 +647,7 @@ impl LR2SelectSkinLoaderState {
                     let dstw = safe_div_f32(self.csv.dst.width, self.csv.src.width);
                     let dsth = safe_div_f32(self.csv.dst.height, self.csv.src.height);
                     let offsets = lr2_skin_loader::read_offset(str_parts, 21);
-                    trophy.data.set_destination_with_int_timer_ops(
+                    trophy.data.set_destination_with_int_timer_and_offsets(
                         &DestinationParams {
                             time: values[2] as i64,
                             x: values[3] as f32 * dstw,
@@ -648,6 +666,9 @@ impl LR2SelectSkinLoaderState {
                             loop_val: values[16],
                         },
                         values[17],
+                        values[18],
+                        values[19],
+                        values[20],
                         &offsets,
                     );
                 }
@@ -686,7 +707,7 @@ impl LR2SelectSkinLoaderState {
                     let dstw = safe_div_f32(self.csv.dst.width, self.csv.src.width);
                     let dsth = safe_div_f32(self.csv.dst.height, self.csv.src.height);
                     let offsets = lr2_skin_loader::read_offset(str_parts, 21);
-                    label.data.set_destination_with_int_timer_ops(
+                    label.data.set_destination_with_int_timer_and_offsets(
                         &DestinationParams {
                             time: values[2] as i64,
                             x: values[3] as f32 * dstw,
@@ -705,6 +726,9 @@ impl LR2SelectSkinLoaderState {
                             loop_val: values[16],
                         },
                         values[17],
+                        values[18],
+                        values[19],
+                        values[20],
                         &offsets,
                     );
                 }
@@ -802,7 +826,7 @@ impl LR2SelectSkinLoaderState {
                     let offsets = lr2_skin_loader::read_offset(str_parts, 21);
                     text.get_text_data_mut()
                         .data
-                        .set_destination_with_int_timer_ops(
+                        .set_destination_with_int_timer_and_offsets(
                             &DestinationParams {
                                 time: values[2] as i64,
                                 x: values[3] as f32 * dstw,
@@ -821,6 +845,9 @@ impl LR2SelectSkinLoaderState {
                                 loop_val: values[16],
                             },
                             values[17],
+                            values[18],
+                            values[19],
+                            values[20],
                             &offsets,
                         );
                 }

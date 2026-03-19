@@ -22,6 +22,8 @@ pub struct Skin {
     pub scene: i32,
     /// Fadeout time (ms)
     pub fadeout: i32,
+    /// Rank animation time (ms) -- result/course-result skins only
+    pub ranktime: i32,
 
     pub option: HashMap<i32, i32>,
     pub offset: HashMap<i32, SkinConfigOffset>,
@@ -85,6 +87,7 @@ impl Skin {
             input: 0,
             scene: 3600000 * 24,
             fadeout: 0,
+            ranktime: 0,
             option: HashMap::new(),
             offset: HashMap::new(),
             custom_events: HashMap::new(),
@@ -493,6 +496,10 @@ impl Skin {
 
     pub fn scene(&self) -> i32 {
         self.scene
+    }
+
+    pub fn ranktime(&self) -> i32 {
+        self.ranktime
     }
 
     pub fn option(&self) -> &HashMap<i32, i32> {

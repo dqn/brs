@@ -1207,4 +1207,70 @@ SCENETIME,9999\n\
         // With group_size == 0, images is empty -> no button created
         assert!(state.button.is_none());
     }
+
+    /// Verify that DST_IMAGE passes values[18-20] as draw condition ops and
+    /// position 21+ as offset IDs (Java parity).
+    /// Bug: the code was calling set_destination_with_int_timer_ops which
+    /// treated offsets as draw condition ops and ignored values[18-20] entirely.
+    #[test]
+    fn test_dst_image_passes_ops_and_offsets_correctly() {
+        use crate::objects::skin_image::SkinImage;
+        use crate::reexports::TextureRegion;
+
+        let mut state = make_state();
+        // Set src/dst to 1:1 to simplify coordinate math
+        state.src = Resolution {
+            width: 640.0,
+            height: 480.0,
+        };
+        state.dst = Resolution {
+            width: 640.0,
+            height: 480.0,
+        };
+
+        // Directly inject a SkinImage (bypass SRC_IMAGE which needs a texture)
+        let regions = vec![TextureRegion::new()];
+        state.image = Some(SkinImage::new_with_int_timer(regions, 0, 0));
+
+        // Build DST_IMAGE CSV parts:
+        // #DST_IMAGE, id, time, x, y, w, h, acc, a, r, g, b, blend, filter, angle, center, loop, timer, op1, op2, op3, offset...
+        // indices:     0   1     2   3  4  5  6    7  8  9 10 11  12     13    14     15      16    17    18   19   20   21+
+        let parts = str_vec(&[
+            "#DST_IMAGE",
+            "0",   // id (values[1])
+            "0",   // time (values[2])
+            "10",  // x (values[3])
+            "20",  // y (values[4])
+            "100", // w (values[5])
+            "50",  // h (values[6])
+            "0",   // acc (values[7])
+            "255", // a (values[8])
+            "255", // r (values[9])
+            "255", // g (values[10])
+            "255", // b (values[11])
+            "0",   // blend (values[12])
+            "0",   // filter (values[13])
+            "0",   // angle (values[14])
+            "0",   // center (values[15])
+            "0",   // loop (values[16])
+            "0",   // timer (values[17])
+            "42",  // op1 (values[18]) -- draw condition op
+            "43",  // op2 (values[19]) -- draw condition op
+            "0",   // op3 (values[20]) -- zero = ignored
+            "5",   // offset[0] at str index 21
+            "10",  // offset[1] at str index 22
+        ]);
+        state.process_csv_command("DST_IMAGE", &parts, None);
+
+        let image = state.image.as_ref().expect("image should still exist");
+        // Verify offset IDs are set from position 21+ (values 5 and 10)
+        let offsets = image.data.offset_id();
+        let mut sorted_offsets = offsets.to_vec();
+        sorted_offsets.sort();
+        assert_eq!(
+            sorted_offsets,
+            vec![5, 10],
+            "offset IDs should come from str positions 21+ (values 5, 10), not be empty"
+        );
+    }
 }
