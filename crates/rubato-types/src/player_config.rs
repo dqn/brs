@@ -152,7 +152,7 @@ impl Default for DisplaySettings {
 }
 
 /// Note modifier settings (longnote, 7-to-9 conversion)
-#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
 pub struct NoteModifierSettings {
     #[serde(rename = "longnoteMode")]
@@ -163,6 +163,17 @@ pub struct NoteModifierSettings {
     pub seven_to_nine_pattern: i32,
     #[serde(rename = "sevenToNineType")]
     pub seven_to_nine_type: i32,
+}
+
+impl Default for NoteModifierSettings {
+    fn default() -> Self {
+        Self {
+            longnote_mode: 0,
+            longnote_rate: 1.0,
+            seven_to_nine_pattern: 0,
+            seven_to_nine_type: 0,
+        }
+    }
 }
 
 /// Music select and sorting settings
@@ -960,6 +971,22 @@ mod tests {
         pc.note_modifier_settings.longnote_mode = -1;
         pc.validate();
         assert_eq!(pc.note_modifier_settings.longnote_mode, 0);
+    }
+
+    #[test]
+    fn note_modifier_settings_default_longnote_rate_is_one() {
+        let settings = NoteModifierSettings::default();
+        assert_eq!(settings.longnote_rate, 1.0, "Java default is 1.0, not 0.0");
+    }
+
+    #[test]
+    fn note_modifier_settings_deserialize_missing_longnote_rate_uses_one() {
+        let json = r#"{"longnoteMode": 0}"#;
+        let settings: NoteModifierSettings = serde_json::from_str(json).unwrap();
+        assert_eq!(
+            settings.longnote_rate, 1.0,
+            "Missing field should default to 1.0 via serde(default)"
+        );
     }
 
     #[test]
