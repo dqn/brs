@@ -107,14 +107,14 @@ impl LR2IRConnection {
                 }
                 // Reject responses that exceed the size limit to prevent
                 // memory exhaustion from malicious or misconfigured servers.
-                if let Some(content_length) = response.content_length() {
-                    if content_length > MAX_RESPONSE_SIZE {
-                        ImGuiNotify::error(&format!(
-                            "Failed to send request to LR2IR: response too large ({} bytes)",
-                            content_length
-                        ));
-                        return None;
-                    }
+                if let Some(content_length) = response.content_length()
+                    && content_length > MAX_RESPONSE_SIZE
+                {
+                    ImGuiNotify::error(&format!(
+                        "Failed to send request to LR2IR: response too large ({} bytes)",
+                        content_length
+                    ));
+                    return None;
                 }
                 // In Java, response is read with Shift_JIS encoding.
                 // reqwest returns bytes; we decode with encoding_rs.
@@ -257,12 +257,12 @@ impl LR2IRConnection {
                     return None;
                 }
                 // Reject responses that exceed the size limit.
-                if let Some(content_length) = response.content_length() {
-                    if content_length > MAX_RESPONSE_SIZE {
-                        error!("Response too large: {} bytes", content_length);
-                        ImGuiNotify::error("Failed to load ghost data.");
-                        return None;
-                    }
+                if let Some(content_length) = response.content_length()
+                    && content_length > MAX_RESPONSE_SIZE
+                {
+                    error!("Response too large: {} bytes", content_length);
+                    ImGuiNotify::error("Failed to load ghost data.");
+                    return None;
                 }
                 // LR2IR sends Shift_JIS responses (ghost CSV can contain
                 // Japanese player names). Decode with encoding_rs, matching

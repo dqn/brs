@@ -66,14 +66,14 @@ impl DifficultyTableParser {
     fn read_all_lines(&self, urlname: &str) -> Option<Vec<String>> {
         match Self::http_client().and_then(|c| Ok(c.get(urlname).send()?.error_for_status()?)) {
             Ok(response) => {
-                if let Some(content_length) = response.content_length() {
-                    if content_length > MAX_RESPONSE_SIZE {
-                        log::error!(
-                            "\u{96e3}\u{6613}\u{5ea6}\u{8868}\u{30b5}\u{30a4}\u{30c8}\u{89e3}\u{6790}\u{4e2d}\u{306e}\u{4f8b}\u{5916}:response too large ({} bytes)",
-                            content_length
-                        );
-                        return None;
-                    }
+                if let Some(content_length) = response.content_length()
+                    && content_length > MAX_RESPONSE_SIZE
+                {
+                    log::error!(
+                        "\u{96e3}\u{6613}\u{5ea6}\u{8868}\u{30b5}\u{30a4}\u{30c8}\u{89e3}\u{6790}\u{4e2d}\u{306e}\u{4f8b}\u{5916}:response too large ({} bytes)",
+                        content_length
+                    );
+                    return None;
                 }
                 match response.bytes() {
                     Ok(bytes) => {
@@ -341,10 +341,10 @@ impl DifficultyTableParser {
             .get(jsonheader_url)
             .send()?
             .error_for_status()?;
-        if let Some(content_length) = response.content_length() {
-            if content_length > MAX_RESPONSE_SIZE {
-                bail!("Response too large: {} bytes", content_length);
-            }
+        if let Some(content_length) = response.content_length()
+            && content_length > MAX_RESPONSE_SIZE
+        {
+            bail!("Response too large: {} bytes", content_length);
         }
         let bytes = response.bytes()?;
         if bytes.len() as u64 > MAX_RESPONSE_SIZE {
@@ -499,10 +499,10 @@ impl DifficultyTableParser {
             .get(jsondata_url)
             .send()?
             .error_for_status()?;
-        if let Some(content_length) = response.content_length() {
-            if content_length > MAX_RESPONSE_SIZE {
-                bail!("Response too large: {} bytes", content_length);
-            }
+        if let Some(content_length) = response.content_length()
+            && content_length > MAX_RESPONSE_SIZE
+        {
+            bail!("Response too large: {} bytes", content_length);
         }
         let bytes = response.bytes()?;
         if bytes.len() as u64 > MAX_RESPONSE_SIZE {
