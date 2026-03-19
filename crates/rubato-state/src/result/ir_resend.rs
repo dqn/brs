@@ -49,9 +49,8 @@ impl IrResendService for IrResendServiceImpl {
             self.ir_send_count,
             &self.shutdown_flag,
         );
-        if let Ok(mut guard) = self.handle.lock() {
-            *guard = Some(handle);
-        }
+        let mut guard = rubato_types::sync_utils::lock_or_recover(&self.handle);
+        *guard = Some(handle);
     }
 
     fn stop(&self) {

@@ -306,6 +306,8 @@ pub struct PlayConfigurationView {
     bms_loading_handle: Option<BmsLoadingHandle>,
     /// Cached terminal state after loading completes or fails.
     bms_loading_result: Option<Result<(), String>>,
+    /// Handle to the background LR2 score import thread, if any.
+    lr2_import_handle: Option<std::thread::JoinHandle<()>>,
 
     // Exit flag (replaces process::exit(0))
     pub exit_requested: bool,

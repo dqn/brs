@@ -116,6 +116,7 @@ impl PlayConfigurationView {
             exit_requested: false,
             bms_loading_handle: None,
             bms_loading_result: None,
+            lr2_import_handle: None,
             player_panel_disabled: false,
             video_tab_disabled: false,
             audio_tab_disabled: false,

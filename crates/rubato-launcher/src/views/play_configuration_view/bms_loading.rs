@@ -269,7 +269,13 @@ impl PlayConfigurationView {
     /// Import score data from LR2 given a path to the LR2 score.db.
     ///
     /// Separated from the file-chooser flow so the logic is testable.
-    pub(super) fn import_score_data_from_lr2_path(&self, lr2_path: &str) {
+    /// Runs the import in a background thread to avoid blocking the UI.
+    pub(super) fn import_score_data_from_lr2_path(&mut self, lr2_path: &str) {
+        if self.lr2_import_handle.is_some() {
+            log::warn!("LR2 score import already in progress");
+            return;
+        }
+
         let (config, player_selected) = match (&self.config, &self.players_selected) {
             (Some(c), Some(p)) => (c, p),
             _ => return,
@@ -280,19 +286,22 @@ impl PlayConfigurationView {
             "{}{sep}{}{sep}score.db",
             &config.paths.playerpath, player_selected
         );
+        let songpath = config.paths.songpath.clone();
+        let bmsroot = config.paths.bmsroot.clone();
+        let lr2_path = lr2_path.to_string();
 
-        let scoredb = match rubato_core::score_database_accessor::ScoreDatabaseAccessor::new(
-            &score_db_path,
-        ) {
-            Ok(db) => db,
-            Err(e) => {
-                log::error!("Failed to open score database {}: {}", score_db_path, e);
-                return;
-            }
-        };
+        let handle = std::thread::spawn(move || {
+            let scoredb = match rubato_core::score_database_accessor::ScoreDatabaseAccessor::new(
+                &score_db_path,
+            ) {
+                Ok(db) => db,
+                Err(e) => {
+                    log::error!("Failed to open score database {}: {}", score_db_path, e);
+                    return;
+                }
+            };
 
-        let songdb =
-            match SQLiteSongDatabaseAccessor::new(&config.paths.songpath, &config.paths.bmsroot) {
+            let songdb = match SQLiteSongDatabaseAccessor::new(&songpath, &bmsroot) {
                 Ok(db) => db,
                 Err(e) => {
                     log::error!("Failed to open song database: {}", e);
@@ -300,8 +309,36 @@ impl PlayConfigurationView {
                 }
             };
 
-        let importer = rubato_external::score_data_importer::ScoreDataImporter::new(scoredb);
-        importer.import_from_lr2_score_database(lr2_path, &songdb);
+            let importer = rubato_external::score_data_importer::ScoreDataImporter::new(scoredb);
+            importer.import_from_lr2_score_database(&lr2_path, &songdb);
+            log::info!("LR2 score import completed");
+        });
+
+        self.lr2_import_handle = Some(handle);
+    }
+
+    /// Poll for LR2 import completion. Call from the render loop.
+    pub fn poll_lr2_import(&mut self) {
+        if let Some(ref handle) = self.lr2_import_handle
+            && handle.is_finished()
+            && let Some(handle) = self.lr2_import_handle.take()
+            && let Err(e) = handle.join()
+        {
+            log::error!("LR2 import thread panicked: {:?}", e);
+        }
+    }
+
+    /// Returns true if LR2 import is in progress.
+    pub fn is_lr2_importing(&self) -> bool {
+        self.lr2_import_handle.is_some()
+    }
+
+    /// Wait for LR2 import to complete. Used in tests.
+    #[cfg(test)]
+    pub fn wait_for_lr2_import(&mut self) {
+        if let Some(handle) = self.lr2_import_handle.take() {
+            handle.join().expect("LR2 import thread panicked");
+        }
     }
 
     /// Exit

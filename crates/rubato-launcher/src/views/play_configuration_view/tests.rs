@@ -711,7 +711,7 @@ fn populate_song_db(songdb_path: &str, bmsroot: &str, songs: &[(&str, &str, i32)
 
 #[test]
 fn test_import_score_data_from_lr2_returns_early_without_config() {
-    let view = initialized_view();
+    let mut view = initialized_view();
     // No config, no players_selected — should return early without error
     view.import_score_data_from_lr2_path("/nonexistent/lr2score.db");
 }
@@ -779,6 +779,7 @@ fn test_import_score_data_from_lr2_imports_matching_scores() {
     view.players_selected = Some("testplayer".to_string());
 
     view.import_score_data_from_lr2_path(&lr2_path.to_string_lossy());
+    view.wait_for_lr2_import();
 
     // Verify scores were written to the player's score.db
     let score_db_path = player_dir.join("score.db");
@@ -868,6 +869,7 @@ fn test_import_score_data_from_lr2_skips_unknown_songs() {
     view.players_selected = Some("testplayer".to_string());
 
     view.import_score_data_from_lr2_path(&lr2_path.to_string_lossy());
+    view.wait_for_lr2_import();
 
     // Score DB should exist but be empty (no matching songs)
     let score_db_path = player_dir.join("score.db");
@@ -912,6 +914,7 @@ fn test_import_score_data_from_lr2_empty_lr2_db() {
 
     // Should succeed without error, just import 0 scores
     view.import_score_data_from_lr2_path(&lr2_path.to_string_lossy());
+    view.wait_for_lr2_import();
 }
 
 #[test]
@@ -970,6 +973,7 @@ fn test_import_score_data_from_lr2_clear_mapping() {
     view.players_selected = Some("testplayer".to_string());
 
     view.import_score_data_from_lr2_path(&lr2_path.to_string_lossy());
+    view.wait_for_lr2_import();
 
     let score_db_path = player_dir.join("score.db");
     assert!(score_db_path.exists(), "score.db should exist");

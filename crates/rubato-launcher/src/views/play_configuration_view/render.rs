@@ -6,8 +6,9 @@ impl PlayConfigurationView {
     /// Replaces the JavaFX FXML layout. Groups config fields into collapsible
     /// sections so the long list of options remains navigable.
     pub fn render(&mut self, ui: &mut egui::Ui) {
-        // Poll background version check
+        // Poll background tasks
         self.poll_version_check();
+        self.poll_lr2_import();
 
         // ---- Player selector ----
         ui.heading("Player");
@@ -590,7 +591,7 @@ impl PlayConfigurationView {
 
         // ---- Control buttons ----
         ui.horizontal(|ui| {
-            let disabled = self.control_panel_disabled;
+            let disabled = self.control_panel_disabled || self.is_lr2_importing();
             if ui
                 .add_enabled(!disabled, egui::Button::new("Start"))
                 .clicked()
