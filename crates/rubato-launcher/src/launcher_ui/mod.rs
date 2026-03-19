@@ -143,7 +143,8 @@ impl LauncherUi {
         obs_view.init(&dummy_main);
         obs_view.update(config.clone());
 
-        Self {
+        let has_ir = !player.irconfig.is_empty();
+        let mut ui = Self {
             config,
             player,
             selected_tab: Tab::Option,
@@ -171,7 +172,13 @@ impl LauncherUi {
             shared_load_all_bms: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
             shared_load_diff_bms: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
             shared_import_score: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        };
+        // Pre-load IR slot 0 buffers so flush_ir_buffers() can save edits
+        // even if the user never switches slots (ir_prev_index must be Some).
+        if has_ir {
+            ui.load_ir_buffers(0);
         }
+        ui
     }
 
     /// Create a LauncherUi with shared flags.
