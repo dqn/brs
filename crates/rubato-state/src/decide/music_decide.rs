@@ -97,10 +97,32 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideRenderContex
                 .resource
                 .songdata()
                 .map_or_else(String::new, |s| s.metadata.subtitle.clone()),
+            12 => self.resource.songdata().map_or_else(String::new, |s| {
+                if s.metadata.subtitle.is_empty() {
+                    s.metadata.title.clone()
+                } else {
+                    format!("{} {}", s.metadata.title, s.metadata.subtitle)
+                }
+            }),
+            13 => self
+                .resource
+                .songdata()
+                .map_or_else(String::new, |s| s.metadata.genre.clone()),
             14 => self
                 .resource
                 .songdata()
                 .map_or_else(String::new, |s| s.metadata.artist.clone()),
+            15 => self
+                .resource
+                .songdata()
+                .map_or_else(String::new, |s| s.metadata.subartist.clone()),
+            16 => self.resource.songdata().map_or_else(String::new, |s| {
+                if s.metadata.subartist.is_empty() {
+                    s.metadata.artist.clone()
+                } else {
+                    format!("{} {}", s.metadata.artist, s.metadata.subartist)
+                }
+            }),
             _ => String::new(),
         }
     }
@@ -336,10 +358,32 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideMouseContext
                 .resource
                 .songdata()
                 .map_or_else(String::new, |s| s.metadata.subtitle.clone()),
+            12 => self.resource.songdata().map_or_else(String::new, |s| {
+                if s.metadata.subtitle.is_empty() {
+                    s.metadata.title.clone()
+                } else {
+                    format!("{} {}", s.metadata.title, s.metadata.subtitle)
+                }
+            }),
+            13 => self
+                .resource
+                .songdata()
+                .map_or_else(String::new, |s| s.metadata.genre.clone()),
             14 => self
                 .resource
                 .songdata()
                 .map_or_else(String::new, |s| s.metadata.artist.clone()),
+            15 => self
+                .resource
+                .songdata()
+                .map_or_else(String::new, |s| s.metadata.subartist.clone()),
+            16 => self.resource.songdata().map_or_else(String::new, |s| {
+                if s.metadata.subartist.is_empty() {
+                    s.metadata.artist.clone()
+                } else {
+                    format!("{} {}", s.metadata.artist, s.metadata.subartist)
+                }
+            }),
             _ => String::new(),
         }
     }
