@@ -268,80 +268,67 @@ pub trait SkinRenderContext: TimerAccess {
         false
     }
 
-    /// Shared default implementation for boolean property values.
+    /// Default implementation for song-data-derived boolean property IDs.
     ///
-    /// Handles song data boolean properties (SongDataBooleanProperty in Java) and
-    /// resource-level properties that apply to non-MusicSelector screens (Decide,
-    /// Play, Result).  Contexts should call this as a fallback from `boolean_value()`
-    /// when no state-specific override applies.
+    /// Computes boolean values for IDs that depend on `song_data_ref()`:
+    /// - 150-155: chart difficulty
+    /// - 160-164, 1160-1161: chart mode (key type)
+    /// - 170-171: BGA presence
+    /// - 172-173: long note presence
+    /// - 174-175: text/document presence
+    /// - 176-177: BPM change
+    /// - 1177: BPM stop
+    /// - 178-179: random sequence
+    /// - 180-184: judge difficulty
+    ///
+    /// Callers that override `boolean_value()` should fall through to this
+    /// for unmatched IDs instead of returning `false`, so that song-data
+    /// booleans are correctly evaluated via `song_data_ref()`.
     fn default_boolean_value(&self, id: i32) -> bool {
-        use bms_model::mode::Mode;
-
-        // Song data boolean properties (Java: SongDataBooleanProperty)
-        // These access state.resource.getSongdata() and return false when absent.
-        if let Some(song) = self.song_data_ref() {
-            match id {
-                // OPTION_NO_TEXT (174) / OPTION_TEXT (175)
-                174 => return !song.chart.has_document(),
-                175 => return song.chart.has_document(),
-                // OPTION_NO_LN (172) / OPTION_LN (173)
-                172 => return !song.chart.has_any_long_note(),
-                173 => return song.chart.has_any_long_note(),
-                // OPTION_NO_BGA (170) / OPTION_BGA (171)
-                170 => return !song.chart.has_bga(),
-                171 => return song.chart.has_bga(),
-                // OPTION_NO_RANDOMSEQUENCE (178) / OPTION_RANDOMSEQUENCE (179)
-                178 => return !song.chart.has_random_sequence(),
-                179 => return song.chart.has_random_sequence(),
-                // OPTION_NO_BPMCHANGE (176) / OPTION_BPMCHANGE (177)
-                176 => return song.chart.minbpm == song.chart.maxbpm,
-                177 => return song.chart.minbpm < song.chart.maxbpm,
-                // OPTION_BPMSTOP (1177)
-                1177 => return song.chart.is_bpmstop(),
-                // OPTION_DIFFICULTY0..5 (150..155)
-                150 => return song.chart.difficulty <= 0 || song.chart.difficulty > 5,
-                151 => return song.chart.difficulty == 1,
-                152 => return song.chart.difficulty == 2,
-                153 => return song.chart.difficulty == 3,
-                154 => return song.chart.difficulty == 4,
-                155 => return song.chart.difficulty == 5,
-                // OPTION_JUDGE_VERYHARD..VERYEASY (180..184)
-                180 => {
-                    return song.chart.judge == 0
-                        || (song.chart.judge >= 10 && song.chart.judge < 35);
-                }
-                181 => {
-                    return song.chart.judge == 1
-                        || (song.chart.judge >= 35 && song.chart.judge < 60);
-                }
-                182 => {
-                    return song.chart.judge == 2
-                        || (song.chart.judge >= 60 && song.chart.judge < 85);
-                }
-                183 => {
-                    return song.chart.judge == 3
-                        || (song.chart.judge >= 85 && song.chart.judge < 110);
-                }
-                184 => return song.chart.judge == 4 || song.chart.judge >= 110,
-                // Chart mode keys (160..164, 1160..1161)
-                160 => return song.chart.mode == Mode::BEAT_7K.id(),
-                161 => return song.chart.mode == Mode::BEAT_5K.id(),
-                162 => return song.chart.mode == Mode::BEAT_14K.id(),
-                163 => return song.chart.mode == Mode::BEAT_10K.id(),
-                164 => return song.chart.mode == Mode::POPN_9K.id(),
-                1160 => return song.chart.mode == Mode::KEYBOARD_24K.id(),
-                1161 => return song.chart.mode == Mode::KEYBOARD_24K_DOUBLE.id(),
-                _ => {}
-            }
-        } else {
-            // When songdata is absent, all SongDataBooleanProperty checks return false
-            // (Java: model != null && bool.isTrue(model))
-            match id {
-                150..=155 | 160..=164 | 170..=184 | 1160 | 1161 | 1177 => return false,
-                _ => {}
-            }
+        let Some(song) = self.song_data_ref() else {
+            return false;
+        };
+        let chart = &song.chart;
+        match id {
+            // Difficulty
+            150 => chart.difficulty <= 0 || chart.difficulty > 5, // OPTION_DIFFICULTY0
+            151 => chart.difficulty == 1,                         // OPTION_DIFFICULTY1
+            152 => chart.difficulty == 2,                         // OPTION_DIFFICULTY2
+            153 => chart.difficulty == 3,                         // OPTION_DIFFICULTY3
+            154 => chart.difficulty == 4,                         // OPTION_DIFFICULTY4
+            155 => chart.difficulty == 5,                         // OPTION_DIFFICULTY5
+            // Chart mode (key type)
+            160 => chart.mode == 7,   // OPTION_7KEYSONG (BEAT_7K)
+            161 => chart.mode == 5,   // OPTION_5KEYSONG (BEAT_5K)
+            162 => chart.mode == 14,  // OPTION_14KEYSONG (BEAT_14K)
+            163 => chart.mode == 10,  // OPTION_10KEYSONG (BEAT_10K)
+            164 => chart.mode == 9,   // OPTION_9KEYSONG (POPN_9K)
+            1160 => chart.mode == 25, // OPTION_24KEYSONG (KEYBOARD_24K)
+            1161 => chart.mode == 50, // OPTION_24KEYDPSONG (KEYBOARD_24K_DOUBLE)
+            // BGA presence
+            170 => !chart.has_bga(), // OPTION_NO_BGA
+            171 => chart.has_bga(),  // OPTION_BGA
+            // Long note presence
+            172 => !chart.has_any_long_note(), // OPTION_NO_LN
+            173 => chart.has_any_long_note(),  // OPTION_LN
+            // Text/document presence
+            174 => !chart.has_document(), // OPTION_NO_TEXT
+            175 => chart.has_document(),  // OPTION_TEXT
+            // BPM change
+            176 => chart.minbpm == chart.maxbpm, // OPTION_NO_BPMCHANGE
+            177 => chart.minbpm < chart.maxbpm,  // OPTION_BPMCHANGE
+            1177 => chart.is_bpmstop(),          // OPTION_BPMSTOP
+            // Random sequence
+            178 => !chart.has_random_sequence(), // OPTION_NO_RANDOMSEQUENCE
+            179 => chart.has_random_sequence(),  // OPTION_RANDOMSEQUENCE
+            // Judge difficulty
+            180 => chart.judge == 0 || (chart.judge >= 10 && chart.judge < 35), // OPTION_JUDGE_VERYHARD
+            181 => chart.judge == 1 || (chart.judge >= 35 && chart.judge < 60), // OPTION_JUDGE_HARD
+            182 => chart.judge == 2 || (chart.judge >= 60 && chart.judge < 85), // OPTION_JUDGE_NORMAL
+            183 => chart.judge == 3 || (chart.judge >= 85 && chart.judge < 110), // OPTION_JUDGE_EASY
+            184 => chart.judge == 4 || chart.judge >= 110, // OPTION_JUDGE_VERYEASY
+            _ => false,
         }
-        false
     }
 
     /// Returns the float property value for the given ID.

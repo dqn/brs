@@ -543,7 +543,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for SelectSkinContext<
             32 => true,  // OPTION_AUTOPLAYOFF
             // Panels (always visible on select)
             21 => true, // OPTION_PANEL1
-            _ => false,
+            _ => self.default_boolean_value(id),
         }
     }
 
