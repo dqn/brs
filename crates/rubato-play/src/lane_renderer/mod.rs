@@ -3,7 +3,7 @@ use bms_model::note::{Note, TYPE_CHARGENOTE, TYPE_HELLCHARGENOTE, TYPE_LONGNOTE,
 use bms_model::time_line::TimeLine;
 use rubato_types::play_config::{
     FIX_HISPEED_MAINBPM, FIX_HISPEED_MAXBPM, FIX_HISPEED_MINBPM, FIX_HISPEED_OFF,
-    FIX_HISPEED_STARTBPM, PlayConfig,
+    FIX_HISPEED_STARTBPM, HISPEED_MAX, HISPEED_MIN, PlayConfig,
 };
 use std::collections::HashMap;
 
@@ -352,6 +352,7 @@ impl LaneRenderer {
             };
             self.hispeed =
                 ((2400.0 / (target_bpm / 100.0) / self.duration as f64) * (1.0 - lc as f64)) as f32;
+            self.hispeed = self.hispeed.clamp(HISPEED_MIN, HISPEED_MAX);
         }
     }
 
