@@ -346,7 +346,7 @@ impl BMSPlayerInputProcessor {
         for (key, excl) in midi_keys_mut.iter_mut().zip(exclusive.iter_mut()) {
             if *excl {
                 *key = None;
-            } else {
+            } else if key.is_some() {
                 *excl = true;
                 micount += 1;
             }
@@ -1229,6 +1229,43 @@ mod tests {
                 "midi key[0] should be deduped to None"
             );
         }
+    }
+
+    /// Regression: MIDI exclusive dedup must not count None (unbound) slots as
+    /// claimed bindings. Counting None slots inflates micount, which can cause
+    /// device_type to be incorrectly set to Midi when no MIDI keys are bound.
+    #[test]
+    fn test_midi_dedup_does_not_count_none_slots() {
+        use rubato_types::play_mode_config::PlayModeConfig;
+
+        let mut proc = make_input_processor();
+        let mut playconfig = PlayModeConfig::default();
+
+        // Clear all keyboard bindings so kbcount = 0
+        for k in playconfig.keyboard.keys.iter_mut() {
+            *k = -1;
+        }
+        // Clear all controller bindings so cocount = 0
+        for controller in playconfig.controller.iter_mut() {
+            for k in controller.keys.iter_mut() {
+                *k = -1;
+            }
+        }
+        // Clear all MIDI bindings to None so micount should be 0
+        for k in playconfig.midi.keys.iter_mut() {
+            *k = None;
+        }
+
+        proc.set_play_config(&mut playconfig);
+
+        // With all counts at 0, kbcount (0) >= cocount (0) && kbcount (0) >= micount (0)
+        // should select Keyboard. Before the fix, micount was inflated by None slots,
+        // causing Midi to be selected instead.
+        assert_eq!(
+            proc.device_type(),
+            DeviceType::Keyboard,
+            "device_type should be Keyboard when all bindings are empty, not Midi"
+        );
     }
 
     /// Regression: poll() must clamp `now` to >= 0 when starttime is in the future.
