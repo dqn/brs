@@ -13,6 +13,22 @@ fn make_test_song(md5: &str, sha256: &str, title: &str) -> SongData {
     sd
 }
 
+/// Verify that busy_timeout is set on the connection so that concurrent
+/// writers retry instead of immediately failing with SQLITE_BUSY.
+#[test]
+fn test_connection_has_busy_timeout() {
+    let accessor = create_test_accessor();
+    let conn = lock_or_recover(&accessor.conn);
+    let timeout: i64 = conn
+        .query_row("PRAGMA busy_timeout", [], |row| row.get(0))
+        .unwrap();
+    assert!(
+        timeout >= 5000,
+        "busy_timeout should be at least 5000ms, got {}",
+        timeout
+    );
+}
+
 #[test]
 fn test_new_creates_tables() {
     let accessor = create_test_accessor();

@@ -390,6 +390,22 @@ mod tests {
         write_handle.join().expect("writer thread panicked");
     }
 
+    /// Verify that busy_timeout is set on the connection so that concurrent
+    /// writers retry instead of immediately failing with SQLITE_BUSY.
+    #[test]
+    fn connection_has_busy_timeout() {
+        let (accessor, _tmpdir) = setup_info_accessor();
+        let conn = lock_or_recover(&accessor.conn);
+        let timeout: i64 = conn
+            .query_row("PRAGMA busy_timeout", [], |row| row.get(0))
+            .unwrap();
+        assert!(
+            timeout >= 5000,
+            "busy_timeout should be at least 5000ms, got {}",
+            timeout
+        );
+    }
+
     /// The read-only authorizer blocks destructive operations when set on the
     /// information connection. This tests the authorizer directly.
     #[test]
