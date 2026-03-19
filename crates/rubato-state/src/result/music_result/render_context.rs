@@ -305,6 +305,157 @@ impl rubato_types::skin_render_context::SkinRenderContext for ResultMouseContext
         )
     }
 
+    fn replay_option_data(&self) -> Option<&rubato_types::replay_data::ReplayData> {
+        shared_render_context::replay_option_data(&self.result.resource)
+    }
+
+    fn target_score_data(&self) -> Option<&rubato_core::score_data::ScoreData> {
+        shared_render_context::target_score_data(&self.result.resource)
+    }
+
+    fn gauge_value(&self) -> f32 {
+        shared_render_context::gauge_value(&self.result.resource)
+    }
+
+    fn gauge_type(&self) -> i32 {
+        shared_render_context::gauge_type(&self.result.data)
+    }
+
+    fn is_gauge_max(&self) -> bool {
+        shared_render_context::is_gauge_max(&self.result.resource)
+    }
+
+    fn gauge_min(&self) -> f32 {
+        shared_render_context::gauge_min(&self.result.resource, self.result.data.gauge_type)
+    }
+
+    fn judge_count(&self, judge: i32, fast: bool) -> i32 {
+        shared_render_context::judge_count(&self.result.data, judge, fast)
+    }
+
+    fn image_index_value(&self, id: i32) -> i32 {
+        match id {
+            // Java IntegerPropertyFactory ID 308 (lnmode): on MusicResult, override
+            // from chart data when the chart explicitly defines LN types.
+            308 => {
+                if let Some(song) = self.result.resource.songdata()
+                    && let Some(override_val) =
+                        rubato_types::skin_render_context::compute_lnmode_from_chart(&song.chart)
+                {
+                    return override_val;
+                }
+                self.default_image_index_value(id)
+            }
+            _ => self.default_image_index_value(id),
+        }
+    }
+
+    fn integer_value(&self, id: i32) -> i32 {
+        shared_render_context::integer_value(&self.result.data, self.timer.now_time(), id)
+    }
+
+    fn ranking_score_clear_type(&self, slot: i32) -> i32 {
+        shared_render_context::ranking_score_clear_type(&self.result.data, slot)
+    }
+
+    fn ranking_offset(&self) -> i32 {
+        shared_render_context::ranking_offset(&self.result.data)
+    }
+
+    fn float_value(&self, id: i32) -> f32 {
+        match id {
+            // FLOAT_GROOVEGAUGE_1P (1107): needs PlayerResource for gauge data.
+            // Java: AbstractResult -> gauge[gaugeType].last()
+            1107 => shared_render_context::gauge_value(&self.result.resource),
+            _ => shared_render_context::float_value(&self.result.data, id),
+        }
+    }
+
+    fn boolean_value(&self, id: i32) -> bool {
+        shared_render_context::boolean_value(
+            &self.result.data,
+            self.result.resource.course_score_data(),
+            id,
+        )
+    }
+
+    fn string_value(&self, id: i32) -> String {
+        match id {
+            // Song metadata from resource
+            10 => self
+                .result
+                .resource
+                .songdata()
+                .map_or_else(String::new, |s| s.metadata.title.clone()),
+            11 => self
+                .result
+                .resource
+                .songdata()
+                .map_or_else(String::new, |s| s.metadata.subtitle.clone()),
+            12 => self
+                .result
+                .resource
+                .songdata()
+                .map_or_else(String::new, |s| {
+                    if s.metadata.subtitle.is_empty() {
+                        s.metadata.title.clone()
+                    } else {
+                        format!("{} {}", s.metadata.title, s.metadata.subtitle)
+                    }
+                }),
+            13 => self
+                .result
+                .resource
+                .songdata()
+                .map_or_else(String::new, |s| s.metadata.genre.clone()),
+            14 => self
+                .result
+                .resource
+                .songdata()
+                .map_or_else(String::new, |s| s.metadata.artist.clone()),
+            15 => self
+                .result
+                .resource
+                .songdata()
+                .map_or_else(String::new, |s| s.metadata.subartist.clone()),
+            16 => self
+                .result
+                .resource
+                .songdata()
+                .map_or_else(String::new, |s| {
+                    if s.metadata.subartist.is_empty() {
+                        s.metadata.artist.clone()
+                    } else {
+                        format!("{} {}", s.metadata.artist, s.metadata.subartist)
+                    }
+                }),
+            120..=129 => shared_render_context::ranking_name(&self.result.data, id - 120),
+            _ => String::new(),
+        }
+    }
+
+    fn gauge_history(&self) -> Option<&Vec<Vec<f32>>> {
+        shared_render_context::gauge_history(&self.result.resource)
+    }
+
+    fn gauge_border_max(&self) -> Option<(f32, f32)> {
+        shared_render_context::gauge_border_max(&self.result.resource, self.result.data.gauge_type)
+    }
+
+    fn get_timing_distribution(
+        &self,
+    ) -> Option<&rubato_types::timing_distribution::TimingDistribution> {
+        shared_render_context::get_timing_distribution(&self.result.data)
+    }
+
+    fn score_data_property(&self) -> &rubato_types::score_data_property::ScoreDataProperty {
+        shared_render_context::score_data_property(&self.result.data)
+    }
+
+    fn judge_area(&self) -> Option<Vec<Vec<i32>>> {
+        shared_render_context::judge_area(&self.result.resource)
+    }
+
     fn execute_event(&mut self, id: i32, _arg1: i32, _arg2: i32) {
         if let Some(index) = shared_render_context::replay_index_from_event_id(id) {
             self.result.save_replay_data(index);
