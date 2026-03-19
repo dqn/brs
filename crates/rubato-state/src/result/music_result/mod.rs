@@ -196,7 +196,12 @@ impl MusicResult {
             let _oldscore_exscore = self.data.oldscore.exscore();
             let newscore_for_thread = newscore_clone.clone();
 
-            self.data.timer.switch_timer(TIMER_IR_CONNECT_BEGIN, true);
+            // Java fires TIMER_IR_CONNECT_BEGIN inside the thread gated by
+            // `irsend == 0` (first send). Since we cannot access the timer from
+            // the spawned thread, gate it here on having actual sends to process.
+            if !ir_send_list_snapshot.is_empty() {
+                self.data.timer.switch_timer(TIMER_IR_CONNECT_BEGIN, true);
+            }
 
             let (tx, rx) = std::sync::mpsc::channel();
             self.ir_rx = Some(rx);
@@ -1719,5 +1724,106 @@ mod tests {
         assert_eq!(calls.len(), 2);
         assert_eq!(calls[0].systemvolume, 0.0, "negative should clamp to 0.0");
         assert_eq!(calls[1].keyvolume, 1.0, "above 1.0 should clamp to 1.0");
+    }
+
+    #[test]
+    fn test_prepare_does_not_fire_ir_connect_begin_when_no_sends() {
+        // Java only fires TIMER_IR_CONNECT_BEGIN inside the thread when the first
+        // send starts (gated by `irsend == 0`). If there are no sends, the timer
+        // is never fired. The Rust code was unconditionally firing it before spawn.
+        use rubato_ir::ir_player_data::IRPlayerData;
+        use std::sync::Arc;
+
+        struct MockIRConnection;
+        impl rubato_ir::ir_connection::IRConnection for MockIRConnection {
+            fn get_rivals(&self) -> rubato_ir::ir_response::IRResponse<Vec<IRPlayerData>> {
+                rubato_ir::ir_response::IRResponse::failure("mock".to_string())
+            }
+            fn get_table_datas(
+                &self,
+            ) -> rubato_ir::ir_response::IRResponse<Vec<rubato_ir::ir_table_data::IRTableData>>
+            {
+                rubato_ir::ir_response::IRResponse::failure("mock".to_string())
+            }
+            fn get_play_data(
+                &self,
+                _player: Option<&IRPlayerData>,
+                _chart: &rubato_ir::ir_chart_data::IRChartData,
+            ) -> rubato_ir::ir_response::IRResponse<Vec<rubato_ir::ir_score_data::IRScoreData>>
+            {
+                rubato_ir::ir_response::IRResponse::failure("mock".to_string())
+            }
+            fn get_course_play_data(
+                &self,
+                _player: Option<&IRPlayerData>,
+                _course: &rubato_ir::ir_course_data::IRCourseData,
+            ) -> rubato_ir::ir_response::IRResponse<Vec<rubato_ir::ir_score_data::IRScoreData>>
+            {
+                rubato_ir::ir_response::IRResponse::failure("mock".to_string())
+            }
+            fn send_play_data(
+                &self,
+                _model: &rubato_ir::ir_chart_data::IRChartData,
+                _score: &rubato_ir::ir_score_data::IRScoreData,
+            ) -> rubato_ir::ir_response::IRResponse<()> {
+                rubato_ir::ir_response::IRResponse::failure("mock".to_string())
+            }
+            fn send_course_play_data(
+                &self,
+                _course: &rubato_ir::ir_course_data::IRCourseData,
+                _score: &rubato_ir::ir_score_data::IRScoreData,
+            ) -> rubato_ir::ir_response::IRResponse<()> {
+                rubato_ir::ir_response::IRResponse::failure("mock".to_string())
+            }
+            fn get_song_url(
+                &self,
+                _chart: &rubato_ir::ir_chart_data::IRChartData,
+            ) -> Option<String> {
+                None
+            }
+            fn get_course_url(
+                &self,
+                _course: &rubato_ir::ir_course_data::IRCourseData,
+            ) -> Option<String> {
+                None
+            }
+            fn get_player_url(&self, _player: &IRPlayerData) -> Option<String> {
+                None
+            }
+            fn name(&self) -> &str {
+                "MockIR"
+            }
+        }
+
+        let config = make_test_config("ir-no-send");
+        let ir_statuses = vec![super::super::ir_status::IRStatus::new(
+            rubato_core::ir_config::IRConfig::default(),
+            Arc::new(MockIRConnection)
+                as Arc<dyn rubato_ir::ir_connection::IRConnection + Send + Sync>,
+            IRPlayerData::new("id1".into(), "Player1".into(), "1st".into()),
+        )];
+        let main = MainController::with_ir_statuses(
+            Box::new(TestMainControllerAccess::new(config.clone())),
+            ir_statuses,
+        );
+        // Set update_score = false so no IR sends are queued
+        let mut res_access = MouseResultResourceAccess::new(config);
+        res_access.update_score = false;
+        let resource = PlayerResource::new(
+            Box::new(res_access),
+            crate::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
+        );
+        let mut mr = MusicResult::new(main, resource, TimerManager::new());
+        mr.data.timer.update();
+
+        <MusicResult as MainState>::prepare(&mut mr);
+
+        // IR processing should be entered but TIMER_IR_CONNECT_BEGIN should NOT
+        // be fired since there are no actual sends.
+        assert_eq!(mr.data.state, STATE_IR_PROCESSING);
+        assert!(
+            !mr.data.timer.is_timer_on(TIMER_IR_CONNECT_BEGIN),
+            "TIMER_IR_CONNECT_BEGIN should not fire when there are no IR sends"
+        );
     }
 }

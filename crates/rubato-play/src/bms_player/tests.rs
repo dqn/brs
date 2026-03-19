@@ -5056,11 +5056,6 @@ fn receive_updated_play_config_preserves_scroll_state() {
 
 #[test]
 fn update_judge_sets_bga_misslayertime_in_milliseconds() {
-    // Java JudgeManager calls main.update(judge, mtime / 1000), converting
-    // microseconds to milliseconds before passing to BMSPlayer.update().
-    // The Rust judged_events store raw microsecond mtime. update_judge must
-    // divide by 1000 before calling set_misslayer_tme() so that
-    // misslayertime is in the same clock domain as BGAProcessor.time (ms).
     let model = make_model();
     let mut player = BMSPlayer::new(model);
     player.gauge = Some(
@@ -5073,17 +5068,51 @@ fn update_judge_sets_bga_misslayertime_in_milliseconds() {
         .unwrap(),
     );
 
-    // combo starts at 0, so update_judge will call set_misslayer_tme.
-    let time_us: i64 = 5_000_000; // 5 seconds in microseconds
-    player.update_judge(4, time_us); // POOR/MISS -> combo stays 0
+    let time_us: i64 = 5_000_000;
+    player.update_judge(4, time_us);
 
     let bga = player.bga.lock().unwrap();
-    let expected_ms = time_us / 1000; // 5000 ms
+    let expected_ms = time_us / 1000;
     assert_eq!(
         bga.misslayer_time(),
         expected_ms,
         "misslayertime should be in milliseconds ({}), not microseconds ({})",
         expected_ms,
         time_us
+    );
+}
+
+#[test]
+fn practice_to_ready_queues_play_ready_sound() {
+    let model = make_model_with_notes_at_times(&[0, 60_000_000]);
+    let mut player = BMSPlayer::new(model);
+    player.play_mode = BMSPlayerMode::PRACTICE;
+    player.create();
+    assert_eq!(player.state(), PlayState::Practice);
+
+    player.media_load_finished = true;
+    player.play_skin.loadstart = 0;
+    player.play_skin.loadend = 0;
+    player.startpressedtime = -2_000_000;
+    player.input.input_key_states = vec![true];
+
+    player.main_state_data.timer.set_now_micro_time(2_000_000);
+    player.pending.pending_sounds.clear();
+
+    player.render();
+
+    assert_eq!(
+        player.state(),
+        PlayState::Ready,
+        "Should transition from Practice to Ready"
+    );
+    assert!(
+        player
+            .pending
+            .pending_sounds
+            .iter()
+            .any(|(s, _)| *s == rubato_types::sound_type::SoundType::PlayReady),
+        "Practice->Ready transition should queue PlayReady sound, but pending_sounds = {:?}",
+        player.pending.pending_sounds
     );
 }
