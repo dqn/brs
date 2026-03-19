@@ -152,16 +152,10 @@ impl MusicResult {
             cs.minbp += newscore.minbp;
             cs.timing_stats.total_duration += newscore.timing_stats.total_duration;
 
-            let gauge_type = self
-                .resource
-                .groove_gauge()
-                .map(|g| g.gauge_type() as usize)
-                .unwrap_or(0);
             let last_gauge_val = self
                 .resource
-                .gauge()
-                .and_then(|gd| gd.get(gauge_type))
-                .and_then(|g| g.last().copied())
+                .groove_gauge()
+                .map(|g| g.value())
                 .unwrap_or(0.0);
             if last_gauge_val > 0.0 {
                 if self.resource.assist() > 0 {
@@ -460,6 +454,22 @@ mod tests {
             gauge_type,
             &rubato_types::gauge_property::GaugeProperty::SevenKeys,
         )
+    }
+
+    /// Helper to create a GrooveGauge with a given gauge_type and explicit value.
+    /// Uses HARD gauge type (min=0.0) when value is 0.0 to allow zero gauge.
+    fn make_groove_gauge_with_value(
+        gauge_type: i32,
+        value: f32,
+    ) -> rubato_types::groove_gauge::GrooveGauge {
+        let model = make_model_with_notes(10);
+        let mut gg = rubato_types::groove_gauge::GrooveGauge::new(
+            &model,
+            gauge_type,
+            &rubato_types::gauge_property::GaugeProperty::SevenKeys,
+        );
+        gg.set_value(value);
+        gg
     }
 
     // --- 1. Failed clear handling ---
@@ -909,7 +919,7 @@ mod tests {
         let mut ra = CourseScoreResourceAccess::new(config);
         ra.assist = 0;
         ra.gauge = Some(vec![vec![0.0]]);
-        ra.groove_gauge = Some(make_groove_gauge(0));
+        ra.groove_gauge = Some(make_groove_gauge_with_value(3, 0.0));
         ra.course_index = 0;
 
         let models = vec![
@@ -944,7 +954,7 @@ mod tests {
         let mut ra = CourseScoreResourceAccess::new(config);
         ra.assist = 0;
         ra.gauge = Some(vec![vec![0.0]]);
-        ra.groove_gauge = Some(make_groove_gauge(0));
+        ra.groove_gauge = Some(make_groove_gauge_with_value(3, 0.0));
         ra.course_index = 1;
 
         let models = vec![
@@ -976,7 +986,7 @@ mod tests {
         let mut ra = CourseScoreResourceAccess::new(config);
         ra.assist = 0;
         ra.gauge = Some(vec![vec![0.0]]);
-        ra.groove_gauge = Some(make_groove_gauge(0));
+        ra.groove_gauge = Some(make_groove_gauge_with_value(3, 0.0));
         ra.course_index = 2;
 
         let models = vec![

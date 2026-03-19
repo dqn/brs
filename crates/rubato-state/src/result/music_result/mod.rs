@@ -144,13 +144,8 @@ impl MusicResult {
                 match irc.config.irsend {
                     IR_SEND_ALWAYS => {}
                     IR_SEND_COMPLETE_SONG => {
-                        if let (Some(gauge_data), Some(groove_gauge)) =
-                            (self.resource.gauge(), self.resource.groove_gauge())
-                        {
-                            let idx = groove_gauge.gauge_type() as usize;
-                            if let Some(gauge) = gauge_data.get(idx) {
-                                send &= gauge.last().copied().unwrap_or(0.0) > 0.0;
-                            }
+                        if let Some(groove_gauge) = self.resource.groove_gauge() {
+                            send &= groove_gauge.value() > 0.0;
                         }
                     }
                     IR_SEND_UPDATE_SCORE => {
@@ -338,16 +333,10 @@ impl MusicResult {
                 }
 
                 if self.resource.course_bms_models().is_some() {
-                    let gauge_type = self
-                        .resource
-                        .groove_gauge()
-                        .map(|g| g.gauge_type() as usize)
-                        .unwrap_or(0);
                     let last_gauge = self
                         .resource
-                        .gauge()
-                        .and_then(|gd| gd.get(gauge_type))
-                        .and_then(|g| g.last().copied())
+                        .groove_gauge()
+                        .map(|g| g.value())
                         .unwrap_or(0.0);
 
                     if last_gauge <= 0.0 {
