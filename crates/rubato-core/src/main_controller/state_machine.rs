@@ -348,7 +348,13 @@ impl MainController {
                 }
                 MainControllerCommand::UpdatePlayConfig(mode, play_config) => {
                     let pc = *play_config;
-                    self.player.play_config(mode).playconfig = pc.clone();
+                    // Only merge modmenu-managed fields to avoid overwriting
+                    // live fields (e.g. hispeed changed via scroll wheel) with
+                    // stale values from the modmenu's PlayConfig snapshot.
+                    self.player
+                        .play_config(mode)
+                        .playconfig
+                        .apply_modmenu_fields(&pc);
                     if let Some(ref mut state) = self.current {
                         state.receive_updated_play_config(mode, pc);
                     }

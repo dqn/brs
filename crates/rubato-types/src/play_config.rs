@@ -88,6 +88,26 @@ impl PlayConfig {
         }
     }
 
+    /// Copy only the fields managed by the modmenu (MiscSettingMenu) from
+    /// `source` into `self`, leaving all other fields (hispeed, duration,
+    /// fixhispeed, hispeedmargin, hispeedautoadjust, judgetype) untouched.
+    ///
+    /// This prevents the modmenu's stale PlayConfig snapshot from overwriting
+    /// fields that may have been changed live (e.g. hispeed via scroll wheel).
+    pub fn apply_modmenu_fields(&mut self, source: &PlayConfig) {
+        self.enablelift = source.enablelift;
+        self.lift = source.lift;
+        self.enablehidden = source.enablehidden;
+        self.hidden = source.hidden;
+        self.enablelanecover = source.enablelanecover;
+        self.lanecover = source.lanecover;
+        self.lanecovermarginlow = source.lanecovermarginlow;
+        self.lanecovermarginhigh = source.lanecovermarginhigh;
+        self.lanecoverswitchduration = source.lanecoverswitchduration;
+        self.enable_constant = source.enable_constant;
+        self.constant_fadein_time = source.constant_fadein_time;
+    }
+
     pub fn judgetype(&self) -> &str {
         for alg in JudgeAlgorithm::values() {
             if alg.name() == self.judgetype {
@@ -258,5 +278,61 @@ mod tests {
             !json.contains("\"constant_fadein_time\""),
             "snake_case leak"
         );
+    }
+
+    #[test]
+    fn apply_modmenu_fields_merges_only_managed_fields() {
+        let mut live = PlayConfig {
+            hispeed: 6.0,
+            duration: 900,
+            fixhispeed: FIX_HISPEED_STARTBPM,
+            hispeedmargin: 2.0,
+            hispeedautoadjust: true,
+            judgetype: "Score".to_string(),
+            ..Default::default()
+        };
+
+        let source = PlayConfig {
+            hispeed: 1.0,                   // non-managed -- must NOT overwrite
+            duration: 100,                  // non-managed -- must NOT overwrite
+            fixhispeed: FIX_HISPEED_OFF,    // non-managed -- must NOT overwrite
+            hispeedmargin: 0.1,             // non-managed -- must NOT overwrite
+            hispeedautoadjust: false,       // non-managed -- must NOT overwrite
+            judgetype: "Combo".to_string(), // non-managed -- must NOT overwrite
+            enablelift: true,
+            lift: 0.3,
+            enablehidden: true,
+            hidden: 0.4,
+            enablelanecover: true,
+            lanecover: 0.5,
+            lanecovermarginlow: 0.01,
+            lanecovermarginhigh: 0.02,
+            lanecoverswitchduration: 750,
+            enable_constant: true,
+            constant_fadein_time: 200,
+        };
+
+        live.apply_modmenu_fields(&source);
+
+        // Non-managed fields must be preserved
+        assert_eq!(live.hispeed, 6.0);
+        assert_eq!(live.duration, 900);
+        assert_eq!(live.fixhispeed, FIX_HISPEED_STARTBPM);
+        assert_eq!(live.hispeedmargin, 2.0);
+        assert!(live.hispeedautoadjust);
+        assert_eq!(live.judgetype, "Score");
+
+        // Managed fields must be updated
+        assert!(live.enablelift);
+        assert!((live.lift - 0.3).abs() < f32::EPSILON);
+        assert!(live.enablehidden);
+        assert!((live.hidden - 0.4).abs() < f32::EPSILON);
+        assert!(live.enablelanecover);
+        assert!((live.lanecover - 0.5).abs() < f32::EPSILON);
+        assert!((live.lanecovermarginlow - 0.01).abs() < f32::EPSILON);
+        assert!((live.lanecovermarginhigh - 0.02).abs() < f32::EPSILON);
+        assert_eq!(live.lanecoverswitchduration, 750);
+        assert!(live.enable_constant);
+        assert_eq!(live.constant_fadein_time, 200);
     }
 }

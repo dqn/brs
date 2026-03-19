@@ -116,10 +116,14 @@ impl MainState for BMSPlayer {
         mode: bms_model::mode::Mode,
         play_config: rubato_types::play_config::PlayConfig,
     ) {
+        // Only merge modmenu-managed fields to avoid overwriting live fields
+        // (e.g. hispeed changed via scroll wheel) with stale values from the
+        // modmenu's PlayConfig snapshot.
+        let live = &mut self.player_config.play_config(mode).playconfig;
+        live.apply_modmenu_fields(&play_config);
         if let Some(ref mut lr) = self.lanerender {
-            lr.apply_play_config(&play_config);
+            lr.apply_play_config(live);
         }
-        self.player_config.play_config(mode).playconfig = play_config;
     }
 
     fn notify_media_load_finished(&mut self) {
