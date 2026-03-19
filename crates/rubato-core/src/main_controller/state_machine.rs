@@ -132,6 +132,21 @@ impl MainController {
     /// updateMainStateListener(0);
     /// ```
     fn transition_to_state(&mut self, mut new_state: Box<dyn MainState>) {
+        // Prune finished background threads before the transition so their Arc
+        // references to shared resources (DB handles, IR caches, etc.) are released
+        // before the old state shuts down and the new state is created.
+        let mut remaining = Vec::new();
+        for handle in self.background_threads.drain(..) {
+            if handle.is_finished() {
+                if let Err(e) = handle.join() {
+                    log::warn!("Background thread panicked: {:?}", e);
+                }
+            } else {
+                remaining.push(handle);
+            }
+        }
+        self.background_threads = remaining;
+
         // Shutdown the old state BEFORE creating the new one (matching Java order).
         // This frees GPU resources (textures, skins) and flushes audio before the
         // new state loads its own resources, preventing resource contention.
