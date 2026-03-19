@@ -265,13 +265,11 @@ impl MainState for MusicSelector {
         }
 
         // Java: musicinput = new MusicSelectInputProcessor(300, 50, main.getConfig().getAnalogTicksPerScroll())
-        if self.musicinput.is_none() {
-            self.musicinput = Some(MusicSelectInputProcessor::new(
-                300,
-                50,
-                self.app_config.select.analog_ticks_per_scroll,
-            ));
-        }
+        self.musicinput = Some(MusicSelectInputProcessor::new(
+            300,
+            50,
+            self.app_config.select.analog_ticks_per_scroll,
+        ));
 
         // Build context so bar_manager can query the song database.
         // Java: BarManager has direct access to MusicSelector fields; in Rust
