@@ -258,7 +258,7 @@ pub(super) fn load_saved_skin_settings(header: &SkinHeader) {
         .path()
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_default();
-    let player_config = PLAYER_CONFIG.lock().expect("PLAYER_CONFIG lock poisoned");
+    let player_config = lock_or_recover(&PLAYER_CONFIG);
 
     if player_config.is_none() {
         return;
@@ -285,7 +285,7 @@ pub(super) fn load_saved_skin_settings(header: &SkinHeader) {
     }
 
     if let Some(props) = saved_properties {
-        let mut options = SET_OPTIONS.lock().expect("SET_OPTIONS lock poisoned");
+        let mut options = lock_or_recover(&SET_OPTIONS);
         let opt_map = options.get_or_insert_with(HashMap::new);
         for option in props.option.iter().flatten() {
             if let Some(ref name) = option.name {
@@ -293,7 +293,7 @@ pub(super) fn load_saved_skin_settings(header: &SkinHeader) {
             }
         }
 
-        let mut files = SET_FILES.lock().expect("SET_FILES lock poisoned");
+        let mut files = lock_or_recover(&SET_FILES);
         let file_map = files.get_or_insert_with(HashMap::new);
         for file in props.file.iter().flatten() {
             if let (Some(name), Some(path)) = (&file.name, &file.path) {
@@ -301,7 +301,7 @@ pub(super) fn load_saved_skin_settings(header: &SkinHeader) {
             }
         }
 
-        let mut offsets = SET_OFFSETS.lock().expect("SET_OFFSETS lock poisoned");
+        let mut offsets = lock_or_recover(&SET_OFFSETS);
         let offset_map = offsets.get_or_insert_with(HashMap::new);
         for offset in props.offset.iter().flatten() {
             if let Some(ref name) = offset.name {
@@ -315,7 +315,7 @@ pub(super) fn load_saved_skin_settings(header: &SkinHeader) {
 }
 
 pub(super) fn get_option_setting(option: &CustomOption) -> i32 {
-    let options = SET_OPTIONS.lock().expect("SET_OPTIONS lock poisoned");
+    let options = lock_or_recover(&SET_OPTIONS);
     if let Some(ref map) = *options
         && let Some(&value) = map.get(&option.name)
     {
@@ -325,7 +325,7 @@ pub(super) fn get_option_setting(option: &CustomOption) -> i32 {
 }
 
 pub(super) fn get_file_setting(file: &CustomFile) -> Option<String> {
-    let files = SET_FILES.lock().expect("SET_FILES lock poisoned");
+    let files = lock_or_recover(&SET_FILES);
     if let Some(ref map) = *files
         && let Some(path) = map.get(&file.name)
     {
@@ -335,7 +335,7 @@ pub(super) fn get_file_setting(file: &CustomFile) -> Option<String> {
 }
 
 pub(super) fn get_offset_setting(offset: &CustomOffset) -> OffsetValue {
-    let mut offsets = SET_OFFSETS.lock().expect("SET_OFFSETS lock poisoned");
+    let mut offsets = lock_or_recover(&SET_OFFSETS);
     let map = offsets.get_or_insert_with(HashMap::new);
     *map.entry(offset.name.clone())
         .or_insert_with(|| OffsetValue::new(0, 0, 0, 0, 0, 0))
@@ -349,7 +349,7 @@ pub(super) fn complete_property(header: &SkinHeader) -> SkinProperty {
 
     for option in header.custom_options() {
         let value = get_option_setting(option);
-        let mut opt_map = SET_OPTIONS.lock().expect("SET_OPTIONS lock poisoned");
+        let mut opt_map = lock_or_recover(&SET_OPTIONS);
         let map = opt_map.get_or_insert_with(HashMap::new);
         map.insert(option.name.clone(), value);
         options.push(Some(SkinOption {
@@ -364,15 +364,13 @@ pub(super) fn complete_property(header: &SkinHeader) -> SkinProperty {
                 .unwrap_or_else(|| vec!["Random".to_string()]);
 
         {
-            let mut available = AVAILABLE_FILES
-                .lock()
-                .expect("AVAILABLE_FILES lock poisoned");
+            let mut available = lock_or_recover(&AVAILABLE_FILES);
             let map = available.get_or_insert_with(HashMap::new);
             map.insert(file.name.clone(), file_selection.clone());
         }
 
         let mut selection = {
-            let files_map = SET_FILES.lock().expect("SET_FILES lock poisoned");
+            let files_map = lock_or_recover(&SET_FILES);
             files_map.as_ref().and_then(|m| m.get(&file.name).cloned())
         };
 
@@ -400,7 +398,7 @@ pub(super) fn complete_property(header: &SkinHeader) -> SkinProperty {
 
         let sel = selection.unwrap_or_default();
         {
-            let mut files_map = SET_FILES.lock().expect("SET_FILES lock poisoned");
+            let mut files_map = lock_or_recover(&SET_FILES);
             let map = files_map.get_or_insert_with(HashMap::new);
             map.insert(file.name.clone(), sel.clone());
         }
@@ -433,14 +431,14 @@ pub(super) fn complete_property(header: &SkinHeader) -> SkinProperty {
 
 pub(super) fn dirty(flag: bool) {
     if flag {
-        *DIRTY_CONFIG.lock().expect("DIRTY_CONFIG lock poisoned") = true;
+        *lock_or_recover(&DIRTY_CONFIG) = true;
     }
 }
 
 pub(super) fn save_current_config(next_skin: &SkinHeader) {
-    *DIRTY_CONFIG.lock().expect("DIRTY_CONFIG lock poisoned") = false;
+    *lock_or_recover(&DIRTY_CONFIG) = false;
 
-    let current_skin = CURRENT_SKIN.lock().expect("CURRENT_SKIN lock poisoned");
+    let current_skin = lock_or_recover(&CURRENT_SKIN);
     if current_skin.is_none() {
         return;
     }
@@ -456,15 +454,13 @@ pub(super) fn save_current_config(next_skin: &SkinHeader) {
         properties: Some(property),
     };
 
-    let mut player_config = PLAYER_CONFIG.lock().expect("PLAYER_CONFIG lock poisoned");
+    let mut player_config = lock_or_recover(&PLAYER_CONFIG);
     if player_config.is_none() {
         return;
     }
     let pc = player_config.as_mut().expect("player_config is Some");
 
-    let current_type = CURRENT_SKIN_TYPE
-        .lock()
-        .expect("CURRENT_SKIN_TYPE lock poisoned");
+    let current_type = lock_or_recover(&CURRENT_SKIN_TYPE);
     if let Some(ref st) = *current_type
         && next_skin.name() == cs.name()
     {
@@ -489,17 +485,15 @@ pub(super) fn save_current_config(next_skin: &SkinHeader) {
 }
 
 pub(super) fn reset_current_skin_config() {
-    *SET_OPTIONS.lock().expect("SET_OPTIONS lock poisoned") = Some(HashMap::new());
-    *AVAILABLE_FILES
-        .lock()
-        .expect("AVAILABLE_FILES lock poisoned") = Some(HashMap::new());
-    *SET_FILES.lock().expect("SET_FILES lock poisoned") = Some(HashMap::new());
-    *SET_OFFSETS.lock().expect("SET_OFFSETS lock poisoned") = Some(HashMap::new());
+    *lock_or_recover(&SET_OPTIONS) = Some(HashMap::new());
+    *lock_or_recover(&AVAILABLE_FILES) = Some(HashMap::new());
+    *lock_or_recover(&SET_FILES) = Some(HashMap::new());
+    *lock_or_recover(&SET_OFFSETS) = Some(HashMap::new());
 }
 
 pub(super) fn switch_current_scene_skin(header: SkinHeader) {
     {
-        let current = CURRENT_SKIN.lock().expect("CURRENT_SKIN lock poisoned");
+        let current = lock_or_recover(&CURRENT_SKIN);
         if current.is_some() {
             drop(current);
             save_current_config(&header);
@@ -509,7 +503,7 @@ pub(super) fn switch_current_scene_skin(header: SkinHeader) {
     reset_current_skin_config();
     load_saved_skin_settings(&header);
 
-    *CURRENT_SKIN.lock().expect("CURRENT_SKIN lock poisoned") = Some(header.clone());
+    *lock_or_recover(&CURRENT_SKIN) = Some(header.clone());
     let _property = complete_property(&header);
 
     let skin_path = header

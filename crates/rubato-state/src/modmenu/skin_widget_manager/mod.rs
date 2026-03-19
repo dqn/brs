@@ -6,6 +6,8 @@ use super::{Rectangle, SkinObject, SkinObjectDestination};
 use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
 
+use rubato_types::sync_utils::lock_or_recover;
+
 const EPS: f64 = 1e-5;
 
 static LOCK: Mutex<()> = Mutex::new(());
@@ -98,9 +100,9 @@ impl SkinWidgetManager {
     }
 
     pub fn change_skin(skin: &Skin) {
-        let _lock = LOCK.lock().expect("LOCK lock poisoned");
-        let mut widgets = WIDGETS.lock().expect("WIDGETS lock poisoned");
-        let mut event_history = EVENT_HISTORY.lock().expect("EVENT_HISTORY lock poisoned");
+        let _lock = lock_or_recover(&LOCK);
+        let mut widgets = lock_or_recover(&WIDGETS);
+        let mut event_history = lock_or_recover(&EVENT_HISTORY);
         widgets.clear();
         event_history.clear();
 
@@ -149,13 +151,13 @@ impl SkinWidgetManager {
     /// In Java: ImGui window with tab bar (SkinWidgets + History), column settings,
     /// cursor position overlay.
     pub fn show_ui(ctx: &egui::Context) {
-        let _lock = LOCK.lock().expect("LOCK lock poisoned");
+        let _lock = lock_or_recover(&LOCK);
         let mut open = true;
         egui::Window::new("Skin Widgets")
             .open(&mut open)
             .auto_sized()
             .show(ctx, |ui| {
-                let mut widgets = WIDGETS.lock().expect("WIDGETS lock poisoned");
+                let mut widgets = lock_or_recover(&WIDGETS);
                 if widgets.is_empty() {
                     ui.label("No skin is loaded");
                 } else {
@@ -181,14 +183,11 @@ impl SkinWidgetManager {
                         // SkinWidgets tab
                         ui.horizontal(|ui| {
                             if ui.button("Undo").clicked() {
-                                let mut event_history =
-                                    EVENT_HISTORY.lock().expect("EVENT_HISTORY lock poisoned");
+                                let mut event_history = lock_or_recover(&EVENT_HISTORY);
                                 event_history.undo_with_widgets(&mut widgets);
                             }
                             render_prefer_column_setting(ui);
-                            let mut show_cursor = SHOW_CURSOR_POSITION
-                                .lock()
-                                .expect("SHOW_CURSOR_POSITION lock poisoned");
+                            let mut show_cursor = lock_or_recover(&SHOW_CURSOR_POSITION);
                             ui.checkbox(&mut show_cursor.value, "Show Position");
                             drop(show_cursor);
                             if ui.button("Export").clicked() {
@@ -203,9 +202,7 @@ impl SkinWidgetManager {
                     }
 
                     // Overlay cursor position
-                    let show_cursor = SHOW_CURSOR_POSITION
-                        .lock()
-                        .expect("SHOW_CURSOR_POSITION lock poisoned");
+                    let show_cursor = lock_or_recover(&SHOW_CURSOR_POSITION);
                     if show_cursor.value {
                         let window_height = imgui_renderer::window_height() as f32;
                         if let Some(pos) = ui.ctx().input(|i| i.pointer.interact_pos()) {

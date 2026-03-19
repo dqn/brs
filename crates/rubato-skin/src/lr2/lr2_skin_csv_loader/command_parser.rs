@@ -297,13 +297,10 @@ impl LR2SkinCSVLoaderState {
                 } else {
                     let gr_usize = gr as usize;
                     if gr_usize < self.imagelist.len() {
-                        if let ImageListEntry::Movie(ref movie_path) =
-                            self.imagelist[gr_usize]
-                        {
+                        if let ImageListEntry::Movie(ref movie_path) = self.imagelist[gr_usize] {
                             // Movie source: create SkinImage wrapping SkinSourceMovie.
                             // Java: new SkinImage((SkinSourceMovie) imagelist.get(values[2]))
-                            let movie =
-                                crate::skin_source_movie::SkinSourceMovie::new(movie_path);
+                            let movie = crate::skin_source_movie::SkinSourceMovie::new(movie_path);
                             let img = SkinImage::new_with_movie(movie);
                             self.image = Some(img);
                         } else {

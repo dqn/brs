@@ -8,7 +8,7 @@ use std::sync::{Mutex, MutexGuard};
 /// bug in another thread rather than corrupt data. Recovering gracefully (instead of
 /// panicking the current thread) avoids cascading failures and keeps the application
 /// responsive for debugging.
-pub fn lock_or_recover<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+pub fn lock_or_recover<T: ?Sized>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex.lock().unwrap_or_else(|e| e.into_inner())
 }
 

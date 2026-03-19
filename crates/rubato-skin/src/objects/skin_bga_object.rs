@@ -3,6 +3,8 @@
 
 use std::sync::{Arc, Mutex};
 
+use rubato_types::sync_utils::lock_or_recover;
+
 use rubato_play::bga::bga_processor::{BGAProcessor, BgaRenderType, BgaRenderer};
 use rubato_play::practice_configuration::{PracticeColor, PracticeDrawCommand};
 use rubato_play::skin_bga::{
@@ -185,9 +187,8 @@ impl SkinBgaObject {
             // we represent as i64::MIN or a negative value), pass -1
             let bga_time = if play_time < 0 { -1 } else { play_time };
 
-            if let Ok(mut draw) = bga_draw.lock() {
-                draw.prepare_bga(bga_time);
-            }
+            let mut draw = lock_or_recover(bga_draw);
+            draw.prepare_bga(bga_time);
         }
     }
 
@@ -202,9 +203,8 @@ impl SkinBgaObject {
             self.draw_practice(sprite);
         } else if let Some(ref bga_draw) = self.bga_draw {
             let region = self.data.region;
-            if let Ok(mut draw) = bga_draw.lock() {
-                draw.draw_bga(sprite, &region, self.bga_expand);
-            }
+            let mut draw = lock_or_recover(bga_draw);
+            draw.draw_bga(sprite, &region, self.bga_expand);
         }
     }
 
