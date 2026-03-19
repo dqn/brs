@@ -1032,6 +1032,61 @@ SCENETIME,9999\n\
         assert_eq!(state.skin_scene, None);
     }
 
+    #[test]
+    fn test_include_path_traversal_rejected() {
+        // Create a skin dir with a valid include, and a sibling dir with an
+        // "escaped" include that lives outside the skin root.
+        let base = std::env::temp_dir().join("lr2_csv_traversal_test");
+        let skin_dir = base.join("skin");
+        let outside_dir = base.join("outside");
+        std::fs::create_dir_all(&skin_dir).unwrap();
+        std::fs::create_dir_all(&outside_dir).unwrap();
+
+        // Place a file outside the skin root that sets SCENETIME
+        let escaped_file = outside_dir.join("evil.lr2skin");
+        std::fs::write(&escaped_file, "#SCENETIME,6666\n").unwrap();
+
+        let mut state = make_state();
+        state.skinpath = skin_dir.to_str().unwrap().to_string();
+
+        // Use the absolute path to the escaped file
+        state.process_csv_command(
+            "INCLUDE",
+            &str_vec(&["#INCLUDE", escaped_file.to_str().unwrap()]),
+            None,
+        );
+        // SCENETIME should NOT have been applied because the path escapes skin root
+        assert_eq!(state.skin_scene, None);
+
+        // Clean up
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn test_include_path_within_skin_root_accepted() {
+        let base = std::env::temp_dir().join("lr2_csv_traversal_ok_test");
+        let skin_dir = base.join("skin");
+        std::fs::create_dir_all(&skin_dir).unwrap();
+
+        // Place a valid include file inside the skin root
+        let inc_file = skin_dir.join("inner.lr2skin");
+        std::fs::write(&inc_file, "#SCENETIME,4444\n").unwrap();
+
+        let mut state = make_state();
+        state.skinpath = skin_dir.to_str().unwrap().to_string();
+
+        state.process_csv_command(
+            "INCLUDE",
+            &str_vec(&["#INCLUDE", inc_file.to_str().unwrap()]),
+            None,
+        );
+        // SCENETIME should be applied because the path is within skin root
+        assert_eq!(state.skin_scene, Some(4444));
+
+        // Clean up
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
     // --- source_image_from_texture edge cases ---
 
     #[test]
