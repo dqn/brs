@@ -122,6 +122,14 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideRenderContex
         }
     }
 
+    fn boolean_value(&self, id: i32) -> bool {
+        self.default_boolean_value(id)
+    }
+
+    fn float_value(&self, id: i32) -> f32 {
+        self.default_float_value(id)
+    }
+
     fn integer_value(&self, id: i32) -> i32 {
         match id {
             // Song BPM from songdata
@@ -260,6 +268,14 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideMouseContext
                 .play_config_ref(mode)
                 .playconfig,
         )
+    }
+
+    fn boolean_value(&self, id: i32) -> bool {
+        self.default_boolean_value(id)
+    }
+
+    fn float_value(&self, id: i32) -> f32 {
+        self.default_float_value(id)
     }
 
     fn integer_value(&self, id: i32) -> i32 {

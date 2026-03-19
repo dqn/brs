@@ -267,9 +267,121 @@ pub trait SkinRenderContext: TimerAccess {
         false
     }
 
+    /// Shared default implementation for boolean property values.
+    ///
+    /// Handles song data boolean properties (SongDataBooleanProperty in Java) and
+    /// resource-level properties that apply to non-MusicSelector screens (Decide,
+    /// Play, Result).  Contexts should call this as a fallback from `boolean_value()`
+    /// when no state-specific override applies.
+    fn default_boolean_value(&self, id: i32) -> bool {
+        use bms_model::mode::Mode;
+
+        // Song data boolean properties (Java: SongDataBooleanProperty)
+        // These access state.resource.getSongdata() and return false when absent.
+        if let Some(song) = self.song_data_ref() {
+            match id {
+                // OPTION_NO_TEXT (174) / OPTION_TEXT (175)
+                174 => return !song.chart.has_document(),
+                175 => return song.chart.has_document(),
+                // OPTION_NO_LN (172) / OPTION_LN (173)
+                172 => return !song.chart.has_any_long_note(),
+                173 => return song.chart.has_any_long_note(),
+                // OPTION_NO_BGA (170) / OPTION_BGA (171)
+                170 => return !song.chart.has_bga(),
+                171 => return song.chart.has_bga(),
+                // OPTION_NO_RANDOMSEQUENCE (178) / OPTION_RANDOMSEQUENCE (179)
+                178 => return !song.chart.has_random_sequence(),
+                179 => return song.chart.has_random_sequence(),
+                // OPTION_NO_BPMCHANGE (176) / OPTION_BPMCHANGE (177)
+                176 => return song.chart.minbpm == song.chart.maxbpm,
+                177 => return song.chart.minbpm < song.chart.maxbpm,
+                // OPTION_BPMSTOP (1177)
+                1177 => return song.chart.is_bpmstop(),
+                // OPTION_DIFFICULTY0..5 (150..155)
+                150 => return song.chart.difficulty <= 0 || song.chart.difficulty > 5,
+                151 => return song.chart.difficulty == 1,
+                152 => return song.chart.difficulty == 2,
+                153 => return song.chart.difficulty == 3,
+                154 => return song.chart.difficulty == 4,
+                155 => return song.chart.difficulty == 5,
+                // OPTION_JUDGE_VERYHARD..VERYEASY (180..184)
+                180 => {
+                    return song.chart.judge == 0
+                        || (song.chart.judge >= 10 && song.chart.judge < 35);
+                }
+                181 => {
+                    return song.chart.judge == 1
+                        || (song.chart.judge >= 35 && song.chart.judge < 60);
+                }
+                182 => {
+                    return song.chart.judge == 2
+                        || (song.chart.judge >= 60 && song.chart.judge < 85);
+                }
+                183 => {
+                    return song.chart.judge == 3
+                        || (song.chart.judge >= 85 && song.chart.judge < 110);
+                }
+                184 => return song.chart.judge == 4 || song.chart.judge >= 110,
+                // Chart mode keys (160..164, 1160..1161)
+                160 => return song.chart.mode == Mode::BEAT_7K.id(),
+                161 => return song.chart.mode == Mode::BEAT_5K.id(),
+                162 => return song.chart.mode == Mode::BEAT_14K.id(),
+                163 => return song.chart.mode == Mode::BEAT_10K.id(),
+                164 => return song.chart.mode == Mode::POPN_9K.id(),
+                1160 => return song.chart.mode == Mode::KEYBOARD_24K.id(),
+                1161 => return song.chart.mode == Mode::KEYBOARD_24K_DOUBLE.id(),
+                _ => {}
+            }
+        } else {
+            // When songdata is absent, all SongDataBooleanProperty checks return false
+            // (Java: model != null && bool.isTrue(model))
+            match id {
+                150..=155 | 160..=164 | 170..=184 | 1160 | 1161 | 1177 => return false,
+                _ => {}
+            }
+        }
+        false
+    }
+
     /// Returns the float property value for the given ID.
     fn float_value(&self, _id: i32) -> f32 {
         0.0
+    }
+
+    /// Shared default implementation for float property values.
+    ///
+    /// Handles float properties that can be computed from `song_data_ref()`,
+    /// `player_config_ref()`, `config_ref()`, and `current_play_config_ref()`.
+    /// Contexts should call this as a fallback from `float_value()` when no
+    /// state-specific override applies.
+    fn default_float_value(&self, id: i32) -> f32 {
+        match id {
+            // hispeed (310): Java FloatPropertyFactory reads from PlayConfig when not BMSPlayer
+            310 => self
+                .current_play_config_ref()
+                .map_or(f32::MIN, |pc| pc.hispeed),
+            // chart_peakdensity (360)
+            360 => self
+                .song_data_ref()
+                .and_then(|s| s.info.as_ref())
+                .map_or(f32::MIN, |i| i.peakdensity as f32),
+            // chart_enddensity (362)
+            362 => self
+                .song_data_ref()
+                .and_then(|s| s.info.as_ref())
+                .map_or(f32::MIN, |i| i.enddensity as f32),
+            // chart_averagedensity (367)
+            367 => self
+                .song_data_ref()
+                .and_then(|s| s.info.as_ref())
+                .map_or(f32::MIN, |i| i.density as f32),
+            // chart_totalgauge (368)
+            368 => self
+                .song_data_ref()
+                .and_then(|s| s.info.as_ref())
+                .map_or(f32::MIN, |i| i.total as f32),
+            _ => 0.0,
+        }
     }
 
     /// Returns the string property value for the given ID.
