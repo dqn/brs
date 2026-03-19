@@ -506,7 +506,55 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayMouseContext<'
 
     fn integer_value(&self, id: i32) -> i32 {
         match id {
+            // Hi-speed (LR2 format: hispeed * 100, e.g. 3.5 -> 350)
+            // Uses live LaneRenderer value, not saved player_config.
+            10 => {
+                let hs = self
+                    .player
+                    .lanerender
+                    .as_ref()
+                    .map_or(0.0, |lr| lr.hispeed());
+                (hs * 100.0) as i32
+            }
+            // Hi-speed fractional part (e.g. 3.52 -> 52)
+            311 => {
+                let hs = self
+                    .player
+                    .lanerender
+                    .as_ref()
+                    .map_or(0.0, |lr| lr.hispeed());
+                ((hs * 100.0) as i32) % 100
+            }
+            // Lanecover (0-1000 scale from live LaneRenderer)
+            14 => {
+                let lc = self
+                    .player
+                    .lanerender
+                    .as_ref()
+                    .map_or(0.0, |lr| lr.lanecover());
+                (lc * 1000.0) as i32
+            }
+            // Lift (0-1000 scale from live LaneRenderer)
+            314 => {
+                let lift = self
+                    .player
+                    .lanerender
+                    .as_ref()
+                    .map_or(0.0, |lr| lr.lift_region());
+                (lift * 1000.0) as i32
+            }
+            // Hidden (0-1000 scale from live LaneRenderer)
+            315 => {
+                let hidden = self
+                    .player
+                    .lanerender
+                    .as_ref()
+                    .map_or(0.0, |lr| lr.hidden_cover());
+                (hidden * 1000.0) as i32
+            }
+            // Total notes
             350 => self.player.total_notes,
+            // Playtime (hours/minutes/seconds from boot)
             17 => (self.timer.now_time() / 3_600_000) as i32,
             18 => ((self.timer.now_time() % 3_600_000) / 60_000) as i32,
             19 => ((self.timer.now_time() % 60_000) / 1_000) as i32,
@@ -535,9 +583,11 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayMouseContext<'
                 .lanerender
                 .as_ref()
                 .map_or(0, |lr| lr.now_bpm() as i32),
+            // Song duration
             312 => self.player.playtime.clamp(i32::MIN as i64, i32::MAX as i64) as i32,
             1163 => (self.player.playtime / 60000) as i32,
             1164 => ((self.player.playtime % 60000) / 1000) as i32,
+            // Loading progress: 100 if media loaded, else 0
             165 => {
                 if self.player.media_load_finished {
                     100
@@ -564,19 +614,12 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayMouseContext<'
                 }
             }
             1107 => self.player.gauge.as_ref().map_or(0.0, |g| g.value()),
-            310 => {
-                self.player
-                    .player_config
-                    .play_config_ref(
-                        self.player
-                            .model
-                            .mode()
-                            .cloned()
-                            .unwrap_or(bms_model::mode::Mode::BEAT_7K),
-                    )
-                    .playconfig
-                    .hispeed
-            }
+            // Hi-speed (from live LaneRenderer, not saved play config)
+            310 => self
+                .player
+                .lanerender
+                .as_ref()
+                .map_or(0.0, |lr| lr.hispeed()),
             _ => 0.0,
         }
     }
