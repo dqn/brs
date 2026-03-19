@@ -46,6 +46,8 @@ pub(super) struct PlayRenderContext<'a> {
     pub(super) score_data_property: &'a rubato_types::score_data_property::ScoreDataProperty,
     /// Song metadata for string property queries (title, artist, genre, etc.).
     pub(super) song_metadata: &'a rubato_types::song_data::SongMetadata,
+    /// Song data for boolean property queries (chart mode, LN, BGA, difficulty, etc.).
+    pub(super) song_data: Option<&'a rubato_types::song_data::SongData>,
 }
 
 impl rubato_types::timer_access::TimerAccess for PlayRenderContext<'_> {
@@ -96,6 +98,10 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayRenderContext<
 
     fn current_play_config_ref(&self) -> Option<&rubato_types::play_config::PlayConfig> {
         Some(self.play_config)
+    }
+
+    fn song_data_ref(&self) -> Option<&rubato_types::song_data::SongData> {
+        self.song_data
     }
 
     fn set_timer_micro(&mut self, timer_id: rubato_types::timer_id::TimerId, micro_time: i64) {
@@ -262,7 +268,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayRenderContext<
             201 => self.play_mode.mode == rubato_core::bms_player_mode::Mode::Practice,
             // Loading state (PlayState::Preload = 0)
             80 => self.state == PlayState::Preload,
-            _ => false,
+            _ => self.default_boolean_value(id),
         }
     }
 
@@ -374,6 +380,10 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayMouseContext<'
                 )
                 .playconfig,
         )
+    }
+
+    fn song_data_ref(&self) -> Option<&rubato_types::song_data::SongData> {
+        self.player.song_data.as_ref()
     }
 
     fn now_judge(&self, player: i32) -> i32 {
@@ -573,7 +583,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayMouseContext<'
             }
             201 => self.player.play_mode.mode == rubato_core::bms_player_mode::Mode::Practice,
             80 => self.player.state == PlayState::Preload,
-            _ => false,
+            _ => self.default_boolean_value(id),
         }
     }
 
@@ -646,6 +656,7 @@ mod tests {
             config,
             score_data_property,
             song_metadata: Box::leak(Box::new(rubato_types::song_data::SongMetadata::default())),
+            song_data: None,
         }
     }
 
@@ -739,6 +750,7 @@ mod tests {
             config,
             score_data_property,
             song_metadata: Box::leak(Box::new(rubato_types::song_data::SongMetadata::default())),
+            song_data: None,
         }
     }
 
@@ -837,6 +849,7 @@ mod tests {
             config,
             score_data_property,
             song_metadata: Box::leak(Box::new(rubato_types::song_data::SongMetadata::default())),
+            song_data: None,
         }
     }
 
@@ -912,6 +925,7 @@ mod tests {
             config,
             score_data_property,
             song_metadata: Box::leak(Box::new(rubato_types::song_data::SongMetadata::default())),
+            song_data: None,
         };
         // config_ref should return Some
         assert!(ctx.config_ref().is_some());
@@ -964,6 +978,7 @@ mod tests {
             config,
             score_data_property,
             song_metadata: Box::leak(Box::new(rubato_types::song_data::SongMetadata::default())),
+            song_data: None,
         };
         let prop = ctx.score_data_property();
         assert!((prop.now_rate() - 0.85).abs() < f32::EPSILON);
@@ -1080,6 +1095,7 @@ mod tests {
             config,
             score_data_property,
             song_metadata,
+            song_data: None,
         }
     }
 

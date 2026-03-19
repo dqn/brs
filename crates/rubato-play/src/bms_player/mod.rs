@@ -442,6 +442,10 @@ pub struct BMSPlayer {
     /// Song metadata for skin string property queries (title, artist, etc.).
     /// Set by the caller before create() via `set_song_metadata()`.
     song_metadata: rubato_types::song_data::SongMetadata,
+    /// Song data for boolean skin property queries (chart mode, LN, BGA, difficulty, etc.).
+    /// Set by the caller before create() via `set_song_data()`.
+    /// Java: SongDataBooleanProperty accesses state.resource.getSongdata().
+    song_data: Option<rubato_types::song_data::SongData>,
 }
 
 mod accessors;
