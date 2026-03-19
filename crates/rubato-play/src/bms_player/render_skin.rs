@@ -18,7 +18,18 @@ fn judge_note_idx_to_timeline_idx(
     let search_result = timelines.binary_search_by_key(&jn.time_us, |tl| tl.micro_time());
     let start = match search_result {
         Ok(idx) => idx,
-        Err(_) => return None,
+        Err(idx) => {
+            // Exact time not found (can happen if JudgeNote time_us and TimeLine
+            // micro_time diverge by f64->i64 rounding). Check nearest neighbors
+            // for a lane match as a fallback.
+            if idx < timelines.len() && timelines[idx].note(jn.lane as i32).is_some() {
+                return Some(idx);
+            }
+            if idx > 0 && timelines[idx - 1].note(jn.lane as i32).is_some() {
+                return Some(idx - 1);
+            }
+            return None;
+        }
     };
     // Scan backwards to find the first timeline at this time
     let mut first = start;

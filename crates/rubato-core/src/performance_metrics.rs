@@ -1,4 +1,5 @@
 use rubato_types::sync_utils::lock_or_recover;
+use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::{Mutex, OnceLock};
@@ -6,14 +7,17 @@ use std::time::Instant;
 
 static INSTANCE: OnceLock<PerformanceMetrics> = OnceLock::new();
 
+thread_local! {
+    /// Per-thread active block stack for correct parent-child event relationships.
+    static THREAD_ACTIVE_BLOCKS: RefCell<Vec<i32>> = const { RefCell::new(Vec::new()) };
+}
+
 /// PerformanceMetrics - tracks performance events and watch measurements
 pub struct PerformanceMetrics {
     /// Event results (thread-safe list)
     pub event_results: Mutex<Vec<EventResult>>,
     /// Watch records keyed by name
     watch_records: Mutex<HashMap<String, VecDeque<(i64, i64)>>>,
-    /// Thread-local active block stack (approximated with Mutex)
-    active_blocks: Mutex<Vec<i32>>,
     /// Base instant for timing
     base_instant: Instant,
 }
@@ -36,7 +40,6 @@ impl PerformanceMetrics {
         Self {
             event_results: Mutex::new(Vec::new()),
             watch_records: Mutex::new(HashMap::new()),
-            active_blocks: Mutex::new(Vec::new()),
             base_instant: Instant::now(),
         }
     }
@@ -52,14 +55,12 @@ impl PerformanceMetrics {
     /// Create a new EventBlock for scoped performance measurement
     pub fn event(&self, event_name: &str) -> EventBlock {
         let id = NEXT_EVENT_ID.fetch_add(1, Ordering::Relaxed);
-        let parent = {
-            let blocks = lock_or_recover(&self.active_blocks);
-            blocks.last().copied().unwrap_or(0)
-        };
-        {
-            let mut blocks = lock_or_recover(&self.active_blocks);
-            blocks.push(id);
-        }
+        let parent = THREAD_ACTIVE_BLOCKS.with(|blocks| {
+            let mut b = blocks.borrow_mut();
+            let p = b.last().copied().unwrap_or(0);
+            b.push(id);
+            p
+        });
         EventBlock {
             name: event_name.to_string(),
             id,
@@ -121,10 +122,9 @@ impl Drop for EventBlock {
     fn drop(&mut self) {
         let metrics = PerformanceMetrics::get();
         let end_time = metrics.nanos();
-        {
-            let mut blocks = lock_or_recover(&metrics.active_blocks);
-            blocks.pop();
-        }
+        THREAD_ACTIVE_BLOCKS.with(|blocks| {
+            blocks.borrow_mut().pop();
+        });
         let result = EventResult {
             name: self.name.clone(),
             id: self.id,
