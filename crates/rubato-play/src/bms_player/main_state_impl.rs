@@ -1178,6 +1178,21 @@ impl MainState for BMSPlayer {
                     && !self.is_course_mode
                     && self.pending.pending_state_change.is_none()
                 {
+                    if self.assist > 0 {
+                        // Assist mode: cannot replay with same chart, reset seed
+                        self.pending.pending_replay_seed_reset = true;
+                        log::info!("Aborted: assist mode, cannot replay with same chart");
+                    } else if self.input.input_start_pressed {
+                        // START: replay without changing options, reset seed
+                        self.pending.pending_replay_seed_reset = true;
+                        log::info!("Aborted: replay without changing options");
+                    } else {
+                        // SELECT: replay same chart, save score before retry
+                        self.sync_judge_states_to_model();
+                        self.pending.pending_quick_retry_score =
+                            self.create_score_data(self.device_type);
+                        log::info!("Aborted: replay same chart (score saved)");
+                    }
                     self.pending.pending_global_pitch = Some(1.0);
                     self.save_config();
                     self.pending.pending_reload_bms = true;

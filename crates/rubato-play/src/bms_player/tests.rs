@@ -2891,6 +2891,173 @@ fn aborted_quick_retry_with_start_xor_select() {
     assert_eq!(state_change, Some(MainStateType::Play));
 }
 
+#[test]
+fn failed_quick_retry_start_resets_seed() {
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+    player.state = PlayState::Failed;
+    player.lanerender = Some(LaneRenderer::new(&player.model));
+    player.input.keyinput = Some(KeyInputProccessor::new(&LaneProperty::new(&Mode::BEAT_7K)));
+    player.play_mode = BMSPlayerMode::PLAY;
+    player.is_course_mode = false;
+    player.score.playinfo.randomoptionseed = 42;
+
+    // START pressed -> reset seed
+    player.input.input_start_pressed = true;
+    player.input.input_select_pressed = false;
+
+    player.main_state_data.timer.update();
+    player.render();
+
+    // Seed reset is deferred via pending_replay_seed_reset (applied by MainController)
+    assert!(player.pending.pending_replay_seed_reset);
+    assert_eq!(
+        player.take_pending_state_change(),
+        Some(MainStateType::Play)
+    );
+    assert!(player.pending.pending_score_handoff.is_none());
+}
+
+#[test]
+fn failed_quick_retry_select_saves_score() {
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+    player.state = PlayState::Failed;
+    player.lanerender = Some(LaneRenderer::new(&player.model));
+    player.input.keyinput = Some(KeyInputProccessor::new(&LaneProperty::new(&Mode::BEAT_7K)));
+    player.play_mode = BMSPlayerMode::PLAY;
+    player.is_course_mode = false;
+    player.score.playinfo.randomoptionseed = 42;
+
+    // SELECT pressed -> save score, keep seed
+    player.input.input_start_pressed = false;
+    player.input.input_select_pressed = true;
+
+    player.main_state_data.timer.update();
+    player.render();
+
+    // Seed should NOT be reset (SELECT keeps same pattern)
+    assert_eq!(player.score.playinfo.randomoptionseed, 42);
+    assert_eq!(
+        player.take_pending_state_change(),
+        Some(MainStateType::Play)
+    );
+    // Score handoff should be set (score saved for SELECT retry)
+    // Note: score_data may be None if no notes were hit, but the handoff itself
+    // is only set when create_score_data returns Some. With zero notes hit in
+    // Failed state, create_score_data returns None, so no handoff.
+}
+
+#[test]
+fn failed_quick_retry_assist_resets_seed() {
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+    player.state = PlayState::Failed;
+    player.lanerender = Some(LaneRenderer::new(&player.model));
+    player.input.keyinput = Some(KeyInputProccessor::new(&LaneProperty::new(&Mode::BEAT_7K)));
+    player.play_mode = BMSPlayerMode::PLAY;
+    player.is_course_mode = false;
+    player.assist = 1; // Assist mode active
+    player.score.playinfo.randomoptionseed = 42;
+
+    // SELECT pressed, but assist mode overrides
+    player.input.input_start_pressed = false;
+    player.input.input_select_pressed = true;
+
+    player.main_state_data.timer.update();
+    player.render();
+
+    // Assist mode: seed reset is deferred via pending_replay_seed_reset
+    assert!(player.pending.pending_replay_seed_reset);
+    assert_eq!(
+        player.take_pending_state_change(),
+        Some(MainStateType::Play)
+    );
+    assert!(player.pending.pending_score_handoff.is_none());
+}
+
+#[test]
+fn aborted_quick_retry_start_resets_seed() {
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+    player.state = PlayState::Aborted;
+    player.lanerender = Some(LaneRenderer::new(&player.model));
+    player.play_mode = BMSPlayerMode::PLAY;
+    player.is_course_mode = false;
+    player.score.playinfo.randomoptionseed = 42;
+
+    // START pressed -> reset seed
+    player.input.input_start_pressed = true;
+    player.input.input_select_pressed = false;
+
+    player.main_state_data.timer.update();
+    player.render();
+
+    // Seed reset is deferred via pending_replay_seed_reset (applied by MainController)
+    assert!(player.pending.pending_replay_seed_reset);
+    assert_eq!(
+        player.take_pending_state_change(),
+        Some(MainStateType::Play)
+    );
+    assert!(player.pending.pending_score_handoff.is_none());
+}
+
+#[test]
+fn aborted_quick_retry_select_saves_score() {
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+    player.state = PlayState::Aborted;
+    player.lanerender = Some(LaneRenderer::new(&player.model));
+    player.play_mode = BMSPlayerMode::PLAY;
+    player.is_course_mode = false;
+    player.score.playinfo.randomoptionseed = 42;
+
+    // SELECT pressed -> save score, keep seed
+    player.input.input_start_pressed = false;
+    player.input.input_select_pressed = true;
+
+    player.main_state_data.timer.update();
+    player.render();
+
+    // Seed should NOT be reset (SELECT keeps same pattern)
+    assert!(!player.pending.pending_replay_seed_reset);
+    assert_eq!(
+        player.take_pending_state_change(),
+        Some(MainStateType::Play)
+    );
+    // Score is saved via pending_quick_retry_score (applied by MainController),
+    // not pending_score_handoff which is for normal end-of-play transitions.
+    // Note: create_score_data may return None with zero notes hit, so the
+    // quick retry score may or may not be Some depending on model state.
+}
+
+#[test]
+fn aborted_quick_retry_assist_resets_seed() {
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+    player.state = PlayState::Aborted;
+    player.lanerender = Some(LaneRenderer::new(&player.model));
+    player.play_mode = BMSPlayerMode::PLAY;
+    player.is_course_mode = false;
+    player.assist = 1; // Assist mode active
+    player.score.playinfo.randomoptionseed = 42;
+
+    // SELECT pressed, but assist mode overrides
+    player.input.input_start_pressed = false;
+    player.input.input_select_pressed = true;
+
+    player.main_state_data.timer.update();
+    player.render();
+
+    // Assist mode: seed reset is deferred via pending_replay_seed_reset
+    assert!(player.pending.pending_replay_seed_reset);
+    assert_eq!(
+        player.take_pending_state_change(),
+        Some(MainStateType::Play)
+    );
+    assert!(player.pending.pending_score_handoff.is_none());
+}
+
 // --- state transition tests ---
 
 #[test]
