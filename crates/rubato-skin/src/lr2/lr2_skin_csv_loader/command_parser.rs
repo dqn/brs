@@ -297,11 +297,14 @@ impl LR2SkinCSVLoaderState {
                 } else {
                     let gr_usize = gr as usize;
                     if gr_usize < self.imagelist.len() {
-                        if matches!(self.imagelist[gr_usize], ImageListEntry::Movie(_)) {
-                            // Movie source: create SkinImage wrapping the movie
-                            // (Movie rendering is handled by SkinBgaObject in practice;
-                            // for non-BGA movie images, create a placeholder SkinImage.)
-                            let img = SkinImage::new_with_int_timer(vec![], 0, 0);
+                        if let ImageListEntry::Movie(ref movie_path) =
+                            self.imagelist[gr_usize]
+                        {
+                            // Movie source: create SkinImage wrapping SkinSourceMovie.
+                            // Java: new SkinImage((SkinSourceMovie) imagelist.get(values[2]))
+                            let movie =
+                                crate::skin_source_movie::SkinSourceMovie::new(movie_path);
+                            let img = SkinImage::new_with_movie(movie);
                             self.image = Some(img);
                         } else {
                             let values = Self::parse_int(str_parts);
