@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
+use crate::graphs::skin_graph::SkinGraph;
 use crate::lr2::lr2_skin_loader::LR2SkinLoaderState;
+use crate::objects::skin_number::SkinNumber;
+use crate::objects::skin_slider::SkinSlider;
 use crate::reexports::{Resolution, Texture, TextureRegion};
 use crate::skin::SkinObject;
 use crate::skin_gauge::SkinGauge;
@@ -54,6 +57,10 @@ pub struct LR2SkinCSVLoaderState {
 
     // Active skin objects (built by SRC, destination set by DST)
     pub image: Option<SkinImage>,
+    pub num: Option<SkinNumber>,
+    pub text: Option<SkinObject>,
+    pub slider: Option<SkinSlider>,
+    pub bar: Option<SkinGraph>,
     pub button: Option<SkinImage>,
     pub onmouse: Option<SkinImage>,
     pub gauger: Option<SkinGauge>,
