@@ -644,6 +644,18 @@ fn test_evaluate_filter_empty() {
     assert!(evaluate_filter_expression("", 42));
 }
 
+#[test]
+fn test_evaluate_filter_exact_match() {
+    // Bare integer means exact equality (Java parity)
+    assert!(evaluate_filter_expression("5", 5));
+    assert!(!evaluate_filter_expression("5", 4));
+    assert!(!evaluate_filter_expression("5", 6));
+    assert!(evaluate_filter_expression("0", 0));
+    assert!(!evaluate_filter_expression("0", 1));
+    // Non-numeric expression falls through to true
+    assert!(evaluate_filter_expression("abc", 42));
+}
+
 // ---- i64 truncation bug tests ----
 
 #[test]
