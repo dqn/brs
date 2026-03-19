@@ -7,21 +7,30 @@ use rubato_types::random_history;
 pub use rubato_types::random_history::RandomHistoryEntry;
 use rubato_types::sync_utils::lock_or_recover;
 
-static LANE_ORDER: Mutex<String> = Mutex::new(String::new());
-static LANES_TO_RANDOM: Mutex<Vec<char>> = Mutex::new(Vec::new());
-static BLACK_WHITE_PERMUTE: Mutex<bool> = Mutex::new(false);
-static ACTIVE: Mutex<bool> = Mutex::new(false);
-static LANE_MASK: Mutex<Vec<bool>> = Mutex::new(Vec::new());
-static RANDOM_SEED_MAP: Mutex<Option<HashMap<i32, i64>>> = Mutex::new(None);
+struct RandomTrainerState {
+    lane_order: String,
+    lanes_to_random: Vec<char>,
+    black_white_permute: bool,
+    active: bool,
+    lane_mask: Vec<bool>,
+    random_seed_map: Option<HashMap<i32, i64>>,
+}
 
-fn init_defaults() {
-    let mut lane_order = lock_or_recover(&LANE_ORDER);
-    if lane_order.is_empty() {
-        *lane_order = "1234567".to_string();
+static STATE: Mutex<RandomTrainerState> = Mutex::new(RandomTrainerState {
+    lane_order: String::new(),
+    lanes_to_random: Vec::new(),
+    black_white_permute: false,
+    active: false,
+    lane_mask: Vec::new(),
+    random_seed_map: None,
+});
+
+fn init_defaults(state: &mut RandomTrainerState) {
+    if state.lane_order.is_empty() {
+        state.lane_order = "1234567".to_string();
     }
-    let mut lane_mask = lock_or_recover(&LANE_MASK);
-    if lane_mask.is_empty() {
-        *lane_mask = vec![false; 7];
+    if state.lane_mask.is_empty() {
+        state.lane_mask = vec![false; 7];
     }
 }
 
@@ -35,29 +44,26 @@ impl Default for RandomTrainer {
 
 impl RandomTrainer {
     pub fn new() -> Self {
-        init_defaults();
-        let mut seed_map = lock_or_recover(&RANDOM_SEED_MAP);
-        if seed_map.is_none() {
+        let mut state = lock_or_recover(&STATE);
+        init_defaults(&mut state);
+        if state.random_seed_map.is_none() {
             // In Java this loads from a serialized resource file "resources/randomtrainer.dat"
             // We stub this as an empty map since the binary resource is not available
             log::info!("RandomTrainer: randomtrainer.dat not found, using empty map");
-            *seed_map = Some(HashMap::new());
+            state.random_seed_map = Some(HashMap::new());
         }
         RandomTrainer
     }
 
     pub fn lane_order() -> String {
-        init_defaults();
         let mut rng = thread_rng();
+        let mut state = lock_or_recover(&STATE);
+        init_defaults(&mut state);
 
-        let black_white_permute = *lock_or_recover(&BLACK_WHITE_PERMUTE);
-        let mut lane_order = lock_or_recover(&LANE_ORDER);
-        let lanes_to_random = lock_or_recover(&LANES_TO_RANDOM);
-
-        if black_white_permute {
+        if state.black_white_permute {
             let mut black: Vec<char> = Vec::new();
             let mut white: Vec<char> = Vec::new();
-            for c in lane_order.chars() {
+            for c in state.lane_order.chars() {
                 let digit = c.to_digit(10).unwrap_or(0) as i32;
                 if digit % 2 == 0 {
                     black.push(c);
@@ -68,7 +74,7 @@ impl RandomTrainer {
             black.shuffle(&mut rng);
             white.shuffle(&mut rng);
 
-            let mut new_lane_order: Vec<char> = lane_order.chars().collect();
+            let mut new_lane_order: Vec<char> = state.lane_order.chars().collect();
             for ch in new_lane_order.iter_mut() {
                 let digit = ch.to_digit(10).unwrap_or(0) as i32;
                 if digit % 2 == 0 {
@@ -81,65 +87,66 @@ impl RandomTrainer {
                     white.remove(0);
                 }
             }
-            *lane_order = new_lane_order.into_iter().collect();
+            state.lane_order = new_lane_order.into_iter().collect();
         }
 
-        let mut shuffled_lanes: Vec<char> = lanes_to_random.clone();
+        let mut shuffled_lanes: Vec<char> = state.lanes_to_random.clone();
         shuffled_lanes.shuffle(&mut rng);
-        let mut new_lane_order: Vec<char> = lane_order.chars().collect();
+        let mut new_lane_order: Vec<char> = state.lane_order.chars().collect();
         for ch in new_lane_order.iter_mut() {
-            if lanes_to_random.contains(ch)
+            if state.lanes_to_random.contains(ch)
                 && let Some(c) = shuffled_lanes.first()
             {
                 *ch = *c;
                 shuffled_lanes.remove(0);
             }
         }
-        *lane_order = new_lane_order.into_iter().collect();
-        lane_order.clone()
+        state.lane_order = new_lane_order.into_iter().collect();
+        state.lane_order.clone()
     }
 
     pub fn is_lane_to_random(lane: char) -> bool {
-        let lanes = lock_or_recover(&LANES_TO_RANDOM);
-        lanes.contains(&lane)
+        let state = lock_or_recover(&STATE);
+        state.lanes_to_random.contains(&lane)
     }
 
     pub fn set_lane_to_random(lane: char) {
-        let mut lanes = lock_or_recover(&LANES_TO_RANDOM);
-        lanes.push(lane);
+        let mut state = lock_or_recover(&STATE);
+        state.lanes_to_random.push(lane);
     }
 
     pub fn remove_lane_to_random(lane: char) {
-        let mut lanes = lock_or_recover(&LANES_TO_RANDOM);
-        if let Some(pos) = lanes.iter().position(|&c| c == lane) {
-            lanes.remove(pos);
+        let mut state = lock_or_recover(&STATE);
+        if let Some(pos) = state.lanes_to_random.iter().position(|&c| c == lane) {
+            state.lanes_to_random.remove(pos);
         }
     }
 
     pub fn is_active() -> bool {
-        *lock_or_recover(&ACTIVE)
+        lock_or_recover(&STATE).active
     }
 
     pub fn set_active(active: bool) {
-        *lock_or_recover(&ACTIVE) = active;
+        lock_or_recover(&STATE).active = active;
     }
 
     pub fn get_random_seed_map() -> Option<HashMap<i32, i64>> {
-        lock_or_recover(&RANDOM_SEED_MAP).clone()
+        lock_or_recover(&STATE).random_seed_map.clone()
     }
 
     pub fn set_black_white_permute(black_white_permute: bool) {
-        *lock_or_recover(&BLACK_WHITE_PERMUTE) = black_white_permute;
+        lock_or_recover(&STATE).black_white_permute = black_white_permute;
     }
 
     /// Returns the current lane order string without shuffling.
     pub fn get_current_lane_order() -> String {
-        init_defaults();
-        lock_or_recover(&LANE_ORDER).clone()
+        let mut state = lock_or_recover(&STATE);
+        init_defaults(&mut state);
+        state.lane_order.clone()
     }
 
     pub fn set_lane_order(number: &str) {
-        *lock_or_recover(&LANE_ORDER) = number.to_string();
+        lock_or_recover(&STATE).lane_order = number.to_string();
     }
 
     pub fn random_history() -> VecDeque<RandomHistoryEntry> {
@@ -165,13 +172,14 @@ mod tests {
     /// prevent other tests from mutating the shared statics concurrently.
     fn reset_globals() -> std::sync::MutexGuard<'static, ()> {
         let guard = TEST_LOCK.lock().unwrap();
-        *LANE_ORDER.lock().unwrap() = "1234567".to_string();
-        LANES_TO_RANDOM.lock().unwrap().clear();
-        *BLACK_WHITE_PERMUTE.lock().unwrap() = false;
-        *ACTIVE.lock().unwrap() = false;
-        LANE_MASK.lock().unwrap().clear();
-        *LANE_MASK.lock().unwrap() = vec![false; 7];
-        *RANDOM_SEED_MAP.lock().unwrap() = Some(HashMap::new());
+        let mut state = STATE.lock().unwrap();
+        state.lane_order = "1234567".to_string();
+        state.lanes_to_random.clear();
+        state.black_white_permute = false;
+        state.active = false;
+        state.lane_mask.clear();
+        state.lane_mask = vec![false; 7];
+        state.random_seed_map = Some(HashMap::new());
         guard
     }
 
@@ -181,10 +189,9 @@ mod tests {
     fn test_new_initializes_defaults() {
         let _g = reset_globals();
         let _trainer = RandomTrainer::new();
-        let lane_order = LANE_ORDER.lock().unwrap();
-        assert_eq!(*lane_order, "1234567");
-        let seed_map = RANDOM_SEED_MAP.lock().unwrap();
-        assert!(seed_map.is_some());
+        let state = STATE.lock().unwrap();
+        assert_eq!(state.lane_order, "1234567");
+        assert!(state.random_seed_map.is_some());
     }
 
     // --- set/remove lane_to_random ---
@@ -249,8 +256,8 @@ mod tests {
     fn test_set_lane_order() {
         let _g = reset_globals();
         RandomTrainer::set_lane_order("7654321");
-        let order = LANE_ORDER.lock().unwrap();
-        assert_eq!(*order, "7654321");
+        let state = STATE.lock().unwrap();
+        assert_eq!(state.lane_order, "7654321");
     }
 
     // --- lane_order (shuffling) ---
