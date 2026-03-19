@@ -59,7 +59,7 @@ impl LR2CourseResultSkinLoaderState {
                     let dstw = safe_div_f32(self.csv.dst.width, self.csv.src.width);
                     let dsth = safe_div_f32(self.csv.dst.height, self.csv.src.height);
                     let offsets = lr2_skin_loader::read_offset(str_parts, 21);
-                    obj.data.set_destination_with_int_timer_ops(
+                    obj.data.set_destination_with_int_timer_and_offsets(
                         &DestinationParams {
                             time: values[2] as i64,
                             x: self.gauge.x * dstw,
@@ -78,6 +78,9 @@ impl LR2CourseResultSkinLoaderState {
                             loop_val: values[16],
                         },
                         values[17],
+                        values[18],
+                        values[19],
+                        values[20],
                         &offsets,
                     );
                 }

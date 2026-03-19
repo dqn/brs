@@ -328,7 +328,7 @@ impl LR2SkinCSVLoaderState {
                     let dstw = safe_div_f32(self.dst.width, self.src.width);
                     let dsth = safe_div_f32(self.dst.height, self.src.height);
                     let offsets = Self::read_offset(str_parts, 21);
-                    image.data.set_destination_with_int_timer_ops(
+                    image.data.set_destination_with_int_timer_and_offsets(
                         &DestinationParams {
                             time: values[2] as i64,
                             x: values[3] as f32 * dstw,
@@ -347,6 +347,9 @@ impl LR2SkinCSVLoaderState {
                             loop_val: values[16],
                         },
                         values[17],
+                        values[18],
+                        values[19],
+                        values[20],
                         &offsets,
                     );
                     image.data.set_stretch_by_id(self.stretch);
@@ -477,7 +480,7 @@ impl LR2SkinCSVLoaderState {
                     let dstw = safe_div_f32(self.dst.width, self.src.width);
                     let dsth = safe_div_f32(self.dst.height, self.src.height);
                     let offsets = Self::read_offset(str_parts, 21);
-                    button.data.set_destination_with_int_timer_ops(
+                    button.data.set_destination_with_int_timer_and_offsets(
                         &DestinationParams {
                             time: values[2] as i64,
                             x: values[3] as f32 * dstw,
@@ -496,6 +499,9 @@ impl LR2SkinCSVLoaderState {
                             loop_val: values[16],
                         },
                         values[17],
+                        values[18],
+                        values[19],
+                        values[20],
                         &offsets,
                     );
                 }
@@ -533,7 +539,7 @@ impl LR2SkinCSVLoaderState {
                     let dstw = safe_div_f32(self.dst.width, self.src.width);
                     let dsth = safe_div_f32(self.dst.height, self.src.height);
                     let offsets = Self::read_offset(str_parts, 21);
-                    onmouse.data.set_destination_with_int_timer_ops(
+                    onmouse.data.set_destination_with_int_timer_and_offsets(
                         &DestinationParams {
                             time: values[2] as i64,
                             x: values[3] as f32 * dstw,
@@ -552,6 +558,9 @@ impl LR2SkinCSVLoaderState {
                             loop_val: values[16],
                         },
                         values[17],
+                        values[18],
+                        values[19],
+                        values[20],
                         &offsets,
                     );
                 }
@@ -625,7 +634,7 @@ impl LR2SkinCSVLoaderState {
                         };
                     let y = self.dst.height - values[4] as f32 * dsth - height;
                     let offsets = Self::read_offset(str_parts, 21);
-                    gauger.data.set_destination_with_int_timer_ops(
+                    gauger.data.set_destination_with_int_timer_and_offsets(
                         &DestinationParams {
                             time: values[2] as i64,
                             x,
@@ -644,6 +653,9 @@ impl LR2SkinCSVLoaderState {
                             loop_val: values[16],
                         },
                         values[17],
+                        values[18],
+                        values[19],
+                        values[20],
                         &offsets,
                     );
                 }

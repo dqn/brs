@@ -300,7 +300,7 @@ pub fn process_dst_notechart(
         let dstw = crate::safe_div_f32(dst_width, src_width);
         let dsth = crate::safe_div_f32(dst_height, src_height);
         let offsets = read_offset(str_parts, 21);
-        obj.data.set_destination_with_int_timer_ops(
+        obj.data.set_destination_with_int_timer_and_offsets(
             &DestinationParams {
                 time: values[2] as i64,
                 x: gauge.x * dstw,
@@ -319,6 +319,9 @@ pub fn process_dst_notechart(
                 loop_val: values[16],
             },
             values[17],
+            values[18],
+            values[19],
+            values[20],
             &offsets,
         );
     }
@@ -369,7 +372,7 @@ pub fn process_dst_bpmchart(
         let dstw = crate::safe_div_f32(dst_width, src_width);
         let dsth = crate::safe_div_f32(dst_height, src_height);
         let offsets = read_offset(str_parts, 21);
-        obj.data.set_destination_with_int_timer_ops(
+        obj.data.set_destination_with_int_timer_and_offsets(
             &DestinationParams {
                 time: values[2] as i64,
                 x: gauge.x * dstw,
@@ -388,6 +391,9 @@ pub fn process_dst_bpmchart(
                 loop_val: values[16],
             },
             values[17],
+            values[18],
+            values[19],
+            values[20],
             &offsets,
         );
     }
