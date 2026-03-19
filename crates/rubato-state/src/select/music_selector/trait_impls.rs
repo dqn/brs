@@ -264,9 +264,13 @@ impl MainState for MusicSelector {
             self.input_processor = Some(input);
         }
 
-        // Java: musicinput = new MusicSelectInputProcessor(300, 50, MusicSelectInputProcessor.ANALOG_TICKS_PER_SCROLL)
+        // Java: musicinput = new MusicSelectInputProcessor(300, 50, main.getConfig().getAnalogTicksPerScroll())
         if self.musicinput.is_none() {
-            self.musicinput = Some(MusicSelectInputProcessor::new(300, 50, 10));
+            self.musicinput = Some(MusicSelectInputProcessor::new(
+                300,
+                50,
+                self.app_config.select.analog_ticks_per_scroll,
+            ));
         }
 
         // Build context so bar_manager can query the song database.
