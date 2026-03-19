@@ -97,6 +97,14 @@ impl MainState for BMSPlayer {
         std::mem::take(&mut self.pending.pending_reload_bms)
     }
 
+    fn take_pending_replay_seed_reset(&mut self) -> bool {
+        std::mem::take(&mut self.pending.pending_replay_seed_reset)
+    }
+
+    fn take_pending_quick_retry_score(&mut self) -> Option<rubato_types::score_data::ScoreData> {
+        self.pending.pending_quick_retry_score.take()
+    }
+
     fn take_pending_play_config_update(
         &mut self,
     ) -> Option<(bms_model::mode::Mode, rubato_types::play_config::PlayConfig)> {
@@ -743,7 +751,8 @@ impl MainState for BMSPlayer {
             // PlayState::Play - main gameplay
             PlayState::Play => {
                 let deltatime = micronow - self.prevtime;
-                let deltaplay = deltatime.saturating_mul(100 - self.playspeed as i64) / 100;
+                let playspeed = (self.playspeed).clamp(0, 100) as i64;
+                let deltaplay = deltatime.saturating_mul(100 - playspeed) / 100;
                 let freq = self.practice.practice_property().freq;
                 let current_play_timer = self.main_state_data.timer.micro_timer(TIMER_PLAY);
                 self.main_state_data
@@ -1010,7 +1019,7 @@ impl MainState for BMSPlayer {
                 self.keysound.stop_bg_play();
 
                 // Quick retry check (START xor SELECT)
-                // Translated from: Java BMSPlayer.render() lines 823-838
+                // Translated from: Java BMSPlayer.render() lines 663-680
                 // Guard: skip if a state transition is already queued to avoid
                 // calling save_config() on every frame while keys are held.
                 if (self.input.input_start_pressed ^ self.input.input_select_pressed)
@@ -1018,7 +1027,21 @@ impl MainState for BMSPlayer {
                     && self.play_mode.mode == rubato_core::bms_player_mode::Mode::Play
                     && self.pending.pending_state_change.is_none()
                 {
-                    self.pending.pending_global_pitch = Some(1.0);
+                    if self.assist > 0 {
+                        // Assist mode: cannot replay with same chart, reset seed
+                        self.pending.pending_replay_seed_reset = true;
+                        log::info!("Assist mode: cannot replay with same chart");
+                    } else if self.input.input_start_pressed {
+                        // START: replay without changing options, reset seed
+                        self.pending.pending_replay_seed_reset = true;
+                        log::info!("Replay without changing options");
+                    } else {
+                        // SELECT: replay same chart, save score before retry
+                        self.sync_judge_states_to_model();
+                        self.pending.pending_quick_retry_score =
+                            self.create_score_data(self.device_type);
+                        log::info!("Replay same chart (score saved)");
+                    }
                     self.save_config();
                     self.pending.pending_reload_bms = true;
                     self.pending.pending_state_change = Some(MainStateType::Play);

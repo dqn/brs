@@ -9,7 +9,7 @@ pub(crate) use rubato_types::imgui_notify::ImGuiNotify;
 pub(crate) use rubato_types::main_controller_access::MainControllerAccess;
 pub(crate) use rubato_types::main_state_access::MainStateAccess;
 pub(crate) use rubato_types::player_resource_access::PlayerResourceAccess;
-pub(crate) use rubato_types::player_resource_access::{MediaAccess, SongAccess};
+pub(crate) use rubato_types::player_resource_access::{MediaAccess, ReplayAccess, SongAccess};
 pub(crate) use rubato_types::ranking_data_cache_access::RankingDataCacheAccess;
 pub(crate) use rubato_types::screen_type::ScreenType;
 pub(crate) use rubato_types::song_database_accessor::SongDatabaseAccessor as SongDatabaseAccessorTrait;
