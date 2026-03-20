@@ -321,6 +321,44 @@ impl StateFactory for LauncherStateFactory {
                     player.set_active_replay(Some(replay));
                 }
 
+                // Wire replay key state for replay mode entry.
+                // Java: BMSPlayer constructor reads key states from input processor.
+                // main.getInputProcessor().getKeyState(N) -> keystate[N]
+                if let Some(input) = controller.input_processor() {
+                    player.set_replay_key_state(rubato_play::bms_player::ReplayKeyState {
+                        pattern_key: input.key_state(1),
+                        option_key: input.key_state(2),
+                        hs_key: input.key_state(4),
+                        gauge_shift_key3: input.key_state(3),
+                        gauge_shift_key5: input.key_state(5),
+                    });
+                }
+
+                // --- Pattern modification pipeline ---
+                // Java: BMSPlayer constructor lines 94-348
+                // Initializes playinfo from config, restores replay data, handles RANDOM
+                // syntax, calculates non-modifier assist, applies pattern modifiers
+                // (scroll, LN, mine, extra, battle, random options, 7to9), and applies
+                // HS replay config from replay mode.
+                player.prepare_pattern_pipeline();
+
+                // Apply frequency trainer if enabled (Java lines 246-267)
+                // FreqTrainerMenu is a global static; read it here and pass to the player.
+                // BMSPlayer stores freq_on/force_no_ir_send; these flow to PlayerResource
+                // via ScoreHandoff when the play session ends.
+                {
+                    let freq =
+                        rubato_state::modmenu::freq_trainer_menu::FreqTrainerMenu::get_freq();
+                    let is_play_mode =
+                        player.play_mode().mode == rubato_core::bms_player_mode::Mode::Play;
+                    let freq_option = controller
+                        .config()
+                        .audio_config()
+                        .map(|a| a.freq_option)
+                        .unwrap_or(rubato_types::audio_config::FrequencyType::UNPROCESSED);
+                    player.apply_freq_trainer(freq, is_play_mode, is_course_mode, &freq_option);
+                }
+
                 // --- Target/rival score DB load ---
                 // Java: main.getPlayDataAccessor().readScoreData(model, config.getLnmode())
                 let lnmode = controller.player_config().play_settings.lnmode;

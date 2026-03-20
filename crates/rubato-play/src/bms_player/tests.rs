@@ -5939,3 +5939,176 @@ fn aborted_quick_retry_start_does_not_save_replay_data() {
     );
     assert!(player.pending.pending_replay_seed_reset);
 }
+
+// --- prepare_pattern_pipeline tests (Bug rubato-yfh) ---
+
+#[test]
+fn prepare_pattern_pipeline_initializes_playinfo_from_config() {
+    // Bug rubato-yfh: prepare_pattern_pipeline should call init_playinfo_from_config
+    // so that player config random options are copied into playinfo.
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+    let mut config = make_default_config();
+    config.play_settings.random = 2; // MIRROR
+    config.play_settings.random2 = 3;
+    config.play_settings.doubleoption = 1;
+    player.set_player_config(config.clone());
+    player.play_mode = BMSPlayerMode::PLAY;
+
+    player.prepare_pattern_pipeline();
+
+    assert_eq!(
+        player.score.playinfo.randomoption, 2,
+        "prepare_pattern_pipeline should copy config.random into playinfo.randomoption"
+    );
+    assert_eq!(
+        player.score.playinfo.randomoption2, 3,
+        "prepare_pattern_pipeline should copy config.random2 into playinfo.randomoption2"
+    );
+    assert_eq!(
+        player.score.playinfo.doubleoption, 1,
+        "prepare_pattern_pipeline should copy config.doubleoption into playinfo.doubleoption"
+    );
+}
+
+#[test]
+fn prepare_pattern_pipeline_applies_pattern_modifiers() {
+    // Bug rubato-yfh: prepare_pattern_pipeline should call build_pattern_modifiers
+    // so that random seeds are generated and stored in playinfo.
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+    let config = make_default_config();
+    player.set_player_config(config);
+    player.play_mode = BMSPlayerMode::PLAY;
+
+    player.prepare_pattern_pipeline();
+
+    // After build_pattern_modifiers, a random seed should be assigned
+    assert_ne!(
+        player.score.playinfo.randomoptionseed, -1,
+        "prepare_pattern_pipeline should generate random seed via build_pattern_modifiers"
+    );
+}
+
+#[test]
+fn prepare_pattern_pipeline_applies_non_modifier_assist() {
+    // Bug rubato-yfh: prepare_pattern_pipeline should call calculate_non_modifier_assist
+    let mut model = BMSModel::new();
+    model.set_mode(Mode::BEAT_7K);
+    model.judgerank = 100;
+    // Set different min/max BPM to trigger BPM guide assist
+    let mut tl1 = bms_model::time_line::TimeLine::new(0.0, 0, 8);
+    tl1.bpm = 120.0;
+    tl1.set_note(0, Some(bms_model::note::Note::new_normal(1)));
+    let mut tl2 = bms_model::time_line::TimeLine::new(1.0, 1000000, 8);
+    tl2.bpm = 180.0;
+    tl2.set_note(0, Some(bms_model::note::Note::new_normal(2)));
+    model.timelines = vec![tl1, tl2];
+
+    let mut player = BMSPlayer::new(model);
+    let mut config = make_default_config();
+    config.display_settings.bpmguide = true;
+    player.set_player_config(config);
+    player.play_mode = BMSPlayerMode::PLAY;
+
+    player.prepare_pattern_pipeline();
+
+    assert!(
+        player.assist >= 1,
+        "prepare_pattern_pipeline should detect BPM guide assist via calculate_non_modifier_assist"
+    );
+}
+
+// --- HS replay config application tests (Bug rubato-5pd) ---
+
+#[test]
+fn prepare_pattern_pipeline_applies_hs_replay_config() {
+    // Bug rubato-5pd: When replay mode Key4 is held, the HS replay config from
+    // restore_replay_data should be applied to the player's PlayConfig.
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+    let config = make_default_config();
+    player.set_player_config(config);
+    player.play_mode = BMSPlayerMode::REPLAY_1;
+
+    // Set up replay data with a custom PlayConfig
+    let mut replay_play_config = PlayConfig::default();
+    replay_play_config.hispeed = 3.5;
+    replay_play_config.lanecover = 250.0;
+    let mut replay = ReplayData::new();
+    replay.config = Some(replay_play_config.clone());
+    player.set_active_replay(Some(replay));
+
+    // Simulate Key4 held (hs_key)
+    let key_state = ReplayKeyState {
+        hs_key: true,
+        ..Default::default()
+    };
+    player.set_replay_key_state(key_state);
+
+    player.prepare_pattern_pipeline();
+
+    // The replay's PlayConfig should be applied to the player's config
+    let mode = player.mode();
+    let applied_config = &player.player_config().play_config_ref(mode).playconfig;
+    assert!(
+        (applied_config.hispeed - 3.5_f32).abs() < 0.01,
+        "HS replay config hispeed should be applied: got {}",
+        applied_config.hispeed
+    );
+    assert!(
+        (applied_config.lanecover - 250.0_f32).abs() < 0.01,
+        "HS replay config lanecover should be applied: got {}",
+        applied_config.lanecover
+    );
+}
+
+// --- Replay 7-to-9 mode change tests (Bug rubato-9dx) ---
+
+#[test]
+fn prepare_pattern_pipeline_replay_seven_to_nine_mode_change() {
+    // Bug rubato-9dx: When replay has seven_to_nine_pattern > 0 and model mode is
+    // BEAT_7K, the model mode should be changed to POPN_9K before pattern modifiers run.
+    let model = make_model(); // BEAT_7K
+    let mut player = BMSPlayer::new(model);
+    let config = make_default_config();
+    player.set_player_config(config);
+    player.play_mode = BMSPlayerMode::REPLAY_1;
+
+    // Set up replay data with seven_to_nine_pattern > 0
+    let mut replay = ReplayData::new();
+    replay.seven_to_nine_pattern = 1;
+    player.set_active_replay(Some(replay));
+
+    player.prepare_pattern_pipeline();
+
+    assert_eq!(
+        player.mode(),
+        Mode::POPN_9K,
+        "Replay with seven_to_nine_pattern > 0 on BEAT_7K should change mode to POPN_9K"
+    );
+}
+
+#[test]
+fn prepare_pattern_pipeline_replay_seven_to_nine_no_change_for_non_7k() {
+    // Bug rubato-9dx: seven_to_nine mode change should only apply to BEAT_7K
+    let mut model = BMSModel::new();
+    model.set_mode(Mode::BEAT_5K);
+    model.judgerank = 100;
+    let mut player = BMSPlayer::new(model);
+    let config = make_default_config();
+    player.set_player_config(config);
+    player.play_mode = BMSPlayerMode::REPLAY_1;
+
+    let mut replay = ReplayData::new();
+    replay.seven_to_nine_pattern = 1;
+    player.set_active_replay(Some(replay));
+
+    player.prepare_pattern_pipeline();
+
+    assert_eq!(
+        player.mode(),
+        Mode::BEAT_5K,
+        "seven_to_nine mode change should not apply to BEAT_5K"
+    );
+}

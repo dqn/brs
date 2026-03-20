@@ -466,6 +466,10 @@ pub struct BMSPlayer {
     /// Populated by the caller via `set_offset_snapshot()` before create().
     /// Java: MainState inherits MainController which holds offset[].
     offset_snapshot: Vec<rubato_types::skin_offset::SkinOffset>,
+    /// Replay key state for replay mode entry.
+    /// Set by the caller via `set_replay_key_state()` before `prepare_pattern_pipeline()`.
+    /// Used by `restore_replay_data` to determine replay pattern/option/HS mode.
+    replay_key_state: ReplayKeyState,
 }
 
 mod accessors;

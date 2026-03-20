@@ -590,6 +590,96 @@ impl BMSPlayer {
         config
     }
 
+    /// Orchestrate the full pattern modification pipeline.
+    ///
+    /// Corresponds to the Java BMSPlayer constructor lines 94-348.
+    /// This method calls the 5 pipeline stages in order:
+    /// 1. `init_playinfo_from_config` -- copy config random options into playinfo
+    /// 2. `restore_replay_data` -- restore replay data and handle replay key modes
+    /// 3. `handle_random_syntax` -- process RANDOM branch chart loading
+    /// 4. `calculate_non_modifier_assist` -- check non-modifier assist flags
+    /// 5. `build_pattern_modifiers` -- apply scroll/LN/mine/extra/battle/random modifiers
+    ///
+    /// Additionally handles:
+    /// - Bug rubato-5pd: Applies HS replay config to PlayConfig after restore_replay_data
+    /// - Bug rubato-9dx: Applies 7-to-9 mode change from replay before pattern modifiers
+    ///
+    /// The caller should invoke this BEFORE `create()` so that the model is
+    /// fully modified when create() initializes the judge, gauge, and lane renderer.
+    pub fn prepare_pattern_pipeline(&mut self) {
+        let config = self.player_config.clone();
+        let is_replay = self.play_mode.mode == rubato_core::bms_player_mode::Mode::Replay;
+        let is_course = self.is_course_mode;
+
+        // Step 1: Initialize playinfo from config (Java lines 94-96)
+        self.init_playinfo_from_config(&config);
+
+        // Step 2: Restore replay data (Java lines 110-175)
+        let mut hs_replay_config: Option<rubato_types::play_config::PlayConfig> = None;
+        if is_replay && !is_course {
+            let replay = self.score.active_replay.take();
+            let key_state = self.replay_key_state;
+            let result = self.restore_replay_data(replay, &key_state);
+
+            // Apply HS replay config (Bug rubato-5pd, Java lines 345-348)
+            hs_replay_config = result.hs_replay_config;
+
+            if result.stay_replay {
+                // Normal replay: keep replay for keylog playback
+                self.score.active_replay = result.replay;
+            } else {
+                // Switched to PLAY mode
+                self.play_mode = BMSPlayerMode::PLAY;
+            }
+        }
+
+        // Step 3: Handle RANDOM syntax (Java lines 179-196)
+        let still_replay =
+            is_replay && self.play_mode.mode == rubato_core::bms_player_mode::Mode::Replay;
+        let resource_replay_seed = self.score.playinfo.randomoptionseed;
+        let resource_rand = self.score.playinfo.rand.clone();
+        // Take active_replay temporarily to avoid borrow conflict
+        let active_replay = self.score.active_replay.take();
+        let _rand_for_reload = self.handle_random_syntax(
+            still_replay,
+            active_replay.as_ref(),
+            resource_replay_seed,
+            &resource_rand,
+        );
+        self.score.active_replay = active_replay;
+        // Note: actual model reload from rand is handled by the caller
+        // (state_factory / MainController) via PlayerResource.load_bms_model().
+
+        // Step 4: Non-modifier assist checks (Java lines 200-212)
+        self.calculate_non_modifier_assist(&config);
+
+        // Step 5: 7-to-9 mode change from replay (Bug rubato-9dx, Java lines 263/280)
+        // This must happen BEFORE build_pattern_modifiers so ModeModifier sees the
+        // correct mode.
+        if let Some(ref replay) = self.score.active_replay
+            && replay.seven_to_nine_pattern > 0
+            && self.model.mode().copied() == Some(Mode::BEAT_7K)
+        {
+            self.model.set_mode(Mode::POPN_9K);
+        }
+
+        // Step 6: Build and apply pattern modifiers (Java lines 214-342)
+        self.build_pattern_modifiers(&config);
+
+        // Step 7: Apply HS replay config (Bug rubato-5pd, Java lines 345-348)
+        // Must happen AFTER build_pattern_modifiers since the model mode may have
+        // changed (e.g. 7to9), and we need the final mode for play_config lookup.
+        if let Some(hs_config) = hs_replay_config {
+            let mode = self.model.mode().copied().unwrap_or(Mode::BEAT_7K);
+            self.player_config.play_config(mode).playconfig = hs_config;
+        }
+
+        // Step 8: Apply frequency trainer (Java lines 246-267)
+        // Freq trainer is applied via FreqTrainerMenu global state, but the value
+        // must be passed in by the caller since BMSPlayer cannot access the global.
+        // This is handled separately by the caller after prepare_pattern_pipeline().
+    }
+
     /// Get mutable reference to playinfo for testing.
     #[cfg(test)]
     pub fn playinfo_mut(&mut self) -> &mut ReplayData {

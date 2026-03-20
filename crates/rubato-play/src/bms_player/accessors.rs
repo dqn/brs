@@ -64,6 +64,7 @@ impl BMSPlayer {
             song_data: None,
             offset_snapshot: Vec::new(),
             cumulative_playtime_seconds: 0,
+            replay_key_state: ReplayKeyState::default(),
         }
     }
 
@@ -463,5 +464,18 @@ impl BMSPlayer {
 
     pub fn practice_configuration_mut(&mut self) -> &mut PracticeConfiguration {
         &mut self.practice
+    }
+
+    /// Set the replay key state for replay mode entry.
+    ///
+    /// The caller should snapshot key states from `BMSPlayerInputProcessor` before
+    /// calling `prepare_pattern_pipeline()`. These keys determine how replay data
+    /// is restored:
+    /// - Key1 (pattern_key): Copy all pattern options + seeds + rand from replay
+    /// - Key2 (option_key): Copy pattern options only (no seeds)
+    /// - Key4 (hs_key): Save replay's PlayConfig for HS restoration
+    /// - Key3/Key5: Gauge shift
+    pub fn set_replay_key_state(&mut self, key_state: ReplayKeyState) {
+        self.replay_key_state = key_state;
     }
 }
