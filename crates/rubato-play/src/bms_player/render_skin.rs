@@ -202,6 +202,7 @@ impl BMSPlayer {
                 song_metadata: &self.song_metadata,
                 song_data: self.song_data.as_ref(),
                 offsets: &self.main_state_data.offsets,
+                cumulative_playtime_seconds: self.cumulative_playtime_seconds,
             };
             skin.update_custom_objects_timed(&mut ctx);
             skin.swap_sprite_batch(sprite);

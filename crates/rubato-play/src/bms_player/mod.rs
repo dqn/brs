@@ -451,6 +451,10 @@ pub struct BMSPlayer {
     /// Set by the caller before create() via `set_song_data()`.
     /// Java: SongDataBooleanProperty accesses state.resource.getSongdata().
     song_data: Option<rubato_types::song_data::SongData>,
+    /// Cumulative playtime in seconds from PlayerData.
+    /// Java: PlayerData.getPlaytime() -- total play time across all sessions.
+    /// Set by the caller before create() via `set_cumulative_playtime()`.
+    cumulative_playtime_seconds: i64,
     /// Skin offset snapshot from MainController.
     /// Populated by the caller via `set_offset_snapshot()` before create().
     /// Java: MainState inherits MainController which holds offset[].
