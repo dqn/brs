@@ -289,8 +289,13 @@ impl SkinGaugeGraphObject {
 
         let current_type = state.result_gauge_type();
         if self.current_type != current_type {
-            self.redraw = true;
             self.current_type = current_type;
+            self.redraw = true;
+
+            if current_type < 0 {
+                self.gaugehistory.clear();
+                return;
+            }
 
             self.gaugehistory = state
                 .gauge_history()
@@ -515,6 +520,64 @@ impl SkinGaugeGraphObject {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::reexports::SkinOffset;
+
+    /// Mock MainState that returns a configurable result_gauge_type.
+    struct MockGaugeState {
+        timer: crate::reexports::Timer,
+        gauge_type: i32,
+        gauge_history: Option<Vec<Vec<f32>>>,
+    }
+
+    impl MockGaugeState {
+        fn new(gauge_type: i32) -> Self {
+            Self {
+                timer: crate::reexports::Timer::default(),
+                gauge_type,
+                gauge_history: None,
+            }
+        }
+
+        fn with_gauge_history(mut self, history: Vec<Vec<f32>>) -> Self {
+            self.gauge_history = Some(history);
+            self
+        }
+    }
+
+    impl rubato_types::timer_access::TimerAccess for MockGaugeState {
+        fn now_time(&self) -> i64 {
+            self.timer.now_time()
+        }
+        fn now_micro_time(&self) -> i64 {
+            self.timer.now_micro_time()
+        }
+        fn micro_timer(&self, id: rubato_types::timer_id::TimerId) -> i64 {
+            self.timer.micro_timer(id)
+        }
+        fn timer(&self, id: rubato_types::timer_id::TimerId) -> i64 {
+            self.timer.timer(id)
+        }
+        fn now_time_for(&self, id: rubato_types::timer_id::TimerId) -> i64 {
+            self.timer.now_time_for(id)
+        }
+        fn is_timer_on(&self, id: rubato_types::timer_id::TimerId) -> bool {
+            self.timer.is_timer_on(id)
+        }
+    }
+
+    impl rubato_types::skin_render_context::SkinRenderContext for MockGaugeState {
+        fn get_offset_value(&self, _id: i32) -> Option<&SkinOffset> {
+            None
+        }
+        fn result_gauge_type(&self) -> i32 {
+            self.gauge_type
+        }
+        fn gauge_history(&self) -> Option<&Vec<Vec<f32>>> {
+            self.gauge_history.as_ref()
+        }
+    }
+
+    impl crate::reexports::MainState for MockGaugeState {}
 
     #[test]
     fn test_new_default() {
@@ -587,5 +650,44 @@ mod tests {
         obj.draw(&mut renderer);
         assert!(obj.shapetex.is_some());
         assert!(obj.backtex.is_some());
+    }
+
+    #[test]
+    fn test_prepare_negative_current_type_no_wrap() {
+        // Regression: when result_gauge_type() returns -1,
+        // `current_type as usize` wrapped to usize::MAX causing out-of-bounds
+        // indexing into gauge_history. The fix adds an early return guard for
+        // negative current_type.
+        let mut obj = SkinGaugeGraphObject::new_default();
+        // Set to a valid type first so the transition to -1 actually triggers.
+        obj.current_type = 0;
+        // Pre-populate gaugehistory to verify it gets cleared.
+        obj.gaugehistory = vec![10.0, 20.0, 30.0];
+
+        let state = MockGaugeState::new(-1);
+        obj.prepare(0, &state);
+
+        assert_eq!(obj.current_type, -1);
+        assert!(
+            obj.gaugehistory.is_empty(),
+            "gaugehistory should be cleared for negative type"
+        );
+        assert!(obj.redraw, "redraw should be set when current_type changes");
+    }
+
+    #[test]
+    fn test_prepare_valid_type_indexes_gauge_history() {
+        // Verify that a valid (non-negative) current_type properly indexes
+        // into gauge_history.
+        let mut obj = SkinGaugeGraphObject::new_default();
+        let history = vec![
+            vec![1.0, 2.0, 3.0], // type 0
+            vec![4.0, 5.0, 6.0], // type 1
+        ];
+        let state = MockGaugeState::new(1).with_gauge_history(history);
+        obj.prepare(0, &state);
+
+        assert_eq!(obj.current_type, 1);
+        assert_eq!(obj.gaugehistory, vec![4.0, 5.0, 6.0]);
     }
 }
