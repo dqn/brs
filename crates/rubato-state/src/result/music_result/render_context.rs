@@ -392,7 +392,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for ResultMouseContext
         let playtime = self.result.resource.player_data().playtime;
         shared_render_context::integer_value(
             &self.result.data,
-            self.timer.now_time(),
+            self.timer.boot_time_millis(),
             playtime,
             self.result.resource.songdata(),
             id,
