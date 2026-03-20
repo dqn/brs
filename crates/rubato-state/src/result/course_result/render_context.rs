@@ -242,6 +242,10 @@ impl rubato_types::skin_render_context::SkinRenderContext for CourseResultRender
     fn gauge_element_borders(&self) -> Vec<(f32, f32)> {
         shared_render_context::gauge_element_borders(self.resource)
     }
+
+    fn get_offset_value(&self, id: i32) -> Option<&rubato_types::skin_offset::SkinOffset> {
+        self.main.offset_value(id)
+    }
 }
 
 impl rubato_skin::main_state::MainState for CourseResultRenderContext<'_> {}
@@ -541,5 +545,9 @@ impl rubato_types::skin_render_context::SkinRenderContext for CourseResultMouseC
             &rubato_core::system_sound_manager::SoundType::OptionChange,
             false,
         );
+    }
+
+    fn get_offset_value(&self, id: i32) -> Option<&rubato_types::skin_offset::SkinOffset> {
+        self.result.main.offset_value(id)
     }
 }
