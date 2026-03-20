@@ -1959,6 +1959,82 @@ fn test_handoff_freq_flags_false_by_default() {
     assert!(!res.force_no_ir_send);
 }
 
+/// Regression: update_course_score must be cleared when assist != 0.
+/// Without this gate, assisted plays would save course records.
+#[test]
+fn test_handoff_update_course_score_cleared_when_assist_nonzero() {
+    let mut mc = make_test_controller();
+    mc.restore_player_resource(PlayerResource::new(
+        Config::default(),
+        PlayerConfig::default(),
+    ));
+
+    // PlayerResource defaults to update_course_score = true
+    assert!(
+        mc.resource.as_ref().unwrap().update_course_score,
+        "update_course_score should default to true"
+    );
+
+    // Handoff with assist=1 should clear update_course_score
+    mc.current = Some(Box::new(HandoffTestState::new(make_handoff(
+        1, false, false,
+    ))));
+
+    mc.render();
+
+    let res = mc.resource.as_ref().unwrap();
+    assert!(
+        !res.update_course_score,
+        "update_course_score must be false when assist != 0"
+    );
+}
+
+/// Regression: update_course_score remains true when assist == 0 and it
+/// was already true.
+#[test]
+fn test_handoff_update_course_score_preserved_when_assist_zero() {
+    let mut mc = make_test_controller();
+    mc.restore_player_resource(PlayerResource::new(
+        Config::default(),
+        PlayerConfig::default(),
+    ));
+
+    mc.current = Some(Box::new(HandoffTestState::new(make_handoff(
+        0, false, false,
+    ))));
+
+    mc.render();
+
+    let res = mc.resource.as_ref().unwrap();
+    assert!(
+        res.update_course_score,
+        "update_course_score should remain true when assist == 0"
+    );
+}
+
+/// Regression: update_course_score stays false if it was already false,
+/// even with assist == 0.
+#[test]
+fn test_handoff_update_course_score_not_restored_when_already_false() {
+    let mut mc = make_test_controller();
+    let mut resource = PlayerResource::new(Config::default(), PlayerConfig::default());
+    resource.update_course_score = false;
+    mc.restore_player_resource(resource);
+
+    mc.current = Some(Box::new(HandoffTestState::new(make_handoff(
+        0, false, false,
+    ))));
+
+    mc.render();
+
+    let res = mc.resource.as_ref().unwrap();
+    assert!(
+        !res.update_course_score,
+        "update_course_score must not be restored to true by a non-assist handoff \
+         if it was already false (e.g., previously cleared by an earlier assisted stage)"
+    );
+}
+
 // --- UpdatePlayConfig forwarding to current state ---
 
 /// Test state that captures play config updates via shared Arc for external inspection.

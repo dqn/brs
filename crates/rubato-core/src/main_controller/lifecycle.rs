@@ -205,6 +205,7 @@ impl MainController {
 
         let mut pending_replay_seed_reset = false;
         let mut pending_quick_retry_score: Option<rubato_types::score_data::ScoreData> = None;
+        let mut pending_quick_retry_replay: Option<rubato_types::replay_data::ReplayData> = None;
         let mut pending_audio_config: Option<rubato_types::audio_config::AudioConfig> = None;
 
         if let Some(ref mut current) = self.current {
@@ -214,6 +215,7 @@ impl MainController {
             pending_reload = current.take_pending_reload_bms();
             pending_replay_seed_reset = current.take_pending_replay_seed_reset();
             pending_quick_retry_score = current.take_pending_quick_retry_score();
+            pending_quick_retry_replay = current.take_pending_quick_retry_replay();
             pending_play_config = current.take_pending_play_config_update();
             pending_audio_config = current.take_pending_audio_config();
             pending_change = current.take_pending_state_change();
@@ -277,6 +279,10 @@ impl MainController {
             resource.assist = handoff.assist;
             // Java: resource.setUpdateScore(assist == 0)
             resource.update_score = handoff.assist == 0;
+            // Java: resource.setUpdateCourseScore(resource.isUpdateCourseScore() && assist == 0)
+            // Course scores must also be gated by assist status to prevent
+            // assisted plays from saving course records.
+            resource.update_course_score = resource.update_course_score && (handoff.assist == 0);
             resource.freq_on = handoff.freq_on;
             resource.force_no_ir_send = handoff.force_no_ir_send;
 
@@ -329,7 +335,7 @@ impl MainController {
             self.player.play_config(mode).playconfig = play_config;
         }
 
-        // Quick retry: reset replay seed (START/assist) or save score (SELECT).
+        // Quick retry: reset replay seed (START/assist) or save score+replay (SELECT).
         // Applied before BMS reload so the next play gets the correct seed state.
         if let Some(ref mut resource) = self.resource {
             if pending_replay_seed_reset && let Some(rd) = resource.replay_data_mut() {
@@ -337,6 +343,9 @@ impl MainController {
             }
             if let Some(score) = pending_quick_retry_score {
                 resource.set_score_data(score);
+            }
+            if let Some(replay) = pending_quick_retry_replay {
+                resource.set_replay_data(replay);
             }
         }
 

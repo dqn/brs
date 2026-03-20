@@ -248,6 +248,13 @@ pub trait MainState {
         None
     }
 
+    /// Take pending replay data from quick retry (SELECT key).
+    /// When Some, MainController should set `resource.replay_data` to the value,
+    /// preserving the current session's lane_shuffle_pattern and randomoptionseed.
+    fn take_pending_quick_retry_replay(&mut self) -> Option<rubato_types::replay_data::ReplayData> {
+        None
+    }
+
     /// Take pending audio config update to propagate volume changes to the audio driver.
     ///
     /// BMSPlayer overrides this to return audio config set by PlayMouseContext

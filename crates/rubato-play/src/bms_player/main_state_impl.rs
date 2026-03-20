@@ -105,6 +105,10 @@ impl MainState for BMSPlayer {
         self.pending.pending_quick_retry_score.take()
     }
 
+    fn take_pending_quick_retry_replay(&mut self) -> Option<rubato_types::replay_data::ReplayData> {
+        self.pending.pending_quick_retry_replay.take()
+    }
+
     fn take_pending_audio_config(&mut self) -> Option<rubato_types::audio_config::AudioConfig> {
         self.pending.pending_audio_config.take()
     }
@@ -1057,10 +1061,11 @@ impl MainState for BMSPlayer {
                         self.pending.pending_replay_seed_reset = true;
                         log::info!("Replay without changing options");
                     } else {
-                        // SELECT: replay same chart, save score before retry
+                        // SELECT: replay same chart, save score and replay data before retry
                         self.sync_judge_states_to_model();
                         self.pending.pending_quick_retry_score =
                             self.create_score_data(self.device_type);
+                        self.pending.pending_quick_retry_replay = Some(self.build_replay_data());
                         log::info!("Replay same chart (score saved)");
                     }
                     self.save_config();
@@ -1220,10 +1225,11 @@ impl MainState for BMSPlayer {
                         self.pending.pending_replay_seed_reset = true;
                         log::info!("Aborted: replay without changing options");
                     } else {
-                        // SELECT: replay same chart, save score before retry
+                        // SELECT: replay same chart, save score and replay data before retry
                         self.sync_judge_states_to_model();
                         self.pending.pending_quick_retry_score =
                             self.create_score_data(self.device_type);
+                        self.pending.pending_quick_retry_replay = Some(self.build_replay_data());
                         log::info!("Aborted: replay same chart (score saved)");
                     }
                     self.pending.pending_global_pitch = Some(1.0);
