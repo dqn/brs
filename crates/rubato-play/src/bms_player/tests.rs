@@ -3404,6 +3404,25 @@ fn create_with_negative_playtime_does_not_panic() {
     }
 }
 
+#[test]
+fn create_with_corrupt_large_playtime_caps_gaugelog_capacity() {
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+    // Simulate corrupt playtime (e.g., from deserialized data): i64::MAX.
+    // Without clamping, this would compute i64::MAX / 500 + 2 which overflows
+    // or allocates an absurdly large Vec. With the clamp to 600_000ms the
+    // capacity should be at most 600_000 / 500 + 2 = 1202.
+    player.playtime = i64::MAX;
+    player.create();
+    for log in &player.gaugelog {
+        assert!(
+            log.capacity() <= 1202,
+            "expected capacity <= 1202 for corrupt playtime, got {}",
+            log.capacity()
+        );
+    }
+}
+
 // --- judge algorithm from player config ---
 
 #[test]

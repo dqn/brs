@@ -293,6 +293,8 @@ impl BMSPlayer {
         // Java BMSPlayer.java:846: replay.mode = config.getLnmode()
         // Stores the LN mode setting (0=LONGNOTE, 1=CN, 2=HCN), not the chart mode ID.
         rd.mode = self.player_config.play_settings.lnmode;
+        // Wall-clock time is correct here: replay dates need calendar timestamps,
+        // not session-relative time.
         rd.date = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs() as i64)

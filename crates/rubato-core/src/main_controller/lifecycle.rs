@@ -309,6 +309,9 @@ impl MainController {
         // Apply play config update to MainController's PlayerConfig.
         // BMSPlayer owns a clone; save_config() writes to that clone and pushes
         // the updated PlayConfig back here so periodic_config_save() persists it.
+        // Full replacement is intentional: BMSPlayer's save_config() writes back
+        // authoritative live values (hispeed, lanecover, etc.). The modmenu path
+        // uses apply_modmenu_fields() to avoid overwriting live-mutated fields.
         if let Some((mode, play_config)) = pending_play_config {
             self.player.play_config(mode).playconfig = play_config;
         }

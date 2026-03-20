@@ -359,8 +359,9 @@ impl MainState for BMSPlayer {
             let gauge_type_len = gauge.gauge_type_length();
             self.gaugelog = Vec::with_capacity(gauge_type_len);
             for _ in 0..gauge_type_len {
-                self.gaugelog
-                    .push(Vec::with_capacity(self.playtime.max(0) as usize / 500 + 2));
+                self.gaugelog.push(Vec::with_capacity(
+                    self.playtime.clamp(0, 600_000) as usize / 500 + 2,
+                ));
             }
         }
 
