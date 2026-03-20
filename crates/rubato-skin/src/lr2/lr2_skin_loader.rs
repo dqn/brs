@@ -195,10 +195,14 @@ pub fn lr2_path(skinpath: &str, imagepath: &str, filemap: &HashMap<String, Strin
         .replace('\\', "/");
 
     // Check filemap for custom file substitutions (Java: imagepath.startsWith(key))
-    for (key, value) in filemap {
+    // Sort keys by length descending so longer (more specific) prefixes match first,
+    // avoiding nondeterministic results from HashMap iteration order.
+    let mut filemap_keys: Vec<&String> = filemap.keys().collect();
+    filemap_keys.sort_by_key(|k| std::cmp::Reverse(k.len()));
+    for key in filemap_keys {
         if resolved.starts_with(key.as_str()) {
             let foot = &resolved[key.len()..];
-            resolved = format!("{}{}", value, foot);
+            resolved = format!("{}{}", filemap[key], foot);
             // After filemap substitution, return immediately to skip wildcard logic (matching Java)
             return resolved;
         }
@@ -910,6 +914,19 @@ mod tests {
         let result = lr2_path("skin", "dir/file|ext*.png", &filemap);
         // Should not panic; exact result depends on filesystem but the function must not crash
         let _ = result;
+    }
+
+    #[test]
+    fn lr2_path_filemap_longer_prefix_wins_over_shorter() {
+        // Regression: HashMap iteration order is nondeterministic. When filemap
+        // contains overlapping prefix keys like "a/b" and "a/b/c", the longer
+        // (more specific) prefix must match first regardless of iteration order.
+        let mut filemap = HashMap::new();
+        filemap.insert("LR2files/Theme/bg".to_string(), "/short/".to_string());
+        filemap.insert("LR2files/Theme/bg2".to_string(), "/long/".to_string());
+        let result = lr2_path("skinroot", "LR2files/Theme/bg2/image.png", &filemap);
+        // The longer key "LR2files/Theme/bg2" must match, not "LR2files/Theme/bg"
+        assert_eq!(result, "/long//image.png");
     }
 
     #[test]

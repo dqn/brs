@@ -434,3 +434,107 @@ fn test_skin_object_renderer_draw_font_shader_switching() {
         SkinObjectRenderer::TYPE_LINEAR
     );
 }
+
+#[test]
+fn test_prepare_region_dstloop_equals_lasttime_no_panic() {
+    // Regression: when dstloop == endtime (lasttime), the modulo denominator
+    // `lasttime - dstloop` is zero, causing a division-by-zero panic.
+    let mut data = SkinObjectData::new();
+    // Add two destinations at time=0 and time=500 so endtime=500
+    data.set_destination_with_int_timer_ops(
+        &DestinationParams {
+            time: 0,
+            x: 0.0,
+            y: 0.0,
+            w: 100.0,
+            h: 100.0,
+            acc: 0,
+            a: 255,
+            r: 255,
+            g: 255,
+            b: 255,
+            blend: 0,
+            filter: 0,
+            angle: 0,
+            center: 0,
+            loop_val: 500, // dstloop = 500 = endtime
+        },
+        0,
+        &[0],
+    );
+    data.set_destination_with_int_timer_ops(
+        &DestinationParams {
+            time: 500,
+            x: 0.0,
+            y: 0.0,
+            w: 100.0,
+            h: 100.0,
+            acc: 0,
+            a: 255,
+            r: 255,
+            g: 255,
+            b: 255,
+            blend: 0,
+            filter: 0,
+            angle: 0,
+            center: 0,
+            loop_val: 0,
+        },
+        0,
+        &[0],
+    );
+    // endtime=500, dstloop=500 -> cycle=0. Should not panic.
+    data.prepare_region(1000, None);
+    assert_eq!(data.nowtime, 500);
+}
+
+#[test]
+fn test_prepare_region_dstloop_greater_than_lasttime_no_panic() {
+    // Regression: when dstloop > endtime, the cycle is negative. Must not panic.
+    let mut data = SkinObjectData::new();
+    data.set_destination_with_int_timer_ops(
+        &DestinationParams {
+            time: 0,
+            x: 0.0,
+            y: 0.0,
+            w: 100.0,
+            h: 100.0,
+            acc: 0,
+            a: 255,
+            r: 255,
+            g: 255,
+            b: 255,
+            blend: 0,
+            filter: 0,
+            angle: 0,
+            center: 0,
+            loop_val: 1000, // dstloop > endtime (200)
+        },
+        0,
+        &[0],
+    );
+    data.set_destination_with_int_timer_ops(
+        &DestinationParams {
+            time: 200,
+            x: 0.0,
+            y: 0.0,
+            w: 100.0,
+            h: 100.0,
+            acc: 0,
+            a: 255,
+            r: 255,
+            g: 255,
+            b: 255,
+            blend: 0,
+            filter: 0,
+            angle: 0,
+            center: 0,
+            loop_val: 0,
+        },
+        0,
+        &[0],
+    );
+    // endtime=200, dstloop=1000 -> cycle = 200 - 1000 = -800. Should not panic.
+    data.prepare_region(1500, None);
+    assert_eq!(data.nowtime, 1000);
+}

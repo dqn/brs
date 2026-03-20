@@ -60,11 +60,11 @@ impl SkinObjectData {
                 time = -1;
             }
         } else if lasttime > 0 && time > self.dstloop as i64 {
-            if lasttime == self.dstloop as i64 {
-                time = self.dstloop as i64;
+            let cycle = lasttime - self.dstloop as i64;
+            if cycle > 0 {
+                time = (time - self.dstloop as i64) % cycle + self.dstloop as i64;
             } else {
-                time = (time - self.dstloop as i64) % (lasttime - self.dstloop as i64)
-                    + self.dstloop as i64;
+                time = self.dstloop as i64;
             }
         }
         if self.starttime > time {

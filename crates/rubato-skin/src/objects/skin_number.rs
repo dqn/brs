@@ -280,7 +280,7 @@ impl SkinNumber {
                 value != i32::MIN,
                 "i32::MIN sentinel should be caught earlier"
             );
-            let mut abs_value = value.unsigned_abs() as i32;
+            let mut abs_value = value.unsigned_abs();
             for j in (0..self.current_images.len()).rev() {
                 if self.mimage.is_some() && self.zeropadding > 0 {
                     if j == 0 {
@@ -844,6 +844,38 @@ mod tests {
             num.data.draw,
             "mimage should draw when timer is ON and value is negative"
         );
+    }
+
+    #[test]
+    fn test_skin_number_large_negative_value_no_wrap() {
+        // Regression: unsigned_abs() as i32 wraps for i32::MIN. The sentinel
+        // guard catches MIN/MAX, but i32::MIN + 1 must also work correctly
+        // with u32 digit extraction (no wrapping to negative).
+        let mut num = SkinNumber::new_with_int_timer(
+            make_digit_images(),
+            Some(make_digit_images()),
+            0,
+            0,
+            NumberDisplayConfig {
+                keta: 10,
+                zeropadding: 1,
+                space: 0,
+                align: 0,
+            },
+            0,
+        );
+        setup_data(&mut num.data, 0.0, 0.0, 10.0, 20.0);
+
+        let state = MockMainState::default();
+        // i32::MIN + 1 = -2147483647, whose unsigned_abs() is 2147483647 (fits in u32
+        // but wraps to -2147483647 when cast to i32 via `as i32`).
+        num.prepare_with_value(0, &state, i32::MIN + 1, 0.0, 0.0);
+        assert!(num.data.draw);
+
+        let mut renderer = SkinObjectRenderer::new();
+        num.draw(&mut renderer);
+        // Should render 10 digits without panic
+        assert_eq!(renderer.sprite.vertices().len(), 60);
     }
 
     /// Constant integer property for testing.
