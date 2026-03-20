@@ -130,7 +130,11 @@ impl MainState for BMSPlayer {
         let live = &mut self.player_config.play_config(mode).playconfig;
         live.apply_modmenu_fields(&play_config);
         if let Some(ref mut lr) = self.lanerender {
-            lr.apply_play_config(live);
+            // Apply only modmenu-managed fields to LaneRenderer, preserving
+            // hispeed/duration which may have been changed during gameplay
+            // via scroll keys / ControlInputProcessor directly on LaneRenderer
+            // without updating player_config.
+            lr.apply_modmenu_fields(&play_config);
         }
     }
 

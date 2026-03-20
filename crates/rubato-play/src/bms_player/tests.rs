@@ -4415,24 +4415,94 @@ fn receive_updated_play_config_merges_only_modmenu_fields() {
     );
 }
 
+/// Regression (rubato-8km): When hispeed is changed during gameplay via scroll
+/// keys, the change goes directly to LaneRenderer but NOT to
+/// BMSPlayer.player_config. When the ModMenu flushes a config update,
+/// receive_updated_play_config must preserve LaneRenderer's live hispeed
+/// rather than overwriting it with the stale value from player_config.
+#[test]
+fn receive_updated_play_config_preserves_lanerender_live_hispeed() {
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+    player.lanerender = Some(LaneRenderer::new(&player.model));
+
+    // Simulate hispeed changed via scroll keys during gameplay:
+    // LaneRenderer has the live value (6.0), but player_config is stale (1.0).
+    let stale_hispeed = 1.0_f32;
+    let live_hispeed = 6.0_f32;
+    player
+        .player_config
+        .play_config(Mode::BEAT_7K)
+        .playconfig
+        .hispeed = stale_hispeed;
+    // Directly set LaneRenderer hispeed (as ControlInputProcessor would)
+    player
+        .lanerender
+        .as_mut()
+        .unwrap()
+        .apply_play_config(&rubato_types::play_config::PlayConfig {
+            hispeed: live_hispeed,
+            ..Default::default()
+        });
+    assert!(
+        (player.lanerender.as_ref().unwrap().hispeed() - live_hispeed).abs() < f32::EPSILON,
+        "precondition: LaneRenderer hispeed should be {}",
+        live_hispeed
+    );
+
+    // ModMenu sends an update with modmenu-managed fields only.
+    // The PlayConfig carries whatever hispeed the modmenu snapshot had (stale).
+    let updated_pc = rubato_types::play_config::PlayConfig {
+        hispeed: stale_hispeed, // stale -- must NOT reach LaneRenderer
+        enablelift: true,
+        lift: 0.3,
+        ..Default::default()
+    };
+
+    let state: &mut dyn MainState = &mut player;
+    state.receive_updated_play_config(Mode::BEAT_7K, updated_pc);
+
+    // LaneRenderer hispeed must be the LIVE value from before the update,
+    // not the stale value from the modmenu snapshot or player_config.
+    let lr = player.lanerender.as_ref().unwrap();
+    assert!(
+        (lr.hispeed() - live_hispeed).abs() < f32::EPSILON,
+        "LaneRenderer hispeed should be preserved at {} (live), but got {} (stale overwrote it)",
+        live_hispeed,
+        lr.hispeed()
+    );
+
+    // Modmenu-managed fields must still be applied
+    assert!(lr.is_enable_lift(), "enablelift should be applied");
+    assert!(
+        (lr.lift_region() - 0.3).abs() < f32::EPSILON,
+        "lift should be applied"
+    );
+}
+
 #[test]
 fn receive_updated_play_config_propagates_modmenu_fields_to_lanerender() {
     let model = make_model();
     let mut player = BMSPlayer::new(model);
     player.lanerender = Some(LaneRenderer::new(&player.model));
 
-    // Set live hispeed to a non-default value (simulating scroll wheel change)
+    // Simulate hispeed changed via scroll keys during gameplay: the change
+    // goes directly to LaneRenderer, not player_config. Set a non-default
+    // hispeed on LaneRenderer (via apply_play_config with matching defaults).
     let live_hispeed = 6.0;
-    player
-        .player_config
-        .play_config(Mode::BEAT_7K)
-        .playconfig
-        .hispeed = live_hispeed;
-
-    // Verify LaneRenderer starts with defaults (not player config values)
-    let lr = player.lanerender.as_ref().unwrap();
-    assert!(!lr.is_enable_lanecover(), "lanecover should start disabled");
-    assert!(!lr.is_enable_lift(), "lift should start disabled");
+    {
+        // Start from LaneRenderer's current state, only change hispeed
+        let mut setup_pc = rubato_types::play_config::PlayConfig::default();
+        setup_pc.hispeed = live_hispeed;
+        setup_pc.enablelanecover = false;
+        setup_pc.enablelift = false;
+        setup_pc.enablehidden = false;
+        player
+            .lanerender
+            .as_mut()
+            .unwrap()
+            .apply_play_config(&setup_pc);
+    }
 
     // Simulate modmenu pushing a PlayConfig. The modmenu snapshot carries a
     // stale hispeed (1.0) that must NOT overwrite the live value.
@@ -5223,15 +5293,13 @@ fn bga_poisoned_lock_does_not_crash_update_judge() {
 
 #[test]
 fn receive_updated_play_config_preserves_scroll_state() {
-    // Bug 2: receive_updated_play_config() calls lr.init(&self.model) which
-    // destructively resets scroll positions (pos, basebpm, basehispeed) during
-    // active gameplay. Only apply_play_config() should be called mid-game.
+    // Regression: receive_updated_play_config() must NOT call lr.init() or
+    // lr.apply_play_config() which destructively reset hispeed during active
+    // gameplay. Only modmenu-managed fields should be applied mid-game.
     //
-    // Strategy: set fixhispeed = FIX_HISPEED_STARTBPM and hispeed = 3.0 on
-    // the player's live config, then call init() to establish basebpm. If
-    // receive_updated_play_config() calls init() again, hispeed would be
-    // destructively recalculated. Since it only calls apply_play_config(),
-    // hispeed stays at the live config value.
+    // After init() with FIX_HISPEED_STARTBPM, LaneRenderer's hispeed is
+    // recalculated from basebpm/duration. That recalculated value IS the live
+    // state. receive_updated_play_config() must preserve it.
     use rubato_types::play_config::{FIX_HISPEED_STARTBPM, PlayConfig};
 
     let mut model = make_model();
@@ -5261,7 +5329,6 @@ fn receive_updated_play_config_preserves_scroll_state() {
     let hispeed_after_init = player.lanerender.as_ref().unwrap().hispeed();
 
     // Push a modmenu update with only modmenu-managed fields changed.
-    // The live hispeed (3.0) and fixhispeed (STARTBPM) must be preserved.
     let update_config = PlayConfig {
         enablelift: true,
         lift: 0.1,
@@ -5273,14 +5340,14 @@ fn receive_updated_play_config_preserves_scroll_state() {
 
     let hispeed_after_update = player.lanerender.as_ref().unwrap().hispeed();
 
-    // The live hispeed (3.0) must be preserved, NOT recalculated by init().
-    // If init() was called (bug), hispeed would be recalculated to hispeed_after_init.
+    // The live LaneRenderer hispeed (after init recalculation) must be preserved.
+    // LaneRenderer is the source of truth during gameplay, not player_config.
     assert!(
-        (hispeed_after_update - 3.0).abs() < f32::EPSILON,
-        "hispeed should be the live config value 3.0 after receive_updated_play_config, \
-         but was {} (init() would have recalculated it to {})",
-        hispeed_after_update,
-        hispeed_after_init
+        (hispeed_after_update - hispeed_after_init).abs() < f32::EPSILON,
+        "hispeed should be the live LaneRenderer value {} after receive_updated_play_config, \
+         but was {}",
+        hispeed_after_init,
+        hispeed_after_update
     );
 }
 
