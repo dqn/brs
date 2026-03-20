@@ -4019,6 +4019,7 @@ fn make_play_render_context_with_bpm_volume<'a>(
             > = std::sync::OnceLock::new();
             EMPTY_OFFSETS.get_or_init(std::collections::HashMap::new)
         },
+        cumulative_playtime_seconds: 0,
     }
 }
 

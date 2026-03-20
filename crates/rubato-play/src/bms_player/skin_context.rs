@@ -50,6 +50,9 @@ pub(super) struct PlayRenderContext<'a> {
     pub(super) song_data: Option<&'a rubato_types::song_data::SongData>,
     /// Skin offset values for positional adjustments during prepare().
     pub(super) offsets: &'a std::collections::HashMap<i32, rubato_types::skin_offset::SkinOffset>,
+    /// Cumulative playtime in seconds from PlayerData.
+    /// Java: PlayerData.getPlaytime() -- total play time across all sessions.
+    pub(super) cumulative_playtime_seconds: i64,
 }
 
 impl rubato_types::timer_access::TimerAccess for PlayRenderContext<'_> {
@@ -216,10 +219,11 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayRenderContext<
             315 => (self.live_hidden * 1000.0) as i32,
             // Total notes
             350 => self.total_notes,
-            // Playtime (hours/minutes/seconds from boot)
-            17 => (self.timer.now_time() / 3_600_000) as i32,
-            18 => ((self.timer.now_time() % 3_600_000) / 60_000) as i32,
-            19 => ((self.timer.now_time() % 60_000) / 1_000) as i32,
+            // Cumulative playtime (hours/minutes/seconds from PlayerData, in seconds)
+            // Java: PlayerData.getPlaytime() / 3600, / 60 % 60, % 60
+            17 => (self.cumulative_playtime_seconds / 3600) as i32,
+            18 => ((self.cumulative_playtime_seconds / 60) % 60) as i32,
+            19 => (self.cumulative_playtime_seconds % 60) as i32,
             // Volume (0-100 scale)
             57 => (self.system_volume * 100.0) as i32,
             58 => (self.key_volume * 100.0) as i32,
@@ -231,8 +235,8 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayRenderContext<
             160 => self.now_bpm as i32,
             // Song duration
             312 => self.playtime.clamp(i32::MIN as i64, i32::MAX as i64) as i32,
-            1163 => (self.playtime / 60000) as i32,
-            1164 => ((self.playtime % 60000) / 1000) as i32,
+            1163 => ((self.playtime / 60000) % 60) as i32,
+            1164 => ((self.playtime / 1000) % 60) as i32,
             // Loading progress: 100 if media loaded, else 0
             165 => {
                 if self.media_load_finished {
@@ -612,10 +616,10 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayMouseContext<'
             }
             // Total notes
             350 => self.player.total_notes(),
-            // Playtime (hours/minutes/seconds from boot)
-            17 => (self.timer.now_time() / 3_600_000) as i32,
-            18 => ((self.timer.now_time() % 3_600_000) / 60_000) as i32,
-            19 => ((self.timer.now_time() % 60_000) / 1_000) as i32,
+            // Cumulative playtime (hours/minutes/seconds from PlayerData, in seconds)
+            17 => (self.player.cumulative_playtime_seconds / 3600) as i32,
+            18 => ((self.player.cumulative_playtime_seconds / 60) % 60) as i32,
+            19 => (self.player.cumulative_playtime_seconds % 60) as i32,
             // Volume (0-100 scale)
             57 => (self.player.system_volume * 100.0) as i32,
             58 => (self.player.key_volume * 100.0) as i32,
@@ -643,8 +647,8 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayMouseContext<'
                 .map_or(0, |lr| lr.now_bpm() as i32),
             // Song duration
             312 => self.player.playtime.clamp(i32::MIN as i64, i32::MAX as i64) as i32,
-            1163 => (self.player.playtime / 60000) as i32,
-            1164 => ((self.player.playtime % 60000) / 1000) as i32,
+            1163 => ((self.player.playtime / 60000) % 60) as i32,
+            1164 => ((self.player.playtime / 1000) % 60) as i32,
             // Loading progress: 100 if media loaded, else 0
             165 => {
                 if self.player.media_load_finished {
@@ -653,7 +657,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayMouseContext<'
                     0
                 }
             }
-            // IDs 20-26 (FPS, system date/time) handled by default_integer_value
+            // IDs 20-29 (FPS, system date/time, boot time) handled by default_integer_value
             _ => self.default_integer_value(id),
         }
     }
@@ -796,6 +800,7 @@ mod tests {
             song_metadata: Box::leak(Box::new(rubato_types::song_data::SongMetadata::default())),
             song_data: None,
             offsets: &EMPTY_OFFSETS,
+            cumulative_playtime_seconds: 0,
         }
     }
 
@@ -852,6 +857,7 @@ mod tests {
             song_metadata: Box::leak(Box::new(rubato_types::song_data::SongMetadata::default())),
             song_data: None,
             offsets,
+            cumulative_playtime_seconds: 0,
         };
 
         // Populated offset should be returned
@@ -906,9 +912,18 @@ mod tests {
 
     #[test]
     fn playtime_large_value() {
-        // 7_200_000 ms = 120 minutes
+        // 7_200_000 ms = 120 minutes = 2 hours 0 minutes
+        // ID 1163: (120) % 60 = 0 (minutes within hour)
+        // ID 1164: (7200) % 60 = 0
         let ctx = make_render_ctx(7_200_000);
-        assert_eq!(ctx.integer_value(1163), 120);
+        assert_eq!(ctx.integer_value(1163), 0);
+        assert_eq!(ctx.integer_value(1164), 0);
+
+        // 3_900_000 ms = 65 minutes = 1 hour 5 minutes
+        // ID 1163: (65) % 60 = 5
+        // ID 1164: (3900) % 60 = 0
+        let ctx = make_render_ctx(3_900_000);
+        assert_eq!(ctx.integer_value(1163), 5);
         assert_eq!(ctx.integer_value(1164), 0);
     }
 
@@ -956,6 +971,7 @@ mod tests {
             song_metadata: Box::leak(Box::new(rubato_types::song_data::SongMetadata::default())),
             song_data: None,
             offsets: &EMPTY_OFFSETS,
+            cumulative_playtime_seconds: 0,
         }
     }
 
@@ -1056,6 +1072,7 @@ mod tests {
             song_metadata: Box::leak(Box::new(rubato_types::song_data::SongMetadata::default())),
             song_data: None,
             offsets: &EMPTY_OFFSETS,
+            cumulative_playtime_seconds: 0,
         }
     }
 
@@ -1133,6 +1150,7 @@ mod tests {
             song_metadata: Box::leak(Box::new(rubato_types::song_data::SongMetadata::default())),
             song_data: None,
             offsets: &EMPTY_OFFSETS,
+            cumulative_playtime_seconds: 0,
         };
         // config_ref should return Some
         assert!(ctx.config_ref().is_some());
@@ -1187,6 +1205,7 @@ mod tests {
             song_metadata: Box::leak(Box::new(rubato_types::song_data::SongMetadata::default())),
             song_data: None,
             offsets: &EMPTY_OFFSETS,
+            cumulative_playtime_seconds: 0,
         };
         let prop = ctx.score_data_property();
         assert!((prop.now_rate() - 0.85).abs() < f32::EPSILON);
@@ -1305,6 +1324,7 @@ mod tests {
             song_metadata,
             song_data: None,
             offsets: &EMPTY_OFFSETS,
+            cumulative_playtime_seconds: 0,
         }
     }
 

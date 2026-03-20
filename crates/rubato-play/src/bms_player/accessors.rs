@@ -63,6 +63,7 @@ impl BMSPlayer {
             song_metadata: rubato_types::song_data::SongMetadata::default(),
             song_data: None,
             offset_snapshot: Vec::new(),
+            cumulative_playtime_seconds: 0,
         }
     }
 
@@ -259,6 +260,13 @@ impl BMSPlayer {
     /// Java: SongDataBooleanProperty accesses state.resource.getSongdata().
     pub fn set_song_data(&mut self, song_data: rubato_types::song_data::SongData) {
         self.song_data = Some(song_data);
+    }
+
+    /// Set cumulative playtime from PlayerData (in seconds).
+    /// Java: PlayerData.getPlaytime() -- total play time across all sessions.
+    /// Used for skin integer property IDs 17-19 (playtime_total_hour/minute/second).
+    pub fn set_cumulative_playtime(&mut self, seconds: i64) {
+        self.cumulative_playtime_seconds = seconds;
     }
 
     /// Set the skin offset snapshot from MainController.

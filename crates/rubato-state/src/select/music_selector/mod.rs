@@ -399,17 +399,24 @@ impl rubato_types::skin_render_context::SkinRenderContext for SelectSkinContext<
             312 => self.selected_song_data().map_or(0, |s| s.chart.length),
             1163 => self
                 .selected_song_data()
-                .map_or(0, |s| s.chart.length.max(0) / 60000),
+                .map_or(i32::MIN, |s| (s.chart.length.max(0) / 60000) % 60),
             1164 => self
                 .selected_song_data()
-                .map_or(0, |s| (s.chart.length.max(0) % 60000) / 1000),
+                .map_or(i32::MIN, |s| (s.chart.length.max(0) / 1000) % 60),
             // Total notes
             350 => self.selected_song_data().map_or(0, |s| s.chart.notes),
-            // Playtime (hours/minutes/seconds from boot)
-            17 => (self.timer.now_time() / 3_600_000) as i32,
-            18 => ((self.timer.now_time() % 3_600_000) / 60_000) as i32,
-            19 => ((self.timer.now_time() % 60_000) / 1_000) as i32,
-            // IDs 20-26 (FPS, system date/time) handled by default_integer_value
+            // Cumulative playtime (hours/minutes/seconds from PlayerData, in seconds)
+            // Java: PlayerData.getPlaytime() / 3600, / 60 % 60, % 60
+            17 => self
+                .player_data()
+                .map_or(0, |data| (data.playtime / 3600) as i32),
+            18 => self
+                .player_data()
+                .map_or(0, |data| ((data.playtime / 60) % 60) as i32),
+            19 => self
+                .player_data()
+                .map_or(0, |data| (data.playtime % 60) as i32),
+            // IDs 20-29 (FPS, system date/time, boot time) handled by default_integer_value
             _ => self.default_integer_value(id),
         }
     }

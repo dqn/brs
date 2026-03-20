@@ -185,16 +185,26 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideRenderContex
             1163 => self
                 .resource
                 .songdata()
-                .map_or(0, |s| s.chart.length.max(0) / 60000),
+                .map_or(i32::MIN, |s| (s.chart.length.max(0) / 60000) % 60),
             1164 => self
                 .resource
                 .songdata()
-                .map_or(0, |s| (s.chart.length.max(0) % 60000) / 1000),
-            // Playtime
-            17 => (self.timer.now_time() / 3_600_000) as i32,
-            18 => ((self.timer.now_time() % 3_600_000) / 60_000) as i32,
-            19 => ((self.timer.now_time() % 60_000) / 1_000) as i32,
-            // IDs 20-26 (FPS, system date/time) handled by default_integer_value
+                .map_or(i32::MIN, |s| (s.chart.length.max(0) / 1000) % 60),
+            // Cumulative playtime (hours/minutes/seconds from PlayerData, in seconds)
+            // Java: PlayerData.getPlaytime() / 3600, / 60 % 60, % 60
+            17 => self
+                .resource
+                .player_data()
+                .map_or(0, |data| (data.playtime / 3600) as i32),
+            18 => self
+                .resource
+                .player_data()
+                .map_or(0, |data| ((data.playtime / 60) % 60) as i32),
+            19 => self
+                .resource
+                .player_data()
+                .map_or(0, |data| (data.playtime % 60) as i32),
+            // IDs 20-29 (FPS, system date/time, boot time) handled by default_integer_value
             _ => self.default_integer_value(id),
         }
     }
@@ -338,15 +348,25 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideMouseContext
             1163 => self
                 .resource
                 .songdata()
-                .map_or(0, |s| s.chart.length.max(0) / 60000),
+                .map_or(i32::MIN, |s| (s.chart.length.max(0) / 60000) % 60),
             1164 => self
                 .resource
                 .songdata()
-                .map_or(0, |s| (s.chart.length.max(0) % 60000) / 1000),
-            17 => (self.timer.now_time() / 3_600_000) as i32,
-            18 => ((self.timer.now_time() % 3_600_000) / 60_000) as i32,
-            19 => ((self.timer.now_time() % 60_000) / 1_000) as i32,
-            // IDs 20-26 (FPS, system date/time) handled by default_integer_value
+                .map_or(i32::MIN, |s| (s.chart.length.max(0) / 1000) % 60),
+            // Cumulative playtime (hours/minutes/seconds from PlayerData, in seconds)
+            17 => self
+                .resource
+                .player_data()
+                .map_or(0, |data| (data.playtime / 3600) as i32),
+            18 => self
+                .resource
+                .player_data()
+                .map_or(0, |data| ((data.playtime / 60) % 60) as i32),
+            19 => self
+                .resource
+                .player_data()
+                .map_or(0, |data| (data.playtime % 60) as i32),
+            // IDs 20-29 (FPS, system date/time, boot time) handled by default_integer_value
             _ => self.default_integer_value(id),
         }
     }
@@ -1325,8 +1345,8 @@ mod tests {
             offsets: &EMPTY_OFFSETS,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
-        assert_eq!(ctx.integer_value(1163), 0);
-        assert_eq!(ctx.integer_value(1164), 0);
+        assert_eq!(ctx.integer_value(1163), i32::MIN);
+        assert_eq!(ctx.integer_value(1164), i32::MIN);
     }
 
     #[test]
