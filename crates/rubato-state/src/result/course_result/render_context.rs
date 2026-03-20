@@ -7,7 +7,7 @@ pub(super) struct CourseResultRenderContext<'a> {
     pub(super) timer: &'a mut rubato_core::timer_manager::TimerManager,
     pub(super) data: &'a AbstractResultData,
     pub(super) resource: &'a PlayerResource,
-    pub(super) main: &'a MainController,
+    pub(super) main: &'a mut MainController,
     pub(super) offsets: &'a std::collections::HashMap<i32, rubato_types::skin_offset::SkinOffset>,
 }
 
@@ -107,6 +107,14 @@ impl rubato_types::skin_render_context::SkinRenderContext for CourseResultRender
 
     fn set_timer_micro(&mut self, timer_id: rubato_types::timer_id::TimerId, micro_time: i64) {
         self.timer.set_micro_timer(timer_id, micro_time);
+    }
+
+    fn audio_play(&mut self, path: &str, volume: f32, is_loop: bool) {
+        self.main.play_audio_path(path, volume, is_loop);
+    }
+
+    fn audio_stop(&mut self, path: &str) {
+        self.main.stop_audio_path(path);
     }
 
     fn gauge_value(&self) -> f32 {
@@ -536,6 +544,14 @@ impl rubato_types::skin_render_context::SkinRenderContext for CourseResultMouseC
 
     fn set_timer_micro(&mut self, timer_id: rubato_types::timer_id::TimerId, micro_time: i64) {
         self.timer.set_micro_timer(timer_id, micro_time);
+    }
+
+    fn audio_play(&mut self, path: &str, volume: f32, is_loop: bool) {
+        self.result.main.play_audio_path(path, volume, is_loop);
+    }
+
+    fn audio_stop(&mut self, path: &str) {
+        self.result.main.stop_audio_path(path);
     }
 
     fn player_config_mut(&mut self) -> Option<&mut rubato_types::player_config::PlayerConfig> {

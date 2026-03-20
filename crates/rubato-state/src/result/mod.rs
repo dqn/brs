@@ -115,7 +115,7 @@ macro_rules! impl_result_main_state {
                     timer: &mut timer,
                     data: &self.data,
                     resource: &self.resource,
-                    main: &self.main,
+                    main: &mut self.main,
                     offsets: &self.main_data.offsets,
                 };
                 skin.update_custom_objects_timed(&mut ctx);
@@ -200,7 +200,7 @@ macro_rules! impl_result_main_state {
                     timer: &mut timer,
                     data: &self.data,
                     resource: &self.resource,
-                    main: &self.main,
+                    main: &mut self.main,
                     offsets: &self.main_data.offsets,
                 };
                 skin_path.as_deref().and_then(|path| {

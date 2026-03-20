@@ -846,7 +846,7 @@ mod tests {
             timer: &mut timer,
             data: &cr.data,
             resource: &cr.resource,
-            main: &cr.main,
+            main: &mut cr.main,
             offsets: &cr.main_data.offsets,
         };
 
@@ -1495,14 +1495,14 @@ mod tests {
             crate::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
         );
         let data = AbstractResultData::new();
-        let main = MainController::new(Box::new(crate::result::NullMainController));
+        let mut main = MainController::new(Box::new(crate::result::NullMainController));
         let mut timer = rubato_core::timer_manager::TimerManager::new();
         let offsets = std::collections::HashMap::new();
         let ctx = CourseResultRenderContext {
             timer: &mut timer,
             data: &data,
             resource: &resource,
-            main: &main,
+            main: &mut main,
             offsets: &offsets,
         };
 
@@ -1519,14 +1519,14 @@ mod tests {
         // When the resource has no songdata, song_data_ref() should return None.
         let resource = PlayerResource::default();
         let data = AbstractResultData::new();
-        let main = MainController::new(Box::new(crate::result::NullMainController));
+        let mut main = MainController::new(Box::new(crate::result::NullMainController));
         let mut timer = rubato_core::timer_manager::TimerManager::new();
         let offsets = std::collections::HashMap::new();
         let ctx = CourseResultRenderContext {
             timer: &mut timer,
             data: &data,
             resource: &resource,
-            main: &main,
+            main: &mut main,
             offsets: &offsets,
         };
 
@@ -1559,14 +1559,14 @@ mod tests {
         data.ranking = Some(ranking);
         data.ranking_offset = 1;
 
-        let main = MainController::new(Box::new(crate::result::NullMainController));
+        let mut main = MainController::new(Box::new(crate::result::NullMainController));
         let mut timer = rubato_core::timer_manager::TimerManager::new();
         let offsets = std::collections::HashMap::new();
         let ctx = CourseResultRenderContext {
             timer: &mut timer,
             data: &data,
             resource: &resource,
-            main: &main,
+            main: &mut main,
             offsets: &offsets,
         };
 
@@ -1602,13 +1602,13 @@ mod tests {
         let mut song = rubato_types::song_data::SongData::default();
         song.metadata.title = "MainTitle".to_string();
         song.metadata.subtitle = "[HARD]".to_string();
-        let (resource, data, main, mut timer) = make_course_render_ctx_with_songdata(song);
+        let (resource, data, mut main, mut timer) = make_course_render_ctx_with_songdata(song);
         let offsets = std::collections::HashMap::new();
         let ctx = CourseResultRenderContext {
             timer: &mut timer,
             data: &data,
             resource: &resource,
-            main: &main,
+            main: &mut main,
             offsets: &offsets,
         };
         assert_eq!(ctx.string_value(12), "MainTitle [HARD]");
@@ -1618,13 +1618,13 @@ mod tests {
     fn test_course_result_string_value_fulltitle_without_subtitle() {
         let mut song = rubato_types::song_data::SongData::default();
         song.metadata.title = "OnlyTitle".to_string();
-        let (resource, data, main, mut timer) = make_course_render_ctx_with_songdata(song);
+        let (resource, data, mut main, mut timer) = make_course_render_ctx_with_songdata(song);
         let offsets = std::collections::HashMap::new();
         let ctx = CourseResultRenderContext {
             timer: &mut timer,
             data: &data,
             resource: &resource,
-            main: &main,
+            main: &mut main,
             offsets: &offsets,
         };
         assert_eq!(ctx.string_value(12), "OnlyTitle");
@@ -1634,13 +1634,13 @@ mod tests {
     fn test_course_result_string_value_genre() {
         let mut song = rubato_types::song_data::SongData::default();
         song.metadata.genre = "Techno".to_string();
-        let (resource, data, main, mut timer) = make_course_render_ctx_with_songdata(song);
+        let (resource, data, mut main, mut timer) = make_course_render_ctx_with_songdata(song);
         let offsets = std::collections::HashMap::new();
         let ctx = CourseResultRenderContext {
             timer: &mut timer,
             data: &data,
             resource: &resource,
-            main: &main,
+            main: &mut main,
             offsets: &offsets,
         };
         assert_eq!(ctx.string_value(13), "Techno");
@@ -1650,13 +1650,13 @@ mod tests {
     fn test_course_result_string_value_subartist() {
         let mut song = rubato_types::song_data::SongData::default();
         song.metadata.subartist = "feat. B".to_string();
-        let (resource, data, main, mut timer) = make_course_render_ctx_with_songdata(song);
+        let (resource, data, mut main, mut timer) = make_course_render_ctx_with_songdata(song);
         let offsets = std::collections::HashMap::new();
         let ctx = CourseResultRenderContext {
             timer: &mut timer,
             data: &data,
             resource: &resource,
-            main: &main,
+            main: &mut main,
             offsets: &offsets,
         };
         assert_eq!(ctx.string_value(15), "feat. B");
@@ -1667,13 +1667,13 @@ mod tests {
         let mut song = rubato_types::song_data::SongData::default();
         song.metadata.artist = "ArtistA".to_string();
         song.metadata.subartist = "feat. B".to_string();
-        let (resource, data, main, mut timer) = make_course_render_ctx_with_songdata(song);
+        let (resource, data, mut main, mut timer) = make_course_render_ctx_with_songdata(song);
         let offsets = std::collections::HashMap::new();
         let ctx = CourseResultRenderContext {
             timer: &mut timer,
             data: &data,
             resource: &resource,
-            main: &main,
+            main: &mut main,
             offsets: &offsets,
         };
         assert_eq!(ctx.string_value(16), "ArtistA feat. B");
@@ -1683,13 +1683,13 @@ mod tests {
     fn test_course_result_string_value_fullartist_without_subartist() {
         let mut song = rubato_types::song_data::SongData::default();
         song.metadata.artist = "OnlyArtist".to_string();
-        let (resource, data, main, mut timer) = make_course_render_ctx_with_songdata(song);
+        let (resource, data, mut main, mut timer) = make_course_render_ctx_with_songdata(song);
         let offsets = std::collections::HashMap::new();
         let ctx = CourseResultRenderContext {
             timer: &mut timer,
             data: &data,
             resource: &resource,
-            main: &main,
+            main: &mut main,
             offsets: &offsets,
         };
         assert_eq!(ctx.string_value(16), "OnlyArtist");
@@ -1699,14 +1699,14 @@ mod tests {
     fn test_course_result_string_value_no_songdata_returns_empty() {
         let resource = PlayerResource::default();
         let data = AbstractResultData::new();
-        let main = MainController::new(Box::new(crate::result::NullMainController));
+        let mut main = MainController::new(Box::new(crate::result::NullMainController));
         let mut timer = rubato_core::timer_manager::TimerManager::new();
         let offsets = std::collections::HashMap::new();
         let ctx = CourseResultRenderContext {
             timer: &mut timer,
             data: &data,
             resource: &resource,
-            main: &main,
+            main: &mut main,
             offsets: &offsets,
         };
         // All song metadata IDs should return empty when no songdata
@@ -1726,13 +1726,13 @@ mod tests {
         let mut song = rubato_types::song_data::SongData::default();
         // Set feature to have LN but not undefined LN
         song.chart.feature = rubato_types::song_data::FEATURE_LONGNOTE;
-        let (resource, data, main, mut timer) = make_course_render_ctx_with_songdata(song);
+        let (resource, data, mut main, mut timer) = make_course_render_ctx_with_songdata(song);
         let offsets = std::collections::HashMap::new();
         let ctx = CourseResultRenderContext {
             timer: &mut timer,
             data: &data,
             resource: &resource,
-            main: &main,
+            main: &mut main,
             offsets: &offsets,
         };
         assert_eq!(
@@ -1746,13 +1746,13 @@ mod tests {
     fn test_course_result_lnmode_308_override_chargenote() {
         let mut song = rubato_types::song_data::SongData::default();
         song.chart.feature = rubato_types::song_data::FEATURE_CHARGENOTE;
-        let (resource, data, main, mut timer) = make_course_render_ctx_with_songdata(song);
+        let (resource, data, mut main, mut timer) = make_course_render_ctx_with_songdata(song);
         let offsets = std::collections::HashMap::new();
         let ctx = CourseResultRenderContext {
             timer: &mut timer,
             data: &data,
             resource: &resource,
-            main: &main,
+            main: &mut main,
             offsets: &offsets,
         };
         assert_eq!(
@@ -1766,13 +1766,13 @@ mod tests {
     fn test_course_result_lnmode_308_override_hellchargenote() {
         let mut song = rubato_types::song_data::SongData::default();
         song.chart.feature = rubato_types::song_data::FEATURE_HELLCHARGENOTE;
-        let (resource, data, main, mut timer) = make_course_render_ctx_with_songdata(song);
+        let (resource, data, mut main, mut timer) = make_course_render_ctx_with_songdata(song);
         let offsets = std::collections::HashMap::new();
         let ctx = CourseResultRenderContext {
             timer: &mut timer,
             data: &data,
             resource: &resource,
-            main: &main,
+            main: &mut main,
             offsets: &offsets,
         };
         assert_eq!(
@@ -1793,14 +1793,14 @@ mod tests {
             crate::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
         );
         let data = AbstractResultData::new();
-        let main = MainController::new(Box::new(crate::result::NullMainController));
+        let mut main = MainController::new(Box::new(crate::result::NullMainController));
         let mut timer = rubato_core::timer_manager::TimerManager::new();
         let offsets = std::collections::HashMap::new();
         let ctx = CourseResultRenderContext {
             timer: &mut timer,
             data: &data,
             resource: &resource,
-            main: &main,
+            main: &mut main,
             offsets: &offsets,
         };
         assert_eq!(

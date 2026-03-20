@@ -79,6 +79,14 @@ impl MainControllerRef {
     pub fn offset_value(&self, id: i32) -> Option<&rubato_types::skin_offset::SkinOffset> {
         self.inner.offset_value(id)
     }
+
+    pub fn play_audio_path(&mut self, path: &str, volume: f32, loop_play: bool) {
+        self.inner.play_audio_path(path, volume, loop_play);
+    }
+
+    pub fn stop_audio_path(&mut self, path: &str) {
+        self.inner.stop_audio_path(path);
+    }
 }
 
 #[cfg(test)]

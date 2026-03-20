@@ -536,6 +536,11 @@ impl JudgeManager {
                         }
                     }
                 }
+                // Record this lane for key beam timer triggering by the caller.
+                // Java calls main.getKeyinput().inputKeyOn(lane) here -- once per
+                // manual key press, unconditionally (even on empty POOR).  Autoplay
+                // and miss-POOR paths must NOT trigger key beams.
+                self.judged_lanes.push(lane_idx);
             } else {
                 // Key released
                 if let Some(proc_idx) = self.lane_states[lane_idx].processing {
@@ -849,8 +854,9 @@ impl JudgeManager {
         let multi_bad = p.multi_bad;
         let gauge = p.gauge;
         let _ = notes; // used for type info if needed in future
-        // Record this lane for key beam timer triggering by the caller.
-        self.judged_lanes.push(lane_idx);
+        // Key beam tracking (judged_lanes) is now handled at the caller site
+        // (manual key press block) rather than here, so autoplay and miss-POOR
+        // paths do not produce spurious key beam events.
         if note_idx >= self.note_states.len() {
             return;
         }

@@ -986,7 +986,7 @@ mod tests {
             timer: &mut timer,
             data: &mr.data,
             resource: &mr.resource,
-            main: &mr.main,
+            main: &mut mr.main,
             offsets: &mr.main_data.offsets,
         };
 
@@ -1327,7 +1327,7 @@ mod tests {
     #[test]
     fn result_lnmode_308_override_longnote() {
         use rubato_types::song_data::{ChartInfo, FEATURE_LONGNOTE, SongData};
-        let mr = make_result_with_songdata(Some(SongData {
+        let mut mr = make_result_with_songdata(Some(SongData {
             chart: ChartInfo {
                 feature: FEATURE_LONGNOTE,
                 ..ChartInfo::default()
@@ -1339,7 +1339,7 @@ mod tests {
             timer: &mut timer,
             data: &mr.data,
             resource: &mr.resource,
-            main: &mr.main,
+            main: &mut mr.main,
             offsets: &mr.main_data.offsets,
         };
         assert_eq!(ctx.image_index_value(308), 0);
@@ -1348,7 +1348,7 @@ mod tests {
     #[test]
     fn result_lnmode_308_override_chargenote() {
         use rubato_types::song_data::{ChartInfo, FEATURE_CHARGENOTE, SongData};
-        let mr = make_result_with_songdata(Some(SongData {
+        let mut mr = make_result_with_songdata(Some(SongData {
             chart: ChartInfo {
                 feature: FEATURE_CHARGENOTE,
                 ..ChartInfo::default()
@@ -1360,7 +1360,7 @@ mod tests {
             timer: &mut timer,
             data: &mr.data,
             resource: &mr.resource,
-            main: &mr.main,
+            main: &mut mr.main,
             offsets: &mr.main_data.offsets,
         };
         assert_eq!(ctx.image_index_value(308), 1);
@@ -1369,7 +1369,7 @@ mod tests {
     #[test]
     fn result_lnmode_308_override_hellchargenote() {
         use rubato_types::song_data::{ChartInfo, FEATURE_HELLCHARGENOTE, SongData};
-        let mr = make_result_with_songdata(Some(SongData {
+        let mut mr = make_result_with_songdata(Some(SongData {
             chart: ChartInfo {
                 feature: FEATURE_HELLCHARGENOTE,
                 ..ChartInfo::default()
@@ -1381,7 +1381,7 @@ mod tests {
             timer: &mut timer,
             data: &mr.data,
             resource: &mr.resource,
-            main: &mr.main,
+            main: &mut mr.main,
             offsets: &mr.main_data.offsets,
         };
         assert_eq!(ctx.image_index_value(308), 2);
@@ -1390,7 +1390,7 @@ mod tests {
     #[test]
     fn result_lnmode_308_undefined_ln_falls_through_to_config() {
         use rubato_types::song_data::{ChartInfo, FEATURE_UNDEFINEDLN, SongData};
-        let mr = make_result_with_songdata(Some(SongData {
+        let mut mr = make_result_with_songdata(Some(SongData {
             chart: ChartInfo {
                 feature: FEATURE_UNDEFINEDLN,
                 ..ChartInfo::default()
@@ -1402,7 +1402,7 @@ mod tests {
             timer: &mut timer,
             data: &mr.data,
             resource: &mr.resource,
-            main: &mr.main,
+            main: &mut mr.main,
             offsets: &mr.main_data.offsets,
         };
         // Falls through to player_config.play_settings.lnmode = 99
@@ -1411,13 +1411,13 @@ mod tests {
 
     #[test]
     fn result_lnmode_308_no_songdata_falls_through_to_config() {
-        let mr = make_result_with_songdata(None);
+        let mut mr = make_result_with_songdata(None);
         let mut timer = TimerManager::new();
         let ctx = render_context::ResultRenderContext {
             timer: &mut timer,
             data: &mr.data,
             resource: &mr.resource,
-            main: &mr.main,
+            main: &mut mr.main,
             offsets: &mr.main_data.offsets,
         };
         // Falls through to player_config.play_settings.lnmode = 99
@@ -1454,7 +1454,7 @@ mod tests {
             timer: &mut timer,
             data: &mr.data,
             resource: &mr.resource,
-            main: &mr.main,
+            main: &mut mr.main,
             offsets: &mr.main_data.offsets,
         };
 

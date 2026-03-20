@@ -3746,10 +3746,10 @@ fn mouse_context_delegates_integer_value_total_notes() {
 }
 
 #[test]
-fn mouse_context_delegates_integer_value_playtime() {
+fn mouse_context_delegates_integer_value_current_duration() {
     let model = make_model_with_time(120);
-    let expected_playtime = model.last_note_time() + TIME_MARGIN;
     let mut player = BMSPlayer::new(model);
+    // ID 312 returns LaneRenderer.current_duration(), which is 0 when lanerender is None
     let observed = Arc::new(AtomicI32::new(-1));
     player.main_state_data.skin = Some(Box::new(ProbeMouseIntegerSkin {
         id: 312,
@@ -3758,11 +3758,7 @@ fn mouse_context_delegates_integer_value_playtime() {
 
     <BMSPlayer as MainState>::handle_skin_mouse_pressed(&mut player, 0, 10, 10);
 
-    // integer_value returns i32 (clamped from i64 playtime)
-    assert_eq!(
-        observed.load(Ordering::SeqCst),
-        expected_playtime.clamp(i32::MIN as i64, i32::MAX as i64) as i32
-    );
+    assert_eq!(observed.load(Ordering::SeqCst), 0);
 }
 
 #[test]
@@ -4020,6 +4016,8 @@ fn make_play_render_context_with_bpm_volume<'a>(
             EMPTY_OFFSETS.get_or_init(std::collections::HashMap::new)
         },
         cumulative_playtime_seconds: 0,
+        current_duration: 0,
+        pending: Box::leak(Box::new(super::PendingActions::new())),
     }
 }
 
@@ -4167,8 +4165,8 @@ fn play_render_context_existing_ids_unchanged() {
 
     // 350 = total notes
     assert_eq!(ctx.integer_value(350), 500);
-    // 312 = playtime
-    assert_eq!(ctx.integer_value(312), 60000);
+    // 312 = current_duration (scroll duration from LaneRenderer, default 0)
+    assert_eq!(ctx.integer_value(312), 0);
     // 165 = loading progress (integer: 100 when loaded)
     assert_eq!(ctx.integer_value(165), 100);
     // 1107 = gauge (no gauge -> 0.0)

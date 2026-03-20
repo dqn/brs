@@ -15,7 +15,7 @@ use super::{ControlKeys, NullPlayerResource, PlayerResourceAccess};
 struct DecideRenderContext<'a> {
     timer: &'a mut TimerManager,
     resource: &'a dyn PlayerResourceAccess,
-    main: &'a MainControllerRef,
+    main: &'a mut MainControllerRef,
     score_data_property: &'a rubato_types::score_data_property::ScoreDataProperty,
     offsets: &'a std::collections::HashMap<i32, rubato_types::skin_offset::SkinOffset>,
 }
@@ -91,6 +91,14 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideRenderContex
 
     fn set_timer_micro(&mut self, timer_id: rubato_types::timer_id::TimerId, micro_time: i64) {
         self.timer.set_micro_timer(timer_id, micro_time);
+    }
+
+    fn audio_play(&mut self, path: &str, volume: f32, is_loop: bool) {
+        self.main.play_audio_path(path, volume, is_loop);
+    }
+
+    fn audio_stop(&mut self, path: &str) {
+        self.main.stop_audio_path(path);
     }
 
     fn string_value(&self, id: i32) -> String {
@@ -282,6 +290,14 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideMouseContext
 
     fn set_timer_micro(&mut self, timer_id: rubato_types::timer_id::TimerId, micro_time: i64) {
         self.timer.set_micro_timer(timer_id, micro_time);
+    }
+
+    fn audio_play(&mut self, path: &str, volume: f32, is_loop: bool) {
+        self.main.play_audio_path(path, volume, is_loop);
+    }
+
+    fn audio_stop(&mut self, path: &str) {
+        self.main.stop_audio_path(path);
     }
 
     fn player_config_ref(&self) -> Option<&rubato_types::player_config::PlayerConfig> {
@@ -544,7 +560,7 @@ impl MainState for MusicDecide {
             let mut ctx = DecideRenderContext {
                 timer: &mut timer,
                 resource: &*self.resource,
-                main: &self.main,
+                main: &mut self.main,
                 score_data_property: &self.cached_score_data_property,
                 offsets: &self.data.offsets,
             };
@@ -584,7 +600,7 @@ impl MainState for MusicDecide {
             let mut ctx = DecideRenderContext {
                 timer: &mut timer,
                 resource: &*self.resource,
-                main: &self.main,
+                main: &mut self.main,
                 score_data_property: &self.cached_score_data_property,
                 offsets: &self.data.offsets,
             };
@@ -623,7 +639,7 @@ impl MainState for MusicDecide {
             let mut ctx = DecideRenderContext {
                 timer: &mut timer,
                 resource: &*self.resource,
-                main: &self.main,
+                main: &mut self.main,
                 score_data_property: &self.cached_score_data_property,
                 offsets: &self.data.offsets,
             };
@@ -713,7 +729,7 @@ impl MainState for MusicDecide {
             let mut ctx = DecideRenderContext {
                 timer: &mut self.data.timer,
                 resource: &*self.resource,
-                main: &self.main,
+                main: &mut self.main,
                 score_data_property: &self.cached_score_data_property,
                 offsets: &self.data.offsets,
             };
@@ -1324,12 +1340,12 @@ mod tests {
         // 150_000 ms = 2 minutes 30 seconds
         let resource = SongLengthResource::with_length_ms(150_000);
         let mut timer = TimerManager::new();
-        let main = MainControllerRef::new(Box::new(NullMainController));
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &resource,
-            main: &main,
+            main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
         };
@@ -1342,13 +1358,13 @@ mod tests {
     #[test]
     fn decide_render_context_song_duration_no_songdata() {
         let mut timer = TimerManager::new();
-        let main = MainControllerRef::new(Box::new(NullMainController));
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
         let resource = NullPlayerResource::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &resource,
-            main: &main,
+            main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
         };
@@ -1361,12 +1377,12 @@ mod tests {
     fn decide_render_context_song_data_ref_returns_songdata() {
         let resource = SongLengthResource::with_length_ms(100_000);
         let mut timer = TimerManager::new();
-        let main = MainControllerRef::new(Box::new(NullMainController));
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &resource,
-            main: &main,
+            main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
         };
@@ -1379,12 +1395,12 @@ mod tests {
     fn decide_render_context_song_data_ref_none_when_no_song() {
         let resource = NullPlayerResource::new();
         let mut timer = TimerManager::new();
-        let main = MainControllerRef::new(Box::new(NullMainController));
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &resource,
-            main: &main,
+            main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
         };
@@ -1397,12 +1413,12 @@ mod tests {
         let mut resource = SongLengthResource::with_length_ms(0);
         resource.song.chart.mode = 7;
         let mut timer = TimerManager::new();
-        let main = MainControllerRef::new(Box::new(NullMainController));
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &resource,
-            main: &main,
+            main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
         };
@@ -1415,12 +1431,12 @@ mod tests {
         let mut resource = SongLengthResource::with_length_ms(0);
         resource.song.chart.mode = 999;
         let mut timer = TimerManager::new();
-        let main = MainControllerRef::new(Box::new(NullMainController));
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &resource,
-            main: &main,
+            main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
         };
@@ -1432,12 +1448,12 @@ mod tests {
     fn decide_render_context_current_play_config_ref_none_when_no_songdata() {
         let resource = NullPlayerResource::new();
         let mut timer = TimerManager::new();
-        let main = MainControllerRef::new(Box::new(NullMainController));
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &resource,
-            main: &main,
+            main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
         };
@@ -1450,12 +1466,12 @@ mod tests {
         let mut resource = SongLengthResource::with_length_ms(0);
         resource.song.favorite = rubato_types::song_data::FAVORITE_SONG;
         let mut timer = TimerManager::new();
-        let main = MainControllerRef::new(Box::new(NullMainController));
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &resource,
-            main: &main,
+            main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
         };
@@ -1475,12 +1491,12 @@ mod tests {
         resource.song.info = Some(info);
 
         let mut timer = TimerManager::new();
-        let main = MainControllerRef::new(Box::new(NullMainController));
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &resource,
-            main: &main,
+            main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
         };
@@ -1498,12 +1514,12 @@ mod tests {
         // No SongInformation set -> should return i32::MIN, not maxbpm
 
         let mut timer = TimerManager::new();
-        let main = MainControllerRef::new(Box::new(NullMainController));
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &resource,
-            main: &main,
+            main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
         };
@@ -1516,12 +1532,12 @@ mod tests {
         // When songdata is absent, Java returns Integer.MIN_VALUE.
         let resource = NullPlayerResource::new();
         let mut timer = TimerManager::new();
-        let main = MainControllerRef::new(Box::new(NullMainController));
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &resource,
-            main: &main,
+            main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
         };
@@ -1535,12 +1551,12 @@ mod tests {
         // so skin renderers hide the value, matching select screen behavior.
         let resource = NullPlayerResource::new();
         let mut timer = TimerManager::new();
-        let main = MainControllerRef::new(Box::new(NullMainController));
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &resource,
-            main: &main,
+            main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
         };
@@ -1554,12 +1570,12 @@ mod tests {
         // so skin renderers hide the value, matching select screen behavior.
         let resource = NullPlayerResource::new();
         let mut timer = TimerManager::new();
-        let main = MainControllerRef::new(Box::new(NullMainController));
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &resource,
-            main: &main,
+            main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
         };
@@ -1572,12 +1588,12 @@ mod tests {
         let mut resource = SongLengthResource::with_length_ms(0);
         resource.song.chart.maxbpm = 200;
         let mut timer = TimerManager::new();
-        let main = MainControllerRef::new(Box::new(NullMainController));
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &resource,
-            main: &main,
+            main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
         };
@@ -1590,12 +1606,12 @@ mod tests {
         let mut resource = SongLengthResource::with_length_ms(0);
         resource.song.chart.minbpm = 120;
         let mut timer = TimerManager::new();
-        let main = MainControllerRef::new(Box::new(NullMainController));
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &resource,
-            main: &main,
+            main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
         };
@@ -1609,12 +1625,12 @@ mod tests {
         // negative minutes/seconds.
         let resource = SongLengthResource::with_length_ms(-120_000);
         let mut timer = TimerManager::new();
-        let main = MainControllerRef::new(Box::new(NullMainController));
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &resource,
-            main: &main,
+            main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
         };
@@ -1640,12 +1656,12 @@ mod tests {
         let mut resource = SongLengthResource::with_length_ms(0);
         resource.song.chart.feature = rubato_types::song_data::FEATURE_LONGNOTE;
         let mut timer = TimerManager::new();
-        let main = MainControllerRef::new(Box::new(NullMainController));
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &resource,
-            main: &main,
+            main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
         };
@@ -1662,12 +1678,12 @@ mod tests {
         let mut resource = SongLengthResource::with_length_ms(0);
         resource.song.chart.feature = rubato_types::song_data::FEATURE_CHARGENOTE;
         let mut timer = TimerManager::new();
-        let main = MainControllerRef::new(Box::new(NullMainController));
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &resource,
-            main: &main,
+            main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
         };
@@ -1684,12 +1700,12 @@ mod tests {
         let mut resource = SongLengthResource::with_length_ms(0);
         resource.song.chart.feature = rubato_types::song_data::FEATURE_HELLCHARGENOTE;
         let mut timer = TimerManager::new();
-        let main = MainControllerRef::new(Box::new(NullMainController));
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &resource,
-            main: &main,
+            main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
         };
@@ -1706,12 +1722,12 @@ mod tests {
         // No LN features -> falls through to config-based default
         let resource = SongLengthResource::with_length_ms(0);
         let mut timer = TimerManager::new();
-        let main = MainControllerRef::new(Box::new(NullMainController));
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &resource,
-            main: &main,
+            main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
         };
@@ -1731,12 +1747,12 @@ mod tests {
         let mut resource = SongLengthResource::with_length_ms(0);
         resource.song.chart.feature = rubato_types::song_data::FEATURE_UNDEFINEDLN;
         let mut timer = TimerManager::new();
-        let main = MainControllerRef::new(Box::new(NullMainController));
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &resource,
-            main: &main,
+            main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
         };
@@ -1753,12 +1769,12 @@ mod tests {
     fn decide_render_context_lnmode_308_no_songdata_falls_through() {
         let resource = NullPlayerResource::new();
         let mut timer = TimerManager::new();
-        let main = MainControllerRef::new(Box::new(NullMainController));
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &resource,
-            main: &main,
+            main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
         };
@@ -1790,12 +1806,12 @@ mod tests {
         resource.score = Some(score);
 
         let mut timer = TimerManager::new();
-        let main = MainControllerRef::new(Box::new(NullMainController));
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &resource,
-            main: &main,
+            main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
         };
@@ -1812,12 +1828,12 @@ mod tests {
         // When no score data is available, 370 should still return -1.
         let resource = SongLengthResource::with_length_ms(0);
         let mut timer = TimerManager::new();
-        let main = MainControllerRef::new(Box::new(NullMainController));
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &resource,
-            main: &main,
+            main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
         };

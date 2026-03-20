@@ -1839,6 +1839,197 @@ fn autoplay_judges_notes_past_35_minutes() {
     assert_eq!(jm.past_notes(), 1, "The note should be counted as past");
 }
 
+// --- Key beam (judged_lanes) regression tests ---
+
+#[test]
+fn autoplay_does_not_produce_judged_lanes() {
+    // Regression: autoplay judgments must NOT trigger key beam timers.
+    // Java calls inputKeyOn(lane) only in the manual key press block,
+    // not in the autoplay pass-through loop.
+    let model = make_model_with_notes(&[500_000, 1_000_000, 1_500_000]);
+    let notes = build_judge_notes(&model);
+    let jp = crate::judge_property::lr2();
+
+    let config = JudgeConfig {
+        notes: &notes,
+        mode: &Mode::BEAT_7K,
+        ln_type: LnType::LongNote,
+        judge_rank: 100,
+        judge_window_rate: [100, 100, 100],
+        scratch_judge_window_rate: [100, 100, 100],
+        algorithm: JudgeAlgorithm::Combo,
+        autoplay: true,
+        judge_property: &jp,
+        lane_property: None,
+        auto_adjust_enabled: false,
+        is_play_or_practice: false,
+        judgeregion: 1,
+    };
+    let mut jm = JudgeManager::from_config(&config);
+
+    let gp = crate::gauge_property::GaugeProperty::Lr2;
+    let mut gauge = GrooveGauge::new(&model, GrooveGauge::NORMAL, &gp);
+
+    let lp = LaneProperty::new(&Mode::BEAT_7K);
+    let key_count = lp.key_lane_assign().len();
+    let key_states = vec![false; key_count];
+    let key_times = vec![i64::MIN; key_count];
+
+    jm.update(-1, &notes, &key_states, &key_times, &mut gauge);
+
+    let mut all_judged_lanes = Vec::new();
+    let mut time = 0i64;
+    while time <= 2_000_000 {
+        jm.update(time, &notes, &key_states, &key_times, &mut gauge);
+        all_judged_lanes.extend(jm.drain_judged_lanes());
+        time += 1000;
+    }
+
+    // Autoplay should have judged the notes (verify it actually ran)
+    assert!(
+        jm.score().judge_counts.epg + jm.score().judge_counts.lpg > 0,
+        "autoplay should have produced judgments"
+    );
+
+    // But no judged lanes should be emitted for key beams
+    assert!(
+        all_judged_lanes.is_empty(),
+        "autoplay must not produce judged_lanes for key beams, got {:?}",
+        all_judged_lanes
+    );
+}
+
+#[test]
+fn miss_poor_does_not_produce_judged_lanes() {
+    // Regression: miss POOR (notes that pass the judge window without being
+    // pressed) must NOT trigger key beam timers.
+    let model = make_model_with_notes(&[500_000]);
+    let notes = build_judge_notes(&model);
+    let jp = crate::judge_property::lr2();
+
+    let config = JudgeConfig {
+        notes: &notes,
+        mode: &Mode::BEAT_7K,
+        ln_type: LnType::LongNote,
+        judge_rank: 100,
+        judge_window_rate: [100, 100, 100],
+        scratch_judge_window_rate: [100, 100, 100],
+        algorithm: JudgeAlgorithm::Combo,
+        autoplay: false,
+        judge_property: &jp,
+        lane_property: None,
+        auto_adjust_enabled: false,
+        is_play_or_practice: false,
+        judgeregion: 1,
+    };
+    let mut jm = JudgeManager::from_config(&config);
+
+    let gp = crate::gauge_property::GaugeProperty::Lr2;
+    let mut gauge = GrooveGauge::new(&model, GrooveGauge::NORMAL, &gp);
+
+    let lp = LaneProperty::new(&Mode::BEAT_7K);
+    let key_count = lp.key_lane_assign().len();
+    let key_states = vec![false; key_count];
+    let key_times = vec![i64::MIN; key_count];
+
+    jm.update(-1, &notes, &key_states, &key_times, &mut gauge);
+
+    // Advance time past the note without pressing any key, causing miss POOR
+    let mut all_judged_lanes = Vec::new();
+    let mut time = 0i64;
+    while time <= 2_000_000 {
+        jm.update(time, &notes, &key_states, &key_times, &mut gauge);
+        all_judged_lanes.extend(jm.drain_judged_lanes());
+        time += 1000;
+    }
+
+    // The note should have been judged as miss (judge=4 => POOR counts)
+    assert!(jm.past_notes() > 0, "note should have been judged");
+    assert_eq!(jm.ghost()[0], JUDGE_PR, "note should be judged as POOR");
+
+    // But no judged lanes should be emitted for key beams
+    assert!(
+        all_judged_lanes.is_empty(),
+        "miss POOR must not produce judged_lanes for key beams, got {:?}",
+        all_judged_lanes
+    );
+}
+
+#[test]
+fn manual_key_press_produces_judged_lanes() {
+    // Manual key presses should trigger key beam timers even on empty POOR.
+    let model = make_model_with_notes(&[500_000]);
+    let notes = build_judge_notes(&model);
+    let jp = crate::judge_property::lr2();
+
+    let config = JudgeConfig {
+        notes: &notes,
+        mode: &Mode::BEAT_7K,
+        ln_type: LnType::LongNote,
+        judge_rank: 100,
+        judge_window_rate: [100, 100, 100],
+        scratch_judge_window_rate: [100, 100, 100],
+        algorithm: JudgeAlgorithm::Combo,
+        autoplay: false,
+        judge_property: &jp,
+        lane_property: None,
+        auto_adjust_enabled: false,
+        is_play_or_practice: false,
+        judgeregion: 1,
+    };
+    let mut jm = JudgeManager::from_config(&config);
+
+    let gp = crate::gauge_property::GaugeProperty::Lr2;
+    let mut gauge = GrooveGauge::new(&model, GrooveGauge::NORMAL, &gp);
+
+    let lp = LaneProperty::new(&Mode::BEAT_7K);
+    let key_count = lp.key_lane_assign().len();
+    let key_lane_assign = lp.key_lane_assign();
+
+    // Find the key index for lane 0
+    let mut lane0_key = 0;
+    for (key_idx, &lane) in key_lane_assign.iter().enumerate() {
+        if lane == 0 {
+            lane0_key = key_idx;
+            break;
+        }
+    }
+
+    let key_states_idle = vec![false; key_count];
+    let key_times_idle = vec![i64::MIN; key_count];
+
+    // Prime
+    jm.update(-1, &notes, &key_states_idle, &key_times_idle, &mut gauge);
+
+    // Advance to near the note time
+    let mut time = 0i64;
+    while time < 499_000 {
+        jm.update(time, &notes, &key_states_idle, &key_times_idle, &mut gauge);
+        time += 1000;
+    }
+
+    // Press key at exactly the note time
+    let mut key_states_pressed = vec![false; key_count];
+    key_states_pressed[lane0_key] = true;
+    let mut key_times_pressed = vec![i64::MIN; key_count];
+    key_times_pressed[lane0_key] = 500_000;
+
+    jm.update(
+        500_000,
+        &notes,
+        &key_states_pressed,
+        &key_times_pressed,
+        &mut gauge,
+    );
+    let judged = jm.drain_judged_lanes();
+
+    assert!(
+        !judged.is_empty(),
+        "manual key press should produce judged_lanes for key beams"
+    );
+    assert_eq!(judged[0], 0, "lane 0 should be in the judged lanes");
+}
+
 // --- Regression tests for update_micro fixes ---
 
 /// Helper: create a JudgeManager for manual key-press testing with a single note.
@@ -1846,6 +2037,7 @@ fn make_manual_jm(note_time_us: i64) -> (JudgeManager, Vec<JudgeNote>, GrooveGau
     let model = make_model_with_notes(&[note_time_us]);
     let notes = build_judge_notes(&model);
     let jp = crate::judge_property::lr2();
+
     let config = JudgeConfig {
         notes: &notes,
         mode: &Mode::BEAT_7K,

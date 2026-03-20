@@ -53,6 +53,13 @@ pub(super) struct PlayRenderContext<'a> {
     /// Cumulative playtime in seconds from PlayerData.
     /// Java: PlayerData.getPlaytime() -- total play time across all sessions.
     pub(super) cumulative_playtime_seconds: i64,
+    /// Current scroll duration from LaneRenderer (240000/bpm/hispeed * (1-lanecover)).
+    /// Java: BMSPlayer.getLanerender().getCurrentDuration()
+    pub(super) current_duration: i32,
+    /// Pending actions outbox for side effects (audio play/stop) that cannot be
+    /// executed directly during rendering.
+    #[allow(dead_code)]
+    pub(super) pending: &'a mut super::PendingActions,
 }
 
 impl rubato_types::timer_access::TimerAccess for PlayRenderContext<'_> {
@@ -237,10 +244,53 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayRenderContext<
             91 => self.min_bpm as i32,
             92 => self.main_bpm as i32,
             160 => self.now_bpm as i32,
-            // Song duration
-            312 => self.playtime.clamp(i32::MIN as i64, i32::MAX as i64) as i32,
+            // Elapsed playtime from TIMER_PLAY (Java: timer.getNowTime(TIMER_PLAY))
+            161 => (self.timer.now_time_for_id(TIMER_PLAY) as i32) / 60000,
+            162 => ((self.timer.now_time_for_id(TIMER_PLAY) as i32) / 1000) % 60,
+            // Remaining playtime (Java: max(playtime - elapsed + 1000, 0))
+            163 => {
+                let elapsed = self.timer.now_time_for_id(TIMER_PLAY) as i32;
+                let remaining = (self.playtime as i32 - elapsed + 1000).max(0);
+                remaining / 60000
+            }
+            164 => {
+                let elapsed = self.timer.now_time_for_id(TIMER_PLAY) as i32;
+                let remaining = (self.playtime as i32 - elapsed + 1000).max(0);
+                (remaining / 1000) % 60
+            }
+            // Scroll duration from LaneRenderer (Java: getCurrentDuration())
+            312 => self.current_duration,
+            // Lanecover2: (1 - lift) * lanecover * 1000
+            316 => ((1.0 - self.live_lift) * self.live_lanecover * 1000.0) as i32,
+            // Chart length (minutes/seconds)
             1163 => ((self.playtime.max(0) / 60000) % 60) as i32,
             1164 => ((self.playtime.max(0) / 1000) % 60) as i32,
+            // Scroll duration variants (IDs 1312-1327)
+            // Java: IntegerPropertyFactory NUMBER_DURATION_LANECOVER_ON..NUMBER_MAXBPM_DURATION_GREEN_LANECOVER_OFF
+            1312..=1327 => {
+                let offset = id - 1312;
+                let green = offset % 2 == 1;
+                let cover = offset % 4 < 2;
+                let mode = offset / 4;
+                let bpm = match mode {
+                    0 => self.now_bpm,
+                    1 => self.main_bpm,
+                    2 => self.min_bpm,
+                    3 => self.max_bpm,
+                    _ => 0.0,
+                };
+                if bpm == 0.0 {
+                    return 0;
+                }
+                (240000.0 / bpm / self.live_hispeed as f64
+                    * if cover {
+                        1.0 - self.live_lanecover as f64
+                    } else {
+                        1.0
+                    }
+                    * if green { 0.6 } else { 1.0 })
+                .round() as i32
+            }
             // Loading progress: 100 if media loaded, else 0
             165 => {
                 if self.media_load_finished {
@@ -304,6 +354,8 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayRenderContext<
             273 => self.live_hidden > 0.0,
             // OPTION_STATE_PRACTICE (Java: 1080)
             1080 => self.play_mode.mode == rubato_core::bms_player_mode::Mode::Practice,
+            // OPTION_1P_BORDER_OR_MORE (Java: 1240) -- gauge >= clear threshold
+            1240 => self.gauge.is_some_and(|g| g.is_qualified()),
             _ => self.default_boolean_value(id),
         }
     }
@@ -653,10 +705,60 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayMouseContext<'
                 .lanerender
                 .as_ref()
                 .map_or(0, |lr| lr.now_bpm() as i32),
-            // Song duration
-            312 => self.player.playtime.clamp(i32::MIN as i64, i32::MAX as i64) as i32,
+            // Elapsed playtime from TIMER_PLAY
+            161 => (self.timer.now_time_for_id(TIMER_PLAY) as i32) / 60000,
+            162 => ((self.timer.now_time_for_id(TIMER_PLAY) as i32) / 1000) % 60,
+            // Remaining playtime
+            163 => {
+                let elapsed = self.timer.now_time_for_id(TIMER_PLAY) as i32;
+                let remaining = (self.player.playtime as i32 - elapsed + 1000).max(0);
+                remaining / 60000
+            }
+            164 => {
+                let elapsed = self.timer.now_time_for_id(TIMER_PLAY) as i32;
+                let remaining = (self.player.playtime as i32 - elapsed + 1000).max(0);
+                (remaining / 1000) % 60
+            }
+            // Scroll duration from LaneRenderer (Java: getCurrentDuration())
+            312 => self
+                .player
+                .lanerender
+                .as_ref()
+                .map_or(0, |lr| lr.current_duration()),
+            // Lanecover2: (1 - lift) * lanecover * 1000
+            316 => {
+                let lr = self.player.lanerender.as_ref();
+                let lc = lr.map_or(0.0, |lr| lr.lanecover());
+                let lift = lr.map_or(0.0, |lr| lr.lift_region());
+                ((1.0 - lift) * lc * 1000.0) as i32
+            }
+            // Chart length (minutes/seconds)
             1163 => ((self.player.playtime.max(0) / 60000) % 60) as i32,
             1164 => ((self.player.playtime.max(0) / 1000) % 60) as i32,
+            // Scroll duration variants (IDs 1312-1327)
+            1312..=1327 => {
+                let lr = self.player.lanerender.as_ref();
+                let offset = id - 1312;
+                let green = offset % 2 == 1;
+                let cover = offset % 4 < 2;
+                let mode = offset / 4;
+                let bpm = match mode {
+                    0 => lr.map_or(0.0, |lr| lr.now_bpm()),
+                    1 => lr.map_or(0.0, |lr| lr.main_bpm()),
+                    2 => lr.map_or(0.0, |lr| lr.min_bpm()),
+                    3 => lr.map_or(0.0, |lr| lr.max_bpm()),
+                    _ => 0.0,
+                };
+                if bpm == 0.0 {
+                    return 0;
+                }
+                let hispeed = lr.map_or(1.0, |lr| lr.hispeed()) as f64;
+                let lanecover = lr.map_or(0.0, |lr| lr.lanecover()) as f64;
+                (240000.0 / bpm / hispeed
+                    * if cover { 1.0 - lanecover } else { 1.0 }
+                    * if green { 0.6 } else { 1.0 })
+                .round() as i32
+            }
             // Loading progress: 100 if media loaded, else 0
             165 => {
                 if self.player.media_load_finished {
@@ -725,6 +827,8 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayMouseContext<'
                 .as_ref()
                 .is_some_and(|lr| lr.hidden_cover() > 0.0),
             1080 => self.player.play_mode.mode == rubato_core::bms_player_mode::Mode::Practice,
+            // OPTION_1P_BORDER_OR_MORE (Java: 1240) -- gauge >= clear threshold
+            1240 => self.player.gauge.as_ref().is_some_and(|g| g.is_qualified()),
             _ => self.default_boolean_value(id),
         }
     }
@@ -809,6 +913,8 @@ mod tests {
             song_data: None,
             offsets: &EMPTY_OFFSETS,
             cumulative_playtime_seconds: 0,
+            current_duration: 0,
+            pending: Box::leak(Box::new(PendingActions::new())),
         }
     }
 
@@ -866,6 +972,8 @@ mod tests {
             song_data: None,
             offsets,
             cumulative_playtime_seconds: 0,
+            current_duration: 0,
+            pending: Box::leak(Box::new(PendingActions::new())),
         };
 
         // Populated offset should be returned
@@ -909,12 +1017,23 @@ mod tests {
     }
 
     #[test]
-    fn playtime_raw_ms_unchanged() {
+    fn id_312_returns_current_duration() {
+        // ID 312 returns LaneRenderer.getCurrentDuration() (scroll duration),
+        // not raw playtime. In test context, current_duration defaults to 0.
         let ctx = make_render_ctx(123_456);
         assert_eq!(
             ctx.integer_value(312),
-            123_456,
-            "ID 312 should return raw ms"
+            0,
+            "ID 312 should return current_duration (default 0)"
+        );
+
+        // With current_duration set explicitly
+        let mut ctx2 = make_render_ctx(123_456);
+        ctx2.current_duration = 1500;
+        assert_eq!(
+            ctx2.integer_value(312),
+            1500,
+            "ID 312 should return current_duration from LaneRenderer"
         );
     }
 
@@ -1007,6 +1126,8 @@ mod tests {
             song_data: None,
             offsets: &EMPTY_OFFSETS,
             cumulative_playtime_seconds: 0,
+            current_duration: 0,
+            pending: Box::leak(Box::new(PendingActions::new())),
         }
     }
 
@@ -1108,6 +1229,8 @@ mod tests {
             song_data: None,
             offsets: &EMPTY_OFFSETS,
             cumulative_playtime_seconds: 0,
+            current_duration: 0,
+            pending: Box::leak(Box::new(PendingActions::new())),
         }
     }
 
@@ -1186,6 +1309,8 @@ mod tests {
             song_data: None,
             offsets: &EMPTY_OFFSETS,
             cumulative_playtime_seconds: 0,
+            current_duration: 0,
+            pending: Box::leak(Box::new(PendingActions::new())),
         };
         // config_ref should return Some
         assert!(ctx.config_ref().is_some());
@@ -1241,6 +1366,8 @@ mod tests {
             song_data: None,
             offsets: &EMPTY_OFFSETS,
             cumulative_playtime_seconds: 0,
+            current_duration: 0,
+            pending: Box::leak(Box::new(PendingActions::new())),
         };
         let prop = ctx.score_data_property();
         assert!((prop.now_rate() - 0.85).abs() < f32::EPSILON);
@@ -1360,6 +1487,8 @@ mod tests {
             song_data: None,
             offsets: &EMPTY_OFFSETS,
             cumulative_playtime_seconds: 0,
+            current_duration: 0,
+            pending: Box::leak(Box::new(PendingActions::new())),
         }
     }
 
@@ -1898,5 +2027,260 @@ mod tests {
             (val - 7.25).abs() < f32::EPSILON,
             "PlayMouseContext::float_value(360) must fall through to default_float_value, got {val}"
         );
+    }
+
+    // ============================================================
+    // IDs 161-164: elapsed/remaining playtime from TIMER_PLAY
+    // ============================================================
+
+    #[test]
+    fn elapsed_playtime_minutes_seconds_timer_off() {
+        // When TIMER_PLAY is off, now_time_for_id returns 0
+        let ctx = make_render_ctx(120_000);
+        assert_eq!(ctx.integer_value(161), 0, "elapsed minutes when timer off");
+        assert_eq!(ctx.integer_value(162), 0, "elapsed seconds when timer off");
+    }
+
+    #[test]
+    fn elapsed_playtime_minutes_seconds_timer_on() {
+        let ctx = make_render_ctx(120_000);
+        // Simulate TIMER_PLAY being on for 65 seconds (65_000 ms)
+        // Set nowmicrotime to 100_000_000 us and TIMER_PLAY to 35_000_000 us
+        // so elapsed = (100_000_000 - 35_000_000) / 1000 = 65_000 ms
+        ctx.timer.set_now_micro_time(100_000_000);
+        ctx.timer.set_micro_timer(TIMER_PLAY, 35_000_000);
+        assert_eq!(
+            ctx.integer_value(161),
+            1,
+            "elapsed minutes = 65000/60000 = 1"
+        );
+        assert_eq!(
+            ctx.integer_value(162),
+            5,
+            "elapsed seconds = (65000/1000)%60 = 5"
+        );
+    }
+
+    #[test]
+    fn remaining_playtime_timer_off() {
+        // playtime=120000, elapsed=0 -> remaining = 120000 + 1000 = 121000
+        let ctx = make_render_ctx(120_000);
+        assert_eq!(
+            ctx.integer_value(163),
+            2,
+            "remaining minutes = 121000/60000 = 2"
+        );
+        assert_eq!(
+            ctx.integer_value(164),
+            1,
+            "remaining seconds = (121000/1000)%60 = 1"
+        );
+    }
+
+    #[test]
+    fn remaining_playtime_timer_on() {
+        let ctx = make_render_ctx(120_000);
+        // elapsed = 65_000 ms, remaining = max(120000 - 65000 + 1000, 0) = 56000
+        ctx.timer.set_now_micro_time(100_000_000);
+        ctx.timer.set_micro_timer(TIMER_PLAY, 35_000_000);
+        assert_eq!(
+            ctx.integer_value(163),
+            0,
+            "remaining minutes = 56000/60000 = 0"
+        );
+        assert_eq!(
+            ctx.integer_value(164),
+            56,
+            "remaining seconds = (56000/1000)%60 = 56"
+        );
+    }
+
+    #[test]
+    fn remaining_playtime_past_end_clamped_to_zero() {
+        let ctx = make_render_ctx(60_000);
+        // elapsed = 120_000 ms (past end), remaining = max(60000 - 120000 + 1000, 0) = 0
+        ctx.timer.set_now_micro_time(150_000_000);
+        ctx.timer.set_micro_timer(TIMER_PLAY, 30_000_000);
+        assert_eq!(ctx.integer_value(163), 0, "remaining minutes clamped to 0");
+        assert_eq!(ctx.integer_value(164), 0, "remaining seconds clamped to 0");
+    }
+
+    // ============================================================
+    // ID 316: NUMBER_LANECOVER2
+    // ============================================================
+
+    #[test]
+    fn lanecover2_id_316() {
+        let mut ctx = make_render_ctx(0);
+        ctx.live_lanecover = 0.5;
+        ctx.live_lift = 0.2;
+        // (1.0 - 0.2) * 0.5 * 1000.0 = 400.0
+        assert_eq!(ctx.integer_value(316), 400);
+    }
+
+    #[test]
+    fn lanecover2_no_lift() {
+        let mut ctx = make_render_ctx(0);
+        ctx.live_lanecover = 0.3;
+        ctx.live_lift = 0.0;
+        // (1.0 - 0.0) * 0.3 * 1000.0 = 300.0
+        assert_eq!(ctx.integer_value(316), 300);
+    }
+
+    #[test]
+    fn lanecover2_full_lift() {
+        let mut ctx = make_render_ctx(0);
+        ctx.live_lanecover = 0.5;
+        ctx.live_lift = 1.0;
+        // (1.0 - 1.0) * 0.5 * 1000.0 = 0.0
+        assert_eq!(ctx.integer_value(316), 0);
+    }
+
+    // ============================================================
+    // IDs 1312-1327: DURATION_LANECOVER scroll duration variants
+    // ============================================================
+
+    #[test]
+    fn duration_lanecover_now_bpm_cover_on() {
+        let mut ctx = make_render_ctx(0);
+        ctx.now_bpm = 120.0;
+        ctx.live_hispeed = 1.0;
+        ctx.live_lanecover = 0.5;
+        // ID 1312: mode=0 (now), green=false, cover=true
+        // 240000/120/1.0 * (1 - 0.5) * 1.0 = 1000
+        assert_eq!(ctx.integer_value(1312), 1000);
+    }
+
+    #[test]
+    fn duration_lanecover_now_bpm_green_cover_on() {
+        let mut ctx = make_render_ctx(0);
+        ctx.now_bpm = 120.0;
+        ctx.live_hispeed = 1.0;
+        ctx.live_lanecover = 0.5;
+        // ID 1313: mode=0 (now), green=true, cover=true
+        // 240000/120/1.0 * (1 - 0.5) * 0.6 = 600
+        assert_eq!(ctx.integer_value(1313), 600);
+    }
+
+    #[test]
+    fn duration_lanecover_now_bpm_cover_off() {
+        let mut ctx = make_render_ctx(0);
+        ctx.now_bpm = 120.0;
+        ctx.live_hispeed = 2.0;
+        ctx.live_lanecover = 0.5;
+        // ID 1314: mode=0 (now), green=false, cover=false
+        // 240000/120/2.0 * 1.0 * 1.0 = 1000
+        assert_eq!(ctx.integer_value(1314), 1000);
+    }
+
+    #[test]
+    fn duration_lanecover_now_bpm_green_cover_off() {
+        let mut ctx = make_render_ctx(0);
+        ctx.now_bpm = 120.0;
+        ctx.live_hispeed = 2.0;
+        ctx.live_lanecover = 0.5;
+        // ID 1315: mode=0 (now), green=true, cover=false
+        // 240000/120/2.0 * 1.0 * 0.6 = 600
+        assert_eq!(ctx.integer_value(1315), 600);
+    }
+
+    #[test]
+    fn duration_lanecover_main_bpm() {
+        let mut ctx = make_render_ctx(0);
+        ctx.main_bpm = 150.0;
+        ctx.live_hispeed = 1.0;
+        ctx.live_lanecover = 0.0;
+        // ID 1316: mode=1 (main), green=false, cover=true
+        // 240000/150/1.0 * (1 - 0) * 1.0 = 1600
+        assert_eq!(ctx.integer_value(1316), 1600);
+    }
+
+    #[test]
+    fn duration_lanecover_min_bpm() {
+        let mut ctx = make_render_ctx(0);
+        ctx.min_bpm = 100.0;
+        ctx.live_hispeed = 1.0;
+        ctx.live_lanecover = 0.0;
+        // ID 1320: mode=2 (min), green=false, cover=true
+        // 240000/100/1.0 * 1.0 * 1.0 = 2400
+        assert_eq!(ctx.integer_value(1320), 2400);
+    }
+
+    #[test]
+    fn duration_lanecover_max_bpm() {
+        let mut ctx = make_render_ctx(0);
+        ctx.max_bpm = 200.0;
+        ctx.live_hispeed = 1.0;
+        ctx.live_lanecover = 0.0;
+        // ID 1324: mode=3 (max), green=false, cover=true
+        // 240000/200/1.0 * 1.0 * 1.0 = 1200
+        assert_eq!(ctx.integer_value(1324), 1200);
+    }
+
+    #[test]
+    fn duration_lanecover_zero_bpm_returns_zero() {
+        let mut ctx = make_render_ctx(0);
+        ctx.now_bpm = 0.0;
+        ctx.live_hispeed = 1.0;
+        ctx.live_lanecover = 0.5;
+        assert_eq!(ctx.integer_value(1312), 0);
+    }
+
+    #[test]
+    fn duration_lanecover_last_id_1327() {
+        let mut ctx = make_render_ctx(0);
+        ctx.max_bpm = 120.0;
+        ctx.live_hispeed = 1.0;
+        ctx.live_lanecover = 0.0;
+        // ID 1327: offset=15, mode=3 (max), green=true, cover=false
+        // 240000/120/1.0 * 1.0 * 0.6 = 1200
+        assert_eq!(ctx.integer_value(1327), 1200);
+    }
+
+    // ============================================================
+    // ID 1240: OPTION_1P_BORDER_OR_MORE (gauge qualified)
+    // ============================================================
+
+    #[test]
+    fn border_or_more_false_when_no_gauge() {
+        let ctx = make_render_ctx(0);
+        assert!(!ctx.boolean_value(1240));
+    }
+
+    #[test]
+    fn border_or_more_false_when_gauge_below_border() {
+        let model = {
+            let mut m = bms_model::bms_model::BMSModel::new();
+            m.total = 300.0;
+            m
+        };
+        let gauge = Box::leak(Box::new(rubato_types::groove_gauge::GrooveGauge::new(
+            &model,
+            rubato_types::groove_gauge::NORMAL,
+            &rubato_types::gauge_property::GaugeProperty::SevenKeys,
+        )));
+        // NORMAL gauge: init=20%, border=80%. Value 20% < 80%, not qualified.
+        let mut ctx = make_render_ctx(0);
+        ctx.gauge = Some(gauge);
+        assert!(!ctx.boolean_value(1240));
+    }
+
+    #[test]
+    fn border_or_more_true_when_gauge_at_border() {
+        let model = {
+            let mut m = bms_model::bms_model::BMSModel::new();
+            m.total = 300.0;
+            m
+        };
+        let gauge = Box::leak(Box::new(rubato_types::groove_gauge::GrooveGauge::new(
+            &model,
+            rubato_types::groove_gauge::NORMAL,
+            &rubato_types::gauge_property::GaugeProperty::SevenKeys,
+        )));
+        // Push gauge to >= border (80%). add_value(60) -> 20 + 60 = 80%
+        gauge.add_value(60.0);
+        let mut ctx = make_render_ctx(0);
+        ctx.gauge = Some(gauge);
+        assert!(ctx.boolean_value(1240));
     }
 }
