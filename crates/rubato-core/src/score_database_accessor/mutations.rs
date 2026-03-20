@@ -47,9 +47,11 @@ impl ScoreDatabaseAccessor {
 
     pub fn set_score_data_map(&self, map: &HashMap<String, HashMap<String, String>>) {
         // Whitelist valid score column names to prevent SQL injection
+        // Whitelist must match the actual score table columns defined in
+        // ScoreDatabaseAccessor::new(). Phantom columns that don't exist in
+        // the schema would cause silent UPDATE failures (no rows matched).
         const VALID_SCORE_COLUMNS: &[&str] = &[
             "sha256",
-            "player",
             "mode",
             "clear",
             "date",
@@ -67,23 +69,16 @@ impl ScoreDatabaseAccessor {
             "lpr",
             "ems",
             "lms",
-            "maxcombo",
             "notes",
-            "passnotes",
+            "combo",
             "minbp",
             "avgjudge",
-            "totalDuration",
-            "avg",
-            "totalAvg",
-            "stddev",
+            "ghost",
             "option",
             "seed",
             "random",
-            "judge",
-            "gauge",
             "state",
             "scorehash",
-            "combo",
             // Java parity: trophy string may accumulate duplicate characters across repeated plays.
             // Consider deduplicating before write if string growth becomes an issue.
             "trophy",

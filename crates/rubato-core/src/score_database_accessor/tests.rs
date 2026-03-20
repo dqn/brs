@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use rusqlite::Connection;
 
 use crate::player_data::PlayerData;
@@ -682,4 +684,127 @@ fn connection_has_wal_and_synchronous_normal() {
         "synchronous should be NORMAL (1), got {}",
         synchronous
     );
+}
+
+// --- set_score_data_map whitelist tests ---
+
+/// Regression: phantom columns that don't exist in the score table schema
+/// (e.g., "player", "maxcombo", "gauge") must NOT appear in the whitelist.
+/// If they did, the UPDATE would silently fail because SQLite does not error
+/// on UPDATE with non-existent columns when using bracket-quoted identifiers.
+#[test]
+fn set_score_data_map_rejects_phantom_columns() {
+    let accessor = memory_accessor();
+
+    let sd = make_score("phantom_test", 0, 3);
+    accessor.set_score_data(&sd);
+
+    // These column names existed in the old whitelist but have no
+    // corresponding column in the score table schema.
+    let phantom_columns = [
+        "player",
+        "maxcombo",
+        "passnotes",
+        "totalDuration",
+        "avg",
+        "totalAvg",
+        "stddev",
+        "judge",
+        "gauge",
+    ];
+
+    for col in phantom_columns {
+        let mut values: HashMap<String, String> = HashMap::new();
+        values.insert(col.to_string(), "999".to_string());
+
+        let mut map: HashMap<String, HashMap<String, String>> = HashMap::new();
+        map.insert("phantom_test".to_string(), values);
+
+        // Should not panic, and the phantom column should be rejected
+        accessor.set_score_data_map(&map);
+
+        // Score should be unchanged (phantom column was rejected)
+        let loaded = accessor.score_data("phantom_test", 0).unwrap();
+        assert_eq!(
+            loaded.clear, 3,
+            "phantom column '{}' should be rejected by whitelist",
+            col,
+        );
+    }
+}
+
+/// Regression: "ghost" is a real score table column that was previously
+/// missing from the whitelist.
+#[test]
+fn set_score_data_map_accepts_ghost_column() {
+    let accessor = memory_accessor();
+
+    let sd = make_score("ghost_test", 0, 5);
+    accessor.set_score_data(&sd);
+
+    let mut values: HashMap<String, String> = HashMap::new();
+    values.insert("ghost".to_string(), "updated_ghost_data".to_string());
+
+    let mut map: HashMap<String, HashMap<String, String>> = HashMap::new();
+    map.insert("ghost_test".to_string(), values);
+
+    accessor.set_score_data_map(&map);
+
+    let loaded = accessor.score_data("ghost_test", 0).unwrap();
+    assert_eq!(loaded.ghost, "updated_ghost_data");
+}
+
+/// Verify that all columns in the whitelist actually exist in the score table.
+#[test]
+fn set_score_data_map_all_whitelisted_columns_are_valid() {
+    let accessor = memory_accessor();
+
+    let sd = make_score("whitelist_test", 0, 5);
+    accessor.set_score_data(&sd);
+
+    // Every whitelisted column should produce a successful UPDATE
+    // (no rusqlite error). We use string "1" which is valid for both
+    // TEXT and INTEGER columns in SQLite's type affinity system.
+    let valid_columns = [
+        "sha256",
+        "mode",
+        "clear",
+        "date",
+        "playcount",
+        "clearcount",
+        "epg",
+        "lpg",
+        "egr",
+        "lgr",
+        "egd",
+        "lgd",
+        "ebd",
+        "lbd",
+        "epr",
+        "lpr",
+        "ems",
+        "lms",
+        "notes",
+        "combo",
+        "minbp",
+        "avgjudge",
+        "ghost",
+        "option",
+        "seed",
+        "random",
+        "state",
+        "scorehash",
+        "trophy",
+    ];
+
+    for col in valid_columns {
+        let mut values: HashMap<String, String> = HashMap::new();
+        values.insert(col.to_string(), "1".to_string());
+
+        let mut map: HashMap<String, HashMap<String, String>> = HashMap::new();
+        map.insert("whitelist_test".to_string(), values);
+
+        // Should not error -- the column exists in the actual table
+        accessor.set_score_data_map(&map);
+    }
 }
