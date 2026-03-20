@@ -81,6 +81,10 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayRenderContext<
         Some(rubato_types::main_state_type::MainStateType::Play)
     }
 
+    fn boot_time_millis(&self) -> i64 {
+        self.timer.boot_time_millis()
+    }
+
     fn player_config_ref(&self) -> Option<&rubato_types::player_config::PlayerConfig> {
         Some(self.player_config)
     }
@@ -235,8 +239,8 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayRenderContext<
             160 => self.now_bpm as i32,
             // Song duration
             312 => self.playtime.clamp(i32::MIN as i64, i32::MAX as i64) as i32,
-            1163 => ((self.playtime / 60000) % 60) as i32,
-            1164 => ((self.playtime / 1000) % 60) as i32,
+            1163 => ((self.playtime.max(0) / 60000) % 60) as i32,
+            1164 => ((self.playtime.max(0) / 1000) % 60) as i32,
             // Loading progress: 100 if media loaded, else 0
             165 => {
                 if self.media_load_finished {
@@ -372,6 +376,10 @@ impl rubato_types::timer_access::TimerAccess for PlayMouseContext<'_> {
 impl rubato_types::skin_render_context::SkinRenderContext for PlayMouseContext<'_> {
     fn current_state_type(&self) -> Option<rubato_types::main_state_type::MainStateType> {
         Some(rubato_types::main_state_type::MainStateType::Play)
+    }
+
+    fn boot_time_millis(&self) -> i64 {
+        self.timer.boot_time_millis()
     }
 
     fn config_ref(&self) -> Option<&rubato_types::config::Config> {
@@ -647,8 +655,8 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayMouseContext<'
                 .map_or(0, |lr| lr.now_bpm() as i32),
             // Song duration
             312 => self.player.playtime.clamp(i32::MIN as i64, i32::MAX as i64) as i32,
-            1163 => ((self.player.playtime / 60000) % 60) as i32,
-            1164 => ((self.player.playtime / 1000) % 60) as i32,
+            1163 => ((self.player.playtime.max(0) / 60000) % 60) as i32,
+            1164 => ((self.player.playtime.max(0) / 1000) % 60) as i32,
             // Loading progress: 100 if media loaded, else 0
             165 => {
                 if self.player.media_load_finished {
@@ -925,6 +933,33 @@ mod tests {
         let ctx = make_render_ctx(3_900_000);
         assert_eq!(ctx.integer_value(1163), 5);
         assert_eq!(ctx.integer_value(1164), 0);
+    }
+
+    #[test]
+    fn playtime_negative_clamped_to_zero() {
+        // Negative playtime (corrupted data) should be clamped to 0, not produce
+        // negative minutes/seconds. Matches select/decide/result screen behavior.
+        let ctx = make_render_ctx(-5000);
+        assert_eq!(
+            ctx.integer_value(1163),
+            0,
+            "negative playtime minutes must be 0"
+        );
+        assert_eq!(
+            ctx.integer_value(1164),
+            0,
+            "negative playtime seconds must be 0"
+        );
+    }
+
+    #[test]
+    fn cumulative_playtime_ids_17_18_19() {
+        // 3661 seconds = 1 hour 1 minute 1 second
+        let mut ctx = make_render_ctx(0);
+        ctx.cumulative_playtime_seconds = 3661;
+        assert_eq!(ctx.integer_value(17), 1, "ID 17: hours");
+        assert_eq!(ctx.integer_value(18), 1, "ID 18: minutes");
+        assert_eq!(ctx.integer_value(19), 1, "ID 19: seconds");
     }
 
     fn make_render_ctx_with_pattern(pattern: Option<Vec<Vec<i32>>>) -> PlayRenderContext<'static> {
