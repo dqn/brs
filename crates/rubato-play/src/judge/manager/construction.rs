@@ -59,6 +59,10 @@ impl JudgeManager {
 
         let lane_count = config.mode.key() as usize;
         let player_count = config.mode.player().max(1) as usize;
+        debug_assert!(
+            lane_count.is_multiple_of(player_count),
+            "lane_count ({lane_count}) must be divisible by player_count ({player_count})"
+        );
         let keys_per_player = lane_count / player_count;
 
         // Build judge windows

@@ -403,6 +403,10 @@ impl LaneRenderer {
         } else {
             self.hispeedmargin * if b { 1.0 } else { -1.0 }
         };
+        // Java parity: uses strict inequality (> 0.0, < 20.0) unlike reset_hispeed's
+        // clamp(HISPEED_MIN, HISPEED_MAX). In Java, changeHispeed() guards with
+        // `hispeed + f > 0 && hispeed + f < 20` while setHispeed() (called from
+        // resetHispeed) clamps to [HISPEED_MIN, HISPEED_MAX].
         if self.hispeed + f > 0.0 && self.hispeed + f < 20.0 {
             self.hispeed += f;
         }

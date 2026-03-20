@@ -504,11 +504,11 @@ impl LaneRenderer {
                                         // Calculate long note body height
                                         let mut dy: f64 = 0.0;
                                         let mut prev_tl_ref = tl;
-                                        let pair_section = pair_tl.section();
+                                        let mut prev_tl_actual_idx = timelines[i];
 
                                         for j in (i + 1)..tl_count {
                                             let now_tl = &all_tl[timelines[j]];
-                                            if prev_tl_ref.section() == pair_section {
+                                            if prev_tl_actual_idx >= *pair_tl_idx {
                                                 break;
                                             }
                                             if now_tl.micro_time() >= microtime {
@@ -536,6 +536,7 @@ impl LaneRenderer {
                                                 }
                                             }
                                             prev_tl_ref = now_tl;
+                                            prev_tl_actual_idx = timelines[j];
                                         }
 
                                         if dy > 0.0 {

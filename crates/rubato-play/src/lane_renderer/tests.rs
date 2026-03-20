@@ -1449,3 +1449,56 @@ fn long_note_body_height_never_negative() {
         }
     }
 }
+
+/// Regression: LN body height loop must terminate by timeline index, not by
+/// f64 section equality. When an intermediate timeline shares the same section
+/// value as the pair (end) timeline, the old f64 equality check would break
+/// prematurely, producing a shorter LN body.
+#[test]
+fn draw_lane_ln_body_not_truncated_by_coincidental_section_match() {
+    // tl0: baseline
+    let tl0 = make_timeline(0.0, 0, 120.0, 8);
+
+    // tl1: LN start (section=1.0)
+    let mut tl1 = make_timeline(1.0, 1_000_000, 120.0, 8);
+
+    // tl2: intermediate timeline with same section as pair (section=3.0)
+    let tl2 = make_timeline(3.0, 2_000_000, 120.0, 8);
+
+    // tl3: LN end (section=3.0, same section as tl2 but different timeline)
+    let mut tl3 = make_timeline(3.0, 3_000_000, 120.0, 8);
+
+    // Wire up the LN: start at tl1 (index 1), end at tl3 (index 3)
+    let mut start_note = Note::new_long(1);
+    start_note.set_pair_index(Some(3));
+    start_note.set_end(false);
+
+    let mut end_note = Note::new_long(1);
+    end_note.set_pair_index(Some(1));
+    end_note.set_end(true);
+
+    tl1.set_note(0, Some(start_note));
+    tl3.set_note(0, Some(end_note));
+
+    let model = make_model_with_timelines(vec![tl0, tl1, tl2, tl3], 120.0);
+    let mut renderer = LaneRenderer::new(&model);
+
+    let all_tls = &model.timelines;
+    let ctx = default_ctx(all_tls);
+    let lanes = make_lanes(8);
+    let result = renderer.draw_lane(&ctx, &lanes, &[]);
+
+    // Should still emit LN body commands spanning the full range (tl1 to tl3),
+    // not truncated at tl2 despite tl2 sharing the same section as tl3.
+    let ln_count = result
+        .commands
+        .iter()
+        .filter(|c| matches!(c, DrawCommand::DrawLongNote { .. }))
+        .count();
+    assert!(
+        ln_count >= 2,
+        "Expected at least 2 DrawLongNote commands (body + end), got {}. \
+         LN body may have been truncated by coincidental section equality.",
+        ln_count
+    );
+}
