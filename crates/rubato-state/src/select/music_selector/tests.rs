@@ -2231,6 +2231,36 @@ fn float_value_310_returns_zero_when_no_bar_selected() {
     assert!(value >= 0.0);
 }
 
+#[test]
+fn float_value_unmatched_id_delegates_to_default_float_value() {
+    // Regression: SelectSkinContext::float_value catch-all returned 0.0 instead
+    // of self.default_float_value(id), dropping chart density properties
+    // (peakdensity=360, enddensity=362, averagedensity=367, totalgauge=368).
+    let mut selector = MusicSelector::new();
+
+    let mut song = make_song_data("density-test", Some("/test/density.bms"));
+    let mut info = rubato_types::song_information::SongInformation::default();
+    info.peakdensity = 5.25;
+    info.enddensity = 3.75;
+    info.density = 4.0;
+    info.total = 300.0;
+    song.info = Some(info);
+    set_selected_bar(&mut selector, Bar::Song(Box::new(SongBar::new(song))));
+
+    let mut timer = TimerManager::new();
+    let ctx = SelectSkinContext {
+        timer: &mut timer,
+        selector: &mut selector,
+    };
+
+    // These IDs are handled by default_float_value via song_data_ref().
+    // Before the fix, they all returned 0.0.
+    assert!((ctx.float_value(360) - 5.25).abs() < 0.01, "peakdensity");
+    assert!((ctx.float_value(362) - 3.75).abs() < 0.01, "enddensity");
+    assert!((ctx.float_value(367) - 4.0).abs() < 0.01, "averagedensity");
+    assert!((ctx.float_value(368) - 300.0).abs() < 0.01, "totalgauge");
+}
+
 // ============================================================
 // Ranking image_index_value tests (IDs 390-399)
 // ============================================================

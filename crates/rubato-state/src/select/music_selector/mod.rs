@@ -578,7 +578,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for SelectSkinContext<
                 .selector
                 .get_selected_play_config_ref()
                 .map_or(0.0, |pc| pc.hispeed),
-            _ => 0.0,
+            _ => self.default_float_value(id),
         }
     }
 
