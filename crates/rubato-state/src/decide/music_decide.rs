@@ -395,6 +395,27 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideMouseContext
     fn play_option_change_sound(&mut self) {
         self.main.play_sound(&SoundType::OptionChange, false);
     }
+
+    fn set_float_value(&mut self, id: i32, value: f32) {
+        if (17..=19).contains(&id)
+            && let Some(mut audio) = self.main.config().audio.clone()
+        {
+            let clamped = value.clamp(0.0, 1.0);
+            match id {
+                17 => audio.systemvolume = clamped,
+                18 => audio.keyvolume = clamped,
+                19 => audio.bgvolume = clamped,
+                _ => unreachable!(),
+            }
+            self.main.update_audio_config(audio);
+        }
+    }
+
+    fn notify_audio_config_changed(&mut self) {
+        if let Some(audio) = self.main.config().audio.clone() {
+            self.main.update_audio_config(audio);
+        }
+    }
 }
 
 /// MusicDecide - music decide screen state
@@ -796,6 +817,7 @@ mod tests {
 
     struct RecordingMainController {
         changed_states: Arc<Mutex<Vec<MainStateType>>>,
+        audio_configs: Arc<Mutex<Vec<rubato_types::audio_config::AudioConfig>>>,
         config: rubato_types::config::Config,
         player_config: rubato_types::player_config::PlayerConfig,
     }
@@ -804,7 +826,21 @@ mod tests {
         fn new(changed_states: Arc<Mutex<Vec<MainStateType>>>) -> Self {
             Self {
                 changed_states,
+                audio_configs: Arc::new(Mutex::new(Vec::new())),
                 config: rubato_types::config::Config::default(),
+                player_config: rubato_types::player_config::PlayerConfig::default(),
+            }
+        }
+
+        fn with_audio_recording(
+            changed_states: Arc<Mutex<Vec<MainStateType>>>,
+            audio_configs: Arc<Mutex<Vec<rubato_types::audio_config::AudioConfig>>>,
+            config: rubato_types::config::Config,
+        ) -> Self {
+            Self {
+                changed_states,
+                audio_configs,
+                config,
                 player_config: rubato_types::player_config::PlayerConfig::default(),
             }
         }
@@ -848,6 +884,13 @@ mod tests {
             &mut self,
         ) -> Option<&mut dyn rubato_types::player_resource_access::PlayerResourceAccess> {
             None
+        }
+
+        fn update_audio_config(&self, audio: rubato_types::audio_config::AudioConfig) {
+            self.audio_configs
+                .lock()
+                .expect("mutex poisoned")
+                .push(audio);
         }
     }
 
@@ -1780,5 +1823,263 @@ mod tests {
             "DecideTitle",
             "DecideMouseContext::string_value(10) must delegate title, not return empty"
         );
+    }
+
+    // ============================================================
+    // DecideMouseContext set_float_value / notify_audio_config_changed tests
+    // ============================================================
+
+    #[test]
+    fn decide_mouse_context_set_float_value_updates_system_volume() {
+        let changed_states = Arc::new(Mutex::new(Vec::new()));
+        let audio_configs = Arc::new(Mutex::new(Vec::new()));
+        let mut config = rubato_types::config::Config::default();
+        config.audio = Some(rubato_types::audio_config::AudioConfig::default());
+
+        let mut timer = TimerManager::new();
+        let mut main =
+            MainControllerRef::new(Box::new(RecordingMainController::with_audio_recording(
+                Arc::clone(&changed_states),
+                Arc::clone(&audio_configs),
+                config,
+            )));
+        let mut resource = NullPlayerResource::new();
+        {
+            let mut ctx = DecideMouseContext {
+                timer: &mut timer,
+                main: &mut main,
+                resource: &mut resource,
+                pending_events: Vec::new(),
+            };
+            use rubato_types::skin_render_context::SkinRenderContext;
+            ctx.set_float_value(17, 0.75);
+        }
+        let configs = audio_configs.lock().expect("mutex poisoned");
+        assert_eq!(
+            configs.len(),
+            1,
+            "set_float_value(17) must call update_audio_config"
+        );
+        assert!(
+            (configs[0].systemvolume - 0.75).abs() < f32::EPSILON,
+            "systemvolume should be 0.75, got {}",
+            configs[0].systemvolume
+        );
+    }
+
+    #[test]
+    fn decide_mouse_context_set_float_value_updates_key_volume() {
+        let changed_states = Arc::new(Mutex::new(Vec::new()));
+        let audio_configs = Arc::new(Mutex::new(Vec::new()));
+        let mut config = rubato_types::config::Config::default();
+        config.audio = Some(rubato_types::audio_config::AudioConfig::default());
+
+        let mut timer = TimerManager::new();
+        let mut main =
+            MainControllerRef::new(Box::new(RecordingMainController::with_audio_recording(
+                Arc::clone(&changed_states),
+                Arc::clone(&audio_configs),
+                config,
+            )));
+        let mut resource = NullPlayerResource::new();
+        {
+            let mut ctx = DecideMouseContext {
+                timer: &mut timer,
+                main: &mut main,
+                resource: &mut resource,
+                pending_events: Vec::new(),
+            };
+            use rubato_types::skin_render_context::SkinRenderContext;
+            ctx.set_float_value(18, 0.5);
+        }
+        let configs = audio_configs.lock().expect("mutex poisoned");
+        assert_eq!(
+            configs.len(),
+            1,
+            "set_float_value(18) must call update_audio_config"
+        );
+        assert!(
+            (configs[0].keyvolume - 0.5).abs() < f32::EPSILON,
+            "keyvolume should be 0.5, got {}",
+            configs[0].keyvolume
+        );
+    }
+
+    #[test]
+    fn decide_mouse_context_set_float_value_updates_bg_volume() {
+        let changed_states = Arc::new(Mutex::new(Vec::new()));
+        let audio_configs = Arc::new(Mutex::new(Vec::new()));
+        let mut config = rubato_types::config::Config::default();
+        config.audio = Some(rubato_types::audio_config::AudioConfig::default());
+
+        let mut timer = TimerManager::new();
+        let mut main =
+            MainControllerRef::new(Box::new(RecordingMainController::with_audio_recording(
+                Arc::clone(&changed_states),
+                Arc::clone(&audio_configs),
+                config,
+            )));
+        let mut resource = NullPlayerResource::new();
+        {
+            let mut ctx = DecideMouseContext {
+                timer: &mut timer,
+                main: &mut main,
+                resource: &mut resource,
+                pending_events: Vec::new(),
+            };
+            use rubato_types::skin_render_context::SkinRenderContext;
+            ctx.set_float_value(19, 0.25);
+        }
+        let configs = audio_configs.lock().expect("mutex poisoned");
+        assert_eq!(
+            configs.len(),
+            1,
+            "set_float_value(19) must call update_audio_config"
+        );
+        assert!(
+            (configs[0].bgvolume - 0.25).abs() < f32::EPSILON,
+            "bgvolume should be 0.25, got {}",
+            configs[0].bgvolume
+        );
+    }
+
+    #[test]
+    fn decide_mouse_context_set_float_value_clamps_to_0_1() {
+        let changed_states = Arc::new(Mutex::new(Vec::new()));
+        let audio_configs = Arc::new(Mutex::new(Vec::new()));
+        let mut config = rubato_types::config::Config::default();
+        config.audio = Some(rubato_types::audio_config::AudioConfig::default());
+
+        let mut timer = TimerManager::new();
+        let mut main =
+            MainControllerRef::new(Box::new(RecordingMainController::with_audio_recording(
+                Arc::clone(&changed_states),
+                Arc::clone(&audio_configs),
+                config,
+            )));
+        let mut resource = NullPlayerResource::new();
+        {
+            let mut ctx = DecideMouseContext {
+                timer: &mut timer,
+                main: &mut main,
+                resource: &mut resource,
+                pending_events: Vec::new(),
+            };
+            use rubato_types::skin_render_context::SkinRenderContext;
+            ctx.set_float_value(17, 1.5); // over 1.0
+        }
+        let configs = audio_configs.lock().expect("mutex poisoned");
+        assert_eq!(configs.len(), 1);
+        assert!(
+            (configs[0].systemvolume - 1.0).abs() < f32::EPSILON,
+            "systemvolume should be clamped to 1.0, got {}",
+            configs[0].systemvolume
+        );
+    }
+
+    #[test]
+    fn decide_mouse_context_set_float_value_ignores_non_volume_ids() {
+        let changed_states = Arc::new(Mutex::new(Vec::new()));
+        let audio_configs = Arc::new(Mutex::new(Vec::new()));
+        let mut config = rubato_types::config::Config::default();
+        config.audio = Some(rubato_types::audio_config::AudioConfig::default());
+
+        let mut timer = TimerManager::new();
+        let mut main =
+            MainControllerRef::new(Box::new(RecordingMainController::with_audio_recording(
+                Arc::clone(&changed_states),
+                Arc::clone(&audio_configs),
+                config,
+            )));
+        let mut resource = NullPlayerResource::new();
+        {
+            let mut ctx = DecideMouseContext {
+                timer: &mut timer,
+                main: &mut main,
+                resource: &mut resource,
+                pending_events: Vec::new(),
+            };
+            use rubato_types::skin_render_context::SkinRenderContext;
+            ctx.set_float_value(99, 0.5); // not a volume ID
+        }
+        let configs = audio_configs.lock().expect("mutex poisoned");
+        assert!(
+            configs.is_empty(),
+            "set_float_value with non-volume ID should not call update_audio_config"
+        );
+    }
+
+    #[test]
+    fn decide_mouse_context_notify_audio_config_changed_propagates() {
+        let changed_states = Arc::new(Mutex::new(Vec::new()));
+        let audio_configs = Arc::new(Mutex::new(Vec::new()));
+        let mut config = rubato_types::config::Config::default();
+        let mut audio = rubato_types::audio_config::AudioConfig::default();
+        audio.systemvolume = 0.42;
+        config.audio = Some(audio);
+
+        let mut timer = TimerManager::new();
+        let mut main =
+            MainControllerRef::new(Box::new(RecordingMainController::with_audio_recording(
+                Arc::clone(&changed_states),
+                Arc::clone(&audio_configs),
+                config,
+            )));
+        let mut resource = NullPlayerResource::new();
+        {
+            let mut ctx = DecideMouseContext {
+                timer: &mut timer,
+                main: &mut main,
+                resource: &mut resource,
+                pending_events: Vec::new(),
+            };
+            use rubato_types::skin_render_context::SkinRenderContext;
+            ctx.notify_audio_config_changed();
+        }
+        let configs = audio_configs.lock().expect("mutex poisoned");
+        assert_eq!(
+            configs.len(),
+            1,
+            "notify_audio_config_changed must call update_audio_config"
+        );
+        assert!(
+            (configs[0].systemvolume - 0.42).abs() < f32::EPSILON,
+            "propagated audio config should preserve systemvolume=0.42, got {}",
+            configs[0].systemvolume
+        );
+    }
+
+    #[test]
+    fn decide_mouse_context_set_float_value_noop_without_audio_config() {
+        // When config.audio is None, set_float_value should be a no-op
+        let mut timer = TimerManager::new();
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let mut resource = NullPlayerResource::new();
+        let mut ctx = DecideMouseContext {
+            timer: &mut timer,
+            main: &mut main,
+            resource: &mut resource,
+            pending_events: Vec::new(),
+        };
+        use rubato_types::skin_render_context::SkinRenderContext;
+        // Should not panic
+        ctx.set_float_value(17, 0.5);
+    }
+
+    #[test]
+    fn decide_mouse_context_notify_audio_config_changed_noop_without_audio_config() {
+        // When config.audio is None, notify_audio_config_changed should be a no-op
+        let mut timer = TimerManager::new();
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let mut resource = NullPlayerResource::new();
+        let mut ctx = DecideMouseContext {
+            timer: &mut timer,
+            main: &mut main,
+            resource: &mut resource,
+            pending_events: Vec::new(),
+        };
+        use rubato_types::skin_render_context::SkinRenderContext;
+        // Should not panic
+        ctx.notify_audio_config_changed();
     }
 }

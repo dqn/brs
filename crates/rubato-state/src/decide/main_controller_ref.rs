@@ -71,6 +71,10 @@ impl MainControllerRef {
     pub fn play_sound(&mut self, sound: &SoundType, loop_sound: bool) {
         self.inner.play_sound(sound, loop_sound);
     }
+
+    pub fn update_audio_config(&self, audio: rubato_types::audio_config::AudioConfig) {
+        self.inner.update_audio_config(audio);
+    }
 }
 
 #[cfg(test)]
