@@ -87,6 +87,7 @@ impl ScreenShotExporter for ScreenShotFileExporter {
         let (width, height) = GdxGraphics::back_buffer_size();
         let mut pixmap = Pixmap::new(width, height);
         let result: Result<bool, Box<dyn std::error::Error>> = {
+            let _ = std::fs::create_dir_all("screenshot");
             let path = format!("screenshot/{}{}.png", sdf, state_name);
             let pixel_buf = pixmap.pixels();
             BufferUtils::copy(pixels, 0, pixel_buf, pixels.len());
