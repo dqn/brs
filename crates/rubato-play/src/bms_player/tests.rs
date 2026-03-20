@@ -5632,3 +5632,310 @@ fn set_float_value_non_volume_id_does_not_set_pending_audio_config() {
         "non-volume IDs should not set pending_audio_config"
     );
 }
+
+// --- build_replay_data gauge field regression tests ---
+
+#[test]
+fn build_replay_data_uses_config_gauge_not_auto_shifted() {
+    // Regression: build_replay_data stored gauge.gauge_type() (the auto-shifted
+    // runtime gauge type) instead of the config gauge setting.
+    // Java BMSPlayer.java:852: replay.gauge = config.getGauge()
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+
+    // Set config gauge to NORMAL (2)
+    player.player_config.play_settings.gauge = rubato_types::groove_gauge::NORMAL;
+
+    // Create a gauge initialized to EXHARD (4) to simulate auto-shift
+    let gauge_model = {
+        let mut m = BMSModel::new();
+        m.total = 300.0;
+        m
+    };
+    let gauge = rubato_types::groove_gauge::GrooveGauge::create_with_id(
+        &gauge_model,
+        rubato_types::groove_gauge::EXHARD,
+        &rubato_types::gauge_property::GaugeProperty::SevenKeys,
+    );
+    assert_eq!(gauge.gauge_type(), rubato_types::groove_gauge::EXHARD);
+    player.gauge = Some(gauge);
+
+    let rd = player.build_replay_data();
+
+    // Should store config gauge (NORMAL=2), NOT the runtime gauge type (EXHARD=4)
+    assert_eq!(
+        rd.gauge,
+        rubato_types::groove_gauge::NORMAL,
+        "replay gauge should be config setting, not auto-shifted gauge type"
+    );
+}
+
+#[test]
+fn build_replay_data_uses_config_gauge_when_no_gauge_present() {
+    // When gauge is None, replay data should still get the config gauge setting.
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+    player.player_config.play_settings.gauge = rubato_types::groove_gauge::HARD;
+    // gauge remains None
+
+    let rd = player.build_replay_data();
+
+    assert_eq!(
+        rd.gauge,
+        rubato_types::groove_gauge::HARD,
+        "replay gauge should be config setting even without runtime gauge"
+    );
+}
+
+// --- create_score_data LN-end filter lnmode-based regression tests ---
+
+#[test]
+fn create_score_data_ln_end_excluded_in_cn_mode() {
+    // Regression: LN-end filter used note_type+lntype which could diverge from
+    // MusicResult.java's lnmode-based approach. In CN mode (lnmode=1), all LN
+    // ends should be excluded from timing stats regardless of note_type.
+    let mut model = BMSModel::new();
+    model.set_mode(Mode::BEAT_7K);
+    model.judgerank = 100;
+    model.lnmode = 1; // CN mode
+
+    let mut tl = bms_model::time_line::TimeLine::new(0.0, 0, 8);
+
+    // Normal note: state=1, playtime=1000 -> included
+    let mut normal = bms_model::note::Note::new_normal(1);
+    normal.set_state(1);
+    normal.set_micro_play_time(1000);
+    tl.set_note(0, Some(normal));
+
+    // LN end with TYPE_CHARGENOTE in CN mode -> should be excluded
+    let mut ln_end = bms_model::note::Note::new_long(1);
+    ln_end.set_end(true);
+    ln_end.set_long_note_type(bms_model::note::TYPE_CHARGENOTE);
+    ln_end.set_state(1);
+    ln_end.set_micro_play_time(5000);
+    tl.set_note(1, Some(ln_end));
+
+    // LN start (not end) in CN mode: state=2, playtime=2000 -> included
+    let mut ln_start = bms_model::note::Note::new_long(1);
+    ln_start.set_state(2);
+    ln_start.set_micro_play_time(2000);
+    tl.set_note(2, Some(ln_start));
+
+    model.timelines = vec![tl];
+
+    let mut player = BMSPlayer::new(model);
+    player.state = PlayState::Aborted;
+
+    let score = player.create_score_data(DeviceType::Keyboard).unwrap();
+
+    // Only normal(1000) and ln_start(2000) should be counted
+    assert_eq!(
+        score.timing_stats.total_duration, 3000,
+        "CN mode: LN end should be excluded from timing stats"
+    );
+    assert_eq!(score.timing_stats.avgjudge, 1500); // 3000 / 2
+}
+
+#[test]
+fn create_score_data_ln_end_included_in_hcn_mode() {
+    // In HCN mode (lnmode=2), LN ends ARE judged and should be included in timing stats.
+    let mut model = BMSModel::new();
+    model.set_mode(Mode::BEAT_7K);
+    model.judgerank = 100;
+    model.lnmode = 2; // HCN mode
+
+    let mut tl = bms_model::time_line::TimeLine::new(0.0, 0, 8);
+
+    // Normal note: state=1, playtime=1000 -> included
+    let mut normal = bms_model::note::Note::new_normal(1);
+    normal.set_state(1);
+    normal.set_micro_play_time(1000);
+    tl.set_note(0, Some(normal));
+
+    // LN end in HCN mode: state=1, playtime=3000 -> INCLUDED (HCN ends are judged)
+    let mut ln_end = bms_model::note::Note::new_long(1);
+    ln_end.set_end(true);
+    ln_end.set_long_note_type(bms_model::note::TYPE_HELLCHARGENOTE);
+    ln_end.set_state(1);
+    ln_end.set_micro_play_time(3000);
+    tl.set_note(1, Some(ln_end));
+
+    model.timelines = vec![tl];
+
+    let mut player = BMSPlayer::new(model);
+    player.state = PlayState::Aborted;
+
+    let score = player.create_score_data(DeviceType::Keyboard).unwrap();
+
+    // Both normal(1000) and ln_end(3000) should be counted in HCN mode
+    assert_eq!(
+        score.timing_stats.total_duration, 4000,
+        "HCN mode: LN end should be included in timing stats"
+    );
+    assert_eq!(score.timing_stats.avgjudge, 2000); // 4000 / 2
+}
+
+#[test]
+fn create_score_data_ln_end_excluded_in_default_ln_mode() {
+    // Default mode: lnmode=0, lntype=LNTYPE_LONGNOTE -> LN ends excluded (same as before)
+    let mut model = BMSModel::new();
+    model.set_mode(Mode::BEAT_7K);
+    model.judgerank = 100;
+    // lnmode defaults to 0, lntype defaults to LNTYPE_LONGNOTE
+
+    let mut tl = bms_model::time_line::TimeLine::new(0.0, 0, 8);
+
+    let mut normal = bms_model::note::Note::new_normal(1);
+    normal.set_state(1);
+    normal.set_micro_play_time(1000);
+    tl.set_note(0, Some(normal));
+
+    // LN end with TYPE_UNDEFINED + lntype=LNTYPE_LONGNOTE -> excluded
+    let mut ln_end = bms_model::note::Note::new_long(1);
+    ln_end.set_end(true);
+    ln_end.set_state(1);
+    ln_end.set_micro_play_time(5000);
+    tl.set_note(1, Some(ln_end));
+
+    let mut ln_start = bms_model::note::Note::new_long(1);
+    ln_start.set_state(2);
+    ln_start.set_micro_play_time(2000);
+    tl.set_note(2, Some(ln_start));
+
+    model.timelines = vec![tl];
+
+    let mut player = BMSPlayer::new(model);
+    player.state = PlayState::Aborted;
+
+    let score = player.create_score_data(DeviceType::Keyboard).unwrap();
+
+    assert_eq!(
+        score.timing_stats.total_duration, 3000,
+        "default LN mode: LN end should be excluded from timing stats"
+    );
+    assert_eq!(score.timing_stats.avgjudge, 1500);
+}
+
+// --- Quick retry replay data regression tests ---
+
+#[test]
+fn failed_quick_retry_select_saves_replay_data() {
+    // Regression: SELECT quick-retry from Failed state did not call build_replay_data(),
+    // so the next play session inherited stale replay data (lane_shuffle_pattern,
+    // randomoptionseed) from a previous session.
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+    player.state = PlayState::Failed;
+    player.lanerender = Some(LaneRenderer::new(&player.model));
+    player.input.keyinput = Some(KeyInputProccessor::new(&LaneProperty::new(&Mode::BEAT_7K)));
+    player.play_mode = BMSPlayerMode::PLAY;
+    player.is_course_mode = false;
+    player.score.playinfo.randomoptionseed = 42;
+    player.player_config.play_settings.lnmode = 1;
+
+    // SELECT pressed -> save score + replay data
+    player.input.input_start_pressed = false;
+    player.input.input_select_pressed = true;
+
+    player.main_state_data.timer.update();
+    player.render();
+
+    // Replay data should be populated with current session's data
+    let replay = player
+        .pending
+        .pending_quick_retry_replay
+        .as_ref()
+        .expect("pending_quick_retry_replay should be Some after SELECT quick-retry");
+    assert_eq!(
+        replay.randomoptionseed, 42,
+        "replay should preserve current session's seed"
+    );
+    assert_eq!(
+        replay.mode, 1,
+        "replay should preserve current session's lnmode"
+    );
+}
+
+#[test]
+fn aborted_quick_retry_select_saves_replay_data() {
+    // Regression: SELECT quick-retry from Aborted state did not call build_replay_data(),
+    // causing stale replay data to persist into the next play session.
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+    player.state = PlayState::Aborted;
+    player.lanerender = Some(LaneRenderer::new(&player.model));
+    player.play_mode = BMSPlayerMode::PLAY;
+    player.is_course_mode = false;
+    player.score.playinfo.randomoptionseed = 99;
+    player.player_config.play_settings.lnmode = 2;
+
+    // SELECT pressed -> save score + replay data
+    player.input.input_start_pressed = false;
+    player.input.input_select_pressed = true;
+
+    player.main_state_data.timer.update();
+    player.render();
+
+    // Replay data should be populated with current session's data
+    let replay =
+        player.pending.pending_quick_retry_replay.as_ref().expect(
+            "pending_quick_retry_replay should be Some after SELECT quick-retry in Aborted",
+        );
+    assert_eq!(
+        replay.randomoptionseed, 99,
+        "replay should preserve current session's seed"
+    );
+    assert_eq!(
+        replay.mode, 2,
+        "replay should preserve current session's lnmode"
+    );
+}
+
+#[test]
+fn failed_quick_retry_start_does_not_save_replay_data() {
+    // START quick-retry resets seed and does NOT save replay data.
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+    player.state = PlayState::Failed;
+    player.lanerender = Some(LaneRenderer::new(&player.model));
+    player.input.keyinput = Some(KeyInputProccessor::new(&LaneProperty::new(&Mode::BEAT_7K)));
+    player.play_mode = BMSPlayerMode::PLAY;
+    player.is_course_mode = false;
+
+    // START pressed -> reset seed, no replay data saved
+    player.input.input_start_pressed = true;
+    player.input.input_select_pressed = false;
+
+    player.main_state_data.timer.update();
+    player.render();
+
+    assert!(
+        player.pending.pending_quick_retry_replay.is_none(),
+        "START quick-retry should NOT save replay data"
+    );
+    assert!(player.pending.pending_replay_seed_reset);
+}
+
+#[test]
+fn aborted_quick_retry_start_does_not_save_replay_data() {
+    // START quick-retry from Aborted resets seed and does NOT save replay data.
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+    player.state = PlayState::Aborted;
+    player.lanerender = Some(LaneRenderer::new(&player.model));
+    player.play_mode = BMSPlayerMode::PLAY;
+    player.is_course_mode = false;
+
+    // START pressed -> reset seed, no replay data saved
+    player.input.input_start_pressed = true;
+    player.input.input_select_pressed = false;
+
+    player.main_state_data.timer.update();
+    player.render();
+
+    assert!(
+        player.pending.pending_quick_retry_replay.is_none(),
+        "START quick-retry from Aborted should NOT save replay data"
+    );
+    assert!(player.pending.pending_replay_seed_reset);
+}

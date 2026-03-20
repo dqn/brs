@@ -215,13 +215,23 @@ impl BMSPlayer {
         for tl in &self.model.timelines {
             for i in 0..lanes {
                 if let Some(note) = tl.note(i) {
+                    // Java MusicResult.java line 353-354 (lnmode-based approach):
+                    //   !((model.getLnmode() == 1 || (model.getLnmode() == 0
+                    //       && model.getLntype() == LNTYPE_LONGNOTE))
+                    //       && n instanceof LongNote && ((LongNote) n).isEnd())
+                    //
+                    // Excludes LN ends when:
+                    //   - lnmode==1 (CN mode: LN ends are not judged)
+                    //   - lnmode==0 AND lntype==LNTYPE_LONGNOTE (standard LN: ends not judged)
+                    // Includes LN ends when lnmode==2 (HCN: ends are judged).
                     let include = match note {
                         Note::Normal(_) => true,
-                        Note::Long { end, note_type, .. } => {
-                            let is_ln_end = ((self.model.lntype() == LNTYPE_LONGNOTE
-                                && *note_type == TYPE_UNDEFINED)
-                                || *note_type == TYPE_LONGNOTE)
-                                && *end;
+                        Note::Long { .. } => {
+                            // note.is_long() is always true here (inside Long arm)
+                            let is_ln_end = (self.model.lnmode == 1
+                                || (self.model.lnmode == 0
+                                    && self.model.lntype() == LNTYPE_LONGNOTE))
+                                && note.is_end();
                             !is_ln_end
                         }
                         _ => false,
@@ -299,9 +309,10 @@ impl BMSPlayer {
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs() as i64)
             .unwrap_or(0);
-        if let Some(ref gauge) = self.gauge {
-            rd.gauge = gauge.gauge_type();
-        }
+        // Java BMSPlayer.java:852: replay.gauge = config.getGauge()
+        // Use the config gauge setting, NOT gauge.gauge_type() which may have been
+        // auto-shifted by GaugeAutoShift logic at runtime.
+        rd.gauge = self.player_config.play_settings.gauge;
         if let Some(ref config) = self.score.replay_config {
             rd.config = Some(config.clone());
         }

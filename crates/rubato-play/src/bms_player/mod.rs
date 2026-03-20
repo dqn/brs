@@ -16,7 +16,7 @@ pub(crate) use crate::rhythm_timer_processor::RhythmTimerProcessor;
 pub(crate) use bms_model::bms_model::{BMSModel, LNTYPE_LONGNOTE};
 pub(crate) use bms_model::bms_model_utils;
 pub(crate) use bms_model::mode::Mode;
-pub(crate) use bms_model::note::{Note, TYPE_LONGNOTE, TYPE_UNDEFINED};
+pub(crate) use bms_model::note::Note;
 pub(crate) use rubato_core::bms_player_mode::BMSPlayerMode;
 pub(crate) use rubato_core::main_state::{MainState, MainStateData, MainStateType};
 pub(crate) use rubato_core::pattern::autoplay_modifier::AutoplayModifier;
@@ -209,6 +209,12 @@ pub struct PendingActions {
     /// without modifying combo, gauge, or replay fields.
     /// Translated from: Java `resource.setScoreData(createScoreData())` in quick retry.
     pub pending_quick_retry_score: Option<rubato_types::score_data::ScoreData>,
+    /// Pending replay data to store on PlayerResource during quick retry (SELECT key).
+    ///
+    /// Preserves the current session's lane_shuffle_pattern and randomoptionseed so the
+    /// next play session inherits the correct replay data instead of stale data.
+    /// Built via `build_replay_data()` in the SELECT quick-retry path.
+    pub pending_quick_retry_replay: Option<rubato_types::replay_data::ReplayData>,
     /// Pending audio config update to propagate volume changes to MainController.
     ///
     /// Set by PlayMouseContext when volume sliders (set_float_value IDs 17-19) or
@@ -231,6 +237,7 @@ impl PendingActions {
             pending_keysound_volume_sets: Vec::new(),
             pending_replay_seed_reset: false,
             pending_quick_retry_score: None,
+            pending_quick_retry_replay: None,
             pending_audio_config: None,
         }
     }
