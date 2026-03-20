@@ -200,6 +200,7 @@ impl BMSPlayer {
                 config: &self.config,
                 score_data_property: &self.main_state_data.score,
                 song_metadata: &self.song_metadata,
+                song_data: self.song_data.as_ref(),
             };
             skin.update_custom_objects_timed(&mut ctx);
             skin.swap_sprite_batch(sprite);

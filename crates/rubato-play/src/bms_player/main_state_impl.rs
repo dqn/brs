@@ -97,6 +97,14 @@ impl MainState for BMSPlayer {
         std::mem::take(&mut self.pending.pending_reload_bms)
     }
 
+    fn take_pending_replay_seed_reset(&mut self) -> bool {
+        std::mem::take(&mut self.pending.pending_replay_seed_reset)
+    }
+
+    fn take_pending_quick_retry_score(&mut self) -> Option<rubato_types::score_data::ScoreData> {
+        self.pending.pending_quick_retry_score.take()
+    }
+
     fn take_pending_play_config_update(
         &mut self,
     ) -> Option<(bms_model::mode::Mode, rubato_types::play_config::PlayConfig)> {
@@ -108,10 +116,14 @@ impl MainState for BMSPlayer {
         mode: bms_model::mode::Mode,
         play_config: rubato_types::play_config::PlayConfig,
     ) {
+        // Only merge modmenu-managed fields to avoid overwriting live fields
+        // (e.g. hispeed changed via scroll wheel) with stale values from the
+        // modmenu's PlayConfig snapshot.
+        let live = &mut self.player_config.play_config(mode).playconfig;
+        live.apply_modmenu_fields(&play_config);
         if let Some(ref mut lr) = self.lanerender {
-            lr.apply_play_config(&play_config);
+            lr.apply_play_config(live);
         }
-        self.player_config.play_config(mode).playconfig = play_config;
     }
 
     fn notify_media_load_finished(&mut self) {
@@ -586,6 +598,9 @@ impl MainState for BMSPlayer {
                     && micronow > load_threshold
                     && micronow - self.startpressedtime > 1_000_000
                 {
+                    // Stop keysound from previous practice run before restarting
+                    self.keysound.stop_bg_play();
+
                     // Apply practice configuration and start play
                     if let Some(ref mut control) = self.input.control {
                         control.enable_control = true;
@@ -744,7 +759,8 @@ impl MainState for BMSPlayer {
             // PlayState::Play - main gameplay
             PlayState::Play => {
                 let deltatime = micronow - self.prevtime;
-                let deltaplay = deltatime.saturating_mul(100 - self.playspeed as i64) / 100;
+                let playspeed = (self.playspeed).clamp(0, 100) as i64;
+                let deltaplay = deltatime.saturating_mul(100 - playspeed) / 100;
                 let freq = self.practice.practice_property().freq;
                 let current_play_timer = self.main_state_data.timer.micro_timer(TIMER_PLAY);
                 self.main_state_data
@@ -1011,7 +1027,7 @@ impl MainState for BMSPlayer {
                 self.keysound.stop_bg_play();
 
                 // Quick retry check (START xor SELECT)
-                // Translated from: Java BMSPlayer.render() lines 823-838
+                // Translated from: Java BMSPlayer.render() lines 663-680
                 // Guard: skip if a state transition is already queued to avoid
                 // calling save_config() on every frame while keys are held.
                 if (self.input.input_start_pressed ^ self.input.input_select_pressed)
@@ -1019,7 +1035,21 @@ impl MainState for BMSPlayer {
                     && self.play_mode.mode == rubato_core::bms_player_mode::Mode::Play
                     && self.pending.pending_state_change.is_none()
                 {
-                    self.pending.pending_global_pitch = Some(1.0);
+                    if self.assist > 0 {
+                        // Assist mode: cannot replay with same chart, reset seed
+                        self.pending.pending_replay_seed_reset = true;
+                        log::info!("Assist mode: cannot replay with same chart");
+                    } else if self.input.input_start_pressed {
+                        // START: replay without changing options, reset seed
+                        self.pending.pending_replay_seed_reset = true;
+                        log::info!("Replay without changing options");
+                    } else {
+                        // SELECT: replay same chart, save score before retry
+                        self.sync_judge_states_to_model();
+                        self.pending.pending_quick_retry_score =
+                            self.create_score_data(self.device_type);
+                        log::info!("Replay same chart (score saved)");
+                    }
                     self.save_config();
                     self.pending.pending_reload_bms = true;
                     self.pending.pending_state_change = Some(MainStateType::Play);
@@ -1057,7 +1087,15 @@ impl MainState for BMSPlayer {
                             freq_on: self.freq_on,
                             force_no_ir_send: self.force_no_ir_send,
                             replay_data: Some(replay),
-                            updated_model: Some(self.model.clone()),
+                            // Practice mode mutates the model via PracticeModifier;
+                            // do not leak the modified model into the score handoff.
+                            updated_model: if self.play_mode.mode
+                                == rubato_core::bms_player_mode::Mode::Practice
+                            {
+                                None
+                            } else {
+                                Some(self.model.clone())
+                            },
                         });
                     // input.setEnable(true); input.setStartTime(0);
                     self.save_config();
@@ -1127,7 +1165,15 @@ impl MainState for BMSPlayer {
                             freq_on: self.freq_on,
                             force_no_ir_send: self.force_no_ir_send,
                             replay_data: Some(replay),
-                            updated_model: Some(self.model.clone()),
+                            // Practice mode mutates the model via PracticeModifier;
+                            // do not leak the modified model into the score handoff.
+                            updated_model: if self.play_mode.mode
+                                == rubato_core::bms_player_mode::Mode::Practice
+                            {
+                                None
+                            } else {
+                                Some(self.model.clone())
+                            },
                         });
                     // input.setEnable(true); input.setStartTime(0);
 
@@ -1152,6 +1198,21 @@ impl MainState for BMSPlayer {
                     && !self.is_course_mode
                     && self.pending.pending_state_change.is_none()
                 {
+                    if self.assist > 0 {
+                        // Assist mode: cannot replay with same chart, reset seed
+                        self.pending.pending_replay_seed_reset = true;
+                        log::info!("Aborted: assist mode, cannot replay with same chart");
+                    } else if self.input.input_start_pressed {
+                        // START: replay without changing options, reset seed
+                        self.pending.pending_replay_seed_reset = true;
+                        log::info!("Aborted: replay without changing options");
+                    } else {
+                        // SELECT: replay same chart, save score before retry
+                        self.sync_judge_states_to_model();
+                        self.pending.pending_quick_retry_score =
+                            self.create_score_data(self.device_type);
+                        log::info!("Aborted: replay same chart (score saved)");
+                    }
                     self.pending.pending_global_pitch = Some(1.0);
                     self.save_config();
                     self.pending.pending_reload_bms = true;

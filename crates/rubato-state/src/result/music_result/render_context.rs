@@ -146,15 +146,27 @@ impl rubato_types::skin_render_context::SkinRenderContext for ResultRenderContex
 
     fn float_value(&self, id: i32) -> f32 {
         match id {
-            // FLOAT_GROOVEGAUGE_1P (1107): needs PlayerResource for gauge data.
-            // Java: AbstractResult -> gauge[gaugeType].last()
             1107 => shared_render_context::gauge_value(self.resource),
-            _ => shared_render_context::float_value(self.data, id),
+            _ => {
+                let shared = shared_render_context::float_value(self.data, id);
+                if shared != 0.0 {
+                    shared
+                } else {
+                    self.default_float_value(id)
+                }
+            }
         }
     }
 
     fn boolean_value(&self, id: i32) -> bool {
-        shared_render_context::boolean_value(self.data, self.resource.course_score_data(), id)
+        match id {
+            90 | 91 => shared_render_context::boolean_value(
+                self.data,
+                self.resource.course_score_data(),
+                id,
+            ),
+            _ => self.default_boolean_value(id),
+        }
     }
 
     fn string_value(&self, id: i32) -> String {
@@ -268,14 +280,6 @@ impl rubato_types::skin_render_context::SkinRenderContext for ResultMouseContext
         shared_render_context::config_ref(&self.result.main)
     }
 
-    fn replay_option_data(&self) -> Option<&rubato_types::replay_data::ReplayData> {
-        shared_render_context::replay_option_data(&self.result.resource)
-    }
-
-    fn target_score_data(&self) -> Option<&rubato_core::score_data::ScoreData> {
-        shared_render_context::target_score_data(&self.result.resource)
-    }
-
     fn score_data_ref(&self) -> Option<&rubato_core::score_data::ScoreData> {
         shared_render_context::score_data_ref(&self.result.data)
     }
@@ -313,6 +317,14 @@ impl rubato_types::skin_render_context::SkinRenderContext for ResultMouseContext
         )
     }
 
+    fn replay_option_data(&self) -> Option<&rubato_types::replay_data::ReplayData> {
+        shared_render_context::replay_option_data(&self.result.resource)
+    }
+
+    fn target_score_data(&self) -> Option<&rubato_core::score_data::ScoreData> {
+        shared_render_context::target_score_data(&self.result.resource)
+    }
+
     fn gauge_value(&self) -> f32 {
         shared_render_context::gauge_value(&self.result.resource)
     }
@@ -329,34 +341,14 @@ impl rubato_types::skin_render_context::SkinRenderContext for ResultMouseContext
         shared_render_context::gauge_min(&self.result.resource, self.result.data.gauge_type)
     }
 
-    fn gauge_border_max(&self) -> Option<(f32, f32)> {
-        shared_render_context::gauge_border_max(&self.result.resource, self.result.data.gauge_type)
-    }
-
-    fn gauge_history(&self) -> Option<&Vec<Vec<f32>>> {
-        shared_render_context::gauge_history(&self.result.resource)
-    }
-
     fn judge_count(&self, judge: i32, fast: bool) -> i32 {
         shared_render_context::judge_count(&self.result.data, judge, fast)
     }
 
-    fn judge_area(&self) -> Option<Vec<Vec<i32>>> {
-        shared_render_context::judge_area(&self.result.resource)
-    }
-
-    fn get_timing_distribution(
-        &self,
-    ) -> Option<&rubato_types::timing_distribution::TimingDistribution> {
-        shared_render_context::get_timing_distribution(&self.result.data)
-    }
-
-    fn score_data_property(&self) -> &rubato_types::score_data_property::ScoreDataProperty {
-        shared_render_context::score_data_property(&self.result.data)
-    }
-
     fn image_index_value(&self, id: i32) -> i32 {
         match id {
+            // Java IntegerPropertyFactory ID 308 (lnmode): on MusicResult, override
+            // from chart data when the chart explicitly defines LN types.
             308 => {
                 if let Some(song) = self.result.resource.songdata()
                     && let Some(override_val) =
@@ -385,20 +377,31 @@ impl rubato_types::skin_render_context::SkinRenderContext for ResultMouseContext
     fn float_value(&self, id: i32) -> f32 {
         match id {
             1107 => shared_render_context::gauge_value(&self.result.resource),
-            _ => shared_render_context::float_value(&self.result.data, id),
+            _ => {
+                let shared = shared_render_context::float_value(&self.result.data, id);
+                if shared != 0.0 {
+                    shared
+                } else {
+                    self.default_float_value(id)
+                }
+            }
         }
     }
 
     fn boolean_value(&self, id: i32) -> bool {
-        shared_render_context::boolean_value(
-            &self.result.data,
-            self.result.resource.course_score_data(),
-            id,
-        )
+        match id {
+            90 | 91 => shared_render_context::boolean_value(
+                &self.result.data,
+                self.result.resource.course_score_data(),
+                id,
+            ),
+            _ => self.default_boolean_value(id),
+        }
     }
 
     fn string_value(&self, id: i32) -> String {
         match id {
+            // Song metadata from resource
             10 => self
                 .result
                 .resource
@@ -449,6 +452,28 @@ impl rubato_types::skin_render_context::SkinRenderContext for ResultMouseContext
             120..=129 => shared_render_context::ranking_name(&self.result.data, id - 120),
             _ => String::new(),
         }
+    }
+
+    fn gauge_history(&self) -> Option<&Vec<Vec<f32>>> {
+        shared_render_context::gauge_history(&self.result.resource)
+    }
+
+    fn gauge_border_max(&self) -> Option<(f32, f32)> {
+        shared_render_context::gauge_border_max(&self.result.resource, self.result.data.gauge_type)
+    }
+
+    fn get_timing_distribution(
+        &self,
+    ) -> Option<&rubato_types::timing_distribution::TimingDistribution> {
+        shared_render_context::get_timing_distribution(&self.result.data)
+    }
+
+    fn score_data_property(&self) -> &rubato_types::score_data_property::ScoreDataProperty {
+        shared_render_context::score_data_property(&self.result.data)
+    }
+
+    fn judge_area(&self) -> Option<Vec<Vec<i32>>> {
+        shared_render_context::judge_area(&self.result.resource)
     }
 
     fn execute_event(&mut self, id: i32, _arg1: i32, _arg2: i32) {

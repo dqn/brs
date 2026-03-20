@@ -18,88 +18,19 @@ fn make_test_model(mode: &Mode, times: &[i32]) -> BMSModel {
 }
 
 #[test]
-fn test_apply_to_model_default_freq() {
-    let mut practice = PracticeConfiguration::new();
-    practice.property.freq = 100;
-    practice.property.total = 250.0;
-    practice.property.judgerank = 80;
-    practice.property.starttime = 0;
-    practice.property.endtime = 10000;
-    practice.property.gaugecategory = Some(GaugeProperty::SevenKeys);
-
-    let mut model = make_test_model(&Mode::BEAT_7K, &[0, 1000, 5000, 9000]);
-    let config = PlayerConfig::default();
-
-    let result = practice.apply_to_model(&mut model, &config);
-
-    // freq == 100 → no frequency change
-    assert!(result.freq_ratio.is_none());
-    // total overwritten
-    assert!((model.total - 250.0).abs() < f64::EPSILON);
-    // judgerank overwritten
-    assert_eq!(model.judgerank, 80);
-    // starttimeoffset: starttime(0) <= 1000 → 0
-    assert_eq!(result.starttimeoffset, 0);
-    // playtime: (10000 + 1000) * 100 / 100 = 11000
-    assert_eq!(result.playtime, 11000);
-}
-
-#[test]
-fn test_apply_to_model_half_speed() {
-    let mut practice = PracticeConfiguration::new();
-    practice.property.freq = 50;
-    practice.property.total = 200.0;
-    practice.property.judgerank = 100;
-    practice.property.starttime = 2000;
-    practice.property.endtime = 8000;
-    practice.property.gaugecategory = Some(GaugeProperty::SevenKeys);
-
-    let mut model = make_test_model(&Mode::BEAT_7K, &[0, 1000, 5000, 9000]);
-    let config = PlayerConfig::default();
-
-    let result = practice.apply_to_model(&mut model, &config);
-
-    // freq == 50 → ratio = 0.5
-    assert_eq!(result.freq_ratio, Some(0.5));
-    // starttimeoffset: (2000 - 1000) * 100 / 50 = 2000
-    assert_eq!(result.starttimeoffset, 2000);
-    // playtime: (8000 + 1000) * 100 / 50 = 18000
-    assert_eq!(result.playtime, 18000);
-}
-
-#[test]
-fn test_apply_to_model_returns_gauge() {
+fn test_gauge_creates_with_startgauge() {
     let mut practice = PracticeConfiguration::new();
     practice.property.gaugecategory = Some(GaugeProperty::SevenKeys);
     practice.property.gaugetype = 2; // NORMAL
     practice.property.startgauge = 50;
 
-    let mut model = make_test_model(&Mode::BEAT_7K, &[0, 5000]);
-    let config = PlayerConfig::default();
+    let model = make_test_model(&Mode::BEAT_7K, &[0, 5000]);
 
-    let result = practice.apply_to_model(&mut model, &config);
+    let gauge = practice.gauge(&model);
 
-    // Gauge should be created with startgauge value
-    assert!(result.gauge.is_some());
-    let gauge = result.gauge.unwrap();
+    assert!(gauge.is_some());
+    let gauge = gauge.unwrap();
     assert!((gauge.value() - 50.0).abs() < f64::EPSILON as f32);
-}
-
-#[test]
-fn test_apply_to_model_starttime_below_1000() {
-    let mut practice = PracticeConfiguration::new();
-    practice.property.starttime = 500;
-    practice.property.endtime = 5000;
-    practice.property.freq = 100;
-    practice.property.gaugecategory = Some(GaugeProperty::SevenKeys);
-
-    let mut model = make_test_model(&Mode::BEAT_7K, &[0, 2000]);
-    let config = PlayerConfig::default();
-
-    let result = practice.apply_to_model(&mut model, &config);
-
-    // starttime(500) <= 1000 → offset = 0
-    assert_eq!(result.starttimeoffset, 0);
 }
 
 // --- process_input tests ---

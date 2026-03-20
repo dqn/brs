@@ -199,11 +199,16 @@ impl MainController {
             rubato_types::play_config::PlayConfig,
         )> = None;
 
+        let mut pending_replay_seed_reset = false;
+        let mut pending_quick_retry_score: Option<rubato_types::score_data::ScoreData> = None;
+
         if let Some(ref mut current) = self.current {
             pending_sounds = current.drain_pending_sounds();
             pending_pitch = current.take_pending_global_pitch();
             pending_handoff = current.take_score_handoff();
             pending_reload = current.take_pending_reload_bms();
+            pending_replay_seed_reset = current.take_pending_replay_seed_reset();
+            pending_quick_retry_score = current.take_pending_quick_retry_score();
             pending_play_config = current.take_pending_play_config_update();
             pending_change = current.take_pending_state_change();
         }
@@ -306,6 +311,17 @@ impl MainController {
         // the updated PlayConfig back here so periodic_config_save() persists it.
         if let Some((mode, play_config)) = pending_play_config {
             self.player.play_config(mode).playconfig = play_config;
+        }
+
+        // Quick retry: reset replay seed (START/assist) or save score (SELECT).
+        // Applied before BMS reload so the next play gets the correct seed state.
+        if let Some(ref mut resource) = self.resource {
+            if pending_replay_seed_reset && let Some(rd) = resource.replay_data_mut() {
+                rd.randomoptionseed = -1;
+            }
+            if let Some(score) = pending_quick_retry_score {
+                resource.set_score_data(score);
+            }
         }
 
         // Reload BMS file (before state change so new Play state gets fresh model)

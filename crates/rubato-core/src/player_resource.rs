@@ -402,9 +402,9 @@ impl PlayerResource {
             .and_then(|model| model.path());
         let mode = self.mode;
         if let (Some(path_str), Some(mode)) = (path, mode) {
-            self.set_bms_file(Path::new(&path_str), mode);
+            return self.set_bms_file(Path::new(&path_str), mode);
         }
-        true
+        false
     }
 
     pub fn course_index(&self) -> usize {

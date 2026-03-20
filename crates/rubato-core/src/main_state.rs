@@ -233,6 +233,18 @@ pub trait MainState {
         false
     }
 
+    /// Take pending replay seed reset flag (quick retry START/assist).
+    /// When true, MainController should set `resource.replay.randomoptionseed = -1`.
+    fn take_pending_replay_seed_reset(&mut self) -> bool {
+        false
+    }
+
+    /// Take pending score data from quick retry (SELECT key).
+    /// When Some, MainController should set `resource.score_data` to the value.
+    fn take_pending_quick_retry_score(&mut self) -> Option<rubato_types::score_data::ScoreData> {
+        None
+    }
+
     /// Take pending play config update to push back to MainController's PlayerConfig.
     ///
     /// In Java, BMSPlayer writes directly to `main.getPlayerConfig()` (shared reference).

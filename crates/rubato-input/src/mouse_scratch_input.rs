@@ -159,10 +159,23 @@ impl MouseScratchInput {
                             x_axis,
                         )));
                     }
-                    _ => {}
+                    _ => {
+                        // Default to v1 for unrecognized mode (matches controller analog scratch behavior)
+                        log::warn!(
+                            "Unrecognized mouse_scratch_mode {}, defaulting to v1",
+                            msconfig.mouse_scratch_mode
+                        );
+                        *alg_slot = Some(Box::new(MouseScratchAlgorithmVersion1::new(
+                            msconfig.mouse_scratch_time_threshold,
+                            &mouse_to_analog,
+                            x_axis,
+                        )));
+                    }
                 }
             }
             self.mouse_to_analog = Some(mouse_to_analog);
+            // Reset algorithm state to prevent false scratch input from stale mouse positions
+            self.clear();
         } else {
             self.mouse_to_analog = None;
             for alg in &mut self.mouse_scratch_algorithm {
@@ -354,7 +367,8 @@ impl MouseScratchAlgorithm for MouseScratchAlgorithmVersion1 {
             self.remaining_time = self.scratch_duration;
             self.current_scratch = -1;
         } else if self.remaining_time > 0 {
-            self.remaining_time -= dtime as i32;
+            let dtime_clamped = dtime.min(i32::MAX as i64) as i32;
+            self.remaining_time -= dtime_clamped;
         } else {
             self.current_scratch = 0;
         }
@@ -444,8 +458,9 @@ impl MouseScratchAlgorithm for MouseScratchAlgorithmVersion2 {
         }
         self.positive_distance = 0.max(self.positive_distance + distance_diff);
         self.negative_distance = 0.max(self.negative_distance - distance_diff);
-        self.positive_no_movement_time += dtime as i32;
-        self.negative_no_movement_time += dtime as i32;
+        let dtime_clamped = dtime.min(i32::MAX as i64) as i32;
+        self.positive_no_movement_time += dtime_clamped;
+        self.negative_no_movement_time += dtime_clamped;
 
         if self.positive_distance > 0 {
             if self.current_scratch == -1 && self.positive_distance >= self.scratch_reverse_distance

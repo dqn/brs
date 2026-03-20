@@ -97,10 +97,32 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideRenderContex
                 .resource
                 .songdata()
                 .map_or_else(String::new, |s| s.metadata.subtitle.clone()),
+            12 => self.resource.songdata().map_or_else(String::new, |s| {
+                if s.metadata.subtitle.is_empty() {
+                    s.metadata.title.clone()
+                } else {
+                    format!("{} {}", s.metadata.title, s.metadata.subtitle)
+                }
+            }),
+            13 => self
+                .resource
+                .songdata()
+                .map_or_else(String::new, |s| s.metadata.genre.clone()),
             14 => self
                 .resource
                 .songdata()
                 .map_or_else(String::new, |s| s.metadata.artist.clone()),
+            15 => self
+                .resource
+                .songdata()
+                .map_or_else(String::new, |s| s.metadata.subartist.clone()),
+            16 => self.resource.songdata().map_or_else(String::new, |s| {
+                if s.metadata.subartist.is_empty() {
+                    s.metadata.artist.clone()
+                } else {
+                    format!("{} {}", s.metadata.artist, s.metadata.subartist)
+                }
+            }),
             _ => String::new(),
         }
     }
@@ -120,6 +142,14 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideRenderContex
             }
             _ => self.default_image_index_value(id),
         }
+    }
+
+    fn boolean_value(&self, id: i32) -> bool {
+        self.default_boolean_value(id)
+    }
+
+    fn float_value(&self, id: i32) -> f32 {
+        self.default_float_value(id)
     }
 
     fn integer_value(&self, id: i32) -> i32 {
@@ -262,6 +292,14 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideMouseContext
         )
     }
 
+    fn boolean_value(&self, id: i32) -> bool {
+        self.default_boolean_value(id)
+    }
+
+    fn float_value(&self, id: i32) -> f32 {
+        self.default_float_value(id)
+    }
+
     fn integer_value(&self, id: i32) -> i32 {
         match id {
             90 => self
@@ -320,10 +358,32 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideMouseContext
                 .resource
                 .songdata()
                 .map_or_else(String::new, |s| s.metadata.subtitle.clone()),
+            12 => self.resource.songdata().map_or_else(String::new, |s| {
+                if s.metadata.subtitle.is_empty() {
+                    s.metadata.title.clone()
+                } else {
+                    format!("{} {}", s.metadata.title, s.metadata.subtitle)
+                }
+            }),
+            13 => self
+                .resource
+                .songdata()
+                .map_or_else(String::new, |s| s.metadata.genre.clone()),
             14 => self
                 .resource
                 .songdata()
                 .map_or_else(String::new, |s| s.metadata.artist.clone()),
+            15 => self
+                .resource
+                .songdata()
+                .map_or_else(String::new, |s| s.metadata.subartist.clone()),
+            16 => self.resource.songdata().map_or_else(String::new, |s| {
+                if s.metadata.subartist.is_empty() {
+                    s.metadata.artist.clone()
+                } else {
+                    format!("{} {}", s.metadata.artist, s.metadata.subartist)
+                }
+            }),
             _ => String::new(),
         }
     }

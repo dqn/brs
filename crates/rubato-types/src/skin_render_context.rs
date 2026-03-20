@@ -221,6 +221,7 @@ pub trait SkinRenderContext: TimerAccess {
                     "Combo" => 0,
                     "Duration" => 1,
                     "Lowest" => 2,
+                    "Score" => 3,
                     _ => -1,
                 }
             }),
@@ -267,9 +268,108 @@ pub trait SkinRenderContext: TimerAccess {
         false
     }
 
+    /// Default implementation for song-data-derived boolean property IDs.
+    ///
+    /// Computes boolean values for IDs that depend on `song_data_ref()`:
+    /// - 150-155: chart difficulty
+    /// - 160-164, 1160-1161: chart mode (key type)
+    /// - 170-171: BGA presence
+    /// - 172-173: long note presence
+    /// - 174-175: text/document presence
+    /// - 176-177: BPM change
+    /// - 1177: BPM stop
+    /// - 178-179: random sequence
+    /// - 180-184: judge difficulty
+    ///
+    /// Callers that override `boolean_value()` should fall through to this
+    /// for unmatched IDs instead of returning `false`, so that song-data
+    /// booleans are correctly evaluated via `song_data_ref()`.
+    fn default_boolean_value(&self, id: i32) -> bool {
+        let Some(song) = self.song_data_ref() else {
+            return false;
+        };
+        let chart = &song.chart;
+        match id {
+            // Difficulty
+            150 => chart.difficulty <= 0 || chart.difficulty > 5, // OPTION_DIFFICULTY0
+            151 => chart.difficulty == 1,                         // OPTION_DIFFICULTY1
+            152 => chart.difficulty == 2,                         // OPTION_DIFFICULTY2
+            153 => chart.difficulty == 3,                         // OPTION_DIFFICULTY3
+            154 => chart.difficulty == 4,                         // OPTION_DIFFICULTY4
+            155 => chart.difficulty == 5,                         // OPTION_DIFFICULTY5
+            // Chart mode (key type)
+            160 => chart.mode == 7,   // OPTION_7KEYSONG (BEAT_7K)
+            161 => chart.mode == 5,   // OPTION_5KEYSONG (BEAT_5K)
+            162 => chart.mode == 14,  // OPTION_14KEYSONG (BEAT_14K)
+            163 => chart.mode == 10,  // OPTION_10KEYSONG (BEAT_10K)
+            164 => chart.mode == 9,   // OPTION_9KEYSONG (POPN_9K)
+            1160 => chart.mode == 25, // OPTION_24KEYSONG (KEYBOARD_24K)
+            1161 => chart.mode == 50, // OPTION_24KEYDPSONG (KEYBOARD_24K_DOUBLE)
+            // BGA presence
+            170 => !chart.has_bga(), // OPTION_NO_BGA
+            171 => chart.has_bga(),  // OPTION_BGA
+            // Long note presence
+            172 => !chart.has_any_long_note(), // OPTION_NO_LN
+            173 => chart.has_any_long_note(),  // OPTION_LN
+            // Text/document presence
+            174 => !chart.has_document(), // OPTION_NO_TEXT
+            175 => chart.has_document(),  // OPTION_TEXT
+            // BPM change
+            176 => chart.minbpm == chart.maxbpm, // OPTION_NO_BPMCHANGE
+            177 => chart.minbpm < chart.maxbpm,  // OPTION_BPMCHANGE
+            1177 => chart.is_bpmstop(),          // OPTION_BPMSTOP
+            // Random sequence
+            178 => !chart.has_random_sequence(), // OPTION_NO_RANDOMSEQUENCE
+            179 => chart.has_random_sequence(),  // OPTION_RANDOMSEQUENCE
+            // Judge difficulty
+            180 => chart.judge == 0 || (chart.judge >= 10 && chart.judge < 35), // OPTION_JUDGE_VERYHARD
+            181 => chart.judge == 1 || (chart.judge >= 35 && chart.judge < 60), // OPTION_JUDGE_HARD
+            182 => chart.judge == 2 || (chart.judge >= 60 && chart.judge < 85), // OPTION_JUDGE_NORMAL
+            183 => chart.judge == 3 || (chart.judge >= 85 && chart.judge < 110), // OPTION_JUDGE_EASY
+            184 => chart.judge == 4 || chart.judge >= 110, // OPTION_JUDGE_VERYEASY
+            _ => false,
+        }
+    }
+
     /// Returns the float property value for the given ID.
     fn float_value(&self, _id: i32) -> f32 {
         0.0
+    }
+
+    /// Shared default implementation for float property values.
+    ///
+    /// Handles float properties that can be computed from `song_data_ref()`,
+    /// `player_config_ref()`, `config_ref()`, and `current_play_config_ref()`.
+    /// Contexts should call this as a fallback from `float_value()` when no
+    /// state-specific override applies.
+    fn default_float_value(&self, id: i32) -> f32 {
+        match id {
+            // hispeed (310): Java FloatPropertyFactory reads from PlayConfig when not BMSPlayer
+            310 => self
+                .current_play_config_ref()
+                .map_or(f32::MIN, |pc| pc.hispeed),
+            // chart_peakdensity (360)
+            360 => self
+                .song_data_ref()
+                .and_then(|s| s.info.as_ref())
+                .map_or(f32::MIN, |i| i.peakdensity as f32),
+            // chart_enddensity (362)
+            362 => self
+                .song_data_ref()
+                .and_then(|s| s.info.as_ref())
+                .map_or(f32::MIN, |i| i.enddensity as f32),
+            // chart_averagedensity (367)
+            367 => self
+                .song_data_ref()
+                .and_then(|s| s.info.as_ref())
+                .map_or(f32::MIN, |i| i.density as f32),
+            // chart_totalgauge (368)
+            368 => self
+                .song_data_ref()
+                .and_then(|s| s.info.as_ref())
+                .map_or(f32::MIN, |i| i.total as f32),
+            _ => 0.0,
+        }
     }
 
     /// Returns the string property value for the given ID.

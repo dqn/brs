@@ -417,7 +417,7 @@ pub fn path(imagepath: &str, filemap: &HashMap<String, String>) -> PathBuf {
             }
         }
 
-        let last_slash = imagepath.rfind('/').unwrap_or(0);
+        let last_slash = imagepath.rfind(['/', '\\']).unwrap_or(0);
         let imagedir = Path::new(&imagepath[..last_slash]);
         if imagedir.exists() && imagedir.is_dir() {
             let mut candidates: Vec<PathBuf> = Vec::new();
@@ -576,6 +576,28 @@ mod tests {
         let filemap = HashMap::new();
         let result = path("other/file.png", &filemap);
         assert_eq!(result, PathBuf::from("other/file.png"));
+    }
+
+    #[test]
+    fn path_wildcard_resolves_with_backslash_separator() {
+        // LR2 skin files from Windows use backslash separators.
+        // Previously rfind('/') missed backslashes, causing wildcard resolution
+        // to silently fail (imagedir became "" instead of the actual directory).
+        let tmp = std::env::temp_dir().join("rubato_test_backslash_wildcard");
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).unwrap();
+        std::fs::write(tmp.join("bg01.png"), b"").unwrap();
+
+        let filemap = HashMap::new();
+        let wildcard = format!("{}\\*.png", tmp.display());
+        let result = path(&wildcard, &filemap);
+
+        // With the fix, the backslash is recognized as a separator and the
+        // directory is correctly extracted, allowing wildcard resolution to
+        // find bg01.png. Without the fix, imagedir is "" and resolution fails.
+        assert_eq!(result, tmp.join("bg01.png"));
+
+        let _ = std::fs::remove_dir_all(&tmp);
     }
 
     // -- apply_player_config_offsets tests --

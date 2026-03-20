@@ -11,12 +11,7 @@ use crate::bms_player_rule::BMSPlayerRule;
 use crate::gauge_property::GaugeProperty;
 use crate::groove_gauge::{GrooveGauge, create_groove_gauge};
 use bms_model::bms_model::BMSModel;
-use bms_model::bms_model_utils;
 use bms_model::mode::Mode;
-use rubato_core::pattern::lane_shuffle_modifier::PlayerFlipModifier;
-use rubato_core::pattern::pattern_modifier::{PatternModifier, create_pattern_modifier};
-use rubato_core::pattern::practice_modifier::PracticeModifier;
-use rubato_types::player_config::PlayerConfig;
 use serde::{Deserialize, Serialize};
 
 /// Practice mode settings
@@ -81,19 +76,6 @@ impl PracticeProperty {
         self.startgauge = self.startgauge.clamp(0, 100);
         self.judgerank = self.judgerank.clamp(1, 400);
     }
-}
-
-/// Result of applying practice configuration to a model.
-/// Returned by `PracticeConfiguration::apply_to_model`.
-pub struct PracticeApplyResult {
-    /// Groove gauge initialized with practice start gauge
-    pub gauge: Option<GrooveGauge>,
-    /// Frequency ratio if freq != 100 (caller should set global audio pitch)
-    pub freq_ratio: Option<f32>,
-    /// Adjusted start time offset in milliseconds
-    pub starttimeoffset: i64,
-    /// Adjusted play time limit in milliseconds
-    pub playtime: i64,
 }
 
 /// Cached model data for practice mode (extracted from BMSModel to avoid Clone)
@@ -218,73 +200,5 @@ impl PracticeConfiguration {
 
     pub fn dispose(&mut self) {
         // cleanup rendering resources (stub - no GPU resources in Rust translation)
-    }
-
-    /// Apply practice settings to the model.
-    ///
-    /// Translates Java BMSPlayer lines 684-723 (practice mode initialization).
-    /// Modifies the model in-place (frequency, total, time range, pattern, judgerank).
-    /// Returns timing offsets and gauge for the caller.
-    pub fn apply_to_model(
-        &self,
-        model: &mut BMSModel,
-        config: &PlayerConfig,
-    ) -> PracticeApplyResult {
-        let property = &self.property;
-
-        // Frequency change
-        let freq_ratio = if property.freq != 100 {
-            let ratio = property.freq as f32 / 100.0;
-            bms_model_utils::change_frequency(model, ratio);
-            Some(ratio)
-        } else {
-            None
-        };
-
-        // Set total
-        model.total = property.total;
-
-        // PracticeModifier: filter notes outside the time range (scaled by freq)
-        // freq is clamped to [50, 200] by update_config(), so division by zero cannot occur.
-        let pm_start = (property.starttime as i64) * 100 / (property.freq as i64);
-        let pm_end = (property.endtime as i64) * 100 / (property.freq as i64);
-        let mut pm = PracticeModifier::new(pm_start, pm_end);
-        pm.modify(model);
-
-        // DP modifiers
-        let mode = model.mode().copied().unwrap_or(Mode::BEAT_7K);
-        if mode.player() == 2 {
-            if property.doubleop == 1 {
-                PlayerFlipModifier::new().modify(model);
-            }
-            create_pattern_modifier(property.random2, 1, &mode, config).modify(model);
-        }
-
-        // 1P random modifier
-        create_pattern_modifier(property.random, 0, &mode, config).modify(model);
-
-        // Second PracticeModifier application (preserves Java behavior)
-        pm.modify(model);
-
-        // Gauge
-        let gauge = self.gauge(model);
-
-        // Judge rank
-        model.judgerank = property.judgerank;
-
-        // Timing calculations
-        let starttimeoffset = if property.starttime > 1000 {
-            (property.starttime as i64 - 1000) * 100 / property.freq as i64
-        } else {
-            0
-        };
-        let playtime = (property.endtime as i64 + 1000) * 100 / property.freq as i64;
-
-        PracticeApplyResult {
-            gauge,
-            freq_ratio,
-            starttimeoffset,
-            playtime,
-        }
     }
 }

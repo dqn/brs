@@ -196,6 +196,7 @@ impl BMSPlayer {
             + score.judge_counts.lms
             + self.total_notes
             - self.judge.past_notes();
+        score.minbp = score.minbp.max(0);
 
         // Timing statistics (Java BMSPlayer.createScoreData() lines 1053-1094)
         //
@@ -210,7 +211,7 @@ impl BMSPlayer {
         let mut total_count: i64 = 0;
         let mut average: i64 = 0;
         let mut play_times: Vec<i64> = Vec::new();
-        let lanes = self.model.mode().map(|m| m.key()).unwrap_or(0);
+        let lanes = self.model.mode().map(|m| m.key()).unwrap_or(8);
         for tl in &self.model.timelines {
             for i in 0..lanes {
                 if let Some(note) = tl.note(i) {
@@ -294,7 +295,7 @@ impl BMSPlayer {
         rd.mode = self.player_config.play_settings.lnmode;
         rd.date = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_millis() as i64)
+            .map(|d| d.as_secs() as i64)
             .unwrap_or(0);
         if let Some(ref gauge) = self.gauge {
             rd.gauge = gauge.gauge_type();
@@ -302,6 +303,11 @@ impl BMSPlayer {
         if let Some(ref config) = self.score.replay_config {
             rd.config = Some(config.clone());
         }
+        rd.seven_to_nine_pattern = self
+            .player_config
+            .note_modifier_settings
+            .seven_to_nine_pattern;
+        rd.player = Some(self.player_config.name.clone());
         rd
     }
 

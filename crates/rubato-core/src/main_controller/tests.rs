@@ -1899,10 +1899,20 @@ fn update_play_config_command_forwards_to_current_state() {
     let received = Arc::new(Mutex::new(Vec::new()));
     mc.current = Some(Box::new(PlayConfigReceiverState::new(received.clone())));
 
-    // Queue an UpdatePlayConfig command with a modified PlayConfig
+    // Set a live hispeed that differs from default (simulating scroll wheel change)
+    let live_hispeed = 7.0;
+    mc.player
+        .play_config(bms_model::mode::Mode::BEAT_7K)
+        .playconfig
+        .hispeed = live_hispeed;
+
+    // Queue an UpdatePlayConfig command with modmenu-managed fields changed
+    // and a stale hispeed that must NOT overwrite the live value
     let mut pc = rubato_types::play_config::PlayConfig::default();
-    pc.hispeed = 5.0;
+    pc.hispeed = 1.0; // stale -- must NOT overwrite live hispeed
     pc.enablelift = true;
+    pc.lanecover = 0.42;
+    pc.enablelanecover = true;
     mc.command_queue.push(
         rubato_types::main_controller_access::MainControllerCommand::UpdatePlayConfig(
             bms_model::mode::Mode::BEAT_7K,
@@ -1912,22 +1922,26 @@ fn update_play_config_command_forwards_to_current_state() {
 
     mc.process_queued_controller_commands();
 
-    // Verify MainController's authoritative PlayerConfig was updated
+    // Verify MainController's authoritative PlayerConfig: non-modmenu fields preserved
     let mc_pc = &mc
         .player
         .play_config_ref(bms_model::mode::Mode::BEAT_7K)
         .playconfig;
-    assert!((mc_pc.hispeed - 5.0).abs() < f32::EPSILON);
+    assert!(
+        (mc_pc.hispeed - live_hispeed).abs() < f32::EPSILON,
+        "hispeed should be preserved (live={}), got {}",
+        live_hispeed,
+        mc_pc.hispeed
+    );
+    // Modmenu-managed fields should be updated
     assert!(mc_pc.enablelift);
+    assert!(mc_pc.enablelanecover);
+    assert!((mc_pc.lanecover - 0.42).abs() < f32::EPSILON);
 
-    // Verify the current state received the forwarded config
+    // Verify the current state received the forwarded config (raw, unmerged)
     let updates = received.lock().unwrap();
     assert_eq!(updates.len(), 1, "state should receive exactly one update");
     assert_eq!(updates[0].0, bms_model::mode::Mode::BEAT_7K);
-    assert!(
-        (updates[0].1.hispeed - 5.0).abs() < f32::EPSILON,
-        "forwarded hispeed should match"
-    );
     assert!(updates[0].1.enablelift, "forwarded enablelift should match");
 }
 

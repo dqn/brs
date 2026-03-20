@@ -63,6 +63,7 @@ impl BMSPlayer {
             previous_gauge_values: None,
             config: rubato_types::config::Config::default(),
             song_metadata: rubato_types::song_data::SongMetadata::default(),
+            song_data: None,
         }
     }
 
@@ -247,6 +248,18 @@ impl BMSPlayer {
     /// Should be called during initialization when SongData is available.
     pub fn set_song_metadata(&mut self, metadata: rubato_types::song_data::SongMetadata) {
         self.song_metadata = metadata;
+    }
+
+    /// Get the song data used for boolean skin property queries.
+    pub fn song_data(&self) -> Option<&rubato_types::song_data::SongData> {
+        self.song_data.as_ref()
+    }
+
+    /// Set the song data for boolean skin property queries (chart mode, LN, BGA, difficulty, etc.).
+    /// Should be called during initialization when SongData is available.
+    /// Java: SongDataBooleanProperty accesses state.resource.getSongdata().
+    pub fn set_song_data(&mut self, song_data: rubato_types::song_data::SongData) {
+        self.song_data = Some(song_data);
     }
 
     /// Set play speed and optionally request global pitch change.

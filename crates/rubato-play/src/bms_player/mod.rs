@@ -197,6 +197,18 @@ pub struct PendingActions {
     /// Each entry is a (Note, volume) pair resolved from JudgeNote indices.
     /// Consumed by `sync_audio_impl` via `AudioDriver::set_volume_note(note, volume)`.
     pub pending_keysound_volume_sets: Vec<(Note, f32)>,
+    /// When true, reset `resource.replay.randomoptionseed` to -1 before BMS reload.
+    ///
+    /// Set during quick retry (Failed/Aborted) when the player presses START or when
+    /// assist mode is active. Causes the next play to re-randomize the chart pattern.
+    /// Translated from: Java `resource.getReplayData().randomoptionseed = -1`
+    pub pending_replay_seed_reset: bool,
+    /// Pending score data to store on PlayerResource during quick retry (SELECT key).
+    ///
+    /// Unlike the full `pending_score_handoff`, this only sets `resource.score_data`
+    /// without modifying combo, gauge, or replay fields.
+    /// Translated from: Java `resource.setScoreData(createScoreData())` in quick retry.
+    pub pending_quick_retry_score: Option<rubato_types::score_data::ScoreData>,
 }
 
 impl PendingActions {
@@ -211,6 +223,8 @@ impl PendingActions {
             pending_play_config_update: None,
             pending_keysound_plays: Vec::new(),
             pending_keysound_volume_sets: Vec::new(),
+            pending_replay_seed_reset: false,
+            pending_quick_retry_score: None,
         }
     }
 }
@@ -428,6 +442,10 @@ pub struct BMSPlayer {
     /// Song metadata for skin string property queries (title, artist, etc.).
     /// Set by the caller before create() via `set_song_metadata()`.
     song_metadata: rubato_types::song_data::SongMetadata,
+    /// Song data for boolean skin property queries (chart mode, LN, BGA, difficulty, etc.).
+    /// Set by the caller before create() via `set_song_data()`.
+    /// Java: SongDataBooleanProperty accesses state.resource.getSongdata().
+    song_data: Option<rubato_types::song_data::SongData>,
 }
 
 mod accessors;

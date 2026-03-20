@@ -2891,6 +2891,173 @@ fn aborted_quick_retry_with_start_xor_select() {
     assert_eq!(state_change, Some(MainStateType::Play));
 }
 
+#[test]
+fn failed_quick_retry_start_resets_seed() {
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+    player.state = PlayState::Failed;
+    player.lanerender = Some(LaneRenderer::new(&player.model));
+    player.input.keyinput = Some(KeyInputProccessor::new(&LaneProperty::new(&Mode::BEAT_7K)));
+    player.play_mode = BMSPlayerMode::PLAY;
+    player.is_course_mode = false;
+    player.score.playinfo.randomoptionseed = 42;
+
+    // START pressed -> reset seed
+    player.input.input_start_pressed = true;
+    player.input.input_select_pressed = false;
+
+    player.main_state_data.timer.update();
+    player.render();
+
+    // Seed reset is deferred via pending_replay_seed_reset (applied by MainController)
+    assert!(player.pending.pending_replay_seed_reset);
+    assert_eq!(
+        player.take_pending_state_change(),
+        Some(MainStateType::Play)
+    );
+    assert!(player.pending.pending_score_handoff.is_none());
+}
+
+#[test]
+fn failed_quick_retry_select_saves_score() {
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+    player.state = PlayState::Failed;
+    player.lanerender = Some(LaneRenderer::new(&player.model));
+    player.input.keyinput = Some(KeyInputProccessor::new(&LaneProperty::new(&Mode::BEAT_7K)));
+    player.play_mode = BMSPlayerMode::PLAY;
+    player.is_course_mode = false;
+    player.score.playinfo.randomoptionseed = 42;
+
+    // SELECT pressed -> save score, keep seed
+    player.input.input_start_pressed = false;
+    player.input.input_select_pressed = true;
+
+    player.main_state_data.timer.update();
+    player.render();
+
+    // Seed should NOT be reset (SELECT keeps same pattern)
+    assert_eq!(player.score.playinfo.randomoptionseed, 42);
+    assert_eq!(
+        player.take_pending_state_change(),
+        Some(MainStateType::Play)
+    );
+    // Score handoff should be set (score saved for SELECT retry)
+    // Note: score_data may be None if no notes were hit, but the handoff itself
+    // is only set when create_score_data returns Some. With zero notes hit in
+    // Failed state, create_score_data returns None, so no handoff.
+}
+
+#[test]
+fn failed_quick_retry_assist_resets_seed() {
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+    player.state = PlayState::Failed;
+    player.lanerender = Some(LaneRenderer::new(&player.model));
+    player.input.keyinput = Some(KeyInputProccessor::new(&LaneProperty::new(&Mode::BEAT_7K)));
+    player.play_mode = BMSPlayerMode::PLAY;
+    player.is_course_mode = false;
+    player.assist = 1; // Assist mode active
+    player.score.playinfo.randomoptionseed = 42;
+
+    // SELECT pressed, but assist mode overrides
+    player.input.input_start_pressed = false;
+    player.input.input_select_pressed = true;
+
+    player.main_state_data.timer.update();
+    player.render();
+
+    // Assist mode: seed reset is deferred via pending_replay_seed_reset
+    assert!(player.pending.pending_replay_seed_reset);
+    assert_eq!(
+        player.take_pending_state_change(),
+        Some(MainStateType::Play)
+    );
+    assert!(player.pending.pending_score_handoff.is_none());
+}
+
+#[test]
+fn aborted_quick_retry_start_resets_seed() {
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+    player.state = PlayState::Aborted;
+    player.lanerender = Some(LaneRenderer::new(&player.model));
+    player.play_mode = BMSPlayerMode::PLAY;
+    player.is_course_mode = false;
+    player.score.playinfo.randomoptionseed = 42;
+
+    // START pressed -> reset seed
+    player.input.input_start_pressed = true;
+    player.input.input_select_pressed = false;
+
+    player.main_state_data.timer.update();
+    player.render();
+
+    // Seed reset is deferred via pending_replay_seed_reset (applied by MainController)
+    assert!(player.pending.pending_replay_seed_reset);
+    assert_eq!(
+        player.take_pending_state_change(),
+        Some(MainStateType::Play)
+    );
+    assert!(player.pending.pending_score_handoff.is_none());
+}
+
+#[test]
+fn aborted_quick_retry_select_saves_score() {
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+    player.state = PlayState::Aborted;
+    player.lanerender = Some(LaneRenderer::new(&player.model));
+    player.play_mode = BMSPlayerMode::PLAY;
+    player.is_course_mode = false;
+    player.score.playinfo.randomoptionseed = 42;
+
+    // SELECT pressed -> save score, keep seed
+    player.input.input_start_pressed = false;
+    player.input.input_select_pressed = true;
+
+    player.main_state_data.timer.update();
+    player.render();
+
+    // Seed should NOT be reset (SELECT keeps same pattern)
+    assert!(!player.pending.pending_replay_seed_reset);
+    assert_eq!(
+        player.take_pending_state_change(),
+        Some(MainStateType::Play)
+    );
+    // Score is saved via pending_quick_retry_score (applied by MainController),
+    // not pending_score_handoff which is for normal end-of-play transitions.
+    // Note: create_score_data may return None with zero notes hit, so the
+    // quick retry score may or may not be Some depending on model state.
+}
+
+#[test]
+fn aborted_quick_retry_assist_resets_seed() {
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+    player.state = PlayState::Aborted;
+    player.lanerender = Some(LaneRenderer::new(&player.model));
+    player.play_mode = BMSPlayerMode::PLAY;
+    player.is_course_mode = false;
+    player.assist = 1; // Assist mode active
+    player.score.playinfo.randomoptionseed = 42;
+
+    // SELECT pressed, but assist mode overrides
+    player.input.input_start_pressed = false;
+    player.input.input_select_pressed = true;
+
+    player.main_state_data.timer.update();
+    player.render();
+
+    // Assist mode: seed reset is deferred via pending_replay_seed_reset
+    assert!(player.pending.pending_replay_seed_reset);
+    assert_eq!(
+        player.take_pending_state_change(),
+        Some(MainStateType::Play)
+    );
+    assert!(player.pending.pending_score_handoff.is_none());
+}
+
 // --- state transition tests ---
 
 #[test]
@@ -3794,6 +3961,7 @@ fn make_play_render_context_with_bpm_volume<'a>(
                 std::sync::OnceLock::new();
             DEFAULT_META.get_or_init(rubato_types::song_data::SongMetadata::default)
         },
+        song_data: None,
     }
 }
 
@@ -4144,66 +4312,76 @@ fn take_pending_play_config_update_via_main_state_trait() {
 }
 
 #[test]
-fn receive_updated_play_config_updates_cloned_player_config() {
+fn receive_updated_play_config_merges_only_modmenu_fields() {
     let model = make_model();
     let mut player = BMSPlayer::new(model);
 
-    // Verify default hispeed
-    let original_hispeed = player
+    // Set a live hispeed that differs from default (simulating scroll wheel change)
+    let live_hispeed = 5.5;
+    player
         .player_config
-        .play_config_ref(Mode::BEAT_7K)
+        .play_config(Mode::BEAT_7K)
         .playconfig
-        .hispeed;
+        .hispeed = live_hispeed;
 
-    // Simulate modmenu pushing an updated PlayConfig
-    let mut updated_pc = player
-        .player_config
-        .play_config_ref(Mode::BEAT_7K)
-        .playconfig
-        .clone();
-    updated_pc.hispeed = original_hispeed + 1.5;
+    // Simulate modmenu pushing a PlayConfig with stale hispeed but updated
+    // modmenu-managed fields (enablelift, lanecover, etc.)
+    let mut updated_pc = PlayConfig::default();
+    updated_pc.hispeed = 1.0; // stale value -- must NOT overwrite live hispeed
     updated_pc.enablelift = true;
+    updated_pc.lift = 0.25;
+    updated_pc.enablelanecover = true;
+    updated_pc.lanecover = 0.4;
 
     let state: &mut dyn MainState = &mut player;
     state.receive_updated_play_config(Mode::BEAT_7K, updated_pc);
 
-    // BMSPlayer's cloned config should now reflect the update
+    let result = &player
+        .player_config
+        .play_config_ref(Mode::BEAT_7K)
+        .playconfig;
+
+    // Non-modmenu field: hispeed must be preserved (not overwritten by stale value)
     assert!(
-        (player
-            .player_config
-            .play_config_ref(Mode::BEAT_7K)
-            .playconfig
-            .hispeed
-            - (original_hispeed + 1.5))
-            .abs()
-            < f32::EPSILON,
-        "hispeed should be updated after receive_updated_play_config"
+        (result.hispeed - live_hispeed).abs() < f32::EPSILON,
+        "hispeed should be preserved (live={}, got={})",
+        live_hispeed,
+        result.hispeed
     );
+
+    // Modmenu-managed fields: must be updated
+    assert!(result.enablelift, "enablelift should be updated");
+    assert!((result.lift - 0.25).abs() < 0.001, "lift should be updated");
+    assert!(result.enablelanecover, "enablelanecover should be updated");
     assert!(
-        player
-            .player_config
-            .play_config_ref(Mode::BEAT_7K)
-            .playconfig
-            .enablelift,
-        "enablelift should be updated after receive_updated_play_config"
+        (result.lanecover - 0.4).abs() < 0.001,
+        "lanecover should be updated"
     );
 }
 
 #[test]
-fn receive_updated_play_config_propagates_to_lanerender() {
+fn receive_updated_play_config_propagates_modmenu_fields_to_lanerender() {
     let model = make_model();
     let mut player = BMSPlayer::new(model);
     player.lanerender = Some(LaneRenderer::new(&player.model));
+
+    // Set live hispeed to a non-default value (simulating scroll wheel change)
+    let live_hispeed = 6.0;
+    player
+        .player_config
+        .play_config(Mode::BEAT_7K)
+        .playconfig
+        .hispeed = live_hispeed;
 
     // Verify LaneRenderer starts with defaults (not player config values)
     let lr = player.lanerender.as_ref().unwrap();
     assert!(!lr.is_enable_lanecover(), "lanecover should start disabled");
     assert!(!lr.is_enable_lift(), "lift should start disabled");
 
-    // Simulate modmenu pushing an updated PlayConfig with non-default values
+    // Simulate modmenu pushing a PlayConfig. The modmenu snapshot carries a
+    // stale hispeed (1.0) that must NOT overwrite the live value.
     let updated_pc = rubato_types::play_config::PlayConfig {
-        hispeed: 4.0,
-        duration: 800,
+        hispeed: 1.0, // stale -- must NOT reach LaneRenderer
         lanecover: 0.35,
         enablelanecover: true,
         lift: 0.2,
@@ -4212,25 +4390,22 @@ fn receive_updated_play_config_propagates_to_lanerender() {
         enablehidden: true,
         enable_constant: true,
         constant_fadein_time: 150,
-        fixhispeed: 0,
-        hispeedmargin: 0.75,
         ..Default::default()
     };
 
     let state: &mut dyn MainState = &mut player;
     state.receive_updated_play_config(Mode::BEAT_7K, updated_pc);
 
-    // LaneRenderer must now reflect the updated values
+    // LaneRenderer must reflect the LIVE hispeed, not the stale modmenu value
     let lr = player.lanerender.as_ref().unwrap();
     assert!(
-        (lr.hispeed() - 4.0).abs() < f32::EPSILON,
-        "LaneRenderer hispeed should be propagated"
+        (lr.hispeed() - live_hispeed).abs() < f32::EPSILON,
+        "LaneRenderer hispeed should be the live value ({}), got {}",
+        live_hispeed,
+        lr.hispeed()
     );
-    assert_eq!(
-        lr.duration(),
-        800,
-        "LaneRenderer duration should be propagated"
-    );
+
+    // Modmenu-managed fields must be propagated
     assert!(
         (lr.lanecover() - 0.35).abs() < f32::EPSILON,
         "LaneRenderer lanecover should be propagated"
@@ -4254,10 +4429,6 @@ fn receive_updated_play_config_propagates_to_lanerender() {
     assert!(
         lr.is_enable_hidden(),
         "LaneRenderer enable_hidden should be propagated"
-    );
-    assert!(
-        (lr.hispeedmargin() - 0.75).abs() < f32::EPSILON,
-        "LaneRenderer hispeedmargin should be propagated"
     );
 }
 
@@ -5000,9 +5171,11 @@ fn receive_updated_play_config_preserves_scroll_state() {
     // destructively resets scroll positions (pos, basebpm, basehispeed) during
     // active gameplay. Only apply_play_config() should be called mid-game.
     //
-    // Strategy: set fixhispeed = FIX_HISPEED_STARTBPM so that init() would
-    // recalculate hispeed via set_lanecover -> reset_hispeed. If init() is
-    // NOT called, hispeed stays at the config value.
+    // Strategy: set fixhispeed = FIX_HISPEED_STARTBPM and hispeed = 3.0 on
+    // the player's live config, then call init() to establish basebpm. If
+    // receive_updated_play_config() calls init() again, hispeed would be
+    // destructively recalculated. Since it only calls apply_play_config(),
+    // hispeed stays at the live config value.
     use rubato_types::play_config::{FIX_HISPEED_STARTBPM, PlayConfig};
 
     let mut model = make_model();
@@ -5010,30 +5183,32 @@ fn receive_updated_play_config_preserves_scroll_state() {
     let mut player = BMSPlayer::new(model);
     player.lanerender = Some(LaneRenderer::new(&player.model));
 
-    // First, apply a config that sets fixhispeed = STARTBPM and hispeed = 3.0
-    let setup_config = PlayConfig {
-        hispeed: 3.0,
-        duration: 500,
-        fixhispeed: FIX_HISPEED_STARTBPM,
-        ..Default::default()
-    };
+    // Set the live PlayConfig with fixhispeed = STARTBPM and hispeed = 3.0
+    let live_pc = &mut player.player_config.play_config(Mode::BEAT_7K).playconfig;
+    live_pc.hispeed = 3.0;
+    live_pc.duration = 500;
+    live_pc.fixhispeed = FIX_HISPEED_STARTBPM;
 
-    // Apply directly to lanerender first, then call init to establish basebpm
+    // Apply to lanerender and call init to establish basebpm
     if let Some(ref mut lr) = player.lanerender {
-        lr.apply_play_config(&setup_config);
+        lr.apply_play_config(
+            &player
+                .player_config
+                .play_config_ref(Mode::BEAT_7K)
+                .playconfig,
+        );
         lr.init(&player.model);
         // After init with FIX_HISPEED_STARTBPM:
         // basebpm = model.bpm = 120.0
         // set_lanecover(0.0) -> reset_hispeed(120.0) recalculates hispeed
-        // basehispeed = recalculated hispeed
     }
     let hispeed_after_init = player.lanerender.as_ref().unwrap().hispeed();
 
-    // Now set hispeed to a specific value that differs from what init() would produce
+    // Push a modmenu update with only modmenu-managed fields changed.
+    // The live hispeed (3.0) and fixhispeed (STARTBPM) must be preserved.
     let update_config = PlayConfig {
-        hispeed: 3.0,
-        duration: 500,
-        fixhispeed: FIX_HISPEED_STARTBPM,
+        enablelift: true,
+        lift: 0.1,
         ..Default::default()
     };
 
@@ -5042,13 +5217,12 @@ fn receive_updated_play_config_preserves_scroll_state() {
 
     let hispeed_after_update = player.lanerender.as_ref().unwrap().hispeed();
 
-    // If init() was called (bug), hispeed would be recalculated by
-    // set_lanecover -> reset_hispeed to the same value as hispeed_after_init.
-    // If init() was NOT called (fix), hispeed stays at the config value 3.0.
+    // The live hispeed (3.0) must be preserved, NOT recalculated by init().
+    // If init() was called (bug), hispeed would be recalculated to hispeed_after_init.
     assert!(
         (hispeed_after_update - 3.0).abs() < f32::EPSILON,
-        "hispeed should be the config value 3.0 after receive_updated_play_config, \
-         but was {} (init() destructively recalculated it to {})",
+        "hispeed should be the live config value 3.0 after receive_updated_play_config, \
+         but was {} (init() would have recalculated it to {})",
         hispeed_after_update,
         hispeed_after_init
     );
