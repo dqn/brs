@@ -53,7 +53,9 @@ impl SongInformationAccessor {
         )]);
 
         let conn = Connection::open(filepath)?;
-        conn.execute_batch("PRAGMA shared_cache = ON; PRAGMA synchronous = OFF;")?;
+        conn.execute_batch(
+            "PRAGMA journal_mode = WAL; PRAGMA shared_cache = ON; PRAGMA synchronous = NORMAL;",
+        )?;
         base.validate(&conn)?;
 
         Ok(Self {
@@ -403,6 +405,33 @@ mod tests {
             timeout >= 5000,
             "busy_timeout should be at least 5000ms, got {}",
             timeout
+        );
+    }
+
+    /// Verify that WAL journal mode and synchronous = NORMAL are set,
+    /// matching the safety level of SQLiteSongDatabaseAccessor.
+    #[test]
+    fn connection_has_wal_and_synchronous_normal() {
+        let (accessor, _tmpdir) = setup_info_accessor();
+        let conn = lock_or_recover(&accessor.conn);
+
+        let journal_mode: String = conn
+            .query_row("PRAGMA journal_mode", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(
+            journal_mode, "wal",
+            "journal_mode should be WAL for crash safety, got {}",
+            journal_mode
+        );
+
+        let synchronous: i64 = conn
+            .query_row("PRAGMA synchronous", [], |row| row.get(0))
+            .unwrap();
+        // synchronous = NORMAL is 1
+        assert_eq!(
+            synchronous, 1,
+            "synchronous should be NORMAL (1), got {}",
+            synchronous
         );
     }
 
