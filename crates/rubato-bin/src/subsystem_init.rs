@@ -9,6 +9,7 @@ use anyhow::Result;
 use log::{info, warn};
 
 use rubato_core::main_controller::MainController;
+use rubato_types::ir_resend_service::IrResendService;
 
 use crate::{HttpDownloadProcessorWrapper, SongDbMainControllerRef, SongDbMusicDatabaseAdapter};
 
