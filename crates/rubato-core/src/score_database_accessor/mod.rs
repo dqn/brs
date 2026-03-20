@@ -29,8 +29,9 @@ pub struct ScoreDatabaseAccessor {
 impl ScoreDatabaseAccessor {
     pub fn new(path: &str) -> anyhow::Result<Self> {
         let conn = Connection::open(path)?;
-        conn.execute_batch("PRAGMA shared_cache = ON")?;
-        conn.pragma_update(None, "synchronous", "OFF")?;
+        conn.execute_batch(
+            "PRAGMA journal_mode = WAL; PRAGMA shared_cache = ON; PRAGMA synchronous = NORMAL;",
+        )?;
         conn.pragma_update(None, "cache_size", 2000)?;
 
         let tables = vec![

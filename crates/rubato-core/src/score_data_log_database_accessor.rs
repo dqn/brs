@@ -13,7 +13,7 @@ pub struct ScoreDataLogDatabaseAccessor {
 impl ScoreDataLogDatabaseAccessor {
     pub fn new(path: &str) -> anyhow::Result<Self> {
         let conn = Connection::open(path)?;
-        conn.pragma_update(None, "synchronous", "OFF")?;
+        conn.execute_batch("PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;")?;
         conn.pragma_update(None, "cache_size", 2000)?;
 
         let tables = vec![Table::new(
@@ -186,6 +186,34 @@ mod tests {
             raw,
             i32::MAX as i64,
             "DB should store i32::MAX, not i64::MAX"
+        );
+    }
+
+    #[test]
+    fn connection_has_wal_and_synchronous_normal() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("test_scoredatalog.db");
+        let accessor = ScoreDataLogDatabaseAccessor::new(db_path.to_str().unwrap()).unwrap();
+
+        let journal_mode: String = accessor
+            .connection()
+            .query_row("PRAGMA journal_mode", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(
+            journal_mode, "wal",
+            "journal_mode should be WAL for crash safety, got {}",
+            journal_mode
+        );
+
+        let synchronous: i64 = accessor
+            .connection()
+            .query_row("PRAGMA synchronous", [], |row| row.get(0))
+            .unwrap();
+        // synchronous = NORMAL is 1
+        assert_eq!(
+            synchronous, 1,
+            "synchronous should be NORMAL (1), got {}",
+            synchronous
         );
     }
 }

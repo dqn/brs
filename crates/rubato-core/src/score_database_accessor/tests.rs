@@ -655,3 +655,31 @@ fn test_get_score_datas_sql_filter() {
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].sha256, "sql_b");
 }
+
+#[test]
+fn connection_has_wal_and_synchronous_normal() {
+    let dir = tempfile::tempdir().unwrap();
+    let db_path = dir.path().join("test_score.db");
+    let accessor = ScoreDatabaseAccessor::new(db_path.to_str().unwrap()).unwrap();
+
+    let journal_mode: String = accessor
+        .connection()
+        .query_row("PRAGMA journal_mode", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(
+        journal_mode, "wal",
+        "journal_mode should be WAL for crash safety, got {}",
+        journal_mode
+    );
+
+    let synchronous: i64 = accessor
+        .connection()
+        .query_row("PRAGMA synchronous", [], |row| row.get(0))
+        .unwrap();
+    // synchronous = NORMAL is 1
+    assert_eq!(
+        synchronous, 1,
+        "synchronous should be NORMAL (1), got {}",
+        synchronous
+    );
+}
