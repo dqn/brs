@@ -364,6 +364,7 @@ impl PlayerResource {
             None => return false,
         };
         let org_index = self.courseindex;
+        let mut iterations = 0;
         loop {
             if self.courseindex == paths_len {
                 if self.loop_play {
@@ -379,7 +380,8 @@ impl PlayerResource {
             if self.set_bms_file(&path, BMSPlayerMode::AUTOPLAY) {
                 return true;
             }
-            if org_index == self.courseindex {
+            iterations += 1;
+            if iterations >= paths_len || org_index == self.courseindex {
                 break;
             }
         }
@@ -1058,6 +1060,28 @@ mod tests {
 
         assert_eq!(resource.tablename.as_str(), "test");
         assert_eq!(resource.tablelevel(), "1");
+    }
+
+    #[test]
+    fn next_song_terminates_when_all_paths_fail_with_loop_play() {
+        let config = Config::default();
+        let pconfig = PlayerConfig::default();
+        let mut resource = PlayerResource::new(config, pconfig);
+
+        // All paths are nonexistent, so every set_bms_file call will fail.
+        // With loop_play = true, this previously caused an infinite loop.
+        let paths = vec![
+            PathBuf::from("/nonexistent/a.bms"),
+            PathBuf::from("/nonexistent/b.bms"),
+            PathBuf::from("/nonexistent/c.bms"),
+        ];
+        resource.set_auto_play_songs(paths, true);
+
+        let result = resource.next_song();
+        assert!(
+            !result,
+            "next_song should return false when all songs fail to load"
+        );
     }
 
     #[test]
