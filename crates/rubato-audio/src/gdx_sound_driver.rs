@@ -222,12 +222,12 @@ impl AudioDriver for GdxSoundDriver {
         self.wav_pitch_shifts.clear();
         self.slice_pitch_shifts.clear();
 
-        // Cancel any in-progress background load and join the previous loading thread
-        if let Some(handle) = self.loading_thread.take() {
-            let _ = handle.join();
-        }
+        // Cancel any in-progress background load: drop the receiver so the
+        // loader thread's send() returns Err, then drop the handle instead of
+        // joining to avoid blocking while par_iter() finishes all file I/O.
         self.loading_receiver = None;
         self.pending_load_tasks = None;
+        drop(self.loading_thread.take());
 
         // Set volume from model's volwav
         let volwav = model.volwav;
@@ -366,12 +366,11 @@ impl AudioDriver for GdxSoundDriver {
     }
     fn abort(&mut self) {
         // Drop the receiver first so the background thread's send() returns Err
-        // and the thread exits promptly, then join to avoid leaking the thread.
+        // and the thread exits promptly, then drop the handle instead of joining
+        // to avoid blocking while par_iter() completes remaining file I/O.
         self.loading_receiver = None;
         self.pending_load_tasks = None;
-        if let Some(handle) = self.loading_thread.take() {
-            let _ = handle.join();
-        }
+        drop(self.loading_thread.take());
     }
 
     fn get_progress(&self) -> f32 {

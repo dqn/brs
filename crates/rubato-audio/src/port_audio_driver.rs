@@ -181,12 +181,12 @@ impl AudioDriver for PortAudioDriver {
         self.wav_pitch_shifts.clear();
         self.slice_pitch_shifts.clear();
 
-        // Cancel any in-progress background load and join the previous loading thread
-        if let Some(handle) = self.loading_thread.take() {
-            let _ = handle.join();
-        }
+        // Cancel any in-progress background load: drop the receiver so the
+        // loader thread's send() returns Err, then drop the handle instead of
+        // joining to avoid blocking while par_iter() finishes all file I/O.
         self.loading_receiver = None;
         self.pending_load_tasks = None;
+        drop(self.loading_thread.take());
 
         // Set volume from model's volwav
         let volwav = model.volwav;
@@ -324,11 +324,12 @@ impl AudioDriver for PortAudioDriver {
         }
     }
     fn abort(&mut self) {
+        // Drop the receiver first so the background thread's send() returns Err
+        // and the thread exits promptly, then drop the handle instead of joining
+        // to avoid blocking while par_iter() completes remaining file I/O.
         self.loading_receiver = None;
         self.pending_load_tasks = None;
-        if let Some(handle) = self.loading_thread.take() {
-            let _ = handle.join();
-        }
+        drop(self.loading_thread.take());
     }
 
     fn get_progress(&self) -> f32 {
@@ -340,6 +341,10 @@ impl AudioDriver for PortAudioDriver {
     }
 
     fn poll_loading(&mut self) -> bool {
+        // Sweep stopped handles across all wav_ids and slice keys each frame
+        // to prevent unbounded growth for rarely-replayed sounds.
+        self.cleanup_stopped_handles();
+
         let Some(rx) = &self.loading_receiver else {
             return true;
         };
@@ -598,6 +603,21 @@ impl PortAudioDriver {
         } else if (self.global_pitch - 1.0).abs() > f32::EPSILON {
             handle.set_playback_rate(PlaybackRate(base), Tween::default());
         }
+    }
+
+    /// Sweep all wav_handles and slice_handles, removing entries whose playback
+    /// has stopped. Without this, handles for rarely-replayed wav_ids accumulate
+    /// indefinitely because the per-push retain in play_note_internal only prunes
+    /// when the same wav_id is played again.
+    fn cleanup_stopped_handles(&mut self) {
+        self.wav_handles.retain(|_, handles| {
+            handles.retain(|h| h.state() != PlaybackState::Stopped);
+            !handles.is_empty()
+        });
+        self.slice_handles.retain(|_, handles| {
+            handles.retain(|h| h.state() != PlaybackState::Stopped);
+            !handles.is_empty()
+        });
     }
 
     /// Generational cache eviction.

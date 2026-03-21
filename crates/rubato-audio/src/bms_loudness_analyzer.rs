@@ -49,7 +49,7 @@ impl AnalysisResult {
         let loudness_diff = self.loudness_lufs - average_lufs;
         let gain_adjustment = 10.0f64.powf(-loudness_diff / 20.0);
 
-        let adjusted_volume = (0.5f64 * gain_adjustment) as f32;
+        let adjusted_volume = (base_volume as f64 * gain_adjustment) as f32;
         adjusted_volume.clamp(0.0, 1.0)
     }
 }
@@ -229,9 +229,13 @@ mod tests {
 
     #[test]
     fn adjusted_volume_at_average_lufs() {
-        // At -12 LUFS (average), gain_adjustment = 10^0 = 1.0, adjusted = 0.5
+        // At -12 LUFS (average), gain_adjustment = 10^0 = 1.0, adjusted = base_volume * 1.0
         let result = AnalysisResult::new_success(-12.0);
         let vol = result.calculate_adjusted_volume(1.0);
+        assert!((vol - 1.0).abs() < 0.01);
+
+        // With base_volume = 0.5, adjusted = 0.5 * 1.0 = 0.5
+        let vol = result.calculate_adjusted_volume(0.5);
         assert!((vol - 0.5).abs() < 0.01);
     }
 

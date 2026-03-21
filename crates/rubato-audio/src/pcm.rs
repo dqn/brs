@@ -419,12 +419,27 @@ impl PCMLoader {
 
         match wav.format_type {
             1 | 3 => {
-                // PCM or IEEE float
+                // PCM (1) or IEEE float (3)
                 self.channels = wav.channels;
                 self.sample_rate = wav.sample_rate;
                 self.bits_per_sample = wav.bits_per_sample;
 
                 self.pcm_data = wav.read_data()?;
+
+                // 32-bit PCM (format_tag 1) stores i32 samples, but downstream
+                // FloatPCM interprets 32-bit data as f32 via from_le_bytes.
+                // Convert i32 -> f32 here so the passthrough works correctly.
+                if wav.format_type == 1 && wav.bits_per_sample == 32 {
+                    let data = &mut self.pcm_data;
+                    for i in (0..data.len()).step_by(4) {
+                        if i + 4 <= data.len() {
+                            let val = i32::from_le_bytes([data[i], data[i + 1], data[i + 2], data[i + 3]]);
+                            let f = val as f32 / i32::MAX as f32;
+                            let bytes = f.to_le_bytes();
+                            data[i..i + 4].copy_from_slice(&bytes);
+                        }
+                    }
+                }
             }
             2 => {
                 // MS-ADPCM
@@ -530,7 +545,13 @@ impl<'a> WavReader<'a> {
             if found {
                 return Ok(chunk_length);
             }
-            self.skip_fully(chunk_length as usize)?;
+            // RIFF chunks are word-aligned: skip a pad byte after odd-length chunks.
+            let skip = if chunk_length % 2 != 0 {
+                chunk_length as usize + 1
+            } else {
+                chunk_length as usize
+            };
+            self.skip_fully(skip)?;
         }
     }
 
