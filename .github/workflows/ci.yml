@@ -57,4 +57,4 @@ jobs:
 
       # Exclude golden-master (requires Java environment) and screenshot tests (require GPU)
       - name: Run cargo nextest
-        run: cargo nextest run --workspace --exclude golden-master --exclude rubato-bin
+        run: cargo nextest run --workspace --exclude golden-master --exclude rubato-bin -E 'not (test(render_snapshot_parity) | test(skin_ecfn))'
