@@ -31,6 +31,9 @@ type GlyphKey = (GlyphId, u32);
 /// Initial atlas dimensions.
 const ATLAS_WIDTH: u32 = 512;
 const ATLAS_HEIGHT: u32 = 512;
+/// Maximum atlas height. Capped at the minimum guaranteed GPU texture
+/// dimension (8192) to prevent exceeding device limits.
+const MAX_ATLAS_HEIGHT: u32 = 8192;
 
 /// Glyph atlas that rasterizes and caches glyphs in an RGBA texture.
 /// Uses a simple row-packing strategy for atlas layout.
@@ -122,6 +125,15 @@ impl GlyphAtlas {
 
         // Check if atlas has room vertically; a very large glyph may need multiple doublings
         while self.cursor_y + glyph_h > self.atlas_height {
+            if self.atlas_height >= MAX_ATLAS_HEIGHT {
+                log::warn!(
+                    "Glyph atlas reached maximum height {}; skipping glyph {:?} at scale {}",
+                    MAX_ATLAS_HEIGHT,
+                    glyph_id,
+                    scale,
+                );
+                return None;
+            }
             self.grow_atlas();
         }
 
@@ -209,9 +221,9 @@ impl GlyphAtlas {
         };
     }
 
-    /// Double the atlas height to accommodate more glyphs.
+    /// Double the atlas height to accommodate more glyphs, capped at MAX_ATLAS_HEIGHT.
     fn grow_atlas(&mut self) {
-        let new_height = self.atlas_height * 2;
+        let new_height = (self.atlas_height * 2).min(MAX_ATLAS_HEIGHT);
         let new_size = (self.atlas_width * new_height * 4) as usize;
         self.pixels.resize(new_size, 0);
         self.atlas_height = new_height;
@@ -361,5 +373,23 @@ mod tests {
         assert!((region.v - expected_v).abs() < 1e-6);
         assert!((region.u2 - expected_u2).abs() < 1e-6);
         assert!((region.v2 - expected_v2).abs() < 1e-6);
+    }
+
+    /// Regression: grow_atlas must cap at MAX_ATLAS_HEIGHT to avoid exceeding GPU limits.
+    #[test]
+    fn test_grow_atlas_caps_at_max_height() {
+        let mut atlas = GlyphAtlas::new();
+        // Grow until capped
+        while atlas.atlas_height < MAX_ATLAS_HEIGHT {
+            atlas.grow_atlas();
+        }
+        assert_eq!(atlas.atlas_height, MAX_ATLAS_HEIGHT);
+
+        // Further growth should not exceed the cap
+        atlas.grow_atlas();
+        assert_eq!(
+            atlas.atlas_height, MAX_ATLAS_HEIGHT,
+            "atlas height must not exceed MAX_ATLAS_HEIGHT"
+        );
     }
 }
