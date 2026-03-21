@@ -198,10 +198,7 @@ mod tests {
     fn progress_store_visible_across_threads() {
         let mut state = AbstractAudioDriverState::<i32>::new(1);
         state.note_map_size = 100;
-        let progress = Arc::new(std::mem::replace(
-            &mut state.progress,
-            AtomicI32::new(0),
-        ));
+        let progress = Arc::new(std::mem::replace(&mut state.progress, AtomicI32::new(0)));
 
         let writer = Arc::clone(&progress);
         let handle = std::thread::spawn(move || {

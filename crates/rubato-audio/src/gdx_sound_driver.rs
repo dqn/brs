@@ -1678,10 +1678,7 @@ mod tests {
 
         wav_handles.entry(1).or_default().push(h1);
         wav_handles.entry(2).or_default().push(h2);
-        slice_handles
-            .entry((10, 100, 200))
-            .or_default()
-            .push(h3);
+        slice_handles.entry((10, 100, 200)).or_default().push(h3);
 
         // Simulate cleanup_stopped_handles logic
         wav_handles.retain(|_, handles| {
