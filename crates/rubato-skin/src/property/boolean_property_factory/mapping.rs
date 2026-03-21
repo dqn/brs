@@ -209,7 +209,6 @@ pub(super) fn get_boolean_property0(optionid: i32) -> Option<Box<dyn BooleanProp
         | OPTION_PLAYABLEBAR
         | OPTION_NOT_COMPARE_RIVAL
         | OPTION_COMPARE_RIVAL
-        | OPTION_SELECT_BAR_NOT_PLAYED
         | OPTION_DISABLE_SAVE_SCORE
         | OPTION_ENABLE_SAVE_SCORE
         | OPTION_NO_SAVE_CLEAR => Some(Box::new(DelegateBooleanProperty { id: optionid })),
