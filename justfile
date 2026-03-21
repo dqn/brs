@@ -7,7 +7,7 @@ check:
 
 # Run tests (exclude rubato-bin which requires ffmpeg system library)
 test:
-    cargo nextest run --workspace --exclude rubato-bin -E 'not (test(render_snapshot_parity) | test(skin_ecfn))'
+    cargo nextest run --workspace --exclude rubato-bin -E 'not (test(render_snapshot_parity) | test(ecfn))'
 
 # Run all tests including rubato-bin (requires ffmpeg system library)
 test-all:
