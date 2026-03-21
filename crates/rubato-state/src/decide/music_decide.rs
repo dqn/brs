@@ -222,6 +222,42 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideRenderContex
                 .map_or(0, |data| (data.playtime % 60) as i32),
             // Chart level
             96 => self.resource.songdata().map_or(i32::MIN, |s| s.chart.level),
+            // ---- Player profile stats (IDs 30-37, 333) ----
+            // Java: state.resource.getPlayerData().getPlaycount() etc.
+            // Available on all screens (global IntegerPropertyFactory).
+            30 => self
+                .resource
+                .player_data()
+                .map_or(0, |pd| pd.playcount as i32),
+            31 => self.resource.player_data().map_or(0, |pd| pd.clear as i32),
+            32 => self
+                .resource
+                .player_data()
+                .map_or(0, |pd| (pd.playcount - pd.clear) as i32),
+            33 => self
+                .resource
+                .player_data()
+                .map_or(0, |pd| pd.judge_count(0) as i32),
+            34 => self
+                .resource
+                .player_data()
+                .map_or(0, |pd| pd.judge_count(1) as i32),
+            35 => self
+                .resource
+                .player_data()
+                .map_or(0, |pd| pd.judge_count(2) as i32),
+            36 => self
+                .resource
+                .player_data()
+                .map_or(0, |pd| pd.judge_count(3) as i32),
+            37 => self
+                .resource
+                .player_data()
+                .map_or(0, |pd| pd.judge_count(4) as i32),
+            333 => self.resource.player_data().map_or(0, |pd| {
+                let total: i64 = (0..=3).map(|judge| pd.judge_count(judge)).sum();
+                total.min(i32::MAX as i64) as i32
+            }),
             // IDs 20-29 (FPS, system date/time, boot time) handled by default_integer_value
             _ => self.default_integer_value(id),
         }
@@ -423,6 +459,42 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideMouseContext
                 .map_or(0, |data| (data.playtime % 60) as i32),
             // Chart level
             96 => self.resource.songdata().map_or(i32::MIN, |s| s.chart.level),
+            // ---- Player profile stats (IDs 30-37, 333) ----
+            // Java: state.resource.getPlayerData().getPlaycount() etc.
+            // Available on all screens (global IntegerPropertyFactory).
+            30 => self
+                .resource
+                .player_data()
+                .map_or(0, |pd| pd.playcount as i32),
+            31 => self.resource.player_data().map_or(0, |pd| pd.clear as i32),
+            32 => self
+                .resource
+                .player_data()
+                .map_or(0, |pd| (pd.playcount - pd.clear) as i32),
+            33 => self
+                .resource
+                .player_data()
+                .map_or(0, |pd| pd.judge_count(0) as i32),
+            34 => self
+                .resource
+                .player_data()
+                .map_or(0, |pd| pd.judge_count(1) as i32),
+            35 => self
+                .resource
+                .player_data()
+                .map_or(0, |pd| pd.judge_count(2) as i32),
+            36 => self
+                .resource
+                .player_data()
+                .map_or(0, |pd| pd.judge_count(3) as i32),
+            37 => self
+                .resource
+                .player_data()
+                .map_or(0, |pd| pd.judge_count(4) as i32),
+            333 => self.resource.player_data().map_or(0, |pd| {
+                let total: i64 = (0..=3).map(|judge| pd.judge_count(judge)).sum();
+                total.min(i32::MAX as i64) as i32
+            }),
             // IDs 20-29 (FPS, system date/time, boot time) handled by default_integer_value
             _ => self.default_integer_value(id),
         }
@@ -1193,6 +1265,7 @@ mod tests {
         player_config: rubato_types::player_config::PlayerConfig,
         score: Option<rubato_core::score_data::ScoreData>,
         replay_data: Option<rubato_types::replay_data::ReplayData>,
+        player_data: Option<rubato_types::player_data::PlayerData>,
     }
 
     impl SongLengthResource {
@@ -1205,6 +1278,7 @@ mod tests {
                 player_config: rubato_types::player_config::PlayerConfig::default(),
                 score: None,
                 replay_data: None,
+                player_data: None,
             }
         }
     }
@@ -1362,6 +1436,9 @@ mod tests {
         }
         fn reverse_lookup_levels(&self) -> Vec<String> {
             vec![]
+        }
+        fn player_data(&self) -> Option<&rubato_types::player_data::PlayerData> {
+            self.player_data.as_ref()
         }
     }
 
@@ -2462,5 +2539,113 @@ mod tests {
             .replay_option_data()
             .expect("must return Some when resource has replay data");
         assert_eq!(replay.doubleoption, 2);
+    }
+
+    // ============================================================
+    // Player profile stats (IDs 30-37, 333) tests
+    // ============================================================
+
+    fn make_player_data_resource() -> SongLengthResource {
+        let mut resource = SongLengthResource::with_length_ms(100_000);
+        let mut pd = rubato_types::player_data::PlayerData::new();
+        pd.playcount = 100;
+        pd.clear = 75;
+        // PG: epg=20, lpg=10 => judge_count(0)=30
+        pd.epg = 20;
+        pd.lpg = 10;
+        // GR: egr=15, lgr=5 => judge_count(1)=20
+        pd.egr = 15;
+        pd.lgr = 5;
+        // GD: egd=7, lgd=3 => judge_count(2)=10
+        pd.egd = 7;
+        pd.lgd = 3;
+        // BD: ebd=2, lbd=1 => judge_count(3)=3
+        pd.ebd = 2;
+        pd.lbd = 1;
+        // PR: epr=8, lpr=2 => judge_count(4)=10
+        pd.epr = 8;
+        pd.lpr = 2;
+        resource.player_data = Some(pd);
+        resource
+    }
+
+    #[test]
+    fn decide_render_context_player_profile_stats() {
+        let resource = make_player_data_resource();
+        let mut timer = TimerManager::new();
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
+        let ctx = DecideRenderContext {
+            timer: &mut timer,
+            resource: &resource,
+            main: &mut main,
+            score_data_property: &sdp,
+            offsets: &EMPTY_OFFSETS,
+        };
+        use rubato_types::skin_render_context::SkinRenderContext;
+        assert_eq!(ctx.integer_value(30), 100); // playcount
+        assert_eq!(ctx.integer_value(31), 75); // clear
+        assert_eq!(ctx.integer_value(32), 25); // playcount - clear
+        assert_eq!(ctx.integer_value(33), 30); // PG
+        assert_eq!(ctx.integer_value(34), 20); // GR
+        assert_eq!(ctx.integer_value(35), 10); // GD
+        assert_eq!(ctx.integer_value(36), 3); // BD
+        assert_eq!(ctx.integer_value(37), 10); // PR
+        // 333 = total of judges 0-3: 30+20+10+3 = 63
+        assert_eq!(ctx.integer_value(333), 63);
+    }
+
+    #[test]
+    fn decide_render_context_player_profile_stats_no_player_data() {
+        let resource = SongLengthResource::with_length_ms(100_000);
+        let mut timer = TimerManager::new();
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
+        let ctx = DecideRenderContext {
+            timer: &mut timer,
+            resource: &resource,
+            main: &mut main,
+            score_data_property: &sdp,
+            offsets: &EMPTY_OFFSETS,
+        };
+        use rubato_types::skin_render_context::SkinRenderContext;
+        for id in 30..=37 {
+            assert_eq!(
+                ctx.integer_value(id),
+                0,
+                "ID {id} should be 0 without player data"
+            );
+        }
+        assert_eq!(
+            ctx.integer_value(333),
+            0,
+            "ID 333 should be 0 without player data"
+        );
+    }
+
+    #[test]
+    fn decide_mouse_context_player_profile_stats() {
+        let mut resource = make_player_data_resource();
+        let mut timer = TimerManager::new();
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
+        let ctx = DecideMouseContext {
+            timer: &mut timer,
+            main: &mut main,
+            resource: &mut resource,
+            score_data_property: &sdp,
+            offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
+        };
+        use rubato_types::skin_render_context::SkinRenderContext;
+        assert_eq!(ctx.integer_value(30), 100); // playcount
+        assert_eq!(ctx.integer_value(31), 75); // clear
+        assert_eq!(ctx.integer_value(32), 25); // playcount - clear
+        assert_eq!(ctx.integer_value(33), 30); // PG
+        assert_eq!(ctx.integer_value(34), 20); // GR
+        assert_eq!(ctx.integer_value(35), 10); // GD
+        assert_eq!(ctx.integer_value(36), 3); // BD
+        assert_eq!(ctx.integer_value(37), 10); // PR
+        assert_eq!(ctx.integer_value(333), 63); // total judges 0-3
     }
 }

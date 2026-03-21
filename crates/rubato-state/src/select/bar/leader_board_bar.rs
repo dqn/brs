@@ -118,7 +118,7 @@ impl LeaderBoardBar {
 
         if !inserted {
             bars.push(self.create_function_bar(
-                id,
+                id + 1,
                 &LeaderboardEntry::new_entry_primary_ir(local_score.clone()),
                 true,
             ));
@@ -167,5 +167,156 @@ impl LeaderBoardBar {
     fn get_current_player_name(&self) -> String {
         // In Java: StringPropertyFactory.getStringProperty("player").get(state)
         "Player".to_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_ir_score(exscore_pgreats: i32) -> IRScoreData {
+        let mut sd = ScoreData::default();
+        // exscore = (epg + lpg) * 2 + egr + lgr
+        // Set epg so that exscore = exscore_pgreats * 2
+        sd.judge_counts.epg = exscore_pgreats;
+        IRScoreData::new(&sd)
+    }
+
+    fn make_ir_score_with_player(exscore_pgreats: i32, player: &str) -> IRScoreData {
+        let mut score = make_ir_score(exscore_pgreats);
+        score.player = player.to_string();
+        score
+    }
+
+    fn make_entry(exscore_pgreats: i32, player: &str) -> LeaderboardEntry {
+        LeaderboardEntry::new_entry_primary_ir(make_ir_score_with_player(exscore_pgreats, player))
+    }
+
+    fn make_bar() -> LeaderBoardBar {
+        LeaderBoardBar::new(SongData::new(), false)
+    }
+
+    /// Extract the rank number from a FunctionBar title like "3. Player"
+    fn extract_rank(bar: &FunctionBar) -> i32 {
+        bar.title()
+            .split('.')
+            .next()
+            .unwrap()
+            .trim()
+            .parse()
+            .unwrap()
+    }
+
+    #[test]
+    fn local_score_appended_after_all_entries_gets_correct_rank() {
+        // Leaderboard has one entry with exscore=600 (epg=300),
+        // local score has exscore=600 (epg=300, equal = not better).
+        // The insertion logic: local_score.exscore() (600) is NOT > leaderboard[0].exscore() (600),
+        // so the pre-loop branch is skipped.
+        // In the loop: entry[0].exscore() (600) > local_score.exscore() (600) is false,
+        // so the mid-loop insertion is skipped.
+        // After the loop: !inserted is true, local score appended at the end.
+        // Expected: leaderboard entry = rank 1, local score = rank 2.
+        let bar = make_bar();
+        let leaderboard = vec![make_entry(300, "RivalA")];
+        let local_score = make_ir_score(300);
+
+        let bars = bar.from_ir_score_data_with_local(&local_score, &leaderboard);
+        assert_eq!(bars.len(), 2);
+        assert_eq!(extract_rank(&bars[0]), 1); // RivalA
+        assert_eq!(extract_rank(&bars[1]), 2); // Local (was incorrectly 1 before fix)
+    }
+
+    #[test]
+    fn local_score_equal_to_last_entry_appended_after() {
+        // Leaderboard: [exscore=500, exscore=400], local: exscore=400 (equal to last).
+        // The last entry's exscore (400) is NOT strictly greater than local (400),
+        // so the mid-loop insertion condition fails and the !inserted path is taken.
+        // Expected: ranks 1, 2, 3.
+        let bar = make_bar();
+        let leaderboard = vec![make_entry(250, "A"), make_entry(200, "B")];
+        let local_score = make_ir_score(200); // exscore=400, equal to B
+
+        let bars = bar.from_ir_score_data_with_local(&local_score, &leaderboard);
+        assert_eq!(bars.len(), 3);
+        assert_eq!(extract_rank(&bars[0]), 1);
+        assert_eq!(extract_rank(&bars[1]), 2);
+        assert_eq!(extract_rank(&bars[2]), 3);
+    }
+
+    #[test]
+    fn local_score_strictly_worse_inserted_after_last() {
+        // Leaderboard: [exscore=600, exscore=400], local: exscore=200 (worse than all).
+        // For i=0: 600 > 200 yes, but next (400) > 200, so not inserted yet.
+        // For i=1 (last): 400 > 200 yes, and i==len-1, so inserted mid-loop.
+        // Expected: ranks 1, 2, 3.
+        let bar = make_bar();
+        let leaderboard = vec![make_entry(300, "A"), make_entry(200, "B")];
+        let local_score = make_ir_score(100); // exscore=200, strictly less than B's 400
+
+        let bars = bar.from_ir_score_data_with_local(&local_score, &leaderboard);
+        assert_eq!(bars.len(), 3);
+        assert_eq!(extract_rank(&bars[0]), 1);
+        assert_eq!(extract_rank(&bars[1]), 2);
+        assert_eq!(extract_rank(&bars[2]), 3);
+    }
+
+    #[test]
+    fn local_score_best_gets_rank_1() {
+        // Local score beats everyone.
+        let bar = make_bar();
+        let leaderboard = vec![make_entry(100, "A"), make_entry(50, "B")];
+        let local_score = make_ir_score(200); // exscore=400, beats all
+
+        let bars = bar.from_ir_score_data_with_local(&local_score, &leaderboard);
+        assert_eq!(bars.len(), 3);
+        assert_eq!(extract_rank(&bars[0]), 1); // Local
+        assert!(bars[0].title().contains("Player"));
+        assert_eq!(extract_rank(&bars[1]), 2); // A
+        assert_eq!(extract_rank(&bars[2]), 3); // B
+    }
+
+    #[test]
+    fn local_score_inserted_mid_leaderboard() {
+        // Leaderboard: [exscore=600, exscore=200], local: exscore=400
+        // Local should be inserted between the two entries.
+        let bar = make_bar();
+        let leaderboard = vec![make_entry(300, "Top"), make_entry(100, "Bottom")];
+        let local_score = make_ir_score(200); // exscore=400
+
+        let bars = bar.from_ir_score_data_with_local(&local_score, &leaderboard);
+        assert_eq!(bars.len(), 3);
+        assert_eq!(extract_rank(&bars[0]), 1); // Top
+        assert_eq!(extract_rank(&bars[1]), 2); // Local
+        assert!(bars[1].title().contains("Player"));
+        assert_eq!(extract_rank(&bars[2]), 3); // Bottom
+    }
+
+    #[test]
+    fn empty_leaderboard_local_score_gets_rank_1() {
+        let bar = make_bar();
+        let leaderboard: Vec<LeaderboardEntry> = vec![];
+        let local_score = make_ir_score(100);
+
+        let bars = bar.from_ir_score_data_with_local(&local_score, &leaderboard);
+        assert_eq!(bars.len(), 1);
+        assert_eq!(extract_rank(&bars[0]), 1);
+        assert!(bars[0].title().contains("Player"));
+    }
+
+    #[test]
+    fn from_ir_score_data_ranks_are_1_based() {
+        let bar = make_bar();
+        let leaderboard = vec![
+            make_entry(300, "A"),
+            make_entry(200, "B"),
+            make_entry(100, "C"),
+        ];
+
+        let bars = bar.from_ir_score_data(&leaderboard);
+        assert_eq!(bars.len(), 3);
+        assert_eq!(extract_rank(&bars[0]), 1);
+        assert_eq!(extract_rank(&bars[1]), 2);
+        assert_eq!(extract_rank(&bars[2]), 3);
     }
 }

@@ -82,10 +82,11 @@ impl UpdateBar {
         }
     }
 
-    fn add_message(&self, sha256: &str) {
+    fn add_message(&mut self, sha256: &str) {
         let selector = lock_or_recover(&self.selector);
         let escaped = Self::escape(sha256);
         let song_datas_result = selector.songdb.song_datas_by_hashes(&[escaped]);
+        drop(selector);
         if !song_datas_result.is_empty() {
             let data = &song_datas_result[0];
             if self
@@ -108,6 +109,7 @@ impl UpdateBar {
                 ));
                 return;
             }
+            self.song_datas.push(data.clone());
             ImGuiNotify::info(&format!(
                 "Added {} to stream request list",
                 data.metadata.full_title()
