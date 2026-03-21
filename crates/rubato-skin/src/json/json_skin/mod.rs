@@ -173,8 +173,9 @@ mod tests {
     fn destination_draw_from_lua_expression() {
         let json = r#"{"draw": "gauge() >= 75"}"#;
         let dst: Destination = serde_json::from_str(json).unwrap();
-        // Lua expressions are not yet evaluable, so they become None
-        assert_eq!(dst.draw, None);
+        // Lua expressions use sentinel -1 to distinguish from "no condition" (None).
+        // Actual Lua evaluation is deferred.
+        assert_eq!(dst.draw, Some(-1));
     }
 
     #[test]

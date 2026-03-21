@@ -735,11 +735,15 @@ impl JSONSkinLoader {
 
         // Extract path before mutable borrow
         let data_path = self.source_map.get(srcid).expect("key exists").path.clone();
-        let parent = p
-            .parent()
-            .map(|pp| pp.to_string_lossy().to_string())
-            .unwrap_or_default();
-        let image_path = format!("{}/{}", parent, data_path);
+        let image_path = if std::path::Path::new(&data_path).is_absolute() {
+            data_path.clone()
+        } else {
+            let parent = p
+                .parent()
+                .map(|pp| pp.to_string_lossy().to_string())
+                .unwrap_or_default();
+            format!("{}/{}", parent, data_path)
+        };
         let image_file = get_path_with_filemap(&image_path, &self.filemap);
 
         let mut result_data: Option<SourceDataType> = None;

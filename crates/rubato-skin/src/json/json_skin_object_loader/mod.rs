@@ -208,8 +208,13 @@ fn load_text_object(
                         });
                     }
                 }
-                // Not a font ID reference, treat as direct path
-                Some(font_str.clone())
+                // Not a font ID reference, treat as direct path resolved against skin dir
+                Some(
+                    skin_path
+                        .parent()
+                        .map(|parent| parent.join(font_str).to_string_lossy().to_string())
+                        .unwrap_or_else(|| font_str.clone()),
+                )
             });
             return Some(SkinObjectData {
                 name: text.id.clone(),

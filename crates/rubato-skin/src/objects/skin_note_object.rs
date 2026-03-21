@@ -163,12 +163,14 @@ impl SkinNoteObject {
                 DrawCommand::DrawTimeText { .. }
                 | DrawCommand::DrawBpmText { .. }
                 | DrawCommand::DrawStopText { .. } => {
-                    // Text rendering requires a wired BitmapFont; skipped until
-                    // the play-skin font pipeline is connected.
+                    log::debug!(
+                        "DrawCommand text rendering not yet implemented (requires BitmapFont pipeline)"
+                    );
                 }
                 DrawCommand::DrawJudgeArea { .. } => {
-                    // Judge area rendering requires a solid-color fill primitive;
-                    // skipped until SpriteBatch supports fill_rect.
+                    log::debug!(
+                        "DrawCommand judge area rendering not yet implemented (requires fill_rect)"
+                    );
                 }
             }
         }

@@ -165,8 +165,10 @@ where
             Ok(Some(v as i32))
         }
         fn visit_str<E: de::Error>(self, v: &str) -> Result<Option<i32>, E> {
-            // Try parsing as integer first; if it fails, it's a Lua expression -> None
-            Ok(v.parse::<i32>().ok())
+            // Try parsing as integer first; if it fails, it's a Lua expression.
+            // Use sentinel -1 to distinguish "has expression" from "no condition" (None).
+            // TODO: Store the actual Lua expression string for deferred evaluation.
+            Ok(Some(v.parse::<i32>().unwrap_or(-1)))
         }
     }
     deserializer.deserialize_any(OptionalI32OrStringVisitor)
