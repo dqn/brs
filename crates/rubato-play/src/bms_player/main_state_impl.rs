@@ -590,6 +590,7 @@ impl MainState for BMSPlayer {
                     self.main_state_data.timer.set_timer_off(TIMER_FAILED);
                     self.main_state_data.timer.set_timer_off(TIMER_FADEOUT);
                     self.main_state_data.timer.set_timer_off(TIMER_ENDOFNOTE_1P);
+                    self.main_state_data.timer.set_timer_off(TIMER_STARTINPUT);
 
                     for raw in TIMER_PM_CHARA_1P_NEUTRAL.as_i32()..=TIMER_PM_CHARA_DANCE.as_i32() {
                         self.main_state_data.timer.set_timer_off(TimerId::new(raw));
