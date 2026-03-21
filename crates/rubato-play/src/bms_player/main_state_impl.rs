@@ -143,7 +143,22 @@ impl MainState for BMSPlayer {
     }
 
     fn receive_reloaded_model(&mut self, model: bms_model::bms_model::BMSModel) {
-        self.model = model;
+        // Rebuild song_data from the new model so metadata, chart info, and
+        // lnmode_override stay in sync with the reloaded BMS file.
+        let contains_txt = self
+            .song_data
+            .as_ref()
+            .map(|sd| sd.chart.has_document())
+            .unwrap_or(false);
+        let sd = rubato_types::song_data::SongData::new_from_model(model, contains_txt);
+        self.song_metadata = sd.metadata.clone();
+        self.lnmode_override =
+            rubato_types::skin_render_context::compute_lnmode_from_chart(&sd.chart);
+        // Extract the model back out of SongData before storing both.
+        // BMSModel is not Clone, so use Option::take to move it out.
+        let mut sd = sd;
+        self.model = sd.model.take().expect("SongData always holds model after new_from_model");
+        self.song_data = Some(sd);
     }
 
     fn bms_model(&self) -> Option<&bms_model::bms_model::BMSModel> {

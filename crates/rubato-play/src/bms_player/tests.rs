@@ -811,6 +811,45 @@ fn total_notes_updates_after_practice_mode_model_reload() {
 }
 
 #[test]
+fn receive_reloaded_model_refreshes_song_data_and_metadata() {
+    // Start with a model that has specific metadata
+    let mut model = make_model();
+    model.title = "Original Title".to_string();
+    model.artist = "Original Artist".to_string();
+    model.genre = "Original Genre".to_string();
+    let mut player = BMSPlayer::new(model);
+
+    // Set initial song_data/metadata from the original model
+    let original_sd =
+        rubato_types::song_data::SongData::new_from_model(make_model(), false);
+    let mut orig_meta = rubato_types::song_data::SongMetadata::default();
+    orig_meta.title = "Original Title".to_string();
+    orig_meta.artist = "Original Artist".to_string();
+    orig_meta.genre = "Original Genre".to_string();
+    player.set_song_metadata(orig_meta);
+    player.set_song_data(original_sd);
+
+    assert_eq!(player.song_metadata().title, "Original Title");
+
+    // Simulate practice mode reload with an edited BMS file (new metadata)
+    let mut reloaded = make_model();
+    reloaded.title = "Edited Title".to_string();
+    reloaded.artist = "Edited Artist".to_string();
+    reloaded.genre = "Edited Genre".to_string();
+    <BMSPlayer as MainState>::receive_reloaded_model(&mut player, reloaded);
+
+    // song_metadata must reflect the reloaded model
+    assert_eq!(player.song_metadata().title, "Edited Title");
+    assert_eq!(player.song_metadata().artist, "Edited Artist");
+    assert_eq!(player.song_metadata().genre, "Edited Genre");
+
+    // song_data must also be updated
+    let sd = player.song_data().expect("song_data should be Some after reload");
+    assert_eq!(sd.metadata.title, "Edited Title");
+    assert_eq!(sd.metadata.artist, "Edited Artist");
+}
+
+#[test]
 fn get_now_quarter_note_time_zero_without_rhythm() {
     let model = make_model();
     let player = BMSPlayer::new(model);
