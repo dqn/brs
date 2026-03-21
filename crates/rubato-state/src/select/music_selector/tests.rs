@@ -1436,7 +1436,11 @@ fn test_read_chart_replay_index_uses_play_mode_not_self_play() {
         (BMSPlayerMode::PLAY, 0),
     ] {
         let idx = Some(&mode).map_or(0, |p| p.id);
-        assert_eq!(idx, expected_id, "mode {:?} should have id={}", mode, expected_id);
+        assert_eq!(
+            idx, expected_id,
+            "mode {:?} should have id={}",
+            mode, expected_id
+        );
     }
 }
 
