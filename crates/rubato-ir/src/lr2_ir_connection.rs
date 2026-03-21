@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{Mutex, MutexGuard, OnceLock};
 
 use log::error;
 use serde::Deserialize;
@@ -34,6 +34,22 @@ const MAX_RESPONSE_SIZE: u64 = 64 * 1024 * 1024;
 /// A typical game session queries fewer than 100 unique songs, so 256 provides
 /// ample headroom while preventing unbounded growth in long-running sessions.
 const RANKING_CACHE_MAX_ENTRIES: usize = 256;
+
+/// Shared HTTP client for LR2IR requests.
+///
+/// `reqwest::blocking::Client` maintains an internal connection pool, so reusing
+/// a single instance avoids the overhead of TLS/TCP setup on every call.
+/// Per-request timeouts are set at the call site via `RequestBuilder::timeout()`.
+static HTTP_CLIENT: OnceLock<reqwest::blocking::Client> = OnceLock::new();
+
+/// Get or initialize the shared blocking HTTP client.
+fn http_client() -> &'static reqwest::blocking::Client {
+    HTTP_CLIENT.get_or_init(|| {
+        reqwest::blocking::Client::builder()
+            .build()
+            .unwrap_or_else(|_| reqwest::blocking::Client::new())
+    })
+}
 
 lazy_static::lazy_static! {
     static ref LR2_IR_RANKING_CACHE: Mutex<HashMap<String, Vec<LeaderboardEntry>>> = Mutex::new(HashMap::new());
@@ -80,18 +96,10 @@ impl LR2IRConnection {
     /// main/render thread.
     fn make_post_request(uri: &str, data: &str) -> Option<String> {
         let url = format!("{}{}", IR_URL, uri);
-        let client = match reqwest::blocking::Client::builder()
-            .timeout(std::time::Duration::from_secs(10))
-            .build()
-        {
-            Ok(c) => c,
-            Err(e) => {
-                log::error!("Failed to build HTTP client: {}", e);
-                return None;
-            }
-        };
+        let client = http_client();
         match client
             .post(&url)
+            .timeout(std::time::Duration::from_secs(10))
             .header("Content-Type", "application/x-www-form-urlencoded")
             .header("Connection", "close")
             .body(data.to_string())
@@ -237,18 +245,12 @@ impl LR2IRConnection {
             score_id // i64, no encoding needed
         );
         let url = format!("{}{}", IR_URL, api);
-        let client = reqwest::blocking::Client::builder()
+        let client = http_client();
+        match client
+            .get(&url)
             .timeout(std::time::Duration::from_secs(5))
-            .build();
-        let client = match client {
-            Ok(c) => c,
-            Err(e) => {
-                error!("{}", e);
-                ImGuiNotify::error("Failed to load ghost data.");
-                return None;
-            }
-        };
-        match client.get(&url).send() {
+            .send()
+        {
             Ok(response) => {
                 let status = response.status();
                 if status != reqwest::StatusCode::OK {
