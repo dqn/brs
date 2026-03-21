@@ -471,6 +471,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     fn repo_root() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("..")
@@ -532,8 +533,27 @@ mod tests {
 
     #[test]
     fn test_json_play_skin_judge_wires_nested_images_and_numbers() {
+        // Create a temp directory with a dummy image so texture resolution succeeds
+        // without requiring the ECFN skin directory to be present.
+        let tmp = std::env::temp_dir().join("rubato_test_judge_wiring");
+        let judge_dir = tmp.join("judge");
+        std::fs::create_dir_all(&judge_dir).expect("create temp judge dir");
+        // Minimal valid PNG (1x1 transparent pixel)
+        let minimal_png: &[u8] = &[
+            0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
+            0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, // IHDR chunk
+            0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, // 1x1
+            0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, 0x89, // RGBA, 8-bit
+            0x00, 0x00, 0x00, 0x0A, 0x49, 0x44, 0x41, 0x54, // IDAT chunk
+            0x78, 0x9C, 0x62, 0x00, 0x00, 0x00, 0x02, 0x00, 0x01, 0xE5, // compressed data
+            0x27, 0xDE, 0xFC, // CRC
+            0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, // IEND chunk
+            0xAE, 0x42, 0x60, 0x82, // CRC
+        ];
+        std::fs::write(judge_dir.join("default.png"), minimal_png).expect("write dummy PNG");
+        let skin_path = tmp.join("test-judge.json");
+
         let mut loader = JSONSkinLoader::new();
-        let skin_path = repo_root().join("skin/ECFN/play/test-judge.json");
         let header = SkinHeaderData {
             skin_type: SkinType::Play7Keys.id(),
             name: "Judge wiring".to_string(),
@@ -584,5 +604,8 @@ mod tests {
             judge.judge_images()[0].is_some(),
             "nested judge image should be wired into SkinJudgeObject"
         );
+
+        // Cleanup
+        let _ = std::fs::remove_dir_all(&tmp);
     }
 }

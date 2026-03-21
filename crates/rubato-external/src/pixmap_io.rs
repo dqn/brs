@@ -60,7 +60,7 @@ impl GdxGraphics {
 
     /// Returns both back buffer dimensions atomically.
     pub fn back_buffer_size() -> (i32, i32) {
-        Self::unpack_size(BACK_BUFFER_SIZE.load(std::sync::atomic::Ordering::Relaxed))
+        Self::unpack_size(BACK_BUFFER_SIZE.load(std::sync::atomic::Ordering::Acquire))
     }
 
     pub fn back_buffer_width() -> i32 {
@@ -75,7 +75,7 @@ impl GdxGraphics {
     pub fn set_back_buffer_size(width: i32, height: i32) {
         BACK_BUFFER_SIZE.store(
             Self::pack_size(width, height),
-            std::sync::atomic::Ordering::Relaxed,
+            std::sync::atomic::Ordering::Release,
         );
     }
 }

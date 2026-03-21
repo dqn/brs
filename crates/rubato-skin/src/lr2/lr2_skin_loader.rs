@@ -282,7 +282,7 @@ pub fn is_path_within(base_dir: &std::path::Path, resource_path: &std::path::Pat
     // normalize manually by resolving ".." against the base.
     let canonical_base = match base_dir.canonicalize() {
         Ok(p) => p,
-        Err(_) => return true, // If base doesn't exist, skip the check (dev/test scenario)
+        Err(_) => return false, // If base cannot be resolved, deny to prevent traversal bypass
     };
 
     // If the file exists, canonicalize it directly

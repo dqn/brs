@@ -1,6 +1,11 @@
 use super::skin_context::PlayRenderContext;
 use super::*;
 
+/// Maximum time difference (in microseconds) allowed when falling back to
+/// neighbor timelines after an inexact binary search. Beyond this threshold
+/// the neighbor is considered unrelated and we return `None`.
+const TIMELINE_LOOKUP_TOLERANCE_US: i64 = 1000;
+
 /// Convert a JudgeNote array index to a timeline Vec index.
 ///
 /// The judge manager stores JudgeNote indices for `processing` and `passing`,
@@ -21,13 +26,26 @@ fn judge_note_idx_to_timeline_idx(
         Err(idx) => {
             // Exact time not found (can happen if JudgeNote time_us and TimeLine
             // micro_time diverge by f64->i64 rounding). Check nearest neighbors
-            // for a lane match as a fallback.
-            if idx < timelines.len() && timelines[idx].note(jn.lane as i32).is_some() {
+            // for a lane match as a fallback, but only if within tolerance.
+            if idx < timelines.len()
+                && (timelines[idx].micro_time() - jn.time_us).abs() <= TIMELINE_LOOKUP_TOLERANCE_US
+                && timelines[idx].note(jn.lane as i32).is_some()
+            {
                 return Some(idx);
             }
-            if idx > 0 && timelines[idx - 1].note(jn.lane as i32).is_some() {
+            if idx > 0
+                && (timelines[idx - 1].micro_time() - jn.time_us).abs()
+                    <= TIMELINE_LOOKUP_TOLERANCE_US
+                && timelines[idx - 1].note(jn.lane as i32).is_some()
+            {
                 return Some(idx - 1);
             }
+            log::warn!(
+                "Timeline lookup failed: note_idx={note_idx} lane={} time_us={} \
+                 has no neighbor within {TIMELINE_LOOKUP_TOLERANCE_US}us tolerance",
+                jn.lane,
+                jn.time_us,
+            );
             return None;
         }
     };
@@ -44,6 +62,14 @@ fn judge_note_idx_to_timeline_idx(
         }
         i += 1;
     }
+    log::warn!(
+        "Timeline lookup failed: note_idx={note_idx} lane={} time_us={} \
+         found matching time but no lane match in timelines[{}..{}]",
+        jn.lane,
+        jn.time_us,
+        first,
+        i,
+    );
     None
 }
 

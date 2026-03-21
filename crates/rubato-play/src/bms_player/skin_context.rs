@@ -245,18 +245,18 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayRenderContext<
             92 => self.main_bpm as i32,
             160 => self.now_bpm as i32,
             // Elapsed playtime from TIMER_PLAY (Java: timer.getNowTime(TIMER_PLAY))
-            161 => (self.timer.now_time_for_id(TIMER_PLAY) as i32) / 60000,
-            162 => ((self.timer.now_time_for_id(TIMER_PLAY) as i32) / 1000) % 60,
+            161 => (self.timer.now_time_for_id(TIMER_PLAY) / 60000) as i32,
+            162 => ((self.timer.now_time_for_id(TIMER_PLAY) / 1000) % 60) as i32,
             // Remaining playtime (Java: max(playtime - elapsed + 1000, 0))
             163 => {
-                let elapsed = self.timer.now_time_for_id(TIMER_PLAY) as i32;
-                let remaining = (self.playtime as i32 - elapsed + 1000).max(0);
-                remaining / 60000
+                let elapsed = self.timer.now_time_for_id(TIMER_PLAY);
+                let remaining = (self.playtime - elapsed + 1000).max(0);
+                (remaining / 60000) as i32
             }
             164 => {
-                let elapsed = self.timer.now_time_for_id(TIMER_PLAY) as i32;
-                let remaining = (self.playtime as i32 - elapsed + 1000).max(0);
-                (remaining / 1000) % 60
+                let elapsed = self.timer.now_time_for_id(TIMER_PLAY);
+                let remaining = (self.playtime - elapsed + 1000).max(0);
+                (remaining / 1000 % 60) as i32
             }
             // Scroll duration from LaneRenderer (Java: getCurrentDuration())
             312 => self.current_duration,
@@ -279,7 +279,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayRenderContext<
                     3 => self.max_bpm,
                     _ => 0.0,
                 };
-                if bpm == 0.0 {
+                if bpm == 0.0 || self.live_hispeed == 0.0 {
                     return 0;
                 }
                 (240000.0 / bpm / self.live_hispeed as f64
@@ -714,18 +714,18 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayMouseContext<'
                 .as_ref()
                 .map_or(0, |lr| lr.now_bpm() as i32),
             // Elapsed playtime from TIMER_PLAY
-            161 => (self.timer.now_time_for_id(TIMER_PLAY) as i32) / 60000,
-            162 => ((self.timer.now_time_for_id(TIMER_PLAY) as i32) / 1000) % 60,
+            161 => (self.timer.now_time_for_id(TIMER_PLAY) / 60000) as i32,
+            162 => ((self.timer.now_time_for_id(TIMER_PLAY) / 1000) % 60) as i32,
             // Remaining playtime
             163 => {
-                let elapsed = self.timer.now_time_for_id(TIMER_PLAY) as i32;
-                let remaining = (self.player.playtime as i32 - elapsed + 1000).max(0);
-                remaining / 60000
+                let elapsed = self.timer.now_time_for_id(TIMER_PLAY);
+                let remaining = (self.player.playtime - elapsed + 1000).max(0);
+                (remaining / 60000) as i32
             }
             164 => {
-                let elapsed = self.timer.now_time_for_id(TIMER_PLAY) as i32;
-                let remaining = (self.player.playtime as i32 - elapsed + 1000).max(0);
-                (remaining / 1000) % 60
+                let elapsed = self.timer.now_time_for_id(TIMER_PLAY);
+                let remaining = (self.player.playtime - elapsed + 1000).max(0);
+                (remaining / 1000 % 60) as i32
             }
             // Scroll duration from LaneRenderer (Java: getCurrentDuration())
             312 => self
@@ -757,10 +757,10 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayMouseContext<'
                     3 => lr.map_or(0.0, |lr| lr.max_bpm()),
                     _ => 0.0,
                 };
-                if bpm == 0.0 {
+                let hispeed = lr.map_or(1.0, |lr| lr.hispeed()) as f64;
+                if bpm == 0.0 || hispeed == 0.0 {
                     return 0;
                 }
-                let hispeed = lr.map_or(1.0, |lr| lr.hispeed()) as f64;
                 let lanecover = lr.map_or(0.0, |lr| lr.lanecover()) as f64;
                 (240000.0 / bpm / hispeed
                     * if cover { 1.0 - lanecover } else { 1.0 }

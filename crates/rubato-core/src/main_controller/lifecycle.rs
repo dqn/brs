@@ -290,17 +290,7 @@ impl MainController {
             // BMSPlayer builds pattern info (random options, seeds, gauge type, etc.)
             // and MainController appends the recorded key input log from BMSPlayerInputProcessor.
             if let Some(mut rd) = handoff.replay_data {
-                if let Some(ref input) = self.input {
-                    rd.keylog = input
-                        .key_input_log()
-                        .iter()
-                        .map(|k| rubato_types::KeyInputLog {
-                            time: k.time(),
-                            keycode: k.keycode(),
-                            pressed: k.is_pressed(),
-                        })
-                        .collect();
-                }
+                Self::append_keylog_to_replay(&self.input, &mut rd);
                 resource.set_replay_data(rd);
             }
 
@@ -344,7 +334,8 @@ impl MainController {
             if let Some(score) = pending_quick_retry_score {
                 resource.set_score_data(score);
             }
-            if let Some(replay) = pending_quick_retry_replay {
+            if let Some(mut replay) = pending_quick_retry_replay {
+                Self::append_keylog_to_replay(&self.input, &mut replay);
                 resource.set_replay_data(replay);
             }
         }
@@ -539,6 +530,13 @@ impl MainController {
         }
         self.integration.ir_resend_service = None;
 
+        // Dispose OBS client before audio driver so its Drop impl runs while
+        // other resources are still intact. ObsAccess has no explicit close()
+        // method; dropping it disconnects the WebSocket.
+        if let Some(obs) = self.integration.obs_client.take() {
+            drop(obs);
+        }
+
         // Join background threads (song update, table update) to ensure clean
         // shutdown and release of DB handles.
         for handle in self.background_threads.drain(..) {
@@ -638,5 +636,26 @@ impl MainController {
     /// The main event loop should poll this and initiate shutdown when true.
     pub fn is_exit_requested(&self) -> bool {
         self.exit_requested.load(Ordering::Acquire)
+    }
+
+    /// Append recorded key input log from BMSPlayerInputProcessor to replay data.
+    ///
+    /// Both the normal score handoff path and the quick retry path need this
+    /// so that saved replays contain actual key events instead of being empty.
+    fn append_keylog_to_replay(
+        input: &Option<BMSPlayerInputProcessor>,
+        replay: &mut rubato_types::replay_data::ReplayData,
+    ) {
+        if let Some(input) = input {
+            replay.keylog = input
+                .key_input_log()
+                .iter()
+                .map(|k| rubato_types::KeyInputLog {
+                    time: k.time(),
+                    keycode: k.keycode(),
+                    pressed: k.is_pressed(),
+                })
+                .collect();
+        }
     }
 }

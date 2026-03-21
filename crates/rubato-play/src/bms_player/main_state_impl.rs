@@ -52,6 +52,30 @@ pub(crate) fn pad_gaugelog_with_zeros(gaugelog: &mut [Vec<f32>], start_ms: i64, 
     }
 }
 
+/// Fill remaining gauge log entries with each gauge type's current value
+/// from the last sampled tick up to `playtime + 500` (in milliseconds).
+///
+/// Used for the Finished (cleared) path where the gauge is non-zero.
+/// Unlike `pad_gaugelog_with_zeros` (used for Failed), this preserves
+/// the player's final gauge value so the result screen graph does not
+/// end abruptly before the song end.
+pub(crate) fn pad_gaugelog_with_current_values(
+    gaugelog: &mut [Vec<f32>],
+    gauge: &rubato_types::groove_gauge::GrooveGauge,
+    last_sampled_ms: i64,
+    playtime: i64,
+) {
+    let mut l = last_sampled_ms;
+    let mut entries_added = 0_i64;
+    while l < playtime + 500 && entries_added < GAUGELOG_PAD_MAX_ENTRIES {
+        for (i, glog) in gaugelog.iter_mut().enumerate() {
+            glog.push(gauge.value_by_type(i as i32));
+        }
+        l += 500;
+        entries_added += 1;
+    }
+}
+
 impl MainState for BMSPlayer {
     fn state_type(&self) -> Option<MainStateType> {
         Some(MainStateType::Play)
@@ -1165,6 +1189,24 @@ impl MainState for BMSPlayer {
                 if self.main_state_data.timer.now_time_for_id(TIMER_FADEOUT) > skin_fadeout {
                     self.pending.pending_global_pitch = Some(1.0);
                     // resource.getBGAManager().stop();
+
+                    // Pad gaugelog with current gauge values up to song end.
+                    // Unlike Failed which pads with zeros, the Finished path
+                    // preserves the player's final gauge value so the result
+                    // screen gauge graph extends to the song end.
+                    if self.main_state_data.timer.is_timer_on(TIMER_PLAY)
+                        && let Some(ref gauge) = self.gauge
+                    {
+                        let last_sampled_ms =
+                            self.gaugelog.first().map_or(0, |g| g.len() as i64 * 500);
+                        pad_gaugelog_with_current_values(
+                            &mut self.gaugelog,
+                            gauge,
+                            last_sampled_ms,
+                            self.playtime,
+                        );
+                    }
+
                     // Ensure model notes have judge states before computing score data.
                     self.sync_judge_states_to_model();
                     let score = if self.play_mode.mode == rubato_core::bms_player_mode::Mode::Play

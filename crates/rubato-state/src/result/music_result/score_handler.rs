@@ -67,9 +67,15 @@ impl MusicResult {
                         && note.is_end();
                     if !is_end_ln {
                         let state = note.state();
+                        // play_time() returns milliseconds, matching Java's
+                        // Note.getPlayTime(). TimingDistribution bins are in ms
+                        // (range=150 covers -150ms..+150ms). This intentionally
+                        // differs from ScoreData.timing_stats which uses
+                        // micro_play_time() (microseconds) for finer-grained
+                        // summary statistics.
                         let play_time = note.play_time();
                         if state >= 1 {
-                            self.data.timing_distribution.add(play_time);
+                            self.data.timing_distribution.add(play_time as i32);
                         }
                     }
                 }
