@@ -96,6 +96,8 @@ pub struct GdxSoundDriver {
     loading_thread: Option<std::thread::JoinHandle<()>>,
     // Path sound cache for preloaded sounds (avoids blocking I/O on play_path)
     path_sound_cache: HashMap<String, StaticSoundData>,
+    // Deferred path loader for non-blocking cache-miss loads
+    deferred_path_loader: crate::deferred_path_loader::DeferredPathLoader,
 }
 
 impl GdxSoundDriver {
@@ -121,6 +123,7 @@ impl GdxSoundDriver {
             pending_load_tasks: None,
             loading_thread: None,
             path_sound_cache: HashMap::new(),
+            deferred_path_loader: crate::deferred_path_loader::DeferredPathLoader::new(),
         })
     }
 }
@@ -151,32 +154,11 @@ impl AudioDriver for GdxSoundDriver {
             return;
         }
 
-        // Cache miss: load from file and cache for future use
-        let candidates = crate::audio_driver::paths(path);
-        for candidate in &candidates {
-            match StaticSoundData::from_file(candidate) {
-                Ok(sound_data) => {
-                    self.path_sound_cache
-                        .insert(path.to_string(), sound_data.clone());
-                    let sound = configure_path_sound_for_play(&sound_data, volume, loop_play);
-                    match self.manager.play(sound) {
-                        Ok(handle) => {
-                            self.path_sounds.insert(path.to_string(), handle);
-                            return;
-                        }
-                        Err(e) => {
-                            log::warn!("Failed to play sound {}: {}", path, e);
-                        }
-                    }
-                    return;
-                }
-                Err(_) => continue,
-            }
-        }
-
-        if candidates.is_empty() {
-            log::debug!("No audio file found for path: {}", path);
-        }
+        // Cache miss: defer loading to background thread to avoid blocking
+        // the render thread. The sound will be played on the next poll_loading()
+        // cycle after the background load completes.
+        self.deferred_path_loader
+            .request_load(path, volume, loop_play);
     }
 
     fn set_volume_path(&mut self, path: &str, volume: f32) {
@@ -385,6 +367,24 @@ impl AudioDriver for GdxSoundDriver {
         // Sweep stopped handles across all wav_ids and slice keys each frame
         // to prevent unbounded growth for rarely-replayed sounds.
         self.cleanup_stopped_handles();
+
+        // Poll deferred path sound loads (non-blocking).
+        for (path, sound_data, plays) in self.deferred_path_loader.poll() {
+            self.path_sound_cache
+                .insert(path.clone(), sound_data.clone());
+            // Play the most recent pending request for this path
+            if let Some(&(volume, loop_play)) = plays.last() {
+                let sound = configure_path_sound_for_play(&sound_data, volume, loop_play);
+                match self.manager.play(sound) {
+                    Ok(handle) => {
+                        self.path_sounds.insert(path, handle);
+                    }
+                    Err(e) => {
+                        log::warn!("Failed to play deferred sound {}: {}", path, e);
+                    }
+                }
+            }
+        }
 
         let Some(rx) = &self.loading_receiver else {
             return true; // No loading in progress
