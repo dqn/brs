@@ -489,10 +489,12 @@ impl AudioDriver for PortAudioDriver {
     }
 
     fn dispose(&mut self) {
-        // Join the loading thread before disposing.
-        if let Some(handle) = self.loading_thread.take() {
-            let _ = handle.join();
-        }
+        // Drop the receiver first so the background thread's send() returns Err
+        // and the thread exits promptly, then drop the handle instead of joining
+        // to avoid blocking while par_iter() completes remaining file I/O.
+        self.loading_receiver = None;
+        self.pending_load_tasks = None;
+        drop(self.loading_thread.take());
         // Stop all active handles before clearing (mirrors set_model() pattern).
         // Without this, sounds continue playing after the driver is disposed.
         for (_, mut handle) in self.path_sounds.drain() {
@@ -521,8 +523,6 @@ impl AudioDriver for PortAudioDriver {
         self.file_cache.clear();
         self.additional_key_sounds = Default::default();
         self.additional_key_sound_handles = Default::default();
-        self.loading_receiver = None;
-        self.pending_load_tasks = None;
         self.path_sound_cache.clear();
     }
 }
