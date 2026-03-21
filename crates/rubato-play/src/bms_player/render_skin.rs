@@ -4,7 +4,7 @@ use super::*;
 /// Maximum time difference (in microseconds) allowed when falling back to
 /// neighbor timelines after an inexact binary search. Beyond this threshold
 /// the neighbor is considered unrelated and we return `None`.
-const TIMELINE_LOOKUP_TOLERANCE_US: i64 = 100;
+const TIMELINE_LOOKUP_TOLERANCE_US: i64 = 1000;
 
 /// Convert a JudgeNote array index to a timeline Vec index.
 ///
@@ -40,6 +40,12 @@ fn judge_note_idx_to_timeline_idx(
             {
                 return Some(idx - 1);
             }
+            log::warn!(
+                "Timeline lookup failed: note_idx={note_idx} lane={} time_us={} \
+                 has no neighbor within {TIMELINE_LOOKUP_TOLERANCE_US}us tolerance",
+                jn.lane,
+                jn.time_us,
+            );
             return None;
         }
     };
@@ -56,6 +62,14 @@ fn judge_note_idx_to_timeline_idx(
         }
         i += 1;
     }
+    log::warn!(
+        "Timeline lookup failed: note_idx={note_idx} lane={} time_us={} \
+         found matching time but no lane match in timelines[{}..{}]",
+        jn.lane,
+        jn.time_us,
+        first,
+        i,
+    );
     None
 }
 

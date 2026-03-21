@@ -189,7 +189,7 @@ impl LR2IRConnection {
                             Some(ranking) => {
                                 let entries = ranking.to_rubato_score_data(chart);
                                 let mut cache = lock_or_recover(&LR2_IR_RANKING_CACHE);
-                                // Evict oldest quarter of entries at capacity to avoid
+                                // Evict an arbitrary quarter of entries at capacity to avoid
                                 // thundering-herd re-fetches from a full clear.
                                 if cache.len() >= RANKING_CACHE_MAX_ENTRIES {
                                     let to_remove = cache.len() / 4;
