@@ -232,9 +232,16 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayRenderContext<
             350 => self.total_notes,
             // Cumulative playtime (hours/minutes/seconds from PlayerData, in seconds)
             // Java: PlayerData.getPlaytime() / 3600, / 60 % 60, % 60
-            17 => (self.cumulative_playtime_seconds / 3600) as i32,
-            18 => ((self.cumulative_playtime_seconds / 60) % 60) as i32,
-            19 => (self.cumulative_playtime_seconds % 60) as i32,
+            // Add elapsed play time so the display ticks up during gameplay.
+            17..=19 => {
+                let elapsed_secs = self.timer.now_time_for_id(TIMER_PLAY) / 1000;
+                let total = self.cumulative_playtime_seconds + elapsed_secs;
+                match id {
+                    17 => (total / 3600) as i32,
+                    18 => ((total / 60) % 60) as i32,
+                    _ => (total % 60) as i32,
+                }
+            }
             // Volume (0-100 scale)
             57 => (self.system_volume * 100.0) as i32,
             58 => (self.key_volume * 100.0) as i32,
@@ -685,9 +692,16 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayMouseContext<'
             // Total notes
             350 => self.player.total_notes(),
             // Cumulative playtime (hours/minutes/seconds from PlayerData, in seconds)
-            17 => (self.player.cumulative_playtime_seconds / 3600) as i32,
-            18 => ((self.player.cumulative_playtime_seconds / 60) % 60) as i32,
-            19 => (self.player.cumulative_playtime_seconds % 60) as i32,
+            // Add elapsed play time so the display ticks up during gameplay.
+            17..=19 => {
+                let elapsed_secs = self.timer.now_time_for_id(TIMER_PLAY) / 1000;
+                let total = self.player.cumulative_playtime_seconds + elapsed_secs;
+                match id {
+                    17 => (total / 3600) as i32,
+                    18 => ((total / 60) % 60) as i32,
+                    _ => (total % 60) as i32,
+                }
+            }
             // Volume (0-100 scale)
             57 => (self.player.system_volume * 100.0) as i32,
             58 => (self.player.key_volume * 100.0) as i32,
@@ -1088,12 +1102,25 @@ mod tests {
 
     #[test]
     fn cumulative_playtime_ids_17_18_19() {
-        // 3661 seconds = 1 hour 1 minute 1 second
+        // 3661 seconds = 1 hour 1 minute 1 second (timer off -> elapsed = 0)
         let mut ctx = make_render_ctx(0);
         ctx.cumulative_playtime_seconds = 3661;
         assert_eq!(ctx.integer_value(17), 1, "ID 17: hours");
         assert_eq!(ctx.integer_value(18), 1, "ID 18: minutes");
         assert_eq!(ctx.integer_value(19), 1, "ID 19: seconds");
+    }
+
+    #[test]
+    fn cumulative_playtime_includes_elapsed_play_time() {
+        // cumulative = 3600s (1h 0m 0s), elapsed = 65s -> total = 3665s (1h 1m 5s)
+        let mut ctx = make_render_ctx(0);
+        ctx.cumulative_playtime_seconds = 3600;
+        ctx.timer.set_now_micro_time(100_000_000);
+        ctx.timer.set_micro_timer(TIMER_PLAY, 35_000_000);
+        // elapsed = (100_000_000 - 35_000_000) / 1000 = 65_000 ms = 65s
+        assert_eq!(ctx.integer_value(17), 1, "ID 17: hours with elapsed");
+        assert_eq!(ctx.integer_value(18), 1, "ID 18: minutes with elapsed");
+        assert_eq!(ctx.integer_value(19), 5, "ID 19: seconds with elapsed");
     }
 
     fn make_render_ctx_with_pattern(pattern: Option<Vec<Vec<i32>>>) -> PlayRenderContext<'static> {
