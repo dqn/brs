@@ -56,6 +56,9 @@ pub(super) struct PlayRenderContext<'a> {
     /// Current scroll duration from LaneRenderer (240000/bpm/hispeed * (1-lanecover)).
     /// Java: BMSPlayer.getLanerender().getCurrentDuration()
     pub(super) current_duration: i32,
+    /// Score data from the player's score database (best score for this chart).
+    /// Used by skin property ID 370 (clear type) and Lua `main_state.score_data`.
+    pub(super) score_data: Option<&'a rubato_types::score_data::ScoreData>,
     /// Pending actions outbox for side effects (audio play/stop) that cannot be
     /// executed directly during rendering.
     #[allow(dead_code)]
@@ -110,6 +113,10 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayRenderContext<
 
     fn target_score_data(&self) -> Option<&rubato_core::score_data::ScoreData> {
         self.target_score
+    }
+
+    fn score_data_ref(&self) -> Option<&rubato_types::score_data::ScoreData> {
+        self.score_data
     }
 
     fn current_play_config_ref(&self) -> Option<&rubato_types::play_config::PlayConfig> {
@@ -475,6 +482,10 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayMouseContext<'
 
     fn target_score_data(&self) -> Option<&rubato_core::score_data::ScoreData> {
         self.player.score.target_score.as_ref()
+    }
+
+    fn score_data_ref(&self) -> Option<&rubato_types::score_data::ScoreData> {
+        self.player.score.db_score.as_ref()
     }
 
     fn current_play_config_ref(&self) -> Option<&rubato_types::play_config::PlayConfig> {
@@ -918,6 +929,7 @@ mod tests {
             option_info,
             play_config,
             target_score: None,
+            score_data: None,
             playtime,
             total_notes: 0,
             play_mode: BMSPlayerMode::new(rubato_core::bms_player_mode::Mode::Play),
@@ -977,6 +989,7 @@ mod tests {
             option_info,
             play_config,
             target_score: None,
+            score_data: None,
             playtime: 0,
             total_notes: 0,
             play_mode: BMSPlayerMode::new(rubato_core::bms_player_mode::Mode::Play),
@@ -1144,6 +1157,7 @@ mod tests {
             option_info,
             play_config,
             target_score: None,
+            score_data: None,
             playtime: 0,
             total_notes: 0,
             play_mode: BMSPlayerMode::new(rubato_core::bms_player_mode::Mode::Play),
@@ -1247,6 +1261,7 @@ mod tests {
             option_info,
             play_config,
             target_score: None,
+            score_data: None,
             playtime: 0,
             total_notes: 0,
             play_mode: BMSPlayerMode::new(rubato_core::bms_player_mode::Mode::Play),
@@ -1327,6 +1342,7 @@ mod tests {
             option_info,
             play_config,
             target_score: None,
+            score_data: None,
             playtime: 0,
             total_notes: 0,
             play_mode: BMSPlayerMode::new(rubato_core::bms_player_mode::Mode::Play),
@@ -1384,6 +1400,7 @@ mod tests {
             option_info,
             play_config,
             target_score: None,
+            score_data: None,
             playtime: 0,
             total_notes: 0,
             play_mode: BMSPlayerMode::new(rubato_core::bms_player_mode::Mode::Play),
@@ -1505,6 +1522,7 @@ mod tests {
             option_info,
             play_config,
             target_score: None,
+            score_data: None,
             playtime: 0,
             total_notes: 0,
             play_mode: BMSPlayerMode::new(rubato_core::bms_player_mode::Mode::Play),

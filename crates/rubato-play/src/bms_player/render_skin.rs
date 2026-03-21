@@ -203,6 +203,7 @@ impl BMSPlayer {
                     )
                     .playconfig,
                 target_score: self.score.target_score.as_ref(),
+                score_data: self.score.db_score.as_ref(),
                 playtime: self.playtime,
                 total_notes: self.total_notes(),
                 play_mode: self.play_mode,

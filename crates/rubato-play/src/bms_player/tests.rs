@@ -4065,6 +4065,7 @@ fn make_play_render_context_with_bpm_volume<'a>(
         option_info,
         play_config,
         target_score: None,
+        score_data: None,
         playtime: 60000,
         total_notes: 500,
         play_mode: BMSPlayerMode::PLAY,
