@@ -272,7 +272,6 @@ impl DifficultyTableParser {
         self.decode_json_table_header_from_url(dt, jsonheader_url)?;
         let urls = dt.table.data_url.clone();
         if save_elements {
-            dt.table.remove_all_elements();
             let mut elements: Vec<DifficultyTableElement> = Vec::new();
             let mut levels: Vec<String> = Vec::new();
             for url in &urls {
@@ -320,6 +319,9 @@ impl DifficultyTableParser {
                     }
                 }
             }
+            // Only clear existing data after all fetches succeed, preventing
+            // data loss on transient network failures.
+            dt.table.remove_all_elements();
             if dt.level_description().is_empty() {
                 dt.set_level_description(&levels);
             }
