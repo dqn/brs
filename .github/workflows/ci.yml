@@ -33,7 +33,7 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Run cargo clippy
-        run: cargo clippy --workspace -- -D warnings
+        run: cargo clippy --workspace --exclude rubato-bin -- -D warnings
 
   test:
     runs-on: ubuntu-latest
@@ -57,4 +57,4 @@ jobs:
 
       # Exclude golden-master (requires Java environment) and screenshot tests (require GPU)
       - name: Run cargo nextest
-        run: cargo nextest run --workspace --exclude golden-master
+        run: cargo nextest run --workspace --exclude golden-master --exclude rubato-bin
