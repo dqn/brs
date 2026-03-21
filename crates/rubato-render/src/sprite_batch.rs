@@ -431,7 +431,9 @@ impl SpriteBatch {
 
         let color = self.current_color;
         let (u1, v1, u2, v2) = (region.u, region.v, region.u2, region.v2);
-        let uvs = [(u1, v1), (u2, v1), (u2, v2), (u1, v2)];
+        // Y-up projection: swap v1/v2 so that the texture top maps to the
+        // visual top of the rotated quad, matching push_quad's V flip.
+        let uvs = [(u1, v2), (u2, v2), (u2, v1), (u1, v1)];
 
         // Two triangles: 0-1-2, 0-2-3
         let vertex_count_before = self.vertices.len();

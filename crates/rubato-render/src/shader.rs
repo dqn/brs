@@ -65,12 +65,12 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     return in.color * tex_color;
 }
 
-// FFmpeg shader: swizzle BGR -> RGB
-// Java: gl_FragColor = v_color * vec4(c4.b, c4.g, c4.r, c4.a)
+// FFmpeg shader: pass through RGBA unchanged.
+// FFmpegProcessor already converts frames to RGBA, so no swizzle is needed.
 @fragment
 fn fs_ffmpeg(in: VertexOutput) -> @location(0) vec4<f32> {
     let c4 = textureSample(t_diffuse, s_diffuse, in.tex_coord);
-    return in.color * vec4<f32>(c4.b, c4.g, c4.r, c4.a);
+    return in.color * c4;
 }
 
 // Layer shader: black pixels become transparent

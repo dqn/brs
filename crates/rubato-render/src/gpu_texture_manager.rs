@@ -143,7 +143,10 @@ impl GpuTextureManager {
         ctx: &TextureUploadContext<'_>,
     ) {
         self.used_this_frame.insert(Arc::clone(key));
-        if self.entries.contains_key(key) {
+        // Pixmap-backed textures (keyed by Arc pointer address) may have their
+        // underlying data mutated between frames. Always re-upload them.
+        let is_pixmap = key.starts_with("__pixmap_");
+        if self.entries.contains_key(key) && !is_pixmap {
             return;
         }
 
