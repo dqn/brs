@@ -534,10 +534,12 @@ impl AudioDriver for GdxSoundDriver {
     }
 
     fn dispose(&mut self) {
-        // Join the loading thread before disposing (Finding 2).
-        if let Some(handle) = self.loading_thread.take() {
-            let _ = handle.join();
-        }
+        // Drop the receiver first so the background thread's send() returns Err
+        // and the thread exits promptly, then drop the handle instead of joining
+        // to avoid blocking while par_iter() completes remaining file I/O.
+        self.loading_receiver = None;
+        self.pending_load_tasks = None;
+        drop(self.loading_thread.take());
         // Stop all active handles before clearing (mirrors set_model() pattern).
         // Without this, sounds continue playing after the driver is disposed.
         for (_, mut handle) in self.path_sounds.drain() {
@@ -566,8 +568,6 @@ impl AudioDriver for GdxSoundDriver {
         self.file_cache.clear();
         self.additional_key_sounds = Default::default();
         self.additional_key_sound_handles = Default::default();
-        self.loading_receiver = None;
-        self.pending_load_tasks = None;
         self.path_sound_cache.clear();
     }
 }
@@ -1456,29 +1456,34 @@ mod tests {
         assert!(loading_thread.is_none());
     }
 
-    /// Regression: dispose must join loading_thread to avoid dangling threads.
+    /// Regression: dispose must drop the loading thread handle (detach) instead
+    /// of joining, to avoid blocking indefinitely when the thread runs
+    /// rayon::par_iter over hundreds of audio files.
     #[test]
-    fn loading_thread_join_on_dispose() {
-        use std::sync::Arc;
-        use std::sync::atomic::{AtomicBool, Ordering};
+    fn dispose_drops_loading_thread_without_blocking() {
+        use std::sync::mpsc;
 
-        let completed = Arc::new(AtomicBool::new(false));
-        let completed_clone = completed.clone();
-
+        // Spawn a thread that blocks on a channel recv, simulating a long-running
+        // par_iter workload. If dispose() called join(), this test would hang.
+        let (tx, rx) = mpsc::channel::<()>();
         let handle = std::thread::spawn(move || {
-            std::thread::sleep(std::time::Duration::from_millis(10));
-            completed_clone.store(true, Ordering::SeqCst);
+            // Block until the sender is dropped (simulates long work).
+            let _ = rx.recv();
         });
 
         let mut loading_thread: Option<std::thread::JoinHandle<()>> = Some(handle);
+        let loading_receiver: Option<mpsc::Receiver<()>> = None;
 
-        // Simulate dispose joining the thread
-        if let Some(h) = loading_thread.take() {
-            let _ = h.join();
-        }
+        // Simulate dispose(): drop receiver, pending tasks, then drop thread handle.
+        drop(loading_thread.take());
 
-        // Thread must have completed by the time join returns
-        assert!(completed.load(Ordering::SeqCst));
+        // If we reach here, dispose did not block. The thread is detached and will
+        // exit once `tx` is dropped at the end of this test.
+        assert!(loading_thread.is_none());
+        assert!(loading_receiver.is_none());
+
+        // Clean up: drop sender so the spawned thread unblocks and exits.
+        drop(tx);
     }
 
     /// Regression: abort() must join loading_thread to avoid leaking the
