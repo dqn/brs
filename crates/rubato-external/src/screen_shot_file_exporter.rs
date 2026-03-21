@@ -183,7 +183,8 @@ impl ScreenShotFileExporter {
             }
         });
 
-        // Store the handle; join any previous thread before spawning a new one.
+        // Store the handle; join any previous thread if it already finished,
+        // otherwise detach it (drop the handle) to avoid blocking the render thread.
         if let Ok(mut guard) = self.webhook_thread.lock() {
             if let Some(prev) = guard.take() {
                 if prev.is_finished() {
@@ -191,34 +192,9 @@ impl ScreenShotFileExporter {
                         log::warn!("Previous webhook thread panicked: {:?}", e);
                     }
                 } else {
-                    // Previous thread still running -- give it a short grace period
-                    // to finish before we let the new thread proceed.
-                    let prev_for_join = prev;
-                    drop(guard);
-                    // Wait up to 5 seconds; webhook HTTP sends should complete within this.
-                    let start = std::time::Instant::now();
-                    let timeout = std::time::Duration::from_secs(5);
-                    loop {
-                        if prev_for_join.is_finished() {
-                            if let Err(e) = prev_for_join.join() {
-                                log::warn!("Previous webhook thread panicked: {:?}", e);
-                            }
-                            break;
-                        }
-                        if start.elapsed() >= timeout {
-                            log::warn!(
-                                "Previous webhook thread did not finish within {:?}, detaching",
-                                timeout
-                            );
-                            break;
-                        }
-                        std::thread::sleep(std::time::Duration::from_millis(50));
-                    }
-                    // Re-acquire the lock after the blocking wait.
-                    guard = match self.webhook_thread.lock() {
-                        Ok(g) => g,
-                        Err(_) => return,
-                    };
+                    log::debug!("Previous webhook thread still running, detaching");
+                    // Dropping the JoinHandle detaches the thread; it will
+                    // continue running in the background until completion.
                 }
             }
             *guard = Some(handle);
