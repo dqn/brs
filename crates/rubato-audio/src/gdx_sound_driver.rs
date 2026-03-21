@@ -317,7 +317,7 @@ impl AudioDriver for GdxSoundDriver {
             let (tx, rx) = mpsc::channel();
             let paths_vec: Vec<String> = paths_to_load.into_iter().collect();
 
-            let handle = std::thread::Builder::new()
+            match std::thread::Builder::new()
                 .name("keysound-loader".to_string())
                 .spawn(move || {
                     let newly_loaded: Vec<(String, StaticSoundData)> = paths_vec
@@ -335,12 +335,17 @@ impl AudioDriver for GdxSoundDriver {
                         .collect();
 
                     let _ = tx.send(BackgroundLoadResult { newly_loaded });
-                })
-                .expect("failed to spawn keysound-loader thread");
-
-            self.loading_receiver = Some(rx);
-            self.pending_load_tasks = Some(load_tasks);
-            self.loading_thread = Some(handle);
+                }) {
+                Ok(handle) => {
+                    self.loading_receiver = Some(rx);
+                    self.pending_load_tasks = Some(load_tasks);
+                    self.loading_thread = Some(handle);
+                }
+                Err(e) => {
+                    log::warn!("Failed to spawn keysound-loader thread: {}", e);
+                    self.finalize_load(&load_tasks);
+                }
+            }
         }
     }
 

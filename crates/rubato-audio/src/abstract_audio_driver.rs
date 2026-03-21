@@ -131,11 +131,11 @@ impl<T> AbstractAudioDriverState<T> {
         if self.note_map_size == 0 {
             return 0.0;
         }
-        self.progress.load(Ordering::Relaxed) as f32 / self.note_map_size as f32
+        self.progress.load(Ordering::Acquire) as f32 / self.note_map_size as f32
     }
 
     pub fn abort(&self) {
-        self.progress.store(self.note_map_size, Ordering::Relaxed);
+        self.progress.store(self.note_map_size, Ordering::Release);
     }
 
     fn _channel(id: i32, pitch: i32) -> i32 {
