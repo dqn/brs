@@ -2440,7 +2440,8 @@ fn autoplay_ln_judges_start_and_end_as_pgreat() {
     // For LnType::LongNote, total_notes=1 (end note not independently counted).
     // The LN start should be judged PGREAT.
     assert_eq!(
-        jm.score().notes, 1,
+        jm.score().notes,
+        1,
         "LN mode: total notes should be 1 (only start counted)"
     );
     assert_eq!(jm.past_notes(), 1, "LN start should be judged");
@@ -2503,7 +2504,8 @@ fn autoplay_hcn_judges_start_and_end_as_pgreat() {
 
     // For HCN mode, total_notes=2 (both start and end counted).
     assert_eq!(
-        jm.score().notes, 2,
+        jm.score().notes,
+        2,
         "HCN mode: total notes should be 2 (start + end)"
     );
     assert_eq!(jm.past_notes(), 2, "both start and end should be judged");
@@ -2586,7 +2588,13 @@ fn hcn_release_mid_hold_decreases_gauge() {
     keys_pressed[0] = true;
     let mut key_times_pressed = vec![i64::MIN; key_count];
     key_times_pressed[0] = press_time;
-    jm.update(press_time, &notes, &keys_pressed, &key_times_pressed, &mut gauge);
+    jm.update(
+        press_time,
+        &notes,
+        &keys_pressed,
+        &key_times_pressed,
+        &mut gauge,
+    );
 
     // Hold the key for a bit (1s -> 1.5s), advancing time with key held
     time = press_time + 10_000;
@@ -2687,16 +2695,14 @@ fn ln_miss_both_start_and_end() {
     // For HCN mode, the miss path (lines 782-809) judges start as miss and also
     // its paired end note.
     assert_eq!(
-        jm.past_notes(), 2,
+        jm.past_notes(),
+        2,
         "both LN start and end should be judged as miss"
     );
     // Miss-POOR is judge=4, so state=judge+1=5
     // Check ghost entries are PR (judge=4)
     for (i, &g) in jm.ghost().iter().enumerate() {
-        assert_eq!(
-            g, JUDGE_PR,
-            "ghost[{i}] should be POOR (miss), got {g}"
-        );
+        assert_eq!(g, JUDGE_PR, "ghost[{i}] should be POOR (miss), got {g}");
     }
     assert_eq!(jm.max_combo(), 0, "no combo on misses");
 }
