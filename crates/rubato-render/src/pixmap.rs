@@ -70,6 +70,12 @@ impl Pixmap {
 
     /// Create a Pixmap from raw RGBA8888 data.
     pub fn from_rgba_data(width: i32, height: i32, data: Vec<u8>) -> Self {
+        debug_assert!(
+            data.len() >= (width.max(0) as usize) * (height.max(0) as usize) * 4,
+            "Pixmap data size mismatch: expected at least {} bytes, got {}",
+            (width.max(0) as usize) * (height.max(0) as usize) * 4,
+            data.len()
+        );
         Self {
             width,
             height,
