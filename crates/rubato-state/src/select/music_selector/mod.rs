@@ -271,6 +271,18 @@ impl rubato_types::skin_render_context::SkinRenderContext for SelectSkinContext<
         self.timer.set_micro_timer(timer_id, micro_time);
     }
 
+    fn audio_play(&mut self, path: &str, volume: f32, is_loop: bool) {
+        if let Some(ref mut main) = self.selector.main {
+            main.play_audio_path(path, volume, is_loop);
+        }
+    }
+
+    fn audio_stop(&mut self, path: &str) {
+        if let Some(ref mut main) = self.selector.main {
+            main.stop_audio_path(path);
+        }
+    }
+
     fn execute_event(&mut self, id: i32, arg1: i32, arg2: i32) {
         if let Some(event) = delegated_event_type_from_id(id) {
             self.selector.execute_event_with_args(event, arg1, arg2);

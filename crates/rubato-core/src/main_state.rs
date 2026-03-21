@@ -280,6 +280,22 @@ pub trait MainState {
         None
     }
 
+    /// Drain pending audio path play requests queued by skin scripts during rendering.
+    ///
+    /// Each entry is (path, volume, is_loop). BMSPlayer overrides this to drain
+    /// from PendingActions. MainController consumes via audio.play_path().
+    fn drain_pending_audio_path_plays(&mut self) -> Vec<(String, f32, bool)> {
+        Vec::new()
+    }
+
+    /// Drain pending audio path stop requests queued by skin scripts during rendering.
+    ///
+    /// Each entry is a path string. BMSPlayer overrides this to drain
+    /// from PendingActions. MainController consumes via audio.stop_path().
+    fn drain_pending_audio_path_stops(&mut self) -> Vec<String> {
+        Vec::new()
+    }
+
     // --- Inbox pattern methods ---
     // MainController pushes data back into the current state after processing outbox items.
 

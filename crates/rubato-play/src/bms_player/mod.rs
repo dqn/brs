@@ -221,6 +221,16 @@ pub struct PendingActions {
     /// notify_audio_config_changed() are called. Drained by MainController each frame
     /// via take_pending_audio_config().
     pub pending_audio_config: Option<rubato_types::audio_config::AudioConfig>,
+    /// Pending audio path play requests from skin scripts (audio_play).
+    ///
+    /// Each entry is (path, volume, is_loop). Drained by MainController each frame
+    /// via drain_pending_audio_path_plays().
+    pub pending_audio_path_plays: Vec<(String, f32, bool)>,
+    /// Pending audio path stop requests from skin scripts (audio_stop).
+    ///
+    /// Each entry is a path string. Drained by MainController each frame
+    /// via drain_pending_audio_path_stops().
+    pub pending_audio_path_stops: Vec<String>,
 }
 
 impl PendingActions {
@@ -239,6 +249,8 @@ impl PendingActions {
             pending_quick_retry_score: None,
             pending_quick_retry_replay: None,
             pending_audio_config: None,
+            pending_audio_path_plays: Vec::new(),
+            pending_audio_path_stops: Vec::new(),
         }
     }
 }

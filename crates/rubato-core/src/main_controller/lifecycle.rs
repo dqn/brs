@@ -207,6 +207,8 @@ impl MainController {
         let mut pending_quick_retry_score: Option<rubato_types::score_data::ScoreData> = None;
         let mut pending_quick_retry_replay: Option<rubato_types::replay_data::ReplayData> = None;
         let mut pending_audio_config: Option<rubato_types::audio_config::AudioConfig> = None;
+        let mut pending_audio_path_plays: Vec<(String, f32, bool)> = Vec::new();
+        let mut pending_audio_path_stops: Vec<String> = Vec::new();
 
         if let Some(ref mut current) = self.current {
             pending_sounds = current.drain_pending_sounds();
@@ -218,6 +220,8 @@ impl MainController {
             pending_quick_retry_replay = current.take_pending_quick_retry_replay();
             pending_play_config = current.take_pending_play_config_update();
             pending_audio_config = current.take_pending_audio_config();
+            pending_audio_path_plays = current.drain_pending_audio_path_plays();
+            pending_audio_path_stops = current.drain_pending_audio_path_stops();
             pending_change = current.take_pending_state_change();
         }
 
@@ -239,6 +243,20 @@ impl MainController {
                 && let Some(ref mut audio) = self.audio
             {
                 audio.play_path(&path, volume, loop_sound);
+            }
+        }
+
+        // Apply skin-scripted audio path plays (from SkinRenderContext::audio_play)
+        if let Some(ref mut audio) = self.audio {
+            for (path, volume, is_loop) in pending_audio_path_plays {
+                if !path.is_empty() {
+                    audio.play_path(&path, volume, is_loop);
+                }
+            }
+            for path in pending_audio_path_stops {
+                if !path.is_empty() {
+                    audio.stop_path(&path);
+                }
             }
         }
 

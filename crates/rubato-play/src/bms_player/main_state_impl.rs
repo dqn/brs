@@ -123,6 +123,14 @@ impl MainState for BMSPlayer {
         self.pending.pending_play_config_update.take()
     }
 
+    fn drain_pending_audio_path_plays(&mut self) -> Vec<(String, f32, bool)> {
+        std::mem::take(&mut self.pending.pending_audio_path_plays)
+    }
+
+    fn drain_pending_audio_path_stops(&mut self) -> Vec<String> {
+        std::mem::take(&mut self.pending.pending_audio_path_stops)
+    }
+
     fn receive_updated_play_config(
         &mut self,
         mode: bms_model::mode::Mode,

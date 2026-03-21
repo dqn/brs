@@ -61,7 +61,6 @@ pub(super) struct PlayRenderContext<'a> {
     pub(super) score_data: Option<&'a rubato_types::score_data::ScoreData>,
     /// Pending actions outbox for side effects (audio play/stop) that cannot be
     /// executed directly during rendering.
-    #[allow(dead_code)]
     pub(super) pending: &'a mut super::PendingActions,
 }
 
@@ -129,6 +128,16 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayRenderContext<
 
     fn set_timer_micro(&mut self, timer_id: rubato_types::timer_id::TimerId, micro_time: i64) {
         self.timer.set_micro_timer(timer_id, micro_time);
+    }
+
+    fn audio_play(&mut self, path: &str, volume: f32, is_loop: bool) {
+        self.pending
+            .pending_audio_path_plays
+            .push((path.to_string(), volume, is_loop));
+    }
+
+    fn audio_stop(&mut self, path: &str) {
+        self.pending.pending_audio_path_stops.push(path.to_string());
     }
 
     fn now_judge(&self, player: i32) -> i32 {
@@ -466,6 +475,20 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayMouseContext<'
 
     fn set_timer_micro(&mut self, timer_id: rubato_types::timer_id::TimerId, micro_time: i64) {
         self.timer.set_micro_timer(timer_id, micro_time);
+    }
+
+    fn audio_play(&mut self, path: &str, volume: f32, is_loop: bool) {
+        self.player
+            .pending
+            .pending_audio_path_plays
+            .push((path.to_string(), volume, is_loop));
+    }
+
+    fn audio_stop(&mut self, path: &str) {
+        self.player
+            .pending
+            .pending_audio_path_stops
+            .push(path.to_string());
     }
 
     fn player_config_ref(&self) -> Option<&rubato_types::player_config::PlayerConfig> {
