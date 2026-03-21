@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::player_data::PlayerData;
 use crate::player_information::PlayerInformation;
 use crate::score_data::ScoreData;
@@ -129,21 +131,14 @@ impl ScoreDatabaseAccessor {
                 }
             }
 
+            let score_map: HashMap<&str, &ScoreData> =
+                scores.iter().map(|s| (s.sha256.as_str(), s)).collect();
+
             for song in songs {
                 let has_uln = song.chart.has_undefined_long_note();
                 if (hasln && has_uln) || (!hasln && !has_uln) {
                     let sha = song.file.sha256.as_str();
-                    let mut found = false;
-                    for score in &scores {
-                        if sha == score.sha256 {
-                            collector.collect(song, Some(score));
-                            found = true;
-                            break;
-                        }
-                    }
-                    if !found {
-                        collector.collect(song, None);
-                    }
+                    collector.collect(song, score_map.get(sha).copied());
                 }
             }
             Ok(())
