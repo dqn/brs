@@ -374,7 +374,10 @@ mod tests {
 
     #[test]
     fn drop_joins_all_in_flight_threads() {
-        use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
+        use std::sync::{
+            Arc,
+            atomic::{AtomicUsize, Ordering},
+        };
 
         let counter = Arc::new(AtomicUsize::new(0));
         let exporter = ScreenShotFileExporter::new();
