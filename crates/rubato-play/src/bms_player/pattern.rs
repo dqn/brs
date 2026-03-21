@@ -82,8 +82,7 @@ impl BMSPlayer {
                         let mode = self.model.mode().copied().unwrap_or(Mode::BEAT_7K);
                         let player_count = mode.player().max(1) as usize;
                         let keys_per_player = (mode.key() / mode.player().max(1)) as usize;
-                        gb.lanes =
-                            mirror_invert_lanes(gb.lanes, keys_per_player, player_count);
+                        gb.lanes = mirror_invert_lanes(gb.lanes, keys_per_player, player_count);
                     }
                     _ => {}
                 }

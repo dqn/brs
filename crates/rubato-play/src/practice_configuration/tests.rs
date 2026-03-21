@@ -321,7 +321,10 @@ fn test_sanitize_ensures_endtime_after_starttime_when_equal() {
     prop.starttime = 5000;
     prop.endtime = 5000;
     prop.sanitize();
-    assert_eq!(prop.endtime, 6000, "endtime should be starttime + 1000 when equal");
+    assert_eq!(
+        prop.endtime, 6000,
+        "endtime should be starttime + 1000 when equal"
+    );
 }
 
 #[test]
@@ -330,7 +333,10 @@ fn test_sanitize_ensures_endtime_after_starttime_when_inverted() {
     prop.starttime = 8000;
     prop.endtime = 3000;
     prop.sanitize();
-    assert_eq!(prop.endtime, 9000, "endtime should be starttime + 1000 when starttime > endtime");
+    assert_eq!(
+        prop.endtime, 9000,
+        "endtime should be starttime + 1000 when starttime > endtime"
+    );
 }
 
 #[test]
@@ -339,7 +345,10 @@ fn test_sanitize_preserves_valid_endtime() {
     prop.starttime = 2000;
     prop.endtime = 10000;
     prop.sanitize();
-    assert_eq!(prop.endtime, 10000, "endtime should be unchanged when already > starttime + 1000");
+    assert_eq!(
+        prop.endtime, 10000,
+        "endtime should be unchanged when already > starttime + 1000"
+    );
 }
 
 #[test]

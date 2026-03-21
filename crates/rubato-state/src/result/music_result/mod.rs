@@ -1812,9 +1812,7 @@ mod tests {
         let cscore: Option<&rubato_core::score_data::ScoreData> = None;
         let ns_clear = rubato_core::clear_type::ClearType::Normal.id();
         let is_clear = ns_clear != rubato_core::clear_type::ClearType::Failed.id()
-            && cscore.is_none_or(|cs| {
-                cs.clear != rubato_core::clear_type::ClearType::Failed.id()
-            });
+            && cscore.is_none_or(|cs| cs.clear != rubato_core::clear_type::ClearType::Failed.id());
         assert!(
             is_clear,
             "When course_score_data is None and newscore is not Failed, is_clear should be true"
@@ -1828,9 +1826,7 @@ mod tests {
         let cscore: Option<&rubato_core::score_data::ScoreData> = Some(&course);
         let ns_clear = rubato_core::clear_type::ClearType::Normal.id();
         let is_clear = ns_clear != rubato_core::clear_type::ClearType::Failed.id()
-            && cscore.is_none_or(|cs| {
-                cs.clear != rubato_core::clear_type::ClearType::Failed.id()
-            });
+            && cscore.is_none_or(|cs| cs.clear != rubato_core::clear_type::ClearType::Failed.id());
         assert!(
             !is_clear,
             "When course_score_data is Failed, is_clear should be false even if newscore is not Failed"
@@ -1842,9 +1838,7 @@ mod tests {
         let cscore: Option<&rubato_core::score_data::ScoreData> = None;
         let ns_clear = rubato_core::clear_type::ClearType::Failed.id();
         let is_clear = ns_clear != rubato_core::clear_type::ClearType::Failed.id()
-            && cscore.is_none_or(|cs| {
-                cs.clear != rubato_core::clear_type::ClearType::Failed.id()
-            });
+            && cscore.is_none_or(|cs| cs.clear != rubato_core::clear_type::ClearType::Failed.id());
         assert!(
             !is_clear,
             "When newscore is Failed, is_clear should be false regardless of course_score_data"
