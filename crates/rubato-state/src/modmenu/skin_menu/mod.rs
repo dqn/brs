@@ -15,10 +15,12 @@ use config::{
     dirty, get_file_setting, get_offset_setting, get_option_setting, refresh,
     reset_current_skin_config, switch_current_scene_skin,
 };
+use rubato_types::main_controller_access::MainControllerCommandQueue;
 use rubato_types::sync_utils::lock_or_recover;
 
 static MAIN: Mutex<Option<MainController>> = Mutex::new(None);
 static PLAYER_CONFIG: Mutex<Option<PlayerConfig>> = Mutex::new(None);
+static COMMAND_QUEUE: Mutex<Option<MainControllerCommandQueue>> = Mutex::new(None);
 
 static READY: Mutex<bool> = Mutex::new(false);
 static LIVE_EDITING: Mutex<bool> = Mutex::new(true);
@@ -52,9 +54,14 @@ impl OffsetValue {
 pub struct SkinMenu;
 
 impl SkinMenu {
-    pub fn init(main: MainController, player_config: PlayerConfig) {
+    pub fn init(
+        main: MainController,
+        player_config: PlayerConfig,
+        command_queue: MainControllerCommandQueue,
+    ) {
         *lock_or_recover(&MAIN) = Some(main);
         *lock_or_recover(&PLAYER_CONFIG) = Some(player_config);
+        *lock_or_recover(&COMMAND_QUEUE) = Some(command_queue);
     }
 
     pub fn invalidate() {
@@ -756,5 +763,128 @@ mod tests {
             !choices.iter().any(|choice| choice == "notes.txt"),
             "non-matching files should not be included"
         );
+    }
+
+    // ---- save_current_config command queue tests ----
+
+    /// RAII guard that resets all skin_menu statics on drop.
+    struct SkinMenuStaticsGuard;
+
+    impl Drop for SkinMenuStaticsGuard {
+        fn drop(&mut self) {
+            *lock_or_recover(&MAIN) = None;
+            *lock_or_recover(&PLAYER_CONFIG) = None;
+            *lock_or_recover(&COMMAND_QUEUE) = None;
+            *lock_or_recover(&CURRENT_SKIN) = None;
+            *lock_or_recover(&CURRENT_SKIN_TYPE) = None;
+            *lock_or_recover(&DIRTY_CONFIG) = false;
+            *lock_or_recover(&READY) = false;
+            *lock_or_recover(&SET_OPTIONS) = None;
+            *lock_or_recover(&AVAILABLE_FILES) = None;
+            *lock_or_recover(&SET_FILES) = None;
+            *lock_or_recover(&SET_OFFSETS) = None;
+            *lock_or_recover(&super::SKINS) = Vec::new();
+        }
+    }
+
+    fn make_test_skin_header(name: &str, path: &str, skin_type: SkinType) -> SkinHeader {
+        let mut header = SkinHeader::new();
+        header.set_name(name.to_string());
+        header.set_path(std::path::PathBuf::from(path));
+        header.set_skin_type(skin_type);
+        header
+    }
+
+    #[test]
+    fn save_current_config_pushes_update_skin_config_for_same_skin() {
+        let _guard = SkinMenuStaticsGuard;
+        use rubato_types::main_controller_access::{
+            MainControllerCommand, MainControllerCommandQueue,
+        };
+
+        let queue = MainControllerCommandQueue::new();
+        let pc = PlayerConfig::default();
+        let skin_type = SkinType::Play7Keys;
+
+        *lock_or_recover(&PLAYER_CONFIG) = Some(pc);
+        *lock_or_recover(&COMMAND_QUEUE) = Some(queue.clone());
+        *lock_or_recover(&CURRENT_SKIN_TYPE) = Some(skin_type);
+
+        let header = make_test_skin_header("TestSkin", "/skins/test.json", skin_type);
+        *lock_or_recover(&CURRENT_SKIN) = Some(header.clone());
+
+        // Call save_current_config with same skin name (triggers UpdateSkinConfig path)
+        config::save_current_config(&header);
+
+        let commands = queue.drain();
+        assert_eq!(commands.len(), 1, "expected exactly one command");
+        match &commands[0] {
+            MainControllerCommand::UpdateSkinConfig(id, Some(boxed_config)) => {
+                assert_eq!(*id, skin_type.id() as usize);
+                assert_eq!(
+                    boxed_config.path(),
+                    Some("/skins/test.json"),
+                    "config path should match skin path"
+                );
+            }
+            other => panic!(
+                "expected UpdateSkinConfig, got {:?}",
+                std::mem::discriminant(other)
+            ),
+        }
+    }
+
+    #[test]
+    fn save_current_config_pushes_update_skin_history_for_different_skin() {
+        let _guard = SkinMenuStaticsGuard;
+        use rubato_types::main_controller_access::{
+            MainControllerCommand, MainControllerCommandQueue,
+        };
+
+        let queue = MainControllerCommandQueue::new();
+        let pc = PlayerConfig::default();
+        let skin_type = SkinType::Play7Keys;
+
+        *lock_or_recover(&PLAYER_CONFIG) = Some(pc);
+        *lock_or_recover(&COMMAND_QUEUE) = Some(queue.clone());
+        *lock_or_recover(&CURRENT_SKIN_TYPE) = Some(skin_type);
+
+        let current = make_test_skin_header("SkinA", "/skins/a.json", skin_type);
+        let next = make_test_skin_header("SkinB", "/skins/b.json", skin_type);
+        *lock_or_recover(&CURRENT_SKIN) = Some(current);
+
+        // Switching to a different skin name triggers the skin_history path
+        config::save_current_config(&next);
+
+        let commands = queue.drain();
+        assert_eq!(commands.len(), 1, "expected exactly one command");
+        match &commands[0] {
+            MainControllerCommand::UpdateSkinHistory(skin_path, boxed_config) => {
+                assert_eq!(skin_path, "/skins/a.json");
+                assert_eq!(boxed_config.path(), Some("/skins/a.json"));
+            }
+            other => panic!(
+                "expected UpdateSkinHistory, got {:?}",
+                std::mem::discriminant(other)
+            ),
+        }
+    }
+
+    #[test]
+    fn save_current_config_without_queue_does_not_panic() {
+        let _guard = SkinMenuStaticsGuard;
+
+        let pc = PlayerConfig::default();
+        let skin_type = SkinType::Play7Keys;
+
+        *lock_or_recover(&PLAYER_CONFIG) = Some(pc);
+        // COMMAND_QUEUE deliberately left as None
+        *lock_or_recover(&CURRENT_SKIN_TYPE) = Some(skin_type);
+
+        let header = make_test_skin_header("TestSkin", "/skins/test.json", skin_type);
+        *lock_or_recover(&CURRENT_SKIN) = Some(header.clone());
+
+        // Should not panic when COMMAND_QUEUE is None
+        config::save_current_config(&header);
     }
 }

@@ -2532,3 +2532,117 @@ fn offset_mut_updates_are_visible_through_offset_value() {
     assert_eq!(o.x, 42.0);
     assert_eq!(o.y, -7.5);
 }
+
+// --- UpdateSkinConfig / UpdateSkinHistory command handling ---
+
+#[test]
+fn update_skin_config_command_updates_player_skin_slot() {
+    let mut mc = make_test_controller();
+    let slot = rubato_types::skin_type::SkinType::Play7Keys.id() as usize;
+
+    // Verify slot starts with default
+    assert!(mc.player.skin[slot].is_some());
+
+    let config = rubato_types::skin_config::SkinConfig {
+        path: Some("/skins/new_play7.json".to_string()),
+        properties: None,
+    };
+    mc.command_queue.push(
+        rubato_types::main_controller_access::MainControllerCommand::UpdateSkinConfig(
+            slot,
+            Some(Box::new(config)),
+        ),
+    );
+    mc.process_queued_controller_commands();
+
+    assert_eq!(
+        mc.player.skin[slot].as_ref().and_then(|c| c.path()),
+        Some("/skins/new_play7.json"),
+    );
+}
+
+#[test]
+fn update_skin_config_none_clears_slot() {
+    let mut mc = make_test_controller();
+    let slot = rubato_types::skin_type::SkinType::Play7Keys.id() as usize;
+
+    mc.command_queue.push(
+        rubato_types::main_controller_access::MainControllerCommand::UpdateSkinConfig(slot, None),
+    );
+    mc.process_queued_controller_commands();
+
+    assert!(mc.player.skin[slot].is_none());
+}
+
+#[test]
+fn update_skin_history_adds_new_entry() {
+    let mut mc = make_test_controller();
+    let path = "/skins/history_test.json".to_string();
+    let config = rubato_types::skin_config::SkinConfig {
+        path: Some(path.clone()),
+        properties: None,
+    };
+
+    mc.command_queue.push(
+        rubato_types::main_controller_access::MainControllerCommand::UpdateSkinHistory(
+            path.clone(),
+            Box::new(config),
+        ),
+    );
+    mc.process_queued_controller_commands();
+
+    assert!(
+        mc.player
+            .skin_history
+            .iter()
+            .any(|h| h.path() == Some("/skins/history_test.json")),
+        "skin_history should contain the new entry"
+    );
+}
+
+#[test]
+fn update_skin_history_updates_existing_entry() {
+    let mut mc = make_test_controller();
+    let path = "/skins/history_update.json".to_string();
+
+    // Pre-populate skin_history
+    mc.player
+        .skin_history
+        .push(rubato_types::skin_config::SkinConfig {
+            path: Some(path.clone()),
+            properties: None,
+        });
+    let original_len = mc.player.skin_history.len();
+
+    // Push an update with properties
+    let property = rubato_types::skin_config::SkinProperty {
+        option: vec![Some(rubato_types::skin_config::SkinOption {
+            name: Some("test_opt".to_string()),
+            value: 42,
+        })],
+        file: vec![],
+        offset: vec![],
+    };
+    let config = rubato_types::skin_config::SkinConfig {
+        path: Some(path.clone()),
+        properties: Some(property),
+    };
+
+    mc.command_queue.push(
+        rubato_types::main_controller_access::MainControllerCommand::UpdateSkinHistory(
+            path,
+            Box::new(config),
+        ),
+    );
+    mc.process_queued_controller_commands();
+
+    // Should update in-place, not add a new entry
+    assert_eq!(mc.player.skin_history.len(), original_len);
+    let entry = mc
+        .player
+        .skin_history
+        .iter()
+        .find(|h| h.path() == Some("/skins/history_update.json"))
+        .expect("should find updated entry");
+    assert!(entry.properties().is_some());
+}

@@ -11,9 +11,10 @@ use super::super::{
 };
 use super::header_converters::{skin_header_from_json_data, skin_header_from_lr2_data};
 use super::{
-    AVAILABLE_FILES, CURRENT_SKIN, CURRENT_SKIN_TYPE, DIRTY_CONFIG, MAIN, OffsetValue,
-    PLAYER_CONFIG, READY, SET_FILES, SET_OFFSETS, SET_OPTIONS,
+    AVAILABLE_FILES, COMMAND_QUEUE, CURRENT_SKIN, CURRENT_SKIN_TYPE, DIRTY_CONFIG, MAIN,
+    OffsetValue, PLAYER_CONFIG, READY, SET_FILES, SET_OFFSETS, SET_OPTIONS,
 };
+use rubato_types::main_controller_access::MainControllerCommand;
 use rubato_types::sync_utils::lock_or_recover;
 
 pub(super) fn refresh() {
@@ -466,8 +467,13 @@ pub(super) fn save_current_config(next_skin: &SkinHeader) {
     {
         let id = st.id() as usize;
         if id < pc.skin.len() {
-            pc.skin[id] = Some(config);
+            pc.skin[id] = Some(config.clone());
         }
+        // Release locks before pushing to command queue
+        drop(current_type);
+        drop(player_config);
+        drop(current_skin);
+        push_update_skin_config(id, Some(config));
         return;
     }
 
@@ -476,12 +482,42 @@ pub(super) fn save_current_config(next_skin: &SkinHeader) {
         .iter_mut()
         .find(|h| h.path().is_some_and(|p| p == skin_path))
     {
-        *entry = config;
+        *entry = config.clone();
+        drop(current_type);
+        drop(player_config);
+        drop(current_skin);
+        push_update_skin_history(skin_path, config);
         return;
     }
 
     // this skin hasn't been in the config history before, add it
-    pc.skin_history.push(config);
+    pc.skin_history.push(config.clone());
+    drop(current_type);
+    drop(player_config);
+    drop(current_skin);
+    push_update_skin_history(skin_path, config);
+}
+
+/// Push an UpdateSkinConfig command to MainController via the command queue.
+fn push_update_skin_config(id: usize, config: Option<SkinConfig>) {
+    let queue = lock_or_recover(&COMMAND_QUEUE);
+    if let Some(ref q) = *queue {
+        q.push(MainControllerCommand::UpdateSkinConfig(
+            id,
+            config.map(Box::new),
+        ));
+    }
+}
+
+/// Push an UpdateSkinHistory command to MainController via the command queue.
+fn push_update_skin_history(skin_path: String, config: SkinConfig) {
+    let queue = lock_or_recover(&COMMAND_QUEUE);
+    if let Some(ref q) = *queue {
+        q.push(MainControllerCommand::UpdateSkinHistory(
+            skin_path,
+            Box::new(config),
+        ));
+    }
 }
 
 pub(super) fn reset_current_skin_config() {

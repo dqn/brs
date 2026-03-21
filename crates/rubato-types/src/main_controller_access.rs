@@ -41,6 +41,12 @@ pub enum MainControllerCommand {
     /// Update the audio config on MainController.
     /// Used by select screen volume sliders to propagate changes from the cloned config.
     UpdateAudioConfig(crate::audio_config::AudioConfig),
+    /// Update the skin config for a specific skin type slot.
+    /// Used by SkinMenu to write back skin configuration changes to MainController's PlayerConfig.
+    UpdateSkinConfig(usize, Option<Box<crate::skin_config::SkinConfig>>),
+    /// Update the skin_history entry on MainController's PlayerConfig.
+    /// Used by SkinMenu to persist skin config when switching away from a non-current skin.
+    UpdateSkinHistory(String, Box<crate::skin_config::SkinConfig>),
 }
 
 /// Shared command queue for state-facing MainController proxies.

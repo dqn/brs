@@ -403,6 +403,23 @@ impl MainController {
                 MainControllerCommand::UpdateAudioConfig(audio) => {
                     self.config.audio = Some(audio);
                 }
+                MainControllerCommand::UpdateSkinConfig(id, skin_config) => {
+                    if id < self.player.skin.len() {
+                        self.player.skin[id] = skin_config.map(|c| *c);
+                    }
+                }
+                MainControllerCommand::UpdateSkinHistory(skin_path, skin_config) => {
+                    if let Some(entry) = self
+                        .player
+                        .skin_history
+                        .iter_mut()
+                        .find(|h| h.path().is_some_and(|p| p == skin_path))
+                    {
+                        *entry = *skin_config;
+                    } else {
+                        self.player.skin_history.push(*skin_config);
+                    }
+                }
             }
         }
 
