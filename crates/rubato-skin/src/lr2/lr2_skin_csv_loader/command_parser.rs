@@ -142,6 +142,10 @@ impl LR2SkinCSVLoaderState {
         if divy <= 0 {
             divy = 1;
         }
+        // Cap subdivisions to prevent excessive allocation from malicious skins
+        // (e.g., divx=10000 divy=10000 would create 100M structs).
+        divx = divx.min(256);
+        divy = divy.min(256);
         let mut images = vec![TextureRegion::new(); (divx * divy) as usize];
         for i in 0..divx {
             for j in 0..divy {
