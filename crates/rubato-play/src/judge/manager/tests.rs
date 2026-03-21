@@ -2364,3 +2364,339 @@ fn great_late_hit_classifies_as_late_laser_color() {
     let color = jm.judge_laser_color(0, 1);
     assert_eq!(color, 3, "GREAT late hit should have laser color 3 (LATE)");
 }
+
+// --- LN / HCN judge path tests ---
+
+/// Helper: create a BMSModel with a single LN pair on lane 0.
+///
+/// The LN start note is placed at `start_us` and the LN end note at `end_us`.
+/// Both use TYPE_UNDEFINED so the JudgeManager's `ln_type` field determines behavior.
+fn make_model_with_ln_pair(start_us: i64, end_us: i64) -> BMSModel {
+    let mut model = BMSModel::new();
+    model.set_mode(Mode::BEAT_7K);
+    model.judgerank = 100;
+
+    let mut tl_start = TimeLine::new(0.0, start_us, 8);
+    let mut note_start = Note::new_long(1);
+    note_start.set_micro_time(start_us);
+    tl_start.set_note(0, Some(note_start));
+
+    let mut tl_end = TimeLine::new(1.0, end_us, 8);
+    let mut note_end = Note::new_long(1);
+    note_end.set_end(true);
+    note_end.set_micro_time(end_us);
+    tl_end.set_note(0, Some(note_end));
+
+    model.timelines = vec![tl_start, tl_end];
+    model
+}
+
+#[test]
+fn autoplay_ln_judges_start_and_end_as_pgreat() {
+    // LN pair: start at 1s, end at 2s. Autoplay with LnType::LongNote.
+    // For pure LN (TYPE_UNDEFINED + LnType::LongNote):
+    //   - Start: autoplay sets processing = pair_idx, judge[player][offset]=8 (no update_micro)
+    //   - End: LN end processing resolves the start note via update_micro(judge=0=PG)
+    //   - total_notes = 1 (end note not counted for LnType::LongNote)
+    let model = make_model_with_ln_pair(1_000_000, 2_000_000);
+    let notes = build_judge_notes(&model);
+    let jp = crate::judge_property::lr2();
+
+    let config = JudgeConfig {
+        notes: &notes,
+        mode: &Mode::BEAT_7K,
+        ln_type: LnType::LongNote,
+        judge_rank: 100,
+        judge_window_rate: [100, 100, 100],
+        scratch_judge_window_rate: [100, 100, 100],
+        algorithm: JudgeAlgorithm::Combo,
+        autoplay: true,
+        judge_property: &jp,
+        lane_property: None,
+        auto_adjust_enabled: false,
+        is_play_or_practice: false,
+        judgeregion: 1,
+    };
+    let mut jm = JudgeManager::from_config(&config);
+
+    let gp = crate::gauge_property::GaugeProperty::Lr2;
+    let mut gauge = GrooveGauge::new(&model, GrooveGauge::NORMAL, &gp);
+
+    let lp = LaneProperty::new(&Mode::BEAT_7K);
+    let key_count = lp.key_lane_assign().len();
+    let key_states = vec![false; key_count];
+    let key_times = vec![i64::MIN; key_count];
+
+    // Prime
+    jm.update(-1, &notes, &key_states, &key_times, &mut gauge);
+
+    // Run simulation past both notes
+    let mut time = 0i64;
+    while time <= 3_000_000 {
+        jm.update(time, &notes, &key_states, &key_times, &mut gauge);
+        time += 1000;
+    }
+
+    // For LnType::LongNote, total_notes=1 (end note not independently counted).
+    // The LN start should be judged PGREAT.
+    assert_eq!(
+        jm.score().notes, 1,
+        "LN mode: total notes should be 1 (only start counted)"
+    );
+    assert_eq!(jm.past_notes(), 1, "LN start should be judged");
+    assert_eq!(
+        jm.score().judge_counts.epg + jm.score().judge_counts.lpg,
+        1,
+        "LN start should be PGREAT"
+    );
+    assert_eq!(jm.max_combo(), 1, "combo should be 1");
+    assert_eq!(jm.ghost()[0], JUDGE_PG, "ghost should record PGREAT");
+}
+
+#[test]
+fn autoplay_hcn_judges_start_and_end_as_pgreat() {
+    // HCN pair: start at 1s, end at 2s. Autoplay with LnType::HellChargeNote.
+    // For HCN (TYPE_UNDEFINED + LnType::HellChargeNote):
+    //   - Start: update_micro called with judge=0 (PG)
+    //   - End: update_micro called with judge=0 (PG)
+    //   - total_notes = 2 (both start and end counted)
+    //   - HCN gauge increase during hold (inclease=true because autoplay)
+    let model = make_model_with_ln_pair(1_000_000, 2_000_000);
+    let notes = build_judge_notes(&model);
+    let jp = crate::judge_property::lr2();
+
+    let config = JudgeConfig {
+        notes: &notes,
+        mode: &Mode::BEAT_7K,
+        ln_type: LnType::HellChargeNote,
+        judge_rank: 100,
+        judge_window_rate: [100, 100, 100],
+        scratch_judge_window_rate: [100, 100, 100],
+        algorithm: JudgeAlgorithm::Combo,
+        autoplay: true,
+        judge_property: &jp,
+        lane_property: None,
+        auto_adjust_enabled: false,
+        is_play_or_practice: false,
+        judgeregion: 1,
+    };
+    let mut jm = JudgeManager::from_config(&config);
+
+    let gp = crate::gauge_property::GaugeProperty::Lr2;
+    let mut gauge = GrooveGauge::new(&model, GrooveGauge::NORMAL, &gp);
+    let initial_gauge = gauge.value();
+
+    let lp = LaneProperty::new(&Mode::BEAT_7K);
+    let key_count = lp.key_lane_assign().len();
+    let key_states = vec![false; key_count];
+    let key_times = vec![i64::MIN; key_count];
+
+    // Prime
+    jm.update(-1, &notes, &key_states, &key_times, &mut gauge);
+
+    // Run simulation past both notes
+    let mut time = 0i64;
+    while time <= 3_000_000 {
+        jm.update(time, &notes, &key_states, &key_times, &mut gauge);
+        time += 1000;
+    }
+
+    // For HCN mode, total_notes=2 (both start and end counted).
+    assert_eq!(
+        jm.score().notes, 2,
+        "HCN mode: total notes should be 2 (start + end)"
+    );
+    assert_eq!(jm.past_notes(), 2, "both start and end should be judged");
+    assert_eq!(
+        jm.score().judge_counts.epg + jm.score().judge_counts.lpg,
+        2,
+        "both notes should be PGREAT"
+    );
+    assert_eq!(jm.max_combo(), 2, "combo should be 2");
+    for &g in jm.ghost() {
+        assert_eq!(g, JUDGE_PG, "ghost entries should all be PGREAT");
+    }
+    // HCN gauge should have increased during the hold period (autoplay holds the key).
+    // The HCN gauge change loop adds gauge when inclease=true (every HCN_MDURATION=200ms).
+    // Over 1s hold, that's ~5 gauge increases. The gauge should be >= initial.
+    assert!(
+        gauge.value() >= initial_gauge,
+        "HCN gauge should not decrease during autoplay hold (was {initial_gauge}, now {})",
+        gauge.value()
+    );
+}
+
+#[test]
+fn hcn_release_mid_hold_decreases_gauge() {
+    // Manual input HCN: start at 1s, end at 3s.
+    // Press key exactly at 1s, release at 1.5s (mid-hold).
+    // After release, HCN gauge should decrease (inclease=false path).
+    let model = make_model_with_ln_pair(1_000_000, 3_000_000);
+    let notes = build_judge_notes(&model);
+    let jp = crate::judge_property::lr2();
+
+    let config = JudgeConfig {
+        notes: &notes,
+        mode: &Mode::BEAT_7K,
+        ln_type: LnType::HellChargeNote,
+        judge_rank: 100,
+        judge_window_rate: [100, 100, 100],
+        scratch_judge_window_rate: [100, 100, 100],
+        algorithm: JudgeAlgorithm::Combo,
+        autoplay: false,
+        judge_property: &jp,
+        lane_property: None,
+        auto_adjust_enabled: false,
+        is_play_or_practice: false,
+        judgeregion: 1,
+    };
+    let mut jm = JudgeManager::from_config(&config);
+
+    let gp = crate::gauge_property::GaugeProperty::Lr2;
+    let mut gauge = GrooveGauge::new(&model, GrooveGauge::NORMAL, &gp);
+
+    let lp = LaneProperty::new(&Mode::BEAT_7K);
+    let key_count = lp.key_lane_assign().len();
+
+    // Prime
+    jm.update(
+        -1,
+        &notes,
+        &vec![false; key_count],
+        &vec![i64::MIN; key_count],
+        &mut gauge,
+    );
+
+    // Advance to just before the note
+    let mut time = 0i64;
+    while time < 1_000_000 {
+        jm.update(
+            time,
+            &notes,
+            &vec![false; key_count],
+            &vec![i64::MIN; key_count],
+            &mut gauge,
+        );
+        time += 10_000;
+    }
+
+    // Press key at exactly 1s (note time)
+    let press_time = 1_000_000i64;
+    let mut keys_pressed = vec![false; key_count];
+    keys_pressed[0] = true;
+    let mut key_times_pressed = vec![i64::MIN; key_count];
+    key_times_pressed[0] = press_time;
+    jm.update(press_time, &notes, &keys_pressed, &key_times_pressed, &mut gauge);
+
+    // Hold the key for a bit (1s -> 1.5s), advancing time with key held
+    time = press_time + 10_000;
+    while time < 1_500_000 {
+        jm.update(
+            time,
+            &notes,
+            &keys_pressed,
+            &vec![i64::MIN; key_count],
+            &mut gauge,
+        );
+        time += 10_000;
+    }
+
+    // Record gauge value while holding
+    let gauge_while_holding = gauge.value();
+
+    // Release key at 1.5s
+    let release_time = 1_500_000i64;
+    let mut keys_released = vec![false; key_count];
+    let mut key_times_released = vec![i64::MIN; key_count];
+    key_times_released[0] = release_time;
+    jm.update(
+        release_time,
+        &notes,
+        &keys_released,
+        &key_times_released,
+        &mut gauge,
+    );
+
+    // Continue without holding (1.5s -> 2.5s) - gauge should decrease
+    time = release_time + 10_000;
+    while time < 2_500_000 {
+        jm.update(
+            time,
+            &notes,
+            &vec![false; key_count],
+            &vec![i64::MIN; key_count],
+            &mut gauge,
+        );
+        time += 10_000;
+    }
+
+    // After releasing mid-hold, the HCN gauge decrease loop should reduce gauge.
+    // The decrease triggers when inclease=false and passing is active.
+    assert!(
+        gauge.value() < gauge_while_holding,
+        "HCN gauge should decrease after mid-hold release (held={gauge_while_holding}, now={})",
+        gauge.value()
+    );
+}
+
+#[test]
+fn ln_miss_both_start_and_end() {
+    // No input. LN pair at 1s-2s with LnType::HellChargeNote.
+    // Both start and end should be miss-POOR after time passes beyond judge window.
+    // Using HCN because it counts both start and end as separate notes in miss path.
+    let model = make_model_with_ln_pair(1_000_000, 2_000_000);
+    let notes = build_judge_notes(&model);
+    let jp = crate::judge_property::lr2();
+
+    let config = JudgeConfig {
+        notes: &notes,
+        mode: &Mode::BEAT_7K,
+        ln_type: LnType::HellChargeNote,
+        judge_rank: 100,
+        judge_window_rate: [100, 100, 100],
+        scratch_judge_window_rate: [100, 100, 100],
+        algorithm: JudgeAlgorithm::Combo,
+        autoplay: false,
+        judge_property: &jp,
+        lane_property: None,
+        auto_adjust_enabled: false,
+        is_play_or_practice: false,
+        judgeregion: 1,
+    };
+    let mut jm = JudgeManager::from_config(&config);
+
+    let gp = crate::gauge_property::GaugeProperty::Lr2;
+    let mut gauge = GrooveGauge::new(&model, GrooveGauge::NORMAL, &gp);
+
+    let lp = LaneProperty::new(&Mode::BEAT_7K);
+    let key_count = lp.key_lane_assign().len();
+    let key_states = vec![false; key_count];
+    let key_times = vec![i64::MIN; key_count];
+
+    // Prime
+    jm.update(-1, &notes, &key_states, &key_times, &mut gauge);
+
+    // Run simulation well past both notes (no input)
+    let mut time = 0i64;
+    while time <= 3_500_000 {
+        jm.update(time, &notes, &key_states, &key_times, &mut gauge);
+        time += 1000;
+    }
+
+    // Both start and end should be judged (miss-POOR).
+    // For HCN mode, the miss path (lines 782-809) judges start as miss and also
+    // its paired end note.
+    assert_eq!(
+        jm.past_notes(), 2,
+        "both LN start and end should be judged as miss"
+    );
+    // Miss-POOR is judge=4, so state=judge+1=5
+    // Check ghost entries are PR (judge=4)
+    for (i, &g) in jm.ghost().iter().enumerate() {
+        assert_eq!(
+            g, JUDGE_PR,
+            "ghost[{i}] should be POOR (miss), got {g}"
+        );
+    }
+    assert_eq!(jm.max_combo(), 0, "no combo on misses");
+}
