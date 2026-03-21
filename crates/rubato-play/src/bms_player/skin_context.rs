@@ -280,7 +280,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayRenderContext<
                     3 => self.max_bpm,
                     _ => 0.0,
                 };
-                if bpm == 0.0 {
+                if bpm == 0.0 || self.live_hispeed == 0.0 {
                     return 0;
                 }
                 (240000.0 / bpm / self.live_hispeed as f64
@@ -767,10 +767,10 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayMouseContext<'
                     3 => lr.map_or(0.0, |lr| lr.max_bpm()),
                     _ => 0.0,
                 };
-                if bpm == 0.0 {
+                let hispeed = lr.map_or(1.0, |lr| lr.hispeed()) as f64;
+                if bpm == 0.0 || hispeed == 0.0 {
                     return 0;
                 }
-                let hispeed = lr.map_or(1.0, |lr| lr.hispeed()) as f64;
                 let lanecover = lr.map_or(0.0, |lr| lr.lanecover()) as f64;
                 (240000.0 / bpm / hispeed
                     * if cover { 1.0 - lanecover } else { 1.0 }

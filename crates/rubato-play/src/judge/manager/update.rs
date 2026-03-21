@@ -290,12 +290,18 @@ impl JudgeManager {
                             }
                             // Java line 378: keysound.play(state.processing, keyvolume, 0)
                             self.keysound_play_indices.push(proc_idx);
+                            let judge = if j >= mjudge.len() {
+                                // No window matched: miss-POOR.
+                                6
+                            } else {
+                                j as i32
+                            };
                             self.update_micro(UpdateMicroParams {
                                 lane_idx,
                                 note_idx: proc_idx,
                                 notes,
                                 mtime,
-                                judge: j as i32,
+                                judge,
                                 mfast: dmtime,
                                 judge_vanish: true,
                                 multi_bad: false,
