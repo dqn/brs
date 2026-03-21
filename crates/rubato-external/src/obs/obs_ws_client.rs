@@ -88,6 +88,10 @@ pub fn action_label(action: &str) -> Option<String> {
 /// Shared inner state for ObsWsClient
 struct ObsWsClientInner {
     ws_sender: Option<tokio::sync::mpsc::UnboundedSender<Message>>,
+    /// JoinHandle for the dedicated writer task spawned in do_connect().
+    /// Stored so it can be aborted during close/disconnect to avoid leaking
+    /// a blocked task past the runtime shutdown timeout.
+    writer_task_handle: Option<tokio::task::JoinHandle<()>>,
     is_connected: bool,
     is_identified: bool,
     is_recording: bool,
@@ -151,6 +155,7 @@ impl ObsWsClient {
 
         let inner = Arc::new(Mutex::new(ObsWsClientInner {
             ws_sender: None,
+            writer_task_handle: None,
             is_connected: false,
             is_identified: false,
             is_recording: false,
@@ -264,7 +269,7 @@ impl ObsWsClient {
         // serializes all WebSocket writes, eliminating the take-send-put-back
         // race that previously caused concurrent message loss.
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Message>();
-        {
+        let writer_handle = {
             let inner_writer = Arc::clone(&inner);
             tokio::spawn(async move {
                 while let Some(msg) = rx.recv().await {
@@ -275,12 +280,17 @@ impl ObsWsClient {
                         break;
                     }
                 }
-            });
-        }
+            })
+        };
 
-        // Store the sender
+        // Store the sender and writer task handle
         {
             let mut guard = lock_or_recover(&inner);
+            // Abort any previous writer task before storing the new one.
+            if let Some(prev_handle) = guard.writer_task_handle.take() {
+                prev_handle.abort();
+            }
+            guard.writer_task_handle = Some(writer_handle);
             guard.ws_sender = Some(tx);
             guard.is_connected = true;
             guard.is_reconnecting = false;
@@ -661,6 +671,9 @@ impl ObsWsClient {
             guard.is_shutting_down = true;
             guard.auto_reconnect = false;
             guard.ws_sender = None;
+            if let Some(handle) = guard.writer_task_handle.take() {
+                handle.abort();
+            }
             guard.is_connected = false;
             guard.is_identified = false;
         }
@@ -674,6 +687,9 @@ impl ObsWsClient {
             guard.is_connected = false;
             guard.is_identified = false;
             guard.ws_sender = None;
+            if let Some(handle) = guard.writer_task_handle.take() {
+                handle.abort();
+            }
             (
                 was_connected,
                 guard.auto_reconnect,
@@ -714,10 +730,13 @@ impl ObsWsClient {
         tokio::spawn(async move {
             sleep(Duration::from_millis(delay as u64)).await;
 
-            // Close existing connection (dropping the sender terminates the writer task)
+            // Close existing connection (abort writer task and drop the sender)
             {
                 let mut guard = lock_or_recover(&inner_clone);
                 guard.ws_sender = None;
+                if let Some(handle) = guard.writer_task_handle.take() {
+                    handle.abort();
+                }
             }
 
             // Update backoff delay for next attempt
@@ -983,6 +1002,9 @@ impl ObsWsClient {
             guard.is_shutting_down = true;
             guard.auto_reconnect = false;
             guard.ws_sender = None;
+            if let Some(handle) = guard.writer_task_handle.take() {
+                handle.abort();
+            }
         }
         self.shutdown_notify.notify_waiters();
     }
