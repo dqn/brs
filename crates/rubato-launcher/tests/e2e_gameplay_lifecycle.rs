@@ -398,7 +398,7 @@ fn e2e_gameplay_select_decide_play_result_with_bms() {
 }
 
 #[test]
-fn e2e_select_enter_reaches_manual_play_without_stuck_beams() {
+fn e2e_ecfn_select_enter_reaches_manual_play_without_stuck_beams() {
     let bms_path = test_bms_path();
     assert!(
         bms_path.exists(),
