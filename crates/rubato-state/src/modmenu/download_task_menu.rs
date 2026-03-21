@@ -104,6 +104,14 @@ impl DownloadTaskMenu {
     ///
     /// Translated from: DownloadTaskMenu.show(ImBoolean)
     pub fn show_ui(ctx: &egui::Context) {
+        // Update task state before reading (Java: DownloadTaskState.update() called each frame)
+        {
+            let processor = lock_or_recover(&PROCESSOR);
+            if let Some(ref proc) = *processor {
+                DownloadTaskState::update(proc);
+            }
+        }
+
         // Window positioning: 45.5% from left, 4% from top (Java: windowWidth * 0.455f, windowHeight * 0.04f)
         let rel_x = imgui_renderer::window_width() as f32 * 0.455;
         let rel_y = imgui_renderer::window_height() as f32 * 0.04;

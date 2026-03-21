@@ -91,7 +91,18 @@ fn main() -> Result<()> {
     // Java: if (Files.exists(Config.configpath) && (bmsPath != null || auto != null))
     let config_exists = {
         let cwd = std::env::current_dir().unwrap_or_default();
-        rubato_types::config::resolve_config_dir(&cwd).is_some()
+        match rubato_types::config::resolve_config_dir(&cwd) {
+            Some(config_dir) => {
+                // Anchor CWD to the resolved config root so all relative paths
+                // (songpath, skinpath, etc.) resolve correctly when launched
+                // from a subdirectory.
+                if let Err(e) = std::env::set_current_dir(&config_dir) {
+                    warn!("Failed to set CWD to config dir {:?}: {}", config_dir, e);
+                }
+                true
+            }
+            None => false,
+        }
     };
 
     if config_exists && (args.bms_path.is_some() || player_mode.is_some()) {
@@ -370,6 +381,7 @@ impl ApplicationHandler for RubatoApp {
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         // Java: MainController checks exit flag and calls Platform.exit()
         if self.controller.is_exit_requested() {
+            self.controller.dispose();
             event_loop.exit();
             return;
         }
@@ -939,6 +951,15 @@ impl RubatoApp {
                 drop(data);
                 buffer.unmap();
 
+                // On BGRA backends, swap R and B channels so the PNG has correct colors.
+                if surface_config.format == wgpu::TextureFormat::Bgra8Unorm
+                    || surface_config.format == wgpu::TextureFormat::Bgra8UnormSrgb
+                {
+                    for pixel in rgba.chunks_exact_mut(4) {
+                        pixel.swap(0, 2);
+                    }
+                }
+
                 // Save as PNG
                 let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
                 let path = format!("screenshot_{}.png", timestamp);
@@ -1010,6 +1031,7 @@ impl RubatoApp {
 /// background thread can query the song DB without borrowing MainController.
 pub(crate) struct SongDbMusicDatabaseAdapter {
     pub(crate) songdb: rubato_song::sqlite_song_database_accessor::SQLiteSongDatabaseAccessor,
+    pub(crate) bmsroot: Vec<String>,
 }
 
 // SAFETY: SongDbMusicDatabaseAdapter contains SQLiteSongDatabaseAccessor which wraps
@@ -1028,6 +1050,12 @@ impl rubato_song::md_processor::music_database_accessor::MusicDatabaseAccessor
             .filter_map(|s| s.file.path().map(|p| p.to_string()))
             .collect()
     }
+
+    fn update_song(&self, path: &str) {
+        let update_path = if path.is_empty() { None } else { Some(path) };
+        self.songdb
+            .update_song_datas(update_path, &self.bmsroot, false, false, None);
+    }
 }
 
 /// Adapter: bridges a standalone song DB connection to `rubato_song::md_processor::MainControllerRef`.
@@ -1038,18 +1066,25 @@ impl rubato_song::md_processor::music_database_accessor::MusicDatabaseAccessor
 pub(crate) struct SongDbMainControllerRef {
     pub(crate) songdb: rubato_song::sqlite_song_database_accessor::SQLiteSongDatabaseAccessor,
     pub(crate) bmsroot: Vec<String>,
+    pub(crate) info_db: Option<Box<dyn rubato_types::song_information_db::SongInformationDb>>,
 }
 
 // SAFETY: SongDbMainControllerRef contains SQLiteSongDatabaseAccessor which wraps
 // rusqlite::Connection behind an internal Mutex, and a Vec<String> (bmsroot) which is
-// inherently Sync. The Mutex serializes all DB access, making it safe to share across threads.
+// inherently Sync. The info_db field is Box<dyn SongInformationDb> which requires Send + Sync.
+// The Mutex serializes all DB access, making it safe to share across threads.
 unsafe impl Sync for SongDbMainControllerRef {}
 
 impl rubato_song::md_processor::MainControllerRef for SongDbMainControllerRef {
     fn update_song(&self, path: &str, _force: bool) {
         let update_path = if path.is_empty() { None } else { Some(path) };
-        self.songdb
-            .update_song_datas(update_path, &self.bmsroot, false, false, None);
+        self.songdb.update_song_datas(
+            update_path,
+            &self.bmsroot,
+            false,
+            false,
+            self.info_db.as_deref(),
+        );
     }
 }
 

@@ -407,6 +407,15 @@ pub fn compare_model(model: &BMSModel, fixture: &Fixture) -> Vec<String> {
         ));
     }
 
+    // Compare Rust decoder's timeline count against fixture
+    if model.timelines.len() != fixture.statistics.timeline_count {
+        diffs.push(format!(
+            "timeline_count: rust={} java={}",
+            model.timelines.len(),
+            fixture.statistics.timeline_count
+        ));
+    }
+
     // Notes comparison (flat list, excluding LN ends)
     let rust_notes = flatten_notes(model);
     let fixture_notes = &fixture.notes;
@@ -490,7 +499,7 @@ pub fn compare_model(model: &BMSModel, fixture: &Fixture) -> Vec<String> {
     }
 
     // BPM changes
-    if !fixture.bpm_changes.is_empty() {
+    {
         // Extract BPM changes from timelines
         let mut rust_bpm_changes = Vec::new();
         let mut prev_bpm = model.bpm;
@@ -531,7 +540,7 @@ pub fn compare_model(model: &BMSModel, fixture: &Fixture) -> Vec<String> {
     }
 
     // Stop events
-    if !fixture.stop_events.is_empty() {
+    {
         // Extract stop events from timelines
         let mut rust_stops = Vec::new();
         for tl in &model.timelines {

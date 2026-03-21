@@ -88,12 +88,26 @@ impl IRConnection for LR2IRConnectionAdapter {
     fn get_play_data(
         &self,
         _player: Option<&IRPlayerData>,
-        chart: &IRChartData,
+        chart: Option<&IRChartData>,
     ) -> IRResponse<Vec<IRScoreData>> {
+        let chart = match chart {
+            Some(c) => c,
+            None => {
+                // LR2IR does not support fetching all scores (requires a chart md5)
+                return IRResponse::failure(
+                    "LR2IR does not support fetching all scores without a chart".to_string(),
+                );
+            }
+        };
         let player_id = lock_or_recover(&self.player_id).clone();
-        let (_local_score, leaderboard) = LR2IRConnection::score_data(chart, &player_id);
-        let scores: Vec<IRScoreData> = leaderboard.into_iter().map(|e| e.into_ir_score()).collect();
-        IRResponse::success("OK".to_string(), scores)
+        match LR2IRConnection::score_data(chart, &player_id) {
+            Some((_local_score, leaderboard)) => {
+                let scores: Vec<IRScoreData> =
+                    leaderboard.into_iter().map(|e| e.into_ir_score()).collect();
+                IRResponse::success("OK".to_string(), scores)
+            }
+            None => IRResponse::failure("LR2IR score fetch failed".to_string()),
+        }
     }
 
     fn get_course_play_data(

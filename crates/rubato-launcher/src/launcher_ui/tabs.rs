@@ -2,7 +2,9 @@
 // Each method renders one configuration tab in the egui launcher.
 
 use rubato_core::audio_config::{DriverType, FrequencyType};
+use rubato_core::config::DisplayMode;
 use rubato_core::ir_config::IRConfig;
+use rubato_core::resolution::Resolution;
 use rubato_skin::skin_type::SkinType;
 
 use crate::views::skin_configuration_view::{SkinConfigItem, SkinConfigurationView};
@@ -22,15 +24,58 @@ impl LauncherUi {
     pub(super) fn render_video_tab(&mut self, ui: &mut egui::Ui) {
         egui::Grid::new("video_grid").show(ui, |ui| {
             ui.label("Resolution:");
-            ui.label(format!(
-                "{}x{}",
-                self.config.display.resolution.width(),
-                self.config.display.resolution.height()
-            ));
+            let all_resolutions = [
+                Resolution::SD,
+                Resolution::SVGA,
+                Resolution::XGA,
+                Resolution::HD,
+                Resolution::QUADVGA,
+                Resolution::FWXGA,
+                Resolution::SXGAPLUS,
+                Resolution::HDPLUS,
+                Resolution::UXGA,
+                Resolution::WSXGAPLUS,
+                Resolution::FULLHD,
+                Resolution::WUXGA,
+                Resolution::QXGA,
+                Resolution::WQHD,
+                Resolution::ULTRAHD,
+            ];
+            let res_label = format!("{}", self.config.display.resolution);
+            egui::ComboBox::from_id_salt("video_tab_resolution")
+                .selected_text(&res_label)
+                .show_ui(ui, |ui| {
+                    for r in &all_resolutions {
+                        ui.selectable_value(
+                            &mut self.config.display.resolution,
+                            *r,
+                            format!("{}", r),
+                        );
+                    }
+                });
             ui.end_row();
 
             ui.label("Display Mode:");
-            ui.label(format!("{:?}", self.config.display.displaymode));
+            let dm_label = format!("{:?}", self.config.display.displaymode);
+            egui::ComboBox::from_id_salt("video_tab_display_mode")
+                .selected_text(&dm_label)
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(
+                        &mut self.config.display.displaymode,
+                        DisplayMode::FULLSCREEN,
+                        "FULLSCREEN",
+                    );
+                    ui.selectable_value(
+                        &mut self.config.display.displaymode,
+                        DisplayMode::BORDERLESS,
+                        "BORDERLESS",
+                    );
+                    ui.selectable_value(
+                        &mut self.config.display.displaymode,
+                        DisplayMode::WINDOW,
+                        "WINDOW",
+                    );
+                });
             ui.end_row();
 
             ui.label("VSync:");
@@ -289,8 +334,17 @@ impl LauncherUi {
     pub(super) fn render_music_select_tab(&mut self, ui: &mut egui::Ui) {
         ui.label("Music Select configuration");
         ui.label("BMS paths:");
-        for path in &self.bms_paths {
-            ui.label(path);
+        let mut remove_idx = None;
+        for (i, path) in self.bms_paths.iter().enumerate() {
+            ui.horizontal(|ui| {
+                ui.label(path.as_str());
+                if ui.small_button("Remove").clicked() {
+                    remove_idx = Some(i);
+                }
+            });
+        }
+        if let Some(idx) = remove_idx {
+            self.bms_paths.remove(idx);
         }
         if ui.button("Add BMS folder...").clicked()
             && let Some(path) = crate::platform::show_directory_chooser("Select BMS folder")

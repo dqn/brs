@@ -388,6 +388,9 @@ fn download_daemon_thread_run(state: DownloadDaemonState) {
                             None
                         }
                     };
+                    if let Some(ref dp_str) = dp {
+                        main.update_song(dp_str);
+                    }
                     *lock_or_recover(&downloadpath) = dp;
                     download.store(false, Ordering::SeqCst);
                     ipfspath = String::new();

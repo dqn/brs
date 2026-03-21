@@ -163,7 +163,7 @@ impl IRConnection for TestIRConnection {
     fn get_play_data(
         &self,
         _player: Option<&IRPlayerData>,
-        _chart: &IRChartData,
+        _chart: Option<&IRChartData>,
     ) -> IRResponse<Vec<IRScoreData>> {
         self.get_play_data_called.store(true, Ordering::SeqCst);
         match &self.play_data_scores {
@@ -304,7 +304,7 @@ mod tests {
 
         assert!(!ir.get_rivals().is_succeeded());
         assert!(!ir.get_table_datas().is_succeeded());
-        assert!(!ir.get_play_data(None, &chart).is_succeeded());
+        assert!(!ir.get_play_data(None, Some(&chart)).is_succeeded());
         assert!(!ir.get_course_play_data(None, &course).is_succeeded());
         assert!(!ir.send_play_data(&chart, &score).is_succeeded());
         assert!(!ir.send_course_play_data(&course, &score).is_succeeded());
@@ -363,7 +363,7 @@ mod tests {
         let ir = TestIRConnection::new().with_play_data_scores(scores);
         let chart = make_chart();
 
-        let resp = ir.get_play_data(None, &chart);
+        let resp = ir.get_play_data(None, Some(&chart));
         assert!(resp.is_succeeded());
         let data = resp.data().unwrap();
         assert_eq!(data.len(), 2);
@@ -449,7 +449,7 @@ mod tests {
         let chart = make_chart();
 
         assert!(!ir.get_play_data_called());
-        ir.get_play_data(None, &chart);
+        ir.get_play_data(None, Some(&chart));
         assert!(ir.get_play_data_called());
     }
 
@@ -483,7 +483,7 @@ mod tests {
         assert!(ir.send_play_data(&chart, &score).is_succeeded());
         assert!(ir.send_play_data_called());
 
-        let play_resp = ir.get_play_data(None, &chart);
+        let play_resp = ir.get_play_data(None, Some(&chart));
         assert!(play_resp.is_succeeded());
         assert_eq!(play_resp.data().unwrap()[0].player, "Rival");
 

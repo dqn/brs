@@ -91,6 +91,10 @@ macro_rules! impl_result_main_state {
             &mut self.main_data
         }
 
+        fn groove_gauge_value(&self) -> Option<f32> {
+            self.resource.groove_gauge().map(|g| g.value())
+        }
+
         fn create(&mut self) {
             self.do_create();
         }
@@ -143,6 +147,22 @@ macro_rules! impl_result_main_state {
                 skin.mouse_pressed_at(&mut ctx, button, x, y);
             }
 
+            // Replay custom events that were queued during mouse handling
+            // (the skin was taken, so execute_custom_event could not be called).
+            let pending = std::mem::take(&mut self.pending_custom_events);
+            if !pending.is_empty() {
+                let mut ctx = $render_ctx {
+                    timer: &mut timer,
+                    data: &self.data,
+                    resource: &self.resource,
+                    main: &mut self.main,
+                    offsets: &self.main_data.offsets,
+                };
+                for (id, arg1, arg2) in pending {
+                    skin.execute_custom_event(&mut ctx, id, arg1, arg2);
+                }
+            }
+
             self.main_data.timer = timer;
             self.main_data.skin = Some(skin);
         }
@@ -160,6 +180,21 @@ macro_rules! impl_result_main_state {
                     result: self,
                 };
                 skin.mouse_dragged_at(&mut ctx, button, x, y);
+            }
+
+            // Replay custom events that were queued during mouse handling
+            let pending = std::mem::take(&mut self.pending_custom_events);
+            if !pending.is_empty() {
+                let mut ctx = $render_ctx {
+                    timer: &mut timer,
+                    data: &self.data,
+                    resource: &self.resource,
+                    main: &mut self.main,
+                    offsets: &self.main_data.offsets,
+                };
+                for (id, arg1, arg2) in pending {
+                    skin.execute_custom_event(&mut ctx, id, arg1, arg2);
+                }
             }
 
             self.main_data.timer = timer;

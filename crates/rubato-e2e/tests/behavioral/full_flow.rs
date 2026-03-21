@@ -139,16 +139,14 @@ fn test_play_to_result_transition_via_state_events() {
 }
 
 // ============================================================
-// 3. change_state(Play) while already in Play is a no-op
+// 3. change_state(Play) while already in Play creates a new Play state (quick retry)
 // ============================================================
 //
-// The engine's change_state() short-circuits when the requested state type
-// matches the current state type. A real "retry" goes through the quick-retry
-// input path inside BMSPlayer, not through change_state(). This test verifies
-// the idempotent behavior of change_state().
+// Play->Play transitions are allowed to support quick retry. The state machine
+// disposes the old Play state and creates a fresh one.
 
 #[test]
-fn test_change_state_play_while_in_play_is_noop() {
+fn test_change_state_play_while_in_play_creates_new_play() {
     let Some(mut harness) = harness_with_bms("minimal_7k.bms") else {
         eprintln!("skipping: minimal_7k.bms not found");
         return;
@@ -160,16 +158,16 @@ fn test_change_state_play_while_in_play_is_noop() {
     assert_eq!(harness.current_state_type(), Some(MainStateType::Play));
     harness.render_frames(5);
 
-    // Attempt to change to Play again -- should be a no-op
+    // Change to Play again -- should create a fresh Play state
     harness.change_state(MainStateType::Play);
     assert_eq!(
         harness.current_state_type(),
         Some(MainStateType::Play),
-        "state should remain Play"
+        "state should be Play after retry"
     );
     harness.render_frames(5);
 
-    // Only one StateCreated for Play should exist (the second call was a no-op)
+    // Two StateCreated events for Play should exist (original + retry)
     let events = harness.state_events();
     let play_created_count = events
         .iter()
@@ -183,26 +181,9 @@ fn test_change_state_play_while_in_play_is_noop() {
         })
         .count();
     assert_eq!(
-        play_created_count, 1,
-        "should have exactly 1 Play StateCreated event (second call is no-op), got {play_created_count}.\n\
+        play_created_count, 2,
+        "should have exactly 2 Play StateCreated events (original + retry), got {play_created_count}.\n\
          Events: {events:?}"
-    );
-
-    // Play should NOT have been shut down (it stayed active)
-    let play_shutdown_count = events
-        .iter()
-        .filter(|e| {
-            matches!(
-                e,
-                StateEvent::StateShutdown {
-                    state: MainStateType::Play
-                }
-            )
-        })
-        .count();
-    assert_eq!(
-        play_shutdown_count, 0,
-        "Play should not have been shut down, got {play_shutdown_count} shutdown events"
     );
 }
 

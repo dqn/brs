@@ -37,6 +37,9 @@ pub fn initialize_ir_config(player: &PlayerConfig) -> Vec<IRStatus> {
             } else {
                 let ir: Arc<dyn IRConnection + Send + Sync> = Arc::from(ir);
                 let account = IRAccount::new(userid.clone(), password.clone(), String::new());
+                // Note: ir.login() is called synchronously on the startup thread.
+                // LR2IR's login() returns immediately (stores player ID), so this
+                // is not blocking in practice despite the synchronous call pattern.
                 let response = ir.login(&account);
                 if response.is_succeeded() {
                     if let Some(player_data) = response.data {
@@ -82,7 +85,7 @@ mod tests {
         fn get_play_data(
             &self,
             _player: Option<&IRPlayerData>,
-            _chart: &IRChartData,
+            _chart: Option<&IRChartData>,
         ) -> IRResponse<Vec<IRScoreData>> {
             IRResponse::failure("not implemented".to_string())
         }

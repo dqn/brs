@@ -51,6 +51,10 @@ pub struct CourseResult {
     ir_rx: Option<std::sync::mpsc::Receiver<IrSendResult>>,
     /// JoinHandle for the IR send background thread.
     ir_thread: Option<std::thread::JoinHandle<()>>,
+    /// Custom events queued during mouse handling (skin is taken, so
+    /// execute_custom_event cannot be called). Replayed after the skin
+    /// is restored.
+    pub(crate) pending_custom_events: Vec<(i32, i32, i32)>,
 }
 
 impl CourseResult {
@@ -69,6 +73,7 @@ impl CourseResult {
             skin: None,
             ir_rx: None,
             ir_thread: None,
+            pending_custom_events: Vec::new(),
         }
     }
 
@@ -999,7 +1004,7 @@ mod tests {
         fn get_play_data(
             &self,
             _player: Option<&IRPlayerData>,
-            _chart: &IRChartData,
+            _chart: Option<&IRChartData>,
         ) -> IRResponse<Vec<IRScoreDataReal>> {
             IRResponse::failure("mock".to_string())
         }

@@ -493,6 +493,11 @@ pub fn run_launcher(
     let shared_load_diff_bms = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let shared_import_score = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
 
+    // Capture the current config/player before they are moved into the launcher,
+    // so we can use them as fallback if re-reading from disk fails after exit.
+    let prev_config = config.clone();
+    let prev_player = player.clone();
+
     let launcher = LauncherUi::new_with_shared_flags(
         config,
         player,
@@ -522,11 +527,12 @@ pub fn run_launcher(
     let play_requested = shared_play_requested.load(std::sync::atomic::Ordering::Acquire);
 
     // Re-read config/player from disk (commit_config saved them in on_exit).
-    let config = Config::read().unwrap_or_default();
+    // Preserve the last known good config/player on read errors instead of
+    // falling back to defaults, which would silently discard user settings.
+    let config = Config::read().unwrap_or(prev_config);
     let playerpath = &config.paths.playerpath;
     let playername = config.playername.as_deref().unwrap_or("default");
-    let player = PlayerConfig::read_player_config(playerpath, playername)
-        .unwrap_or_else(|_| PlayerConfig::default());
+    let player = PlayerConfig::read_player_config(playerpath, playername).unwrap_or(prev_player);
 
     let load_all_bms_requested = shared_load_all_bms.load(std::sync::atomic::Ordering::Acquire);
     let load_diff_bms_requested = shared_load_diff_bms.load(std::sync::atomic::Ordering::Acquire);

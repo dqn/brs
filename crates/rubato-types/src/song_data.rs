@@ -299,7 +299,9 @@ impl SongData {
     }
 
     pub fn set_bms_model(&mut self, model: BMSModel) {
-        // BMSPlayerRule::validate(&model) - stubbed, no-op
+        // Note: validate() is intentionally NOT called here. SongData stores
+        // raw model values (matching Java's SongData behavior). Normalization
+        // of judgerank/total happens at play time in PlayerResource::load_bms_model().
         self.metadata.set_title(model.title.clone());
         self.metadata.set_subtitle(model.sub_title.clone());
         self.metadata.genre = model.genre.clone();

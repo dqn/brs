@@ -274,6 +274,10 @@ impl rubato_types::skin_render_context::SkinRenderContext for SelectSkinContext<
     fn execute_event(&mut self, id: i32, arg1: i32, arg2: i32) {
         if let Some(event) = delegated_event_type_from_id(id) {
             self.selector.execute_event_with_args(event, arg1, arg2);
+        } else {
+            log::warn!(
+                "SelectSkinContext::execute_event: unhandled event id={id}, arg1={arg1}, arg2={arg2}"
+            );
         }
     }
 

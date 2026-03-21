@@ -294,14 +294,13 @@ impl DifficultyTableParser {
                 let data_url = self.get_absolute_url(&base_url, url);
 
                 self.decode_json_table_data_from_url(&mut table, &data_url)?;
-                for l in &table.level_description() {
-                    levels.push(l.clone());
-                }
                 for dte in table.elements() {
                     let level_conf = conf.get(dte.level.as_str());
                     if level_conf.is_none_or(|v| !v.is_empty()) {
                         let contains = elements.iter().any(|e| {
-                            e.element.md5() == dte.element.md5() && e.element.md5().is_some()
+                            (e.element.md5() == dte.element.md5() && e.element.md5().is_some())
+                                || (e.element.sha256() == dte.element.sha256()
+                                    && e.element.sha256().is_some())
                         });
                         if !contains {
                             let mut dte = dte.clone();
@@ -310,6 +309,14 @@ impl DifficultyTableParser {
                             }
                             elements.push(dte);
                         }
+                    }
+                }
+                // Record levels with data_rule remap applied so synthesized
+                // level_order reflects any merge remapping.
+                for l in &table.level_description() {
+                    let remapped = conf.get(l.as_str()).cloned().unwrap_or_else(|| l.clone());
+                    if !remapped.is_empty() {
+                        levels.push(remapped);
                     }
                 }
             }
@@ -341,6 +348,9 @@ impl DifficultyTableParser {
             .get(jsonheader_url)
             .send()?
             .error_for_status()?;
+        // Design limitation: Content-Length check runs before buffering, but
+        // response.bytes() below buffers the full body before the post-buffer size check.
+        // Chunked/streaming enforcement would require reqwest's async API.
         if let Some(content_length) = response.content_length()
             && content_length > MAX_RESPONSE_SIZE
         {

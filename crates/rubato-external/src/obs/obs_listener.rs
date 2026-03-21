@@ -23,6 +23,10 @@ pub struct ObsListener {
 }
 
 impl ObsListener {
+    // Design note: ObsListener owns its own ObsWsClient instance.
+    // If MainController also needs OBS access (e.g. save_last_recording),
+    // it should share this client via Arc rather than creating a separate one,
+    // to avoid split save_requested state.
     pub fn new(config: Config) -> Self {
         let client = match ObsWsClient::new(&config) {
             Ok(client) => {

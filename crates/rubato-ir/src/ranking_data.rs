@@ -72,16 +72,18 @@ impl RankingData {
         local_score: Option<&ScoreData>,
     ) {
         self.state = ACCESS;
-        let response = connection.get_play_data(None, chart);
+        let response = connection.get_play_data(None, Some(chart));
         if response.is_succeeded() {
             if let Some(data) = response.data {
                 self.update_score(&data, local_score);
             } else {
                 self.state = FAIL;
+                self.stamp_update_time();
             }
         } else {
             warn!("IR ranking data load failed: {}", response.message);
             self.state = FAIL;
+            self.stamp_update_time();
         }
     }
 
@@ -101,14 +103,29 @@ impl RankingData {
                 self.update_score(&data, local_score);
             } else {
                 self.state = FAIL;
+                self.stamp_update_time();
             }
         } else {
             warn!("IR course ranking data load failed: {}", response.message);
             self.state = FAIL;
+            self.stamp_update_time();
         }
     }
 
     pub fn update_score(&mut self, scores: &[IRScoreData], localscore: Option<&ScoreData>) {
+        self.update_score_with_player(scores, localscore, None);
+    }
+
+    /// Update ranking data from IR score data.
+    /// `player_id` identifies the logged-in player; when provided, rows whose
+    /// player name matches this ID are also recognized as "your" score
+    /// (in addition to the legacy empty-player-name convention).
+    pub fn update_score_with_player(
+        &mut self,
+        scores: &[IRScoreData],
+        localscore: Option<&ScoreData>,
+        player_id: Option<&str>,
+    ) {
         let first_update = self.scores.is_none();
 
         let mut sorted_scores: Vec<IRScoreData> = scores.to_vec();
@@ -132,7 +149,9 @@ impl RankingData {
         self.irrank = 0;
         self.localrank = 0;
         for (score, &ranking) in sorted_scores.iter().zip(scorerankings.iter()) {
-            if self.irrank == 0 && score.player.is_empty() {
+            let is_own_score = score.player.is_empty()
+                || player_id.is_some_and(|pid| !pid.is_empty() && score.player == pid);
+            if self.irrank == 0 && is_own_score {
                 self.irrank = ranking;
             }
             if let Some(ls) = localscore
@@ -155,6 +174,12 @@ impl RankingData {
         }
 
         self.state = FINISH;
+        self.stamp_update_time();
+    }
+
+    /// Record the current time as the last update time.
+    /// Called on both success and failure to prevent rapid retries.
+    fn stamp_update_time(&mut self) {
         self.last_update_time = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()

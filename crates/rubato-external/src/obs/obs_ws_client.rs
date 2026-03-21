@@ -211,10 +211,19 @@ impl ObsWsClient {
         let shutdown_notify = Arc::clone(&self.shutdown_notify);
 
         handle.spawn(async move {
+            let inner_for_reconnect = Arc::clone(&inner);
             match Self::do_connect(inner, &server_uri, &password, shutdown_notify).await {
                 Ok(()) => {}
                 Err(_e) => {
-                    // Initial connection failed — reconnect will be scheduled from on_close
+                    // Initial connection failed — on_close won't schedule reconnect
+                    // because was_connected is false. Schedule directly here.
+                    let auto_reconnect = {
+                        let guard = lock_or_recover(&inner_for_reconnect);
+                        guard.auto_reconnect
+                    };
+                    if auto_reconnect {
+                        Self::schedule_reconnect(&inner_for_reconnect);
+                    }
                 }
             }
         });

@@ -309,6 +309,12 @@ pub fn run_course_simulation(models: &[&BMSModel], gauge_type: i32) -> CourseSim
         let mut time = 0i64;
         while time <= end_time {
             jm.update(time, &judge_notes, &key_states, &key_times, &mut gauge);
+
+            // Stop judging if gauge dies (hard gauge types reach 0 and stay dead)
+            if gauge_type >= rubato_types::groove_gauge::HARD && gauge.value() <= 0.0 {
+                break;
+            }
+
             time += FRAME_STEP;
         }
 
@@ -324,10 +330,9 @@ pub fn run_course_simulation(models: &[&BMSModel], gauge_type: i32) -> CourseSim
         stages.push(result);
     }
 
-    CourseSimulationResult {
-        stages,
-        completed: true,
-    }
+    let completed =
+        carry_gauge.is_none_or(|v| v > 0.0) || gauge_type < rubato_types::groove_gauge::HARD;
+    CourseSimulationResult { stages, completed }
 }
 
 /// Run a multi-song course simulation with manual input (no autoplay).

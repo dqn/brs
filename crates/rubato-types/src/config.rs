@@ -102,7 +102,7 @@ pub const BGAEXPAND_FULL: BgaExpand = BgaExpand::Full;
 pub const BGAEXPAND_KEEP_ASPECT_RATIO: BgaExpand = BgaExpand::KeepAspectRatio;
 pub const BGAEXPAND_OFF: BgaExpand = BgaExpand::Off;
 
-#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, Default)]
 pub enum DisplayMode {
     FULLSCREEN,
     BORDERLESS,
@@ -631,6 +631,11 @@ impl Config {
         Ok(())
     }
 
+    /// Read config from the resolved config directory.
+    ///
+    /// Relative paths within the config are resolved against CWD by design.
+    /// The application entry point is responsible for setting CWD to the config root
+    /// (via std::env::set_current_dir) before calling this method.
     pub fn read() -> anyhow::Result<Config> {
         let current_dir = std::env::current_dir()?;
         let resolved_dir = resolve_config_dir(&current_dir).unwrap_or(current_dir);

@@ -352,7 +352,10 @@ impl MainController {
         // playdata = new PlayDataAccessor(config);
         self.initialize_ir_config();
 
-        // Dispose current state before re-init
+        // Dispose current state before re-init.
+        // Note: dispose() is called, not shutdown(). Shutdown-only side effects
+        // (e.g. stopping preview audio) are the state implementation's responsibility
+        // to handle in dispose() if they need to run during profile switches.
         if let Some(ref mut current) = self.current {
             current.dispose();
         }

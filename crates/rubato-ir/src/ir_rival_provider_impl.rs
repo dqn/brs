@@ -52,12 +52,8 @@ impl IRRivalProvider for IRRivalProviderImpl {
     }
 
     fn fetch_own_scores(&self) -> anyhow::Result<Vec<ScoreData>> {
-        // Java: connection.getPlayData(player, null) — null chart = all scores
-        // Since IRConnection.get_play_data requires &IRChartData, we use a default empty chart.
-        let empty_chart = crate::ir_chart_data::IRChartData::default();
-        let response = self
-            .connection
-            .get_play_data(Some(&self.player), &empty_chart);
+        // Java: connection.getPlayData(player, null) -- null chart = all scores
+        let response = self.connection.get_play_data(Some(&self.player), None);
         if response.is_succeeded() {
             match response.data {
                 Some(scores) => Ok(Self::convert_scores(&scores)),
@@ -97,8 +93,7 @@ impl IRRivalProvider for IRRivalProviderImpl {
             name: rival.name.clone(),
             rank: rival.rank.clone(),
         };
-        let empty_chart = crate::ir_chart_data::IRChartData::default();
-        let response = self.connection.get_play_data(Some(&player), &empty_chart);
+        let response = self.connection.get_play_data(Some(&player), None);
         if response.is_succeeded() {
             match response.data {
                 Some(scores) => Ok(Self::convert_scores(&scores)),

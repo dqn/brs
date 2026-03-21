@@ -566,6 +566,7 @@ pub enum InputEvent {
     Exit,
     ChangeState(MainStateType),
     SearchRequested,
+    SearchSubmit,
 }
 
 /// Context passed to MusicSelectInputProcessor.input().

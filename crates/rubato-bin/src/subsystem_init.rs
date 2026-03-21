@@ -228,7 +228,10 @@ fn init_ipfs_download_processor(
         &config.paths.bmsroot,
     ) {
         Ok(songdb) => {
-            let adapter = Arc::new(SongDbMusicDatabaseAdapter { songdb });
+            let adapter = Arc::new(SongDbMusicDatabaseAdapter {
+                songdb,
+                bmsroot: config.paths.bmsroot.clone(),
+            });
             let processor =
                 rubato_song::md_processor::music_download_processor::MusicDownloadProcessor::new(
                     config.network.ipfsurl.clone(),
@@ -271,8 +274,20 @@ fn init_http_download_processor(
     ) {
         Ok(songdb) => {
             let bmsroot = config.paths.bmsroot.clone();
+            let info_db: Option<Box<dyn rubato_types::song_information_db::SongInformationDb>> =
+                rubato_song::song_information_accessor::SongInformationAccessor::new(
+                    &config.paths.songinfopath,
+                )
+                .ok()
+                .map(|db| {
+                    Box::new(db) as Box<dyn rubato_types::song_information_db::SongInformationDb>
+                });
             let main_ref: Arc<dyn rubato_song::md_processor::MainControllerRef> =
-                Arc::new(SongDbMainControllerRef { songdb, bmsroot });
+                Arc::new(SongDbMainControllerRef {
+                    songdb,
+                    bmsroot,
+                    info_db,
+                });
             let processor = Arc::new(
                 rubato_song::md_processor::http_download_processor::HttpDownloadProcessor::new(
                     main_ref,

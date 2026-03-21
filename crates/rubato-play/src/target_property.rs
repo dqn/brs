@@ -997,7 +997,7 @@ mod tests {
         fn get_play_data(
             &self,
             _player: Option<&rubato_ir::ir_player_data::IRPlayerData>,
-            _chart: &rubato_ir::ir_chart_data::IRChartData,
+            _chart: Option<&rubato_ir::ir_chart_data::IRChartData>,
         ) -> rubato_ir::ir_response::IRResponse<Vec<rubato_ir::ir_score_data::IRScoreData>>
         {
             rubato_ir::ir_response::IRResponse::success("OK".to_string(), self.scores.clone())

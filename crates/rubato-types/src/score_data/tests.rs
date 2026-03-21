@@ -1107,7 +1107,9 @@ mod prop_tests {
             prop_assert!(score.ghost.is_empty());
         }
 
-        /// When notes > encoded length, extra positions are filled with 4 (MISS).
+        /// When notes > encoded length, decoded length is bounded by the actual
+        /// decompressed payload size to prevent untrusted `notes` from causing
+        /// oversized allocations.
         #[test]
         fn ghost_decode_truncates_to_notes(
             judges in prop::collection::vec(0..=5i32, 1..100usize),
@@ -1120,19 +1122,16 @@ mod prop_tests {
             // Encode the original judges
             score.encode_ghost(Some(&judges));
 
-            // Now set notes larger than encoded length to trigger padding
-            let padded_len = judges.len() + extra;
-            score.notes = padded_len as i32;
+            // Now set notes larger than encoded length
+            let _padded_len = judges.len() + extra;
+            score.notes = _padded_len as i32;
             let decoded = score.decode_ghost().unwrap();
 
-            prop_assert_eq!(decoded.len(), padded_len);
+            // Decoded length is capped to actual payload, not inflated notes
+            prop_assert_eq!(decoded.len(), judges.len());
             // Original values are preserved
             for (i, &j) in judges.iter().enumerate() {
                 prop_assert_eq!(decoded[i], j, "mismatch at index {}", i);
-            }
-            // Extra positions are filled with 4 (MISS)
-            for (i, value) in decoded.iter().enumerate().take(padded_len).skip(judges.len()) {
-                prop_assert_eq!(*value, 4, "expected MISS (4) at index {}", i);
             }
         }
     }

@@ -66,8 +66,10 @@ impl MainController {
             state
         };
 
-        // Check if we're already in this state type
-        if let Some(ref current) = self.current
+        // Check if we're already in this state type.
+        // Allow Play->Play transitions for quick retry (creates a fresh Play state).
+        if actual_type != MainStateType::Play
+            && let Some(ref current) = self.current
             && current.state_type() == Some(actual_type)
         {
             return;

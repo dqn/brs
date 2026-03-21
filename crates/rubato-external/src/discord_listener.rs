@@ -21,7 +21,7 @@ enum DiscordCommand {
 /// mpsc channel, sending `RichPresenceData` snapshots each frame.
 pub struct DiscordListener {
     /// Channel sender for the background thread. None if connection failed.
-    sender: Option<std::sync::mpsc::SyncSender<DiscordCommand>>,
+    sender: Option<std::sync::mpsc::Sender<DiscordCommand>>,
     /// Background thread handle, joined on close().
     thread_handle: Option<std::thread::JoinHandle<()>>,
     /// Cached start timestamp (Unix seconds), captured once per activity change
@@ -55,13 +55,13 @@ impl DiscordListener {
     }
 
     fn try_connect() -> anyhow::Result<(
-        std::sync::mpsc::SyncSender<DiscordCommand>,
+        std::sync::mpsc::Sender<DiscordCommand>,
         std::thread::JoinHandle<()>,
     )> {
         let mut rp = RichPresence::new(APPLICATION_ID.to_string());
         rp.connect()?;
 
-        let (tx, rx) = std::sync::mpsc::sync_channel::<DiscordCommand>(1);
+        let (tx, rx) = std::sync::mpsc::channel::<DiscordCommand>();
         let handle = std::thread::Builder::new()
             .name("discord-rpc".to_string())
             .spawn(move || {
@@ -72,12 +72,30 @@ impl DiscordListener {
     }
 
     /// Background thread loop: receives commands and performs IPC.
+    ///
+    /// Drains to the latest `Update` before processing so that rapid state
+    /// transitions don't queue stale updates behind slow IPC calls.
     fn background_loop(mut rp: RichPresence, rx: std::sync::mpsc::Receiver<DiscordCommand>) {
         loop {
             match rx.recv() {
-                Ok(DiscordCommand::Update(data)) => {
+                Ok(DiscordCommand::Update(mut data)) => {
+                    // Drain any queued updates, keeping only the latest.
+                    let mut shutdown_after = false;
+                    while let Ok(cmd) = rx.try_recv() {
+                        match cmd {
+                            DiscordCommand::Update(newer) => data = newer,
+                            DiscordCommand::Shutdown => {
+                                shutdown_after = true;
+                                break;
+                            }
+                        }
+                    }
                     if let Err(e) = rp.update(*data) {
                         log::warn!("Failed to update Discord Rich Presence: {}", e);
+                    }
+                    if shutdown_after {
+                        rp.close();
+                        return;
                     }
                 }
                 Ok(DiscordCommand::Shutdown) | Err(_) => {
@@ -164,12 +182,8 @@ impl MainStateListener for DiscordListener {
             _ => {}
         }
 
-        if sender
-            .try_send(DiscordCommand::Update(Box::new(data)))
-            .is_err()
-        {
-            // Either the channel is full (stale frame dropped) or disconnected.
-            // Both are acceptable: we only care about the latest state.
+        if sender.send(DiscordCommand::Update(Box::new(data))).is_err() {
+            // Channel disconnected — receiver thread has exited.
         }
     }
 }
@@ -216,7 +230,7 @@ mod tests {
         let mut rp = RichPresence::with_connection(APPLICATION_ID.to_string(), Box::new(mock));
         rp.connect().unwrap();
 
-        let (tx, rx) = std::sync::mpsc::sync_channel(1);
+        let (tx, rx) = std::sync::mpsc::channel();
         let handle = std::thread::spawn(move || {
             DiscordListener::background_loop(rp, rx);
         });
@@ -245,7 +259,7 @@ mod tests {
         let mut rp = RichPresence::with_connection(APPLICATION_ID.to_string(), Box::new(mock));
         rp.connect().unwrap();
 
-        let (tx, rx) = std::sync::mpsc::sync_channel(1);
+        let (tx, rx) = std::sync::mpsc::channel();
         let handle = std::thread::spawn(move || {
             DiscordListener::background_loop(rp, rx);
         });
@@ -272,7 +286,7 @@ mod tests {
         let mut rp = RichPresence::with_connection(APPLICATION_ID.to_string(), Box::new(mock));
         rp.connect().unwrap();
 
-        let (tx, rx) = std::sync::mpsc::sync_channel(1);
+        let (tx, rx) = std::sync::mpsc::channel();
         let handle = std::thread::spawn(move || {
             DiscordListener::background_loop(rp, rx);
         });

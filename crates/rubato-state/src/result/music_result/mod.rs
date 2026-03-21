@@ -48,6 +48,10 @@ pub struct MusicResult {
     ir_rx: Option<std::sync::mpsc::Receiver<MusicIrResult>>,
     /// JoinHandle for the IR send background thread.
     ir_thread: Option<std::thread::JoinHandle<()>>,
+    /// Custom events queued during mouse handling (skin is taken, so
+    /// execute_custom_event cannot be called). Replayed after the skin
+    /// is restored.
+    pub(crate) pending_custom_events: Vec<(i32, i32, i32)>,
 }
 
 impl MusicResult {
@@ -61,6 +65,7 @@ impl MusicResult {
             skin: None,
             ir_rx: None,
             ir_thread: None,
+            pending_custom_events: Vec::new(),
         }
     }
 
@@ -201,7 +206,7 @@ impl MusicResult {
                     && let Some(ref songdata) = songdata_for_ranking
                 {
                     let chart_data = rubato_ir::ir_chart_data::IRChartData::new(songdata);
-                    let response = conn.get_play_data(None, &chart_data);
+                    let response = conn.get_play_data(None, Some(&chart_data));
                     if response.is_succeeded() {
                         ranking_scores = response.data().cloned();
                         log::info!("IR score fetch succeeded: {}", response.message);
@@ -1232,7 +1237,7 @@ mod tests {
             fn get_play_data(
                 &self,
                 _player: Option<&IRPlayerData>,
-                _chart: &rubato_ir::ir_chart_data::IRChartData,
+                _chart: Option<&rubato_ir::ir_chart_data::IRChartData>,
             ) -> rubato_ir::ir_response::IRResponse<Vec<rubato_ir::ir_score_data::IRScoreData>>
             {
                 rubato_ir::ir_response::IRResponse::failure("mock".to_string())

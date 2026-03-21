@@ -49,11 +49,13 @@ pub trait IRConnection {
     /// Get table data configured on IR
     fn get_table_datas(&self) -> IRResponse<Vec<IRTableData>>;
 
-    /// Get score data
+    /// Get score data.
+    /// When `chart` is `None`, implementations should return all scores for the player
+    /// (Java parity: `getPlayData(player, null)` fetches all scores).
     fn get_play_data(
         &self,
         player: Option<&IRPlayerData>,
-        chart: &IRChartData,
+        chart: Option<&IRChartData>,
     ) -> IRResponse<Vec<IRScoreData>>;
 
     /// Get course play data
@@ -100,7 +102,7 @@ mod tests {
         fn get_play_data(
             &self,
             _player: Option<&IRPlayerData>,
-            _chart: &IRChartData,
+            _chart: Option<&IRChartData>,
         ) -> IRResponse<Vec<IRScoreData>> {
             IRResponse::failure("not implemented".to_string())
         }

@@ -80,6 +80,14 @@ impl ReplayData {
         let mut keyinputdata: Vec<u8> = Vec::with_capacity(self.keylog.len() * 9);
         for log in &self.keylog {
             // Clamp keycode to 0..=126 to avoid i8 overflow: (126+1)*sign = ±127 fits in i8.
+            // Keycode 127 produces the same byte (-128) for both press and release,
+            // making press/release indistinguishable. Keycodes above 127 overflow further.
+            if log.keycode > 126 {
+                log::warn!(
+                    "Replay keycode {} exceeds max encodable value 126; clamping to 126 (data loss)",
+                    log.keycode
+                );
+            }
             let clamped_keycode = log.keycode.clamp(0, 126);
             let keycode_byte =
                 ((clamped_keycode + 1) * if log.pressed { 1 } else { -1 }) as i8 as u8;

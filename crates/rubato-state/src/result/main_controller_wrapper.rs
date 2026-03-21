@@ -29,8 +29,7 @@ pub struct MainController {
 impl MainController {
     pub fn new(inner: Box<dyn MainControllerAccess>) -> Self {
         let config = inner.config();
-        let player_config = inner.player_config();
-        let input_processor = BMSPlayerInputProcessor::new(config, player_config);
+        let input_processor = BMSPlayerInputProcessor::new_without_midi(config);
         let play_data_accessor = PlayDataAccessor::new(config);
         let ranking_data_cache = inner
             .ranking_data_cache()
@@ -49,8 +48,7 @@ impl MainController {
 
     pub fn with_audio(inner: Box<dyn MainControllerAccess>, audio: Box<dyn AudioDriver>) -> Self {
         let config = inner.config();
-        let player_config = inner.player_config();
-        let input_processor = BMSPlayerInputProcessor::new(config, player_config);
+        let input_processor = BMSPlayerInputProcessor::new_without_midi(config);
         let play_data_accessor = PlayDataAccessor::new(config);
         let ranking_data_cache = inner
             .ranking_data_cache()
@@ -72,8 +70,7 @@ impl MainController {
         ir_statuses: Vec<IRStatus>,
     ) -> Self {
         let config = inner.config();
-        let player_config = inner.player_config();
-        let input_processor = BMSPlayerInputProcessor::new(config, player_config);
+        let input_processor = BMSPlayerInputProcessor::new_without_midi(config);
         let play_data_accessor = PlayDataAccessor::new(config);
         let ranking_data_cache = inner
             .ranking_data_cache()
@@ -96,8 +93,7 @@ impl MainController {
         ir_statuses: Vec<IRStatus>,
     ) -> Self {
         let config = inner.config();
-        let player_config = inner.player_config();
-        let input_processor = BMSPlayerInputProcessor::new(config, player_config);
+        let input_processor = BMSPlayerInputProcessor::new_without_midi(config);
         let play_data_accessor = PlayDataAccessor::new(config);
         let ranking_data_cache = inner
             .ranking_data_cache()
@@ -363,7 +359,7 @@ mod tests {
             fn get_play_data(
                 &self,
                 _player: Option<&IRPlayerData>,
-                _chart: &rubato_ir::ir_chart_data::IRChartData,
+                _chart: Option<&rubato_ir::ir_chart_data::IRChartData>,
             ) -> rubato_ir::ir_response::IRResponse<Vec<rubato_ir::ir_score_data::IRScoreData>>
             {
                 rubato_ir::ir_response::IRResponse::failure("mock".to_string())

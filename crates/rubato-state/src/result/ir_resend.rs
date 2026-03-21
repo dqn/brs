@@ -205,7 +205,7 @@ mod tests {
         fn get_play_data(
             &self,
             _: Option<&IRPlayerData>,
-            _: &IRChartData,
+            _: Option<&IRChartData>,
         ) -> IRResponse<Vec<IRScoreData>> {
             IRResponse::failure("".to_string())
         }

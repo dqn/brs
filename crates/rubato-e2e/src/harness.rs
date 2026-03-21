@@ -170,14 +170,15 @@ impl E2eHarness {
         self
     }
 
-    /// Install a default PlayerResource on the controller so that
+    /// Install a PlayerResource on the controller so that
     /// Result / CourseResult state creation does not fall back to MusicSelect.
+    /// Uses the controller's own Config and PlayerConfig to preserve harness state.
     pub fn ensure_player_resource(&mut self) {
         if self.controller.player_resource().is_none() {
-            self.controller.restore_player_resource(PlayerResource::new(
-                Config::default(),
-                PlayerConfig::default(),
-            ));
+            let config = self.controller.config().clone();
+            let player_config = self.controller.player_config().clone();
+            self.controller
+                .restore_player_resource(PlayerResource::new(config, player_config));
         }
     }
 
@@ -258,26 +259,58 @@ impl E2eHarness {
     // Gameplay state inspection (Phase 4d)
     // ============================================================
 
-    /// Returns the current score data from PlayerResource (if available).
+    /// Returns the current score data from PlayerResource or the active state.
+    ///
+    /// During Play/Result states, player_resource() is None because the resource
+    /// is owned by the active state. Fall back to the state's score_data_property.
     pub fn score_data(&self) -> Option<&rubato_types::score_data::ScoreData> {
-        self.controller.player_resource()?.score_data()
+        if let Some(sd) = self
+            .controller
+            .player_resource()
+            .and_then(|r| r.score_data())
+        {
+            return Some(sd);
+        }
+        self.controller
+            .current_state()
+            .and_then(|s| s.score_data_property().score_data())
     }
 
     /// Returns the current groove gauge value for the active gauge type,
-    /// or 0.0 if PlayerResource or GrooveGauge is unavailable.
+    /// or 0.0 if unavailable.
+    ///
+    /// During Play state, the gauge is owned by the active state (BMSPlayer),
+    /// not by PlayerResource. Falls back to the active state's groove_gauge_value.
     pub fn gauge_value(&self) -> f32 {
-        self.controller
+        // Try controller's player_resource first
+        if let Some(v) = self
+            .controller
             .player_resource()
             .and_then(|r| r.groove_gauge())
             .map(|g| g.value())
+        {
+            return v;
+        }
+        // Fall back to active state's gauge
+        self.controller
+            .current_state()
+            .and_then(|s| s.groove_gauge_value())
             .unwrap_or(0.0)
     }
 
-    /// Returns whether the player resource has a groove gauge set.
+    /// Returns whether a groove gauge is available (from PlayerResource or active state).
     pub fn has_groove_gauge(&self) -> bool {
-        self.controller
+        if self
+            .controller
             .player_resource()
             .and_then(|r| r.groove_gauge())
+            .is_some()
+        {
+            return true;
+        }
+        self.controller
+            .current_state()
+            .and_then(|s| s.groove_gauge_value())
             .is_some()
     }
 

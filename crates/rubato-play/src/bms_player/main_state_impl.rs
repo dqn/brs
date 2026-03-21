@@ -65,6 +65,10 @@ impl MainState for BMSPlayer {
         &mut self.main_state_data
     }
 
+    fn groove_gauge_value(&self) -> Option<f32> {
+        self.gauge.as_ref().map(|g| g.value())
+    }
+
     fn take_pending_state_change(&mut self) -> Option<MainStateType> {
         self.pending.pending_state_change.take()
     }

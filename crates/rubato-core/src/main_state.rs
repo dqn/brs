@@ -160,6 +160,13 @@ pub trait MainState {
         }
     }
 
+    /// Returns the current groove gauge value, or None if no gauge exists.
+    ///
+    /// Concrete states (e.g. BMSPlayer) override to return the active gauge value.
+    fn groove_gauge_value(&self) -> Option<f32> {
+        None
+    }
+
     fn get_image(&self, _imageid: i32) -> Option<rubato_render::texture::TextureRegion> {
         // Default no-op: concrete states override to return TextureRegion from PlayerResource.
         // Skin rendering uses the skin crate's MainState trait (separate from this trait).

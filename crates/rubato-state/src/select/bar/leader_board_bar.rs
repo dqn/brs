@@ -1,6 +1,8 @@
+use std::sync::Arc;
+
 use super::bar::Bar;
 use super::directory_bar::DirectoryBarData;
-use super::function_bar::{FunctionBar, STYLE_COURSE, STYLE_TABLE};
+use super::function_bar::{FunctionBar, FunctionBarCallback, STYLE_COURSE, STYLE_TABLE};
 use crate::select::*;
 
 /// Leaderboard display bar
@@ -145,10 +147,20 @@ impl LeaderBoardBar {
         };
 
         let mut bar = FunctionBar::new(title, display_type);
-        bar.selectable.bar_data.score = Some(score_data.convert_to_score_data());
+        let rival_score = score_data.convert_to_score_data();
+        bar.selectable.bar_data.score = Some(rival_score.clone());
         bar.lamp = score_data.clear.id();
-        // Function callback for ghost battle would go here
-        // In Java: sets up LR2 ghost battle on click
+
+        // Set up ghost/rival action: when the leaderboard entry is selected,
+        // create a temporary song bar with the rival score set and start play.
+        // This mirrors the Java LR2 ghost battle on click behavior.
+        let song = self.song_data.clone();
+        let callback: FunctionBarCallback = Arc::new(move |selector| {
+            let mut bar = Bar::Song(Box::new(super::song_bar::SongBar::new(song.clone())));
+            bar.set_rival_score(Some(rival_score.clone()));
+            selector.read_chart(&song, &bar, Some(&BMSPlayerMode::PLAY));
+        });
+        bar.set_function(callback);
         bar
     }
 

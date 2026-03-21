@@ -235,7 +235,10 @@ impl ScoreData {
         if decompressed.is_empty() {
             return None;
         }
-        let value: Vec<i32> = (0..self.notes as usize)
+        // Bound iteration by actual decompressed payload length to prevent
+        // untrusted `self.notes` from causing an oversized allocation.
+        let count = (self.notes as usize).min(decompressed.len());
+        let value: Vec<i32> = (0..count)
             .map(|i| {
                 if i < decompressed.len() {
                     // Sign-extend u8 to match Java's signed byte semantics:

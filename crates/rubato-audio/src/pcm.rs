@@ -433,7 +433,12 @@ impl PCMLoader {
                     let data = &mut self.pcm_data;
                     for i in (0..data.len()).step_by(4) {
                         if i + 4 <= data.len() {
-                            let val = i32::from_le_bytes([data[i], data[i + 1], data[i + 2], data[i + 3]]);
+                            let val = i32::from_le_bytes([
+                                data[i],
+                                data[i + 1],
+                                data[i + 2],
+                                data[i + 3],
+                            ]);
                             let f = val as f32 / i32::MAX as f32;
                             let bytes = f.to_le_bytes();
                             data[i..i + 4].copy_from_slice(&bytes);

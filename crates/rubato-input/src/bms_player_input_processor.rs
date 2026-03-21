@@ -109,6 +109,17 @@ pub struct BMSPlayerInputProcessor {
 
 impl BMSPlayerInputProcessor {
     pub fn new(config: &Config, _player: &PlayerConfig) -> Self {
+        Self::create(config, true)
+    }
+
+    /// Create an input processor without opening MIDI ports.
+    /// Used by wrapper processors (DecideMainControllerRef, ResultMainController, etc.)
+    /// that mirror state from the real processor and never poll devices directly.
+    pub fn new_without_midi(config: &Config) -> Self {
+        Self::create(config, false)
+    }
+
+    fn create(config: &Config, open_midi: bool) -> Self {
         let resolution = config.display.resolution;
         let default_kb_config = KeyboardConfig::default();
         let kbinput = KeyBoardInputProcesseor::new(&default_kb_config, resolution);
@@ -118,6 +129,10 @@ impl BMSPlayerInputProcessor {
         let controller_manager = Lwjgl3ControllerManager::new();
 
         // In Java: for (Controller c : Controllers.getControllers()) { bminput.add(new BMControllerInputProcessor(c, ...)); }
+        // Limitation: bminput is populated once from the startup controller snapshot.
+        // Controller hotplug/disconnect after construction is not supported;
+        // a restart is required. This matches Java's behavior where controllers
+        // are enumerated once at BMSPlayerInputProcessor construction.
         let default_controller_config = ControllerConfig::default();
         let mut bminput: Vec<BMControllerInputProcessor> = Vec::new();
         for ctrl in &controller_manager.controllers {
@@ -143,7 +158,9 @@ impl BMSPlayerInputProcessor {
         }
 
         let mut midiinput = MidiInputProcessor::new();
-        midiinput.open();
+        if open_midi {
+            midiinput.open();
+        }
         let midi_config = MidiConfig::default();
         midiinput.set_config(&midi_config);
 
@@ -622,7 +639,9 @@ impl BMSPlayerInputProcessor {
         // Read mouse button and scroll from SharedKeyState (winit events).
         // In Java, mouse events arrive via InputProcessor callbacks (touchDown,
         // scrolled). In Rust, winit events are written to SharedKeyState and
-        // polled here.
+        // polled here. mousedragged is set by the event-driven path above;
+        // plain cursor motion does not set mousedragged, matching Java's
+        // InputProcessor contract where touchDragged fires only while pressed.
         {
             use crate::gdx_compat::{GdxGraphics, GdxInput};
             use crate::winit_input_bridge::MOUSE_BUTTON_LEFT;

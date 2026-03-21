@@ -15,8 +15,7 @@ pub struct MainControllerRef {
 impl MainControllerRef {
     pub fn new(inner: Box<dyn rubato_types::main_controller_access::MainControllerAccess>) -> Self {
         let config = inner.config();
-        let player_config = inner.player_config();
-        let input_processor = BMSPlayerInputProcessor::new(config, player_config);
+        let input_processor = BMSPlayerInputProcessor::new_without_midi(config);
         Self {
             inner,
             audio: None,
@@ -29,8 +28,7 @@ impl MainControllerRef {
         audio: Box<dyn AudioDriver>,
     ) -> Self {
         let config = inner.config();
-        let player_config = inner.player_config();
-        let input_processor = BMSPlayerInputProcessor::new(config, player_config);
+        let input_processor = BMSPlayerInputProcessor::new_without_midi(config);
         Self {
             inner,
             audio: Some(audio),

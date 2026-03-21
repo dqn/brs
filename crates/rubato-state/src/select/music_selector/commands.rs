@@ -191,6 +191,43 @@ impl MusicSelector {
         command.execute(self);
     }
 
+    /// Submit the current search text to create a SearchWordBar and navigate into it.
+    /// Translates the Java SearchTextField keyTyped Enter logic:
+    ///   SearchWordBar swb = new SearchWordBar(selector, textField.getText());
+    ///   selector.getBarManager().addSearch(swb);
+    ///   selector.getBarManager().updateBar(null);
+    ///   selector.getBarManager().setSelected(swb);
+    pub fn submit_search(&mut self) {
+        let text = match self.search {
+            Some(ref search) if !search.text.is_empty() => search.text.clone(),
+            _ => return,
+        };
+
+        let swb = super::bar::search_word_bar::SearchWordBar::from_text(text);
+        let count = swb.children(&*self.songdb).len();
+
+        if count > 0 {
+            let max_count = self.app_config.select.max_search_bar_count;
+            let search_bar = Bar::SearchWord(Box::new(swb));
+            self.manager.add_search(
+                search_bar
+                    .as_search_word_bar()
+                    .expect("just created")
+                    .clone(),
+                max_count,
+            );
+            self.update_bar_with_songdb_context(None);
+            self.manager.set_selected(&search_bar);
+            if let Some(ref mut search) = self.search {
+                search.text.clear();
+                search.message_text = format!("{count} song(s) found");
+            }
+        } else if let Some(ref mut search) = self.search {
+            search.text.clear();
+            search.message_text = "no song found".to_string();
+        }
+    }
+
     pub fn execute_event(&mut self, event: EventType) {
         self.execute_event_with_args(event, 0, 0);
     }

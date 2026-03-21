@@ -158,7 +158,9 @@ impl BMSDecoder {
         model.sha256 = convert_hex_string(&sha256_result);
 
         let final_selected_random = if let Some(sr) = selected_random {
-            sr.to_vec()
+            let mut result = sr.to_vec();
+            result.extend_from_slice(&srandoms);
+            result
         } else {
             srandoms
         };

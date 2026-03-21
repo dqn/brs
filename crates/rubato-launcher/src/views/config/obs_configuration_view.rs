@@ -321,12 +321,7 @@ impl ObsConfigurationView {
             let _ = tx.send(ObsEvent::ScenesReceived(s));
         });
 
-        match client.connect() {
-            Ok(()) => {}
-            Err(_ex) => {
-                self.handle_obs_error("Connection error");
-            }
-        }
+        client.connect_async();
 
         self.obs_cfg_client = Some(client);
     }

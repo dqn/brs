@@ -180,12 +180,6 @@ impl ScreenShotFileExporter {
 
         let path = path.to_string();
 
-        let handle = std::thread::spawn(move || {
-            for webhook_url in &webhook_urls {
-                handler.send_webhook_with_image(&payload, &path, webhook_url);
-            }
-        });
-
         if let Ok(mut guard) = self.webhook_threads.lock() {
             // Drain finished threads, joining them to observe panics.
             guard.retain(|h| {
@@ -207,6 +201,12 @@ impl ScreenShotFileExporter {
                 );
                 return;
             }
+
+            let handle = std::thread::spawn(move || {
+                for webhook_url in &webhook_urls {
+                    handler.send_webhook_with_image(&payload, &path, webhook_url);
+                }
+            });
 
             guard.push(handle);
         }

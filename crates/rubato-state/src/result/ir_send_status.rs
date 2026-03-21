@@ -92,7 +92,7 @@ mod tests {
         fn get_play_data(
             &self,
             _player: Option<&IRPlayerData>,
-            _chart: &IRChartData,
+            _chart: Option<&IRChartData>,
         ) -> IRResponse<Vec<IRScoreData>> {
             IRResponse::failure("mock".to_string())
         }
@@ -141,7 +141,7 @@ mod tests {
         fn get_play_data(
             &self,
             _player: Option<&IRPlayerData>,
-            _chart: &IRChartData,
+            _chart: Option<&IRChartData>,
         ) -> IRResponse<Vec<IRScoreData>> {
             IRResponse::failure("mock".to_string())
         }

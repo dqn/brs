@@ -153,14 +153,16 @@ impl LR2IRConnection {
 
     /// Get LR2IR scores and personal score.
     ///
-    /// Returns a pair: (local_score, leaderboard_entries).
-    /// The local score can be None.
+    /// Returns `Some((local_score, leaderboard_entries))` on success,
+    /// or `None` on fetch failure (network error, XML parse error, empty md5).
+    /// The local score inside the tuple can itself be `None` when the player
+    /// has no recorded score for this chart.
     pub fn score_data(
         chart: &IRChartData,
         player_id: &str,
-    ) -> (Option<IRScoreData>, Vec<LeaderboardEntry>) {
+    ) -> Option<(Option<IRScoreData>, Vec<LeaderboardEntry>)> {
         if chart.md5.is_empty() {
-            return (None, Vec::new());
+            return None;
         }
         let request_url = format!(
             "songmd5={}&id={}&lastupdate=",
@@ -208,12 +210,12 @@ impl LR2IRConnection {
                                 ImGuiNotify::error(
                                     "Failed to get score data from LR2IR: XML parse error",
                                 );
-                                return (None, Vec::new());
+                                return None;
                             }
                         }
                     }
                     None => {
-                        return (None, Vec::new());
+                        return None;
                     }
                 }
             }
@@ -239,7 +241,7 @@ impl LR2IRConnection {
             }
         };
 
-        (local_score, score_data)
+        Some((local_score, score_data))
     }
 
     /// Fetch ghost replay data from LR2IR (blocking HTTP GET, 5-second timeout).
@@ -632,9 +634,8 @@ mod tests {
             has_stop: false,
             values: std::collections::HashMap::new(),
         };
-        let (local, entries) = LR2IRConnection::score_data(&chart, "0");
-        assert!(local.is_none());
-        assert!(entries.is_empty());
+        let result = LR2IRConnection::score_data(&chart, "0");
+        assert!(result.is_none());
     }
 
     // --- Ranking cache eviction tests ---

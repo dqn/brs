@@ -733,6 +733,9 @@ impl BMSONDecoder {
 
             if let Some(ref bga_events) = bga.bga_events {
                 for bn in bga_events {
+                    if bn.y < 0 {
+                        continue;
+                    }
                     ensure_timeline(&mut tlcache, bn.y, resolution, mode_key);
                     if let Some(&mapped_id) = idmap.get(&bn.id) {
                         tlcache
@@ -746,6 +749,9 @@ impl BMSONDecoder {
 
             if let Some(ref layer_events) = bga.layer_events {
                 for bn in layer_events {
+                    if bn.y < 0 {
+                        continue;
+                    }
                     ensure_timeline(&mut tlcache, bn.y, resolution, mode_key);
                     let default_id_set = [bn.id];
                     let id_set = bn.id_set.as_deref().unwrap_or(&default_id_set);
@@ -759,7 +765,7 @@ impl BMSONDecoder {
                     for &nid in id_set {
                         if let Some(seq) = seqmap.get(&nid) {
                             seqs.push(seq[0].clone());
-                        } else if let Some(&mapped_id) = idmap.get(&bn.id) {
+                        } else if let Some(&mapped_id) = idmap.get(&nid) {
                             seqs.push(vec![
                                 LayerSequence::new(0, mapped_id),
                                 LayerSequence::new_end(500),
@@ -770,12 +776,16 @@ impl BMSONDecoder {
                         .get_mut(&bn.y)
                         .expect("timeline in cache")
                         .timeline
-                        .eventlayer = vec![Layer::new(event, seqs)];
+                        .eventlayer
+                        .push(Layer::new(event, seqs));
                 }
             }
 
             if let Some(ref poor_events) = bga.poor_events {
                 for bn in poor_events {
+                    if bn.y < 0 {
+                        continue;
+                    }
                     ensure_timeline(&mut tlcache, bn.y, resolution, mode_key);
                     let event = Event::new(EventType::Miss, 1);
                     let seqs = if let Some(seq) = seqmap.get(&bn.id) {

@@ -186,6 +186,9 @@ impl MusicSelector {
                     }
                     log::info!("Search popup requested");
                 }
+                InputEvent::SearchSubmit => {
+                    self.submit_search();
+                }
             }
         }
 
