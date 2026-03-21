@@ -347,6 +347,197 @@ impl Default for AbstractResultData {
 mod tests {
     use super::*;
 
+    /// Helper: build a ScoreData with specific fields set for is_qualified tests.
+    fn make_score(exscore_epg: i32, minbp: i32, maxcombo: i32, clear: i32) -> ScoreData {
+        let mut s = ScoreData::default();
+        // exscore = epg*2 + lpg*2 + egr + lgr; set epg only for simplicity
+        s.judge_counts.epg = exscore_epg;
+        s.minbp = minbp;
+        s.maxcombo = maxcombo;
+        s.clear = clear;
+        s
+    }
+
+    // ---- ReplayAutoSaveConstraint::is_qualified tests ----
+
+    #[test]
+    fn nothing_never_qualifies() {
+        let old = make_score(10, 5, 50, 5);
+        let new = make_score(20, 1, 100, 9);
+        assert!(!ReplayAutoSaveConstraint::Nothing.is_qualified(&old, &new));
+    }
+
+    #[test]
+    fn always_qualifies() {
+        let old = make_score(10, 5, 50, 5);
+        let new = make_score(0, 100, 0, 0);
+        assert!(ReplayAutoSaveConstraint::Always.is_qualified(&old, &new));
+    }
+
+    #[test]
+    fn score_update_strictly_better() {
+        let old = make_score(10, 5, 50, 5);
+        let better = make_score(11, 5, 50, 5);
+        let equal = make_score(10, 5, 50, 5);
+        let worse = make_score(9, 5, 50, 5);
+        assert!(ReplayAutoSaveConstraint::ScoreUpdate.is_qualified(&old, &better));
+        assert!(!ReplayAutoSaveConstraint::ScoreUpdate.is_qualified(&old, &equal));
+        assert!(!ReplayAutoSaveConstraint::ScoreUpdate.is_qualified(&old, &worse));
+    }
+
+    #[test]
+    fn score_update_or_equal() {
+        let old = make_score(10, 5, 50, 5);
+        let better = make_score(11, 5, 50, 5);
+        let equal = make_score(10, 5, 50, 5);
+        let worse = make_score(9, 5, 50, 5);
+        assert!(ReplayAutoSaveConstraint::ScoreUpdateOrEqual.is_qualified(&old, &better));
+        assert!(ReplayAutoSaveConstraint::ScoreUpdateOrEqual.is_qualified(&old, &equal));
+        assert!(!ReplayAutoSaveConstraint::ScoreUpdateOrEqual.is_qualified(&old, &worse));
+    }
+
+    #[test]
+    fn misscount_update_strictly_better() {
+        // minbp lower is better
+        let old = make_score(10, 5, 50, 5);
+        let better = make_score(10, 4, 50, 5);
+        let equal = make_score(10, 5, 50, 5);
+        let worse = make_score(10, 6, 50, 5);
+        assert!(ReplayAutoSaveConstraint::MisscountUpdate.is_qualified(&old, &better));
+        assert!(!ReplayAutoSaveConstraint::MisscountUpdate.is_qualified(&old, &equal));
+        assert!(!ReplayAutoSaveConstraint::MisscountUpdate.is_qualified(&old, &worse));
+    }
+
+    #[test]
+    fn misscount_update_noplay_special_case() {
+        // When old clear == NoPlay (id=0), MisscountUpdate qualifies regardless of minbp
+        let old_noplay = make_score(10, 5, 50, ClearType::NoPlay.id());
+        let new_worse_bp = make_score(10, 100, 50, 5);
+        assert!(ReplayAutoSaveConstraint::MisscountUpdate.is_qualified(&old_noplay, &new_worse_bp));
+    }
+
+    #[test]
+    fn misscount_update_or_equal() {
+        let old = make_score(10, 5, 50, 5);
+        let better = make_score(10, 4, 50, 5);
+        let equal = make_score(10, 5, 50, 5);
+        let worse = make_score(10, 6, 50, 5);
+        assert!(ReplayAutoSaveConstraint::MisscountUpdateOrEqual.is_qualified(&old, &better));
+        assert!(ReplayAutoSaveConstraint::MisscountUpdateOrEqual.is_qualified(&old, &equal));
+        assert!(!ReplayAutoSaveConstraint::MisscountUpdateOrEqual.is_qualified(&old, &worse));
+    }
+
+    #[test]
+    fn misscount_update_or_equal_noplay_special_case() {
+        let old_noplay = make_score(10, 5, 50, ClearType::NoPlay.id());
+        let new_worse_bp = make_score(10, 100, 50, 5);
+        assert!(
+            ReplayAutoSaveConstraint::MisscountUpdateOrEqual
+                .is_qualified(&old_noplay, &new_worse_bp)
+        );
+    }
+
+    #[test]
+    fn maxcombo_update_strictly_better() {
+        let old = make_score(10, 5, 50, 5);
+        let better = make_score(10, 5, 51, 5);
+        let equal = make_score(10, 5, 50, 5);
+        let worse = make_score(10, 5, 49, 5);
+        assert!(ReplayAutoSaveConstraint::MaxcomboUpdate.is_qualified(&old, &better));
+        assert!(!ReplayAutoSaveConstraint::MaxcomboUpdate.is_qualified(&old, &equal));
+        assert!(!ReplayAutoSaveConstraint::MaxcomboUpdate.is_qualified(&old, &worse));
+    }
+
+    #[test]
+    fn maxcombo_update_or_equal() {
+        let old = make_score(10, 5, 50, 5);
+        let better = make_score(10, 5, 51, 5);
+        let equal = make_score(10, 5, 50, 5);
+        let worse = make_score(10, 5, 49, 5);
+        assert!(ReplayAutoSaveConstraint::MaxcomboUpdateOrEqual.is_qualified(&old, &better));
+        assert!(ReplayAutoSaveConstraint::MaxcomboUpdateOrEqual.is_qualified(&old, &equal));
+        assert!(!ReplayAutoSaveConstraint::MaxcomboUpdateOrEqual.is_qualified(&old, &worse));
+    }
+
+    #[test]
+    fn clear_update_strictly_better() {
+        let old = make_score(10, 5, 50, 5);
+        let better = make_score(10, 5, 50, 6);
+        let equal = make_score(10, 5, 50, 5);
+        let worse = make_score(10, 5, 50, 4);
+        assert!(ReplayAutoSaveConstraint::ClearUpdate.is_qualified(&old, &better));
+        assert!(!ReplayAutoSaveConstraint::ClearUpdate.is_qualified(&old, &equal));
+        assert!(!ReplayAutoSaveConstraint::ClearUpdate.is_qualified(&old, &worse));
+    }
+
+    #[test]
+    fn clear_update_or_equal() {
+        let old = make_score(10, 5, 50, 5);
+        let better = make_score(10, 5, 50, 6);
+        let equal = make_score(10, 5, 50, 5);
+        let worse = make_score(10, 5, 50, 4);
+        assert!(ReplayAutoSaveConstraint::ClearUpdateOrEqual.is_qualified(&old, &better));
+        assert!(ReplayAutoSaveConstraint::ClearUpdateOrEqual.is_qualified(&old, &equal));
+        assert!(!ReplayAutoSaveConstraint::ClearUpdateOrEqual.is_qualified(&old, &worse));
+    }
+
+    #[test]
+    fn anyone_update_each_dimension() {
+        let old = make_score(10, 5, 50, 5);
+
+        // Only clear improved
+        let clear_up = make_score(10, 5, 50, 6);
+        assert!(ReplayAutoSaveConstraint::AnyoneUpdate.is_qualified(&old, &clear_up));
+
+        // Only maxcombo improved
+        let combo_up = make_score(10, 5, 51, 5);
+        assert!(ReplayAutoSaveConstraint::AnyoneUpdate.is_qualified(&old, &combo_up));
+
+        // Only minbp improved (lower is better)
+        let bp_up = make_score(10, 4, 50, 5);
+        assert!(ReplayAutoSaveConstraint::AnyoneUpdate.is_qualified(&old, &bp_up));
+
+        // Only exscore improved
+        let score_up = make_score(11, 5, 50, 5);
+        assert!(ReplayAutoSaveConstraint::AnyoneUpdate.is_qualified(&old, &score_up));
+
+        // Nothing improved
+        let same = make_score(10, 5, 50, 5);
+        assert!(!ReplayAutoSaveConstraint::AnyoneUpdate.is_qualified(&old, &same));
+
+        // Everything worse
+        let worse = make_score(9, 6, 49, 4);
+        assert!(!ReplayAutoSaveConstraint::AnyoneUpdate.is_qualified(&old, &worse));
+    }
+
+    // ---- ReplayAutoSaveConstraint::get tests ----
+
+    #[test]
+    fn get_valid_indices() {
+        let values = ReplayAutoSaveConstraint::values();
+        for (i, expected) in values.iter().enumerate() {
+            assert_eq!(ReplayAutoSaveConstraint::get(i as i32), *expected);
+        }
+    }
+
+    #[test]
+    fn get_out_of_bounds_returns_nothing() {
+        assert_eq!(
+            ReplayAutoSaveConstraint::get(-1),
+            ReplayAutoSaveConstraint::Nothing
+        );
+        assert_eq!(
+            ReplayAutoSaveConstraint::get(ReplayAutoSaveConstraint::values().len() as i32),
+            ReplayAutoSaveConstraint::Nothing
+        );
+        assert_eq!(
+            ReplayAutoSaveConstraint::get(100),
+            ReplayAutoSaveConstraint::Nothing
+        );
+    }
+
+    // ---- TimingDistribution tests ----
+
     #[test]
     fn timing_distribution_basic_average() {
         let mut td = TimingDistribution::new(10);
