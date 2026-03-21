@@ -934,7 +934,10 @@ impl<'a> SongDatabaseUpdater<'a> {
                     "DELETE FROM folder WHERE path NOT LIKE 'LR2files%' AND path NOT LIKE '%.lr2folder' AND {}",
                     dsql
                 );
-                let delete_song_sql = format!("DELETE FROM song WHERE {}", dsql);
+                let delete_song_sql = format!(
+                    "DELETE FROM song WHERE path NOT LIKE 'LR2files%' AND path NOT LIKE '%.lr2folder' AND {}",
+                    dsql
+                );
 
                 // Execute with dynamic params
                 let param_refs: Vec<&dyn rusqlite::types::ToSql> = params
@@ -1107,7 +1110,7 @@ impl BMSFolder {
         let contains_bms = !self.bmsfiles.is_empty();
         property
             .listener
-            .add_bms_files_count(self.bmsfiles.len() as i32);
+            .add_bms_files_count(self.bmsfiles.len().min(i32::MAX as usize) as i32);
 
         let (skip_count, new_count) =
             self.process_bms_folder(&mut records, accessor, conn, property);
