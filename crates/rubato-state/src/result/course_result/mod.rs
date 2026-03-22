@@ -222,7 +222,7 @@ impl CourseResult {
 
         let ir_send_count = self.main.config().network.ir_send_count;
         if !self.ir_send_status.is_empty() {
-            self.data
+            self.main_data
                 .timer
                 .switch_timer(rubato_skin::skin_property::TIMER_IR_CONNECT_BEGIN, true);
         }
@@ -339,11 +339,11 @@ impl CourseResult {
         self.data.state = STATE_IR_FINISHED;
         if had_sends {
             if succeed {
-                self.data
+                self.main_data
                     .timer
                     .switch_timer(rubato_skin::skin_property::TIMER_IR_CONNECT_SUCCESS, true);
             } else {
-                self.data
+                self.main_data
                     .timer
                     .switch_timer(rubato_skin::skin_property::TIMER_IR_CONNECT_FAIL, true);
             }
@@ -494,22 +494,28 @@ impl CourseResult {
         // Poll for async IR results (non-blocking)
         self.poll_ir_results();
 
-        let time = self.data.timer.now_time();
-        self.data.timer.switch_timer(TIMER_RESULTGRAPH_BEGIN, true);
-        self.data.timer.switch_timer(TIMER_RESULTGRAPH_END, true);
+        let time = self.main_data.timer.now_time();
+        self.main_data
+            .timer
+            .switch_timer(TIMER_RESULTGRAPH_BEGIN, true);
+        self.main_data
+            .timer
+            .switch_timer(TIMER_RESULTGRAPH_END, true);
 
         if let Some(ref skin) = self.skin
             && skin.rank_time() == 0
         {
-            self.data.timer.switch_timer(TIMER_RESULT_UPDATESCORE, true);
+            self.main_data
+                .timer
+                .switch_timer(TIMER_RESULT_UPDATESCORE, true);
         }
         let skin_input = self.skin.as_ref().map(|s| s.input() as i64).unwrap_or(0);
         if time > skin_input {
-            self.data.timer.switch_timer(TIMER_STARTINPUT, true);
+            self.main_data.timer.switch_timer(TIMER_STARTINPUT, true);
         }
 
-        if self.data.timer.is_timer_on(TIMER_FADEOUT) {
-            let fadeout_time = self.data.timer.now_time_for_id(TIMER_FADEOUT);
+        if self.main_data.timer.is_timer_on(TIMER_FADEOUT) {
+            let fadeout_time = self.main_data.timer.now_time_for_id(TIMER_FADEOUT);
             let skin_fadeout = self.skin.as_ref().map(|s| s.fadeout() as i64).unwrap_or(0);
             if fadeout_time > skin_fadeout {
                 if let Some(audio) = self.main.audio_processor_mut() {
@@ -526,7 +532,7 @@ impl CourseResult {
         } else {
             let skin_scene = self.skin.as_ref().map(|s| s.scene() as i64).unwrap_or(0);
             if time > skin_scene {
-                self.data.timer.switch_timer(TIMER_FADEOUT, true);
+                self.main_data.timer.switch_timer(TIMER_FADEOUT, true);
                 self.stop_and_play_close_sound();
             }
         }
@@ -535,8 +541,8 @@ impl CourseResult {
     fn do_input(&mut self) {
         self.data.input(&mut self.main);
 
-        if !self.data.timer.is_timer_on(TIMER_FADEOUT)
-            && self.data.timer.is_timer_on(TIMER_STARTINPUT)
+        if !self.main_data.timer.is_timer_on(TIMER_FADEOUT)
+            && self.main_data.timer.is_timer_on(TIMER_STARTINPUT)
         {
             let mut ok = false;
             for i in 0..self.property.assign_length() {
@@ -566,7 +572,7 @@ impl CourseResult {
             if (self.resource.score_data().is_none() || ok)
                 && (self.data.state == STATE_OFFLINE || self.data.state == STATE_IR_FINISHED)
             {
-                self.data.timer.switch_timer(TIMER_FADEOUT, true);
+                self.main_data.timer.switch_timer(TIMER_FADEOUT, true);
                 self.stop_and_play_close_sound();
             }
 
@@ -915,9 +921,9 @@ mod tests {
     fn test_trait_render_delegates_to_do_render() {
         let mut cr = make_default();
         // do_render switches TIMER_RESULTGRAPH_BEGIN
-        assert!(!cr.data.timer.is_timer_on(TIMER_RESULTGRAPH_BEGIN));
+        assert!(!cr.main_data.timer.is_timer_on(TIMER_RESULTGRAPH_BEGIN));
         <CourseResult as MainState>::render(&mut cr);
-        assert!(cr.data.timer.is_timer_on(TIMER_RESULTGRAPH_BEGIN));
+        assert!(cr.main_data.timer.is_timer_on(TIMER_RESULTGRAPH_BEGIN));
     }
 
     #[test]
@@ -2251,19 +2257,19 @@ mod tests {
         cr.skin = Some(ResultSkinData::new_with_timings(0, 0, 0, 0));
 
         // Advance timer so now_time() > 0
-        cr.data.timer.update();
+        cr.main_data.timer.update();
         std::thread::sleep(std::time::Duration::from_millis(1));
-        cr.data.timer.update();
+        cr.main_data.timer.update();
 
         assert!(
-            !cr.data.timer.is_timer_on(TIMER_FADEOUT),
+            !cr.main_data.timer.is_timer_on(TIMER_FADEOUT),
             "TIMER_FADEOUT should not be on before render"
         );
 
         cr.do_render();
 
         assert!(
-            cr.data.timer.is_timer_on(TIMER_FADEOUT),
+            cr.main_data.timer.is_timer_on(TIMER_FADEOUT),
             "do_render() should auto-fire TIMER_FADEOUT when time > scene"
         );
     }
@@ -2275,9 +2281,9 @@ mod tests {
             make_sound_tracking_cr(vec![SoundType::CourseClose, SoundType::CourseClear]);
 
         cr.skin = Some(ResultSkinData::new_with_timings(0, 0, 0, 0));
-        cr.data.timer.update();
+        cr.main_data.timer.update();
         std::thread::sleep(std::time::Duration::from_millis(1));
-        cr.data.timer.update();
+        cr.main_data.timer.update();
 
         cr.do_render();
 
@@ -2307,9 +2313,9 @@ mod tests {
         let (mut cr, played, stopped, _state_changes) = make_sound_tracking_cr(vec![]);
 
         cr.skin = Some(ResultSkinData::new_with_timings(0, 0, 0, 0));
-        cr.data.timer.update();
+        cr.main_data.timer.update();
         std::thread::sleep(std::time::Duration::from_millis(1));
-        cr.data.timer.update();
+        cr.main_data.timer.update();
 
         cr.do_render();
 
@@ -2317,7 +2323,7 @@ mod tests {
         let stopped_sounds = stopped.lock().unwrap();
 
         assert!(
-            cr.data.timer.is_timer_on(TIMER_FADEOUT),
+            cr.main_data.timer.is_timer_on(TIMER_FADEOUT),
             "TIMER_FADEOUT should still be fired"
         );
         assert!(
@@ -2336,14 +2342,14 @@ mod tests {
         let (mut cr, _played, _stopped, _state_changes) = make_sound_tracking_cr(vec![]);
 
         cr.skin = Some(ResultSkinData::new_with_timings(0, 0, 0, 0));
-        cr.data.timer.update();
-        cr.data.timer.switch_timer(TIMER_FADEOUT, true);
+        cr.main_data.timer.update();
+        cr.main_data.timer.switch_timer(TIMER_FADEOUT, true);
 
         // Render should go into the FADEOUT branch, not the else branch
         cr.do_render();
 
         // TIMER_FADEOUT was already on, so this just verifies it stays on
-        assert!(cr.data.timer.is_timer_on(TIMER_FADEOUT));
+        assert!(cr.main_data.timer.is_timer_on(TIMER_FADEOUT));
     }
 
     // ============================================================
@@ -2358,16 +2364,16 @@ mod tests {
         let (mut cr, played, stopped, _state_changes) =
             make_sound_tracking_cr(vec![SoundType::CourseClose, SoundType::CourseClear]);
 
-        cr.data.timer.update();
+        cr.main_data.timer.update();
         // Activate TIMER_STARTINPUT so the input block is entered
-        cr.data.timer.switch_timer(TIMER_STARTINPUT, true);
+        cr.main_data.timer.switch_timer(TIMER_STARTINPUT, true);
         // score_data() is None by default, state is STATE_OFFLINE by default,
         // so the TIMER_FADEOUT branch will trigger without needing key press simulation.
 
         cr.do_input();
 
         assert!(
-            cr.data.timer.is_timer_on(TIMER_FADEOUT),
+            cr.main_data.timer.is_timer_on(TIMER_FADEOUT),
             "TIMER_FADEOUT should be set"
         );
 
@@ -2390,12 +2396,12 @@ mod tests {
         // When no close sound exists, TIMER_FADEOUT should still fire but no sound plays.
         let (mut cr, played, _stopped, _state_changes) = make_sound_tracking_cr(vec![]);
 
-        cr.data.timer.update();
-        cr.data.timer.switch_timer(TIMER_STARTINPUT, true);
+        cr.main_data.timer.update();
+        cr.main_data.timer.switch_timer(TIMER_STARTINPUT, true);
 
         cr.do_input();
 
-        assert!(cr.data.timer.is_timer_on(TIMER_FADEOUT));
+        assert!(cr.main_data.timer.is_timer_on(TIMER_FADEOUT));
         let played_sounds = played.lock().unwrap();
         assert!(
             played_sounds.is_empty(),

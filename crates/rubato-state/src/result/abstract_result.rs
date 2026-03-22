@@ -5,7 +5,7 @@ use rubato_core::clear_type::ClearType;
 use rubato_core::score_data::ScoreData;
 use rubato_core::score_data_property::ScoreDataProperty;
 
-use super::{MainController, RankingData, TimerManager};
+use super::{MainController, RankingData};
 
 /// Replay data status
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -188,8 +188,6 @@ pub struct AbstractResultData {
     pub oldscore: ScoreData,
     /// Score data property
     pub score: ScoreDataProperty,
-    /// Timer manager
-    pub timer: TimerManager,
     /// Cached rubato_types version of timing_distribution for SkinRenderContext.
     /// Updated via `sync_timing_distribution_cache()` after statistics are calculated.
     pub timing_distribution_cache: rubato_types::timing_distribution::TimingDistribution,
@@ -211,7 +209,6 @@ impl AbstractResultData {
             gauge_type: 0,
             oldscore: ScoreData::default(),
             score: ScoreDataProperty::new(),
-            timer: TimerManager::new(),
             timing_distribution_cache:
                 rubato_types::timing_distribution::TimingDistribution::default(),
         }

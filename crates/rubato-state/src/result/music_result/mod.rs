@@ -190,7 +190,9 @@ impl MusicResult {
             let _oldscore_exscore = self.data.oldscore.exscore();
             let newscore_for_thread = newscore_clone.clone();
 
-            self.data.timer.switch_timer(TIMER_IR_CONNECT_BEGIN, true);
+            self.main_data
+                .timer
+                .switch_timer(TIMER_IR_CONNECT_BEGIN, true);
 
             let (tx, rx) = std::sync::mpsc::channel();
             self.ir_rx = Some(rx);
@@ -288,9 +290,13 @@ impl MusicResult {
         self.data.state = STATE_IR_FINISHED;
         if had_sends {
             if succeed {
-                self.data.timer.switch_timer(TIMER_IR_CONNECT_SUCCESS, true);
+                self.main_data
+                    .timer
+                    .switch_timer(TIMER_IR_CONNECT_SUCCESS, true);
             } else {
-                self.data.timer.switch_timer(TIMER_IR_CONNECT_FAIL, true);
+                self.main_data
+                    .timer
+                    .switch_timer(TIMER_IR_CONNECT_FAIL, true);
             }
             if let Some(ir_scores) = ranking_scores {
                 let use_newscore = newscore_clone
@@ -318,22 +324,28 @@ impl MusicResult {
         // Poll for async IR results (non-blocking)
         self.poll_ir_results();
 
-        let time = self.data.timer.now_time();
-        self.data.timer.switch_timer(TIMER_RESULTGRAPH_BEGIN, true);
-        self.data.timer.switch_timer(TIMER_RESULTGRAPH_END, true);
+        let time = self.main_data.timer.now_time();
+        self.main_data
+            .timer
+            .switch_timer(TIMER_RESULTGRAPH_BEGIN, true);
+        self.main_data
+            .timer
+            .switch_timer(TIMER_RESULTGRAPH_END, true);
 
         if let Some(ref skin) = self.skin
             && skin.rank_time() == 0
         {
-            self.data.timer.switch_timer(TIMER_RESULT_UPDATESCORE, true);
+            self.main_data
+                .timer
+                .switch_timer(TIMER_RESULT_UPDATESCORE, true);
         }
         let skin_input = self.skin.as_ref().map(|s| s.input() as i64).unwrap_or(0);
         if time > skin_input {
-            self.data.timer.switch_timer(TIMER_STARTINPUT, true);
+            self.main_data.timer.switch_timer(TIMER_STARTINPUT, true);
         }
 
-        if self.data.timer.is_timer_on(TIMER_FADEOUT) {
-            let fadeout_time = self.data.timer.now_time_for_id(TIMER_FADEOUT);
+        if self.main_data.timer.is_timer_on(TIMER_FADEOUT) {
+            let fadeout_time = self.main_data.timer.now_time_for_id(TIMER_FADEOUT);
             let skin_fadeout = self.skin.as_ref().map(|s| s.fadeout() as i64).unwrap_or(0);
             if fadeout_time > skin_fadeout {
                 if let Some(audio) = self.main.audio_processor_mut() {
@@ -466,7 +478,7 @@ impl MusicResult {
         } else {
             let skin_scene = self.skin.as_ref().map(|s| s.scene() as i64).unwrap_or(0);
             if time > skin_scene {
-                self.data.timer.switch_timer(TIMER_FADEOUT, true);
+                self.main_data.timer.switch_timer(TIMER_FADEOUT, true);
                 if self.has_sound(SoundType::ResultClose) {
                     self.stop_sound_inner(SoundType::ResultClear);
                     self.stop_sound_inner(SoundType::ResultFail);
@@ -478,10 +490,10 @@ impl MusicResult {
 
     fn do_input(&mut self) {
         self.data.input(&mut self.main);
-        let time = self.data.timer.now_time();
+        let time = self.main_data.timer.now_time();
 
-        if !self.data.timer.is_timer_on(TIMER_FADEOUT)
-            && self.data.timer.is_timer_on(TIMER_STARTINPUT)
+        if !self.main_data.timer.is_timer_on(TIMER_FADEOUT)
+            && self.main_data.timer.is_timer_on(TIMER_STARTINPUT)
         {
             let skin_input = self.skin.as_ref().map(|s| s.input() as i64).unwrap_or(0);
             if time > skin_input {
@@ -533,13 +545,16 @@ impl MusicResult {
 
                 if self.resource.score_data().is_none() || ok {
                     let rank_time = self.skin.as_ref().map(|s| s.rank_time()).unwrap_or(0);
-                    if rank_time != 0 && !self.data.timer.is_timer_on(TIMER_RESULT_UPDATESCORE) {
-                        self.data.timer.switch_timer(TIMER_RESULT_UPDATESCORE, true);
+                    if rank_time != 0 && !self.main_data.timer.is_timer_on(TIMER_RESULT_UPDATESCORE)
+                    {
+                        self.main_data
+                            .timer
+                            .switch_timer(TIMER_RESULT_UPDATESCORE, true);
                     } else if self.data.state == STATE_OFFLINE
                         || self.data.state == STATE_IR_FINISHED
-                        || time - self.data.timer.timer(TIMER_IR_CONNECT_BEGIN) >= 1000
+                        || time - self.main_data.timer.timer(TIMER_IR_CONNECT_BEGIN) >= 1000
                     {
-                        self.data.timer.switch_timer(TIMER_FADEOUT, true);
+                        self.main_data.timer.switch_timer(TIMER_FADEOUT, true);
                         if self.has_sound(SoundType::ResultClose) {
                             self.stop_sound_inner(SoundType::ResultClear);
                             self.stop_sound_inner(SoundType::ResultFail);
@@ -1133,11 +1148,11 @@ mod tests {
     fn test_render_switches_graph_timers() {
         let mut mr = MusicResult::default();
         // Update timer so now_time works
-        mr.data.timer.update();
+        mr.main_data.timer.update();
         <MusicResult as MainState>::render(&mut mr);
         // TIMER_RESULTGRAPH_BEGIN and TIMER_RESULTGRAPH_END should be on
-        assert!(mr.data.timer.is_timer_on(TIMER_RESULTGRAPH_BEGIN));
-        assert!(mr.data.timer.is_timer_on(TIMER_RESULTGRAPH_END));
+        assert!(mr.main_data.timer.is_timer_on(TIMER_RESULTGRAPH_BEGIN));
+        assert!(mr.main_data.timer.is_timer_on(TIMER_RESULTGRAPH_END));
     }
 
     #[test]
@@ -1215,7 +1230,7 @@ mod tests {
     #[test]
     fn test_main_state_trait_create_prepare_render_input_lifecycle() {
         let mut mr = MusicResult::default();
-        mr.data.timer.update();
+        mr.main_data.timer.update();
         <MusicResult as MainState>::create(&mut mr);
         <MusicResult as MainState>::prepare(&mut mr);
         <MusicResult as MainState>::render(&mut mr);
