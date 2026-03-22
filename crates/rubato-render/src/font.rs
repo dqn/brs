@@ -100,8 +100,10 @@ impl BitmapFontData {
 }
 
 /// Parse an integer field like "key=123" from a .fnt line.
+/// Uses word-boundary matching: the key must be preceded by a space or be at the
+/// start of the line so that e.g. "x=" does not match inside "xoffset=".
 fn parse_fnt_field(line: &str, key: &str) -> Option<i32> {
-    let start = line.find(key)? + key.len();
+    let start = find_fnt_key(line, key)? + key.len();
     let rest = &line[start..];
     let end = rest
         .find(|c: char| !c.is_ascii_digit() && c != '-')
@@ -109,9 +111,29 @@ fn parse_fnt_field(line: &str, key: &str) -> Option<i32> {
     rest[..end].parse().ok()
 }
 
+/// Find the byte offset of `key` in `line` using word-boundary matching.
+/// The key must be at the start of the line or preceded by a space/tab,
+/// so that e.g. "x=" does not match inside "xoffset=".
+fn find_fnt_key(line: &str, key: &str) -> Option<usize> {
+    let mut search_from = 0;
+    while search_from < line.len() {
+        if let Some(pos) = line[search_from..].find(key) {
+            let abs_pos = search_from + pos;
+            if abs_pos == 0 || matches!(line.as_bytes()[abs_pos - 1], b' ' | b'\t') {
+                return Some(abs_pos);
+            }
+            // Not a word boundary; skip past this match and keep searching.
+            search_from = abs_pos + 1;
+        } else {
+            return None;
+        }
+    }
+    None
+}
+
 /// Parse a quoted string field like `file="name.png"` from a .fnt line.
 fn parse_fnt_string(line: &str, key: &str) -> Option<String> {
-    let start = line.find(key)? + key.len();
+    let start = find_fnt_key(line, key)? + key.len();
     let rest = &line[start..];
     if let Some(stripped) = rest.strip_prefix('"') {
         let end = stripped.find('"')?;
@@ -531,6 +553,53 @@ char id=65 x=0 y=0 width=10 height=10 xoffset=0 yoffset=0 xadvance=12 page=0\n";
         assert_eq!(data.image_paths.len(), 1);
         assert!(data.image_paths[0].contains("atlas.png"));
         assert!(data.image_paths[0].starts_with("/fonts"));
+    }
+
+    // --- parse_fnt_field / find_fnt_key word-boundary matching regression tests ---
+
+    #[test]
+    fn parse_fnt_field_x_not_confused_with_xoffset() {
+        // When xoffset= appears before x= in the line, substring matching would
+        // incorrectly match "x=" inside "xoffset=" and return the xoffset value.
+        let line =
+            "char id=65 xoffset=99 x=10 y=20 width=30 height=40 yoffset=3 xadvance=35 page=0";
+        let data = BitmapFontData::parse_fnt(line, None).unwrap();
+        let glyph = data.glyphs.get(&65).unwrap();
+        assert_eq!(glyph.x, 10, "x= must not match inside xoffset=");
+        assert_eq!(glyph.xoffset, 99);
+    }
+
+    #[test]
+    fn parse_fnt_field_y_not_confused_with_yoffset() {
+        // Same issue: "y=" is a substring of "yoffset=".
+        let line =
+            "char id=65 x=10 yoffset=88 y=20 width=30 height=40 xoffset=3 xadvance=35 page=0";
+        let data = BitmapFontData::parse_fnt(line, None).unwrap();
+        let glyph = data.glyphs.get(&65).unwrap();
+        assert_eq!(glyph.y, 20, "y= must not match inside yoffset=");
+        assert_eq!(glyph.yoffset, 88);
+    }
+
+    #[test]
+    fn find_fnt_key_at_line_start() {
+        assert_eq!(find_fnt_key("x=10 y=20", "x="), Some(0));
+    }
+
+    #[test]
+    fn find_fnt_key_after_space() {
+        assert_eq!(find_fnt_key("char x=10", "x="), Some(5));
+    }
+
+    #[test]
+    fn find_fnt_key_rejects_substring_match() {
+        // "x=" must not match inside "xoffset="
+        assert_eq!(find_fnt_key("xoffset=3", "x="), None);
+    }
+
+    #[test]
+    fn find_fnt_key_skips_substring_finds_real_match() {
+        // First occurrence of "x=" is inside "xoffset=", second is the real "x=".
+        assert_eq!(find_fnt_key("xoffset=3 x=10", "x="), Some(10));
     }
 
     // --- GlyphLayout tests ---
