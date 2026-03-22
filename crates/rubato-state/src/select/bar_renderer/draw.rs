@@ -54,8 +54,18 @@ impl BarRenderer {
             };
 
             if si.data.draw {
+                // Read the static region from fixr (available for single-DST or
+                // uniform-DST objects) or fall back to the first DST entry's region.
+                // Avoids reading from si.data.region which holds a stale value from
+                // the skin-wide prepare pass; draw_with_value below runs a second
+                // prepare that overwrites region with the bar-specific offsets.
+                let base_region = si
+                    .data
+                    .fixr
+                    .or_else(|| si.data.dst.first().map(|d| d.region))
+                    .unwrap_or(si.data.region);
                 let position_offset = if position == 1 {
-                    si.data.region.height
+                    base_region.height
                 } else {
                     0.0
                 };
@@ -64,8 +74,8 @@ impl BarRenderer {
                     self.time,
                     ctx.state,
                     ba.value,
-                    ba.x - si.data.region.x,
-                    ba.y - si.data.region.y - position_offset,
+                    ba.x - base_region.x,
+                    ba.y - base_region.y - position_offset,
                 );
             }
         }
