@@ -1132,7 +1132,9 @@ impl MainState for BMSPlayer {
                     > self.play_skin.close as i64
                 {
                     self.pending.pending_global_pitch = Some(1.0);
-                    // if resource.mediaLoadFinished() { resource.getBGAManager().stop(); }
+                    if self.media_load_finished {
+                        lock_or_recover(&self.bga).stop();
+                    }
 
                     // Fill remaining gauge log with 0
                     if self.main_state_data.timer.is_timer_on(TIMER_PLAY) {
@@ -1187,7 +1189,7 @@ impl MainState for BMSPlayer {
                     .map_or(0, |s| s.fadeout()) as i64;
                 if self.main_state_data.timer.now_time_for_id(TIMER_FADEOUT) > skin_fadeout {
                     self.pending.pending_global_pitch = Some(1.0);
-                    // resource.getBGAManager().stop();
+                    lock_or_recover(&self.bga).stop();
                     self.pending.pending_score_handoff = Some(self.build_score_handoff());
                     self.save_config();
                     // input.setEnable(true); input.setStartTime(0);
