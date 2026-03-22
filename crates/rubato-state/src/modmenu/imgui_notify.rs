@@ -401,29 +401,28 @@ impl ImGuiNotify {
     /// Renders each active toast as a positioned egui Area with a styled frame,
     /// including icon, title, content, separator, dismiss button, and action button.
     pub fn render_notifications_ui(ctx: &egui::Context) {
-        let mut notifications = lock_or_recover(&NOTIFICATIONS);
-        let mut height: f32 = 0.0;
-        let text_wrap_width = imgui_renderer::window_width() as f32 / NOTIFY_TEXT_WRAP_FRACTION;
+        // Clone notifications and release the lock immediately to avoid blocking
+        // producers (IR results, download completions, background tasks) during
+        // the entire egui rendering pass.
+        let (snapshot, text_wrap_width) = {
+            let mut notifications = lock_or_recover(&NOTIFICATIONS);
+            // Remove expired toasts while we hold the lock
+            notifications.retain(|t| t.phase() != ToastPhase::Expired);
+            let snap = notifications.clone();
+            let wrap = imgui_renderer::window_width() as f32 / NOTIFY_TEXT_WRAP_FRACTION;
+            (snap, wrap)
+        };
+        // Lock is released here
 
-        let mut i = 0;
+        let mut height: f32 = 0.0;
         let mut dismiss_index: Option<usize> = None;
 
-        while i < notifications.len() {
-            let current_toast = &notifications[i];
-
-            // Remove expired toasts
-            if current_toast.phase() == ToastPhase::Expired {
-                notifications.remove(i);
-                continue;
-            }
-
+        for (i, current_toast) in snapshot.iter().enumerate() {
             // Enforce render limit
             if NOTIFY_RENDER_LIMIT > 0 && i >= NOTIFY_RENDER_LIMIT {
-                i += 1;
                 continue;
             }
 
-            // Snapshot all toast data before UI rendering (avoids borrow issues)
             let opacity = current_toast.fade_percent();
             let text_color = current_toast.color();
             let icon = current_toast.icon().map(|s| s.to_string());
@@ -527,15 +526,14 @@ impl ImGuiNotify {
             // Accumulate height from the rendered area
             let area_height = response.response.rect.height();
             height += area_height + NOTIFY_PADDING_MESSAGE_Y;
-
-            i += 1;
         }
 
-        // Process dismiss outside the loop to avoid borrow issues
-        if let Some(idx) = dismiss_index
-            && idx < notifications.len()
-        {
-            notifications.remove(idx);
+        // Re-acquire lock briefly to process dismiss
+        if let Some(idx) = dismiss_index {
+            let mut notifications = lock_or_recover(&NOTIFICATIONS);
+            if idx < notifications.len() {
+                notifications.remove(idx);
+            }
         }
     }
 }
