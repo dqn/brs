@@ -252,8 +252,9 @@ impl BarRenderer {
                         && let Some(Bar::Folder(fb)) = ctx.currentsongs.get(idx)
                     {
                         let data = fb.folder_data();
-                        songstatus = if data.is_none()
-                            || now_secs > data.expect("data").adddate() + 3600 * 24
+                        songstatus = if data
+                            .as_ref()
+                            .is_none_or(|d| now_secs > d.adddate() + 3600 * 24)
                         {
                             4 // FolderBar(normal)
                         } else {
