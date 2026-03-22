@@ -260,7 +260,7 @@ impl SkinSlider {
         x: i32,
         y: i32,
     ) -> bool {
-        if self.range == 0 {
+        if self.range <= 0 {
             return false;
         }
         if let Some(ref writer) = self.writer {
