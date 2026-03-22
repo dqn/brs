@@ -40,3 +40,37 @@ pub fn get(path: &PathBuf) -> Option<CacheableBitmapFont> {
     let store = lock_or_recover(&CACHE_STORE);
     store.get(path).cloned()
 }
+
+/// Remove all cached bitmap fonts, releasing their texture pixel data.
+///
+/// Called during skin disposal to match Java's garbage collection behavior
+/// where font cache entries become unreachable when the skin is disposed.
+pub fn clear() {
+    let mut store = lock_or_recover(&CACHE_STORE);
+    store.clear();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn clear_removes_all_cached_entries() {
+        // Insert two entries into the global cache.
+        let path_a = PathBuf::from("/tmp/test_font_a.fnt");
+        let path_b = PathBuf::from("/tmp/test_font_b.fnt");
+        set(path_a.clone(), CacheableBitmapFont::default());
+        set(path_b.clone(), CacheableBitmapFont::default());
+
+        assert!(has(Some(&path_a)));
+        assert!(has(Some(&path_b)));
+
+        // Clear must remove all entries.
+        clear();
+
+        assert!(!has(Some(&path_a)));
+        assert!(!has(Some(&path_b)));
+        assert!(get(&path_a).is_none());
+        assert!(get(&path_b).is_none());
+    }
+}
