@@ -442,6 +442,32 @@ impl rubato_types::skin_render_context::SkinRenderContext for ResultMouseContext
         shared_render_context::gauge_min(&self.result.resource, self.result.data.gauge_type)
     }
 
+    fn gauge_border_max(&self) -> Option<(f32, f32)> {
+        shared_render_context::gauge_border_max(&self.result.resource, self.result.data.gauge_type)
+    }
+
+    fn gauge_history(&self) -> Option<&Vec<Vec<f32>>> {
+        shared_render_context::gauge_history(&self.result.resource)
+    }
+
+    fn gauge_element_borders(&self) -> Vec<(f32, f32)> {
+        shared_render_context::gauge_element_borders(&self.result.resource)
+    }
+
+    fn get_timing_distribution(
+        &self,
+    ) -> Option<&rubato_types::timing_distribution::TimingDistribution> {
+        shared_render_context::get_timing_distribution(&self.result.data)
+    }
+
+    fn score_data_property(&self) -> &rubato_types::score_data_property::ScoreDataProperty {
+        shared_render_context::score_data_property(&self.result.data)
+    }
+
+    fn judge_area(&self) -> Option<Vec<Vec<i32>>> {
+        shared_render_context::judge_area(&self.result.resource)
+    }
+
     fn judge_count(&self, judge: i32, fast: bool) -> i32 {
         shared_render_context::judge_count(&self.result.data, judge, fast)
     }
@@ -618,32 +644,6 @@ impl rubato_types::skin_render_context::SkinRenderContext for ResultMouseContext
                 .map_or_else(String::new, |s| s.file.sha256.clone()),
             _ => String::new(),
         }
-    }
-
-    fn gauge_history(&self) -> Option<&Vec<Vec<f32>>> {
-        shared_render_context::gauge_history(&self.result.resource)
-    }
-
-    fn gauge_border_max(&self) -> Option<(f32, f32)> {
-        shared_render_context::gauge_border_max(&self.result.resource, self.result.data.gauge_type)
-    }
-
-    fn get_timing_distribution(
-        &self,
-    ) -> Option<&rubato_types::timing_distribution::TimingDistribution> {
-        shared_render_context::get_timing_distribution(&self.result.data)
-    }
-
-    fn score_data_property(&self) -> &rubato_types::score_data_property::ScoreDataProperty {
-        shared_render_context::score_data_property(&self.result.data)
-    }
-
-    fn judge_area(&self) -> Option<Vec<Vec<i32>>> {
-        shared_render_context::judge_area(&self.result.resource)
-    }
-
-    fn gauge_element_borders(&self) -> Vec<(f32, f32)> {
-        shared_render_context::gauge_element_borders(&self.result.resource)
     }
 
     fn execute_event(&mut self, id: i32, arg1: i32, arg2: i32) {
