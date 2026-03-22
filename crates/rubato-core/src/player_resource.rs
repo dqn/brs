@@ -303,6 +303,10 @@ impl PlayerResource {
         }
     }
 
+    pub fn is_bga_on(&self) -> bool {
+        self.bmsresource.as_ref().is_some_and(|r| r.is_bga_on())
+    }
+
     pub fn score_data(&self) -> Option<&ScoreData> {
         self.score.as_ref()
     }

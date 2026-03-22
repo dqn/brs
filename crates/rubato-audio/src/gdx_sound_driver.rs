@@ -5,6 +5,8 @@
 
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc;
 
 use rayon::prelude::*;
@@ -98,6 +100,10 @@ pub struct GdxSoundDriver {
     path_sound_cache: HashMap<String, StaticSoundData>,
     // Deferred path loader for non-blocking cache-miss loads
     deferred_path_loader: crate::deferred_path_loader::DeferredPathLoader,
+    // Gradual loading progress counter (incremented per file in background thread)
+    loading_progress: Arc<AtomicUsize>,
+    // Total number of uncached paths to load (denominator for progress)
+    loading_total: usize,
 }
 
 impl GdxSoundDriver {
@@ -124,6 +130,8 @@ impl GdxSoundDriver {
             loading_thread: None,
             path_sound_cache: HashMap::new(),
             deferred_path_loader: crate::deferred_path_loader::DeferredPathLoader::new(),
+            loading_progress: Arc::new(AtomicUsize::new(0)),
+            loading_total: 0,
         })
     }
 }
@@ -293,11 +301,16 @@ impl AudioDriver for GdxSoundDriver {
 
         if paths_to_load.is_empty() {
             // All paths are cached; finalize immediately without spawning a thread
+            self.loading_total = 0;
             self.finalize_load(&load_tasks);
         } else {
             // Spawn background thread for parallel loading of uncached paths
             let (tx, rx) = mpsc::channel();
             let paths_vec: Vec<String> = paths_to_load.into_iter().collect();
+
+            self.loading_total = paths_vec.len();
+            self.loading_progress = Arc::new(AtomicUsize::new(0));
+            let progress_clone = Arc::clone(&self.loading_progress);
 
             match std::thread::Builder::new()
                 .name("keysound-loader".to_string())
@@ -305,14 +318,22 @@ impl AudioDriver for GdxSoundDriver {
                     let newly_loaded: Vec<(String, StaticSoundData)> = paths_vec
                         .par_iter()
                         .filter_map(|abs_path| {
-                            let candidates = crate::audio_driver::paths(abs_path);
-                            for candidate in &candidates {
-                                if let Ok(data) = StaticSoundData::from_file(candidate) {
-                                    return Some((abs_path.clone(), data));
+                            let result = {
+                                let candidates = crate::audio_driver::paths(abs_path);
+                                let mut loaded = None;
+                                for candidate in &candidates {
+                                    if let Ok(data) = StaticSoundData::from_file(candidate) {
+                                        loaded = Some((abs_path.clone(), data));
+                                        break;
+                                    }
                                 }
+                                loaded
+                            };
+                            progress_clone.fetch_add(1, Ordering::Relaxed);
+                            if result.is_none() {
+                                log::debug!("Failed to load keysound: {}", abs_path);
                             }
-                            log::debug!("Failed to load keysound: {}", abs_path);
-                            None
+                            result
                         })
                         .collect();
 
@@ -357,7 +378,9 @@ impl AudioDriver for GdxSoundDriver {
 
     fn get_progress(&self) -> f32 {
         if self.loading_receiver.is_some() {
-            0.0
+            let total = self.loading_total.max(1);
+            let done = self.loading_progress.load(Ordering::Relaxed);
+            (done as f32) / (total as f32)
         } else {
             1.0
         }

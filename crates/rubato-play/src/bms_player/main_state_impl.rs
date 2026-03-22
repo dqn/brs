@@ -154,6 +154,13 @@ impl MainState for BMSPlayer {
         self.media_load_finished = true;
     }
 
+    fn update_loading_progress(&mut self, audio_progress: f32, bga_on: bool) {
+        self.audio_progress = audio_progress;
+        self.bga_enabled = bga_on;
+        // Read BGA progress from our own BGAProcessor
+        self.bga_progress = lock_or_recover(&self.bga).progress();
+    }
+
     fn receive_reloaded_model(&mut self, model: bms_model::bms_model::BMSModel) {
         // Rebuild song_data from the new model so metadata, chart info, and
         // lnmode_override stay in sync with the reloaded BMS file.

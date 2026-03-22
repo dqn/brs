@@ -305,6 +305,14 @@ pub trait MainState {
         // Default no-op — only BMSPlayer uses this.
     }
 
+    /// Update gradual loading progress values each frame.
+    /// Called by MainController with audio driver progress and whether BGA is enabled.
+    /// BMSPlayer reads its own BGA progress from the BGAProcessor it owns.
+    /// Only BMSPlayer uses this for the skin property ID 165 loading bar.
+    fn update_loading_progress(&mut self, _audio_progress: f32, _bga_on: bool) {
+        // Default no-op — only BMSPlayer uses this.
+    }
+
     /// Receive an updated PlayConfig pushed from MainController after modmenu changes.
     ///
     /// In Java, BMSPlayer accesses `main.getPlayerConfig()` (shared reference), so
@@ -395,7 +403,7 @@ pub trait SkinDrawable: Send {
     );
 
     /// Prepare skin for rendering: validate objects, build draw list, load resources.
-    fn prepare_skin(&mut self);
+    fn prepare_skin(&mut self, state_type: Option<rubato_types::main_state_type::MainStateType>);
 
     /// Dispose all skin objects and release resources.
     fn dispose_skin(&mut self);

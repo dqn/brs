@@ -428,6 +428,15 @@ pub struct BMSPlayer {
     skin_name: Option<String>,
     /// Whether media loading has finished (set by the caller via resource.mediaLoadFinished()).
     media_load_finished: bool,
+    /// Audio loading progress (0.0-1.0) from AudioDriver::get_progress().
+    /// Updated each frame by MainController via update_loading_progress().
+    audio_progress: f32,
+    /// BGA loading progress (0.0-1.0) from BGAProcessor::progress().
+    /// Updated each frame by MainController via update_loading_progress().
+    bga_progress: f32,
+    /// Whether BGA is enabled for the current song.
+    /// Updated each frame by MainController via update_loading_progress().
+    bga_enabled: bool,
     /// Whether we are in course mode (resource.getCourseBMSModels() != null).
     /// Set by the caller. Quick retry is disabled during courses.
     is_course_mode: bool,

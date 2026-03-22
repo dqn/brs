@@ -16,6 +16,12 @@ pub(super) struct PlayRenderContext<'a> {
     pub(super) play_mode: BMSPlayerMode,
     pub(super) state: PlayState,
     pub(super) media_load_finished: bool,
+    /// Audio loading progress (0.0-1.0) from AudioDriver::get_progress().
+    pub(super) audio_progress: f32,
+    /// BGA loading progress (0.0-1.0) from BGAProcessor::progress().
+    pub(super) bga_progress: f32,
+    /// Whether BGA is enabled for the current song.
+    pub(super) bga_enabled: bool,
     /// Live hi-speed value from LaneRenderer (mutated by START/SELECT during play).
     pub(super) live_hispeed: f32,
     /// Live lanecover value from LaneRenderer.
@@ -314,12 +320,17 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayRenderContext<
                     * if green { 0.6 } else { 1.0 })
                 .round() as i32
             }
-            // Loading progress: 100 if media loaded, else 0
+            // Loading progress (0-100, gradual)
             165 => {
                 if self.media_load_finished {
                     100
                 } else {
-                    0
+                    let progress = if self.bga_enabled {
+                        (self.audio_progress + self.bga_progress) / 2.0
+                    } else {
+                        self.audio_progress
+                    };
+                    (progress * 100.0) as i32
                 }
             }
             // IDs 20-26 (FPS, system date/time) handled by default_integer_value
@@ -333,12 +344,14 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayRenderContext<
             17 => self.system_volume,
             18 => self.key_volume,
             19 => self.bg_volume,
-            // Loading progress (0.0-1.0)
+            // Loading progress (0.0-1.0, gradual)
             165 => {
                 if self.media_load_finished {
                     1.0
+                } else if self.bga_enabled {
+                    (self.audio_progress + self.bga_progress) / 2.0
                 } else {
-                    0.0
+                    self.audio_progress
                 }
             }
             // Gauge value (0.0-100.0)
@@ -815,12 +828,17 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayMouseContext<'
                     * if green { 0.6 } else { 1.0 })
                 .round() as i32
             }
-            // Loading progress: 100 if media loaded, else 0
+            // Loading progress (0-100, gradual)
             165 => {
                 if self.player.media_load_finished {
                     100
                 } else {
-                    0
+                    let progress = if self.player.bga_enabled {
+                        (self.player.audio_progress + self.player.bga_progress) / 2.0
+                    } else {
+                        self.player.audio_progress
+                    };
+                    (progress * 100.0) as i32
                 }
             }
             // IDs 20-29 (FPS, system date/time, boot time) handled by default_integer_value
@@ -834,12 +852,14 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayMouseContext<'
             17 => self.player.system_volume,
             18 => self.player.key_volume,
             19 => self.player.bg_volume,
-            // Loading progress (0.0-1.0)
+            // Loading progress (0.0-1.0, gradual)
             165 => {
                 if self.player.media_load_finished {
                     1.0
+                } else if self.player.bga_enabled {
+                    (self.player.audio_progress + self.player.bga_progress) / 2.0
                 } else {
-                    0.0
+                    self.player.audio_progress
                 }
             }
             1107 => self.player.gauge.as_ref().map_or(0.0, |g| g.value()),
@@ -958,6 +978,9 @@ mod tests {
             play_mode: BMSPlayerMode::new(rubato_core::bms_player_mode::Mode::Play),
             state: PlayState::Play,
             media_load_finished: false,
+            audio_progress: 0.0,
+            bga_progress: 0.0,
+            bga_enabled: false,
             live_hispeed: 0.0,
             live_lanecover: 0.0,
             live_lift: 0.0,
@@ -1018,6 +1041,9 @@ mod tests {
             play_mode: BMSPlayerMode::new(rubato_core::bms_player_mode::Mode::Play),
             state: PlayState::Play,
             media_load_finished: false,
+            audio_progress: 0.0,
+            bga_progress: 0.0,
+            bga_enabled: false,
             live_hispeed: 0.0,
             live_lanecover: 0.0,
             live_lift: 0.0,
@@ -1186,6 +1212,9 @@ mod tests {
             play_mode: BMSPlayerMode::new(rubato_core::bms_player_mode::Mode::Play),
             state: PlayState::Play,
             media_load_finished: false,
+            audio_progress: 0.0,
+            bga_progress: 0.0,
+            bga_enabled: false,
             live_hispeed: 0.0,
             live_lanecover: 0.0,
             live_lift: 0.0,
@@ -1290,6 +1319,9 @@ mod tests {
             play_mode: BMSPlayerMode::new(rubato_core::bms_player_mode::Mode::Play),
             state: PlayState::Play,
             media_load_finished: false,
+            audio_progress: 0.0,
+            bga_progress: 0.0,
+            bga_enabled: false,
             live_hispeed: 0.0,
             live_lanecover: 0.0,
             live_lift: 0.0,
@@ -1371,6 +1403,9 @@ mod tests {
             play_mode: BMSPlayerMode::new(rubato_core::bms_player_mode::Mode::Play),
             state: PlayState::Play,
             media_load_finished: false,
+            audio_progress: 0.0,
+            bga_progress: 0.0,
+            bga_enabled: false,
             live_hispeed: 0.0,
             live_lanecover: 0.0,
             live_lift: 0.0,
@@ -1429,6 +1464,9 @@ mod tests {
             play_mode: BMSPlayerMode::new(rubato_core::bms_player_mode::Mode::Play),
             state: PlayState::Play,
             media_load_finished: false,
+            audio_progress: 0.0,
+            bga_progress: 0.0,
+            bga_enabled: false,
             live_hispeed: 0.0,
             live_lanecover: 0.0,
             live_lift: 0.0,
@@ -1551,6 +1589,9 @@ mod tests {
             play_mode: BMSPlayerMode::new(rubato_core::bms_player_mode::Mode::Play),
             state: PlayState::Play,
             media_load_finished: false,
+            audio_progress: 0.0,
+            bga_progress: 0.0,
+            bga_enabled: false,
             live_hispeed: 0.0,
             live_lanecover: 0.0,
             live_lift: 0.0,

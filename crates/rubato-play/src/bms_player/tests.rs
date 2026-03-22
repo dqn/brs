@@ -68,7 +68,7 @@ impl SkinDrawable for PlayerConfigMutatingSkin {
     ) {
     }
 
-    fn prepare_skin(&mut self) {}
+    fn prepare_skin(&mut self, _state_type: Option<rubato_types::main_state_type::MainStateType>) {}
 
     fn dispose_skin(&mut self) {}
 
@@ -133,7 +133,7 @@ impl SkinDrawable for ProbeImageIndexSkin {
     ) {
     }
 
-    fn prepare_skin(&mut self) {}
+    fn prepare_skin(&mut self, _state_type: Option<rubato_types::main_state_type::MainStateType>) {}
 
     fn dispose_skin(&mut self) {}
 
@@ -201,7 +201,7 @@ impl SkinDrawable for ProbeDrawLaneTimeSkin {
     ) {
     }
 
-    fn prepare_skin(&mut self) {}
+    fn prepare_skin(&mut self, _state_type: Option<rubato_types::main_state_type::MainStateType>) {}
 
     fn dispose_skin(&mut self) {}
 
@@ -3628,7 +3628,7 @@ impl SkinDrawable for ProbeMouseIntegerSkin {
         _y: i32,
     ) {
     }
-    fn prepare_skin(&mut self) {}
+    fn prepare_skin(&mut self, _state_type: Option<rubato_types::main_state_type::MainStateType>) {}
     fn dispose_skin(&mut self) {}
     fn fadeout(&self) -> i32 {
         0
@@ -3683,7 +3683,7 @@ impl SkinDrawable for ProbeMouseBoolSkin {
         _y: i32,
     ) {
     }
-    fn prepare_skin(&mut self) {}
+    fn prepare_skin(&mut self, _state_type: Option<rubato_types::main_state_type::MainStateType>) {}
     fn dispose_skin(&mut self) {}
     fn fadeout(&self) -> i32 {
         0
@@ -3736,7 +3736,7 @@ impl SkinDrawable for ProbeMouseGaugeSkin {
         _y: i32,
     ) {
     }
-    fn prepare_skin(&mut self) {}
+    fn prepare_skin(&mut self, _state_type: Option<rubato_types::main_state_type::MainStateType>) {}
     fn dispose_skin(&mut self) {}
     fn fadeout(&self) -> i32 {
         0
@@ -3792,7 +3792,7 @@ impl SkinDrawable for ProbeMousePlayerConfigSkin {
         _y: i32,
     ) {
     }
-    fn prepare_skin(&mut self) {}
+    fn prepare_skin(&mut self, _state_type: Option<rubato_types::main_state_type::MainStateType>) {}
     fn dispose_skin(&mut self) {}
     fn fadeout(&self) -> i32 {
         0
@@ -4020,7 +4020,7 @@ impl SkinDrawable for ProbeMouseImageIndexSkin {
         _y: i32,
     ) {
     }
-    fn prepare_skin(&mut self) {}
+    fn prepare_skin(&mut self, _state_type: Option<rubato_types::main_state_type::MainStateType>) {}
     fn dispose_skin(&mut self) {}
     fn fadeout(&self) -> i32 {
         0
@@ -4071,6 +4071,9 @@ fn make_play_render_context_with_bpm_volume<'a>(
         play_mode: BMSPlayerMode::PLAY,
         state: PlayState::Play,
         media_load_finished: true,
+        audio_progress: 1.0,
+        bga_progress: 1.0,
+        bga_enabled: false,
         live_hispeed: play_config.hispeed,
         live_lanecover: play_config.lanecover as f32 / 1000.0,
         live_lift: play_config.lift as f32 / 1000.0,
@@ -4224,6 +4227,8 @@ fn play_render_context_float_loading_progress() {
         (0.5, 0.5, 0.5),
     );
     ctx2.media_load_finished = false;
+    ctx2.audio_progress = 0.0;
+    ctx2.bga_progress = 0.0;
     assert!((ctx2.float_value(165)).abs() < f32::EPSILON);
 }
 
@@ -5538,7 +5543,7 @@ impl SkinDrawable for VolumeSliderSkin {
     ) {
     }
 
-    fn prepare_skin(&mut self) {}
+    fn prepare_skin(&mut self, _state_type: Option<rubato_types::main_state_type::MainStateType>) {}
     fn dispose_skin(&mut self) {}
     fn fadeout(&self) -> i32 {
         0
@@ -5593,7 +5598,7 @@ impl SkinDrawable for NotifyAudioConfigSkin {
     ) {
     }
 
-    fn prepare_skin(&mut self) {}
+    fn prepare_skin(&mut self, _state_type: Option<rubato_types::main_state_type::MainStateType>) {}
     fn dispose_skin(&mut self) {}
     fn fadeout(&self) -> i32 {
         0

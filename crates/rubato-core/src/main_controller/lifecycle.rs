@@ -136,6 +136,15 @@ impl MainController {
             audio.poll_loading();
         }
 
+        // Push gradual loading progress to the current state each frame.
+        // Audio progress comes from the audio driver; BGA progress is read
+        // internally by BMSPlayer from its own BGAProcessor.
+        if let Some(ref mut current) = self.current {
+            let audio_progress = self.audio.as_ref().map_or(1.0, |a| a.get_progress());
+            let bga_on = self.resource.as_ref().is_some_and(|r| r.is_bga_on());
+            current.update_loading_progress(audio_progress, bga_on);
+        }
+
         // current.render()
         if let Some(ref mut current) = self.current {
             current.render();
