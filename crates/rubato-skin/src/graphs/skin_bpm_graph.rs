@@ -157,6 +157,11 @@ impl SkinBPMGraph {
             };
             let tex_width = shapetex.texture.as_ref().map(|t| t.width).unwrap_or(0);
             shapetex.region_width = (tex_width as f32 * render) as i32;
+            // Java's TextureRegion.setRegionWidth() internally recalculates u2
+            // from the texture dimensions. Mirror that here.
+            if tex_width > 0 {
+                shapetex.u2 = shapetex.region_width as f32 / tex_width as f32;
+            }
             let region = self.data.region;
             let shapetex_clone = shapetex.clone();
             self.data.draw_image_at(
@@ -356,4 +361,133 @@ fn sanitize_hex_color(s: &str) -> String {
     let cleaned: String = s.chars().filter(|c| c.is_ascii_hexdigit()).collect();
     let len = cleaned.len().min(6);
     cleaned[..len].to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::reexports::{Rectangle, SkinOffset, Timer};
+
+    struct MockBpmState {
+        timer: Timer,
+    }
+
+    impl Default for MockBpmState {
+        fn default() -> Self {
+            Self {
+                timer: Timer::default(),
+            }
+        }
+    }
+
+    impl rubato_types::timer_access::TimerAccess for MockBpmState {
+        fn now_time(&self) -> i64 {
+            self.timer.now_time()
+        }
+        fn now_micro_time(&self) -> i64 {
+            self.timer.now_micro_time()
+        }
+        fn micro_timer(&self, id: rubato_types::timer_id::TimerId) -> i64 {
+            self.timer.micro_timer(id)
+        }
+        fn timer(&self, id: rubato_types::timer_id::TimerId) -> i64 {
+            self.timer.timer(id)
+        }
+        fn now_time_for(&self, id: rubato_types::timer_id::TimerId) -> i64 {
+            self.timer.now_time_for(id)
+        }
+        fn is_timer_on(&self, id: rubato_types::timer_id::TimerId) -> bool {
+            self.timer.is_timer_on(id)
+        }
+    }
+
+    impl rubato_types::skin_render_context::SkinRenderContext for MockBpmState {
+        fn get_offset_value(&self, _id: i32) -> Option<&SkinOffset> {
+            None
+        }
+    }
+
+    impl MainState for MockBpmState {}
+
+    /// Regression: when region_width is set for progressive reveal, u2 must also
+    /// be updated. Java's TextureRegion.setRegionWidth() recalculates u2
+    /// internally. Without this, the UV coordinate stays at 1.0 and the entire
+    /// texture is sampled into a narrower rectangle, causing incorrect clipping.
+    #[test]
+    fn draw_updates_u2_on_progressive_reveal() {
+        let config = BpmGraphConfig {
+            delay: 1000,
+            line_width: 2,
+            main_bpm_color: "",
+            min_bpm_color: "",
+            max_bpm_color: "",
+            other_bpm_color: "",
+            stop_line_color: "",
+            transition_line_color: "",
+        };
+        let mut graph = SkinBPMGraph::new(config);
+
+        // Pre-set shapetex with a 200-wide texture so we skip the recreation path
+        let tex = Texture {
+            width: 200,
+            height: 100,
+            ..Default::default()
+        };
+        graph.shapetex = Some(TextureRegion::from_texture(tex));
+        graph.data.region = Rectangle::new(0.0, 0.0, 200.0, 100.0);
+        graph.time = 500; // half of delay=1000 => render=0.5
+        graph.delay = 1000;
+
+        let state = MockBpmState::default();
+        let mut renderer = SkinObjectRenderer::new();
+        graph.draw(&mut renderer, &state);
+
+        let shapetex = graph.shapetex.as_ref().unwrap();
+        // render = 0.5, tex_width = 200 => region_width = 100
+        assert_eq!(shapetex.region_width, 100);
+        // u2 should be 100/200 = 0.5
+        assert!(
+            (shapetex.u2 - 0.5).abs() < 1e-5,
+            "u2 should be updated to 0.5 for progressive reveal, got {}",
+            shapetex.u2
+        );
+    }
+
+    /// Verify that at full render (time >= delay), u2 is 1.0.
+    #[test]
+    fn draw_u2_is_1_at_full_render() {
+        let config = BpmGraphConfig {
+            delay: 1000,
+            line_width: 2,
+            main_bpm_color: "",
+            min_bpm_color: "",
+            max_bpm_color: "",
+            other_bpm_color: "",
+            stop_line_color: "",
+            transition_line_color: "",
+        };
+        let mut graph = SkinBPMGraph::new(config);
+
+        let tex = Texture {
+            width: 200,
+            height: 100,
+            ..Default::default()
+        };
+        graph.shapetex = Some(TextureRegion::from_texture(tex));
+        graph.data.region = Rectangle::new(0.0, 0.0, 200.0, 100.0);
+        graph.time = 2000; // past delay => render=1.0
+        graph.delay = 1000;
+
+        let state = MockBpmState::default();
+        let mut renderer = SkinObjectRenderer::new();
+        graph.draw(&mut renderer, &state);
+
+        let shapetex = graph.shapetex.as_ref().unwrap();
+        assert_eq!(shapetex.region_width, 200);
+        assert!(
+            (shapetex.u2 - 1.0).abs() < 1e-5,
+            "u2 should be 1.0 at full render, got {}",
+            shapetex.u2
+        );
+    }
 }

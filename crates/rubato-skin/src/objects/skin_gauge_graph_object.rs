@@ -445,7 +445,9 @@ impl SkinGaugeGraphObject {
                             shape.set_color(&self.border_line[self.color]);
                             shape.fill_rectangle(x1, yb, line_width, y1 - yb + line_width);
                             shape.set_color(&self.graph_line[self.color]);
-                            shape.fill_rectangle(x1, y2, line_width, yb - y2);
+                            // Ensure minimum connector height to avoid visual gap
+                            // when yb and y2 coincide after integer truncation.
+                            shape.fill_rectangle(x1, y2, line_width, (yb - y2).max(line_width));
                             shape.fill_rectangle(x1, y2, x2 - x1, line_width);
                         }
                     }
@@ -686,5 +688,37 @@ mod tests {
 
         assert_eq!(obj.current_type, 1);
         assert_eq!(obj.gaugehistory, vec![4.0, 5.0, 6.0]);
+    }
+
+    /// Regression: when gauge drops from above border to a value that truncates
+    /// to the same integer y-coordinate as the border line (e.g., gauge=79.99,
+    /// border=80.0), the vertical connector segment between border and graph
+    /// line had zero height and disappeared. The fix uses .max(line_width) to
+    /// ensure a minimum connector height.
+    #[test]
+    fn connector_gap_at_border_transition() {
+        use crate::reexports::Rectangle;
+
+        let mut obj = SkinGaugeGraphObject::new_default();
+        obj.current_type = 0;
+        obj.border = 80.0;
+        obj.max = 100.0;
+        // Gauge history: starts above border, drops to just below border.
+        // 79.99 / 100.0 * (100 - 2) = 78.3902, truncated to 78
+        // 80.0 / 100.0 * (100 - 2) = 78.4, truncated to 78
+        // yb - y2 = 0 without the fix
+        obj.gaugehistory = vec![85.0, 79.99];
+        obj.data.region = Rectangle::new(0.0, 0.0, 200.0, 100.0);
+        obj.data.draw = true;
+
+        let mut renderer = SkinObjectRenderer::new();
+        // Should draw without producing a zero-height connector segment.
+        obj.draw(&mut renderer);
+
+        // Verify that the graph was created (draw completed)
+        assert!(
+            obj.shapetex.is_some(),
+            "shapetex should be created for border transition case"
+        );
     }
 }

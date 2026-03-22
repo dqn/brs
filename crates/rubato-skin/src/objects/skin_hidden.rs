@@ -126,7 +126,8 @@ impl SkinHidden {
                     for img in &mut self.trimmed_images {
                         let new_height = (img.region_height as f32
                             * (region.y + region.height - dl)
-                            / region.height) as i32;
+                            / region.height)
+                            .round() as i32;
                         // Update v2 proportionally before overwriting region_height.
                         // Java's TextureRegion.setRegionHeight() recalculates v2
                         // from the texture dimensions. We mirror that by scaling
@@ -300,5 +301,37 @@ mod tests {
         let mut renderer = SkinObjectRenderer::new();
         // Should not panic
         hidden.draw(&mut renderer);
+    }
+
+    /// Regression: trimmed region_height must use round() (Java Math.round) not
+    /// truncation (Rust `as i32`). Truncation causes a systematic 1-pixel
+    /// undercount, producing a gap between the hidden cover and lane content.
+    #[test]
+    fn trim_height_rounds_instead_of_truncating() {
+        use crate::reexports::Rectangle;
+
+        let mut img = TextureRegion::new();
+        img.region_height = 100;
+        img.v = 0.0;
+        img.v2 = 1.0;
+
+        let images = vec![img];
+        let mut hidden = SkinHidden::new_with_int_timer(images, 0, 0);
+        // Set up so the ratio produces a fractional result that rounds up.
+        // region: y=0, height=300, disappear_line=100
+        // visible = 300 - 100 = 200, ratio = 200/300 = 0.6667
+        // new_height = 100 * 0.6667 = 66.67
+        // Truncation (old): 66  |  Round (correct): 67
+        hidden.set_disapear_line(100.0);
+        hidden.is_disapear_line_link_lift = false;
+        hidden.data.region = Rectangle::new(0.0, 0.0, 100.0, 300.0);
+
+        let mut renderer = SkinObjectRenderer::new();
+        hidden.draw(&mut renderer);
+
+        assert_eq!(
+            hidden.trimmed_images[0].region_height, 67,
+            "trimmed height should be rounded (67), not truncated (66)"
+        );
     }
 }
