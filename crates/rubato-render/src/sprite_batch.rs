@@ -337,6 +337,7 @@ impl SpriteBatch {
 
         self.vertices.clear();
         self.draw_batches.clear();
+        self.pending_textures.clear();
     }
 
     /// Get the projection matrix values.
@@ -933,6 +934,38 @@ mod tests {
 
         let second = batch.drain_pending_textures();
         assert!(second.is_empty(), "drain should clear pending textures");
+
+        batch.end();
+    }
+
+    /// Verify that flush() clears pending_textures along with vertices and
+    /// draw_batches. flush_to_gpu() must maintain the same invariant so that
+    /// stale pending textures never survive a GPU submission cycle.
+    #[test]
+    fn test_flush_clears_pending_textures() {
+        let mut batch = SpriteBatch::new();
+        batch.begin();
+
+        let tex = Texture {
+            width: 4,
+            height: 4,
+            disposed: false,
+            path: Some(Arc::from("flush_pending_test")),
+            rgba_data: Some(Arc::new(vec![0u8; 64])),
+            ..Default::default()
+        };
+        batch.draw_texture(&tex, 0.0, 0.0, 4.0, 4.0);
+
+        assert!(!batch.vertices().is_empty());
+        // pending_textures is private but drain reveals its state
+        // Flush should clear everything including pending textures
+        batch.flush();
+        assert!(batch.vertices().is_empty());
+        let drained = batch.drain_pending_textures();
+        assert!(
+            drained.is_empty(),
+            "flush() must clear pending_textures so drain returns empty"
+        );
 
         batch.end();
     }
