@@ -750,6 +750,10 @@ pub struct MusicSelector {
     /// Search text field
     pub search: Option<SearchTextField>,
 
+    /// Search text region extracted from the select skin.
+    /// Stored here for passing to SearchTextField during create().
+    pub search_text_region: Option<Rectangle>,
+
     /// IR ranking data and display state.
     pub ranking: RankingState,
 

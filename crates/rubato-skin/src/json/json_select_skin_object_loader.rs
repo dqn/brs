@@ -26,6 +26,31 @@ impl JsonSkinObjectLoader for JsonSelectSkinObjectLoader {
         dst: &json_skin::Destination,
         p: &Path,
     ) -> Option<SkinObjectData> {
+        // Intercept text with ref == STRING_SEARCHWORD before base loader.
+        // In Java: JsonSkinObjectLoader.loadSkinObject extracts the destination
+        // rectangle and calls ((MusicSelectSkin) skin).setSearchTextRegion(r).
+        // Here we emit a SearchTextRegion SkinObjectData so the converter can
+        // store the scaled rectangle on the Skin struct.
+        if let Some(dst_id) = dst.id.as_deref() {
+            for text in &sk.text {
+                if dst_id == text.id.as_deref().unwrap_or("")
+                    && text.ref_id == crate::skin_property::STRING_SEARCHWORD
+                    && let Some(a) = dst.dst.first()
+                {
+                    return Some(SkinObjectData {
+                        name: text.id.clone(),
+                        object_type: SkinObjectType::SearchTextRegion {
+                            x: a.x as f32,
+                            y: a.y as f32,
+                            w: a.w as f32,
+                            h: a.h as f32,
+                        },
+                        ..Default::default()
+                    });
+                }
+            }
+        }
+
         // Try base loader first
         let obj = json_skin_object_loader::load_base_skin_object(loader, skin, sk, dst, p);
         if obj.is_some() {

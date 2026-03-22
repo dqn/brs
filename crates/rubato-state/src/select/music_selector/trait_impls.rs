@@ -141,6 +141,18 @@ impl MainState for MusicSelector {
                     );
                 }
 
+                // Extract search text region for SearchTextField positioning
+                if let Some(region) = skin.take_search_text_region() {
+                    log::info!(
+                        "Search text region extracted: x={}, y={}, w={}, h={}",
+                        region.x,
+                        region.y,
+                        region.width,
+                        region.height
+                    );
+                    self.search_text_region = Some(region);
+                }
+
                 self.main_state_data.skin = Some(Box::new(skin));
             }
             None => {
@@ -289,13 +301,30 @@ impl MainState for MusicSelector {
         // In Java: loadSkin(SkinType.MUSIC_SELECT)
         self.load_skin(SkinType::MusicSelect.id());
         if let Some(skin) = self.main_state_data.skin.as_mut() {
-            skin.prepare_skin();
+            skin.prepare_skin(Some(
+                rubato_types::main_state_type::MainStateType::MusicSelect,
+            ));
         }
 
         // Initialize search text field
-        if self.search.is_none() {
-            let resolution = Resolution::default();
-            self.search = Some(SearchTextField::new(&() as &dyn std::any::Any, &resolution));
+        // Java: SearchTextField reads getSearchTextRegion() from MusicSelectSkin in constructor.
+        // In Rust, we pass the region extracted from the skin during load_skin().
+        if self.search_text_region.is_some() {
+            let region = self.search_text_region;
+            if self.search.is_none()
+                || self
+                    .search
+                    .as_ref()
+                    .is_some_and(|s| s.search_bounds.as_ref() != region.as_ref())
+            {
+                if let Some(ref mut old_search) = self.search {
+                    old_search.dispose();
+                }
+                let resolution = Resolution::default();
+                let mut stf = SearchTextField::new(&() as &dyn std::any::Any, &resolution);
+                stf.search_bounds = region;
+                self.search = Some(stf);
+            }
         }
     }
 
@@ -391,6 +420,21 @@ impl MainState for MusicSelector {
     }
 
     fn handle_skin_mouse_pressed(&mut self, button: i32, x: i32, y: i32) {
+        // Check if click is inside search text region bounds.
+        // In Java, SearchTextField's Stage has a ClickListener on a full-screen Group
+        // that unfocuses when clicking outside the search region.
+        if let Some(ref mut search) = self.search
+            && let Some(ref bounds) = search.search_bounds
+        {
+            let fx = x as f32;
+            let fy = y as f32;
+            if bounds.contains(fx, fy) {
+                search.has_focus = true;
+            } else if search.has_focus {
+                search.unfocus();
+            }
+        }
+
         let mut skin = match self.main_state_data.skin.take() {
             Some(s) => s,
             None => return,
@@ -439,6 +483,29 @@ impl MainState for MusicSelector {
     /// Render state — handle song info display, preview music, BMS loading, IR ranking, play execution.
     /// Corresponds to Java MusicSelector.render()
     fn render(&mut self) {
+        // Sync search text field state with egui overlay.
+        // Structured to avoid overlapping borrows on self.search and self.
+        let search_action = if let Some(ref mut search) = self.search {
+            search.sync_to_egui();
+            search.sync_from_egui()
+        } else {
+            super::search_text_field::SearchFieldAction::None
+        };
+        match search_action {
+            super::search_text_field::SearchFieldAction::Submit => {
+                self.submit_search();
+                if let Some(ref mut s) = self.search {
+                    s.has_focus = false;
+                }
+            }
+            super::search_text_field::SearchFieldAction::Unfocus => {
+                if let Some(ref mut s) = self.search {
+                    s.unfocus();
+                }
+            }
+            super::search_text_field::SearchFieldAction::None => {}
+        }
+
         // Prune finished background threads to avoid unbounded handle accumulation.
         self.background_threads.retain(|h| !h.is_finished());
 

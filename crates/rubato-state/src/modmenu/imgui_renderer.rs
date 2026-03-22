@@ -159,6 +159,9 @@ impl ImGuiRenderer {
 
         // Render toast notifications overlay
         ImGuiNotify::render_notifications_ui(ctx);
+
+        // Render search text field overlay (select screen)
+        crate::select::search_text_field::SearchTextField::render_egui(ctx);
     }
 
     /// Legacy render method — retained for backward compatibility with MainController stub calls.

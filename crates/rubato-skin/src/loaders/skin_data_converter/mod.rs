@@ -234,6 +234,18 @@ pub fn convert_skin_data(
         let scale_x = crate::safe_div_f32(dstr.width, src.width);
         let scale_y = crate::safe_div_f32(dstr.height, src.height);
 
+        // Capture SearchTextRegion: not a SkinObject, but a skin property.
+        // In Java, MusicSelectSkin.setSearchTextRegion() stores the scaled rectangle.
+        if let SkinObjectType::SearchTextRegion { x, y, w, h } = &obj_data.object_type {
+            skin.search_text_region = Some(crate::reexports::Rectangle::new(
+                x * scale_x,
+                y * scale_y,
+                w * scale_x,
+                h * scale_y,
+            ));
+            continue;
+        }
+
         // Use pre-built resolved_note if available (from play skin loader)
         let skin_obj = if let Some(resolved) = obj_data.resolved_note.take() {
             Some(crate::types::skin::SkinObject::Note(resolved))

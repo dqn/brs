@@ -17,6 +17,7 @@ impl MusicSelector {
             manager: BarManager::new(),
             musicinput: None,
             search: None,
+            search_text_region: None,
             ranking: RankingState::default(),
             rival: None,
             panelstate: 0,

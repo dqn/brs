@@ -113,7 +113,7 @@ impl Color {
 
 /// Axis-aligned rectangle.
 /// Corresponds to com.badlogic.gdx.math.Rectangle.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Rectangle {
     pub x: f32,
     pub y: f32,

@@ -52,6 +52,12 @@ pub struct Skin {
     /// MusicSelector takes this after loading to build SkinBar + BarRenderer.
     pub select_bar_data: Option<crate::select_bar_data::SelectBarData>,
 
+    /// Search text region extracted from select skins.
+    /// In Java, this is set on MusicSelectSkin when a text object with
+    /// ref == STRING_SEARCHWORD is loaded. MusicSelector takes this to
+    /// position the egui search text field.
+    pub search_text_region: Option<crate::reexports::Rectangle>,
+
     // --- Play-skin-specific metadata ---
     // These correspond to Java PlaySkin fields. They are populated by the skin
     // loader (LR2 CSV or JSON) and read by BMSPlayer to populate its PlaySkin.
@@ -124,6 +130,7 @@ impl Skin {
             prepareduration: 1,
             image_registry: Self::create_system_image_registry(),
             select_bar_data: None,
+            search_text_region: None,
             play_loadstart: 0,
             play_loadend: 0,
             play_playstart: 0,
@@ -139,6 +146,12 @@ impl Skin {
     /// Called by MusicSelector after skin loading to build SkinBar + BarRenderer.
     pub fn take_select_bar_data(&mut self) -> Option<crate::select_bar_data::SelectBarData> {
         self.select_bar_data.take()
+    }
+
+    /// Take search text region out, leaving None.
+    /// Called by MusicSelector after skin loading to position the search text field.
+    pub fn take_search_text_region(&mut self) -> Option<crate::reexports::Rectangle> {
+        self.search_text_region.take()
     }
 
     /// Create system placeholder images (BLACK=110, WHITE=111).
