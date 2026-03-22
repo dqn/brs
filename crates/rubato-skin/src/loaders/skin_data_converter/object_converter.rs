@@ -632,7 +632,11 @@ fn convert_image(
             .parent()
             .map(|p| p.to_string_lossy().to_string())
             .unwrap_or_default();
-        let movie_path = format!("{}/{}", parent, data_path);
+        let movie_path = if std::path::Path::new(&data_path).is_absolute() {
+            data_path
+        } else {
+            format!("{}/{}", parent, data_path)
+        };
         let movie_path = get_path_with_filemap(&movie_path, filemap);
         let movie_source = crate::skin_source_movie::SkinSourceMovie::new(&movie_path);
         return Some(SkinObject::Image(SkinImage::new_with_movie(movie_source)));

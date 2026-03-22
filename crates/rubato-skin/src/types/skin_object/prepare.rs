@@ -90,6 +90,11 @@ impl SkinObjectData {
             }
             let idx = self.index as usize;
             if idx >= self.dst.len() {
+                log::warn!(
+                    "SkinObjectData::prepare: index {} out of bounds (dst.len={}), hiding object",
+                    idx,
+                    self.dst.len()
+                );
                 self.draw = false;
                 return;
             }
