@@ -482,20 +482,26 @@ impl MovieProcessor for FFmpegProcessor {
                 handle
                     .time
                     .store(time, std::sync::atomic::Ordering::Release);
-                // Check for new decoded frame
-                {
-                    let s = rubato_types::sync_utils::lock_or_recover(&handle.shared);
+                // Check for new decoded frame.
+                // Take the frame out of the shared state to release the lock
+                // before building the Texture. The background thread will
+                // repopulate the frame on the next decode cycle.
+                let taken_frame = {
+                    let mut s = rubato_types::sync_utils::lock_or_recover(&handle.shared);
                     if s.status == ProcessorStatus::TextureActive {
-                        if let Some(ref frame) = s.frame {
-                            self._showing_tex = Some(Texture {
-                                width: frame.width as i32,
-                                height: frame.height as i32,
-                                disposed: false,
-                                rgba_data: Some(Arc::new(frame.pixels.clone())),
-                                ..Default::default()
-                            });
-                        }
+                        s.frame.take()
+                    } else {
+                        None
                     }
+                };
+                if let Some(frame) = taken_frame {
+                    self._showing_tex = Some(Texture {
+                        width: frame.width as i32,
+                        height: frame.height as i32,
+                        disposed: false,
+                        rgba_data: Some(Arc::new(frame.pixels)),
+                        ..Default::default()
+                    });
                 }
             }
             self._showing_tex.clone()
