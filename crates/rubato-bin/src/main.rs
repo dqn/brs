@@ -851,7 +851,7 @@ impl RubatoApp {
         let sprite_pipeline = self.sprite_pipeline.as_ref()?;
         let texture_manager = self.texture_manager.as_mut()?;
         let sprite_batch = self.controller.sprite_batch_mut()?;
-        if sprite_batch.vertices().is_empty() {
+        if !sprite_batch.has_pending_draw_data() {
             return None;
         }
 
