@@ -171,7 +171,63 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideRenderContex
     }
 
     fn boolean_value(&self, id: i32) -> bool {
-        self.default_boolean_value(id)
+        match id {
+            // ---- BGA on/off (OPTION_BGAOFF: 40 / OPTION_BGAON: 41) ----
+            // Java: main.getConfig().getBga() == 2 (Off)
+            40 => self.main.config().render.bga == rubato_types::config::BgaMode::Off,
+            41 => self.main.config().render.bga != rubato_types::config::BgaMode::Off,
+            // ---- Save score (OPTION_DISABLE_SAVE_SCORE: 60 / OPTION_ENABLE_SAVE_SCORE: 61) ----
+            // Java: !resource.isUpdateScore() / resource.isUpdateScore()
+            60 => !self.resource.is_update_score(),
+            61 => self.resource.is_update_score(),
+            // ---- Stagefile/banner/backbmp existence (190-195) ----
+            // Java: songdata.getStagefile().length() == 0, etc.
+            190 => self
+                .resource
+                .songdata()
+                .is_none_or(|s| s.file.stagefile.is_empty()),
+            191 => self
+                .resource
+                .songdata()
+                .is_some_and(|s| !s.file.stagefile.is_empty()),
+            192 => self
+                .resource
+                .songdata()
+                .is_none_or(|s| s.file.banner.is_empty()),
+            193 => self
+                .resource
+                .songdata()
+                .is_some_and(|s| !s.file.banner.is_empty()),
+            194 => self
+                .resource
+                .songdata()
+                .is_none_or(|s| s.file.backbmp.is_empty()),
+            195 => self
+                .resource
+                .songdata()
+                .is_some_and(|s| !s.file.backbmp.is_empty()),
+            // ---- Course stage (OPTION_COURSE_STAGE1-4: 280-283) ----
+            // Java: resource.getCourseIndex() == stage
+            280 => self.resource.course_data().is_some() && self.resource.course_index() == 0,
+            281 => self.resource.course_data().is_some() && self.resource.course_index() == 1,
+            282 => self.resource.course_data().is_some() && self.resource.course_index() == 2,
+            283 => self.resource.course_data().is_some() && self.resource.course_index() == 3,
+            // ---- Course stage final (OPTION_COURSE_STAGE_FINAL: 289) ----
+            // Java: resource.getCourseData() != null &&
+            //       resource.getCourseIndex() == resource.getCourseData().getSong().length - 1
+            289 => {
+                if let Some(cd) = self.resource.course_data() {
+                    let song_count = cd.hash.len();
+                    song_count > 0 && self.resource.course_index() == song_count - 1
+                } else {
+                    false
+                }
+            }
+            // ---- Course mode (OPTION_MODE_COURSE: 290) ----
+            // Java: resource.getCourseData() != null
+            290 => self.resource.course_data().is_some(),
+            _ => self.default_boolean_value(id),
+        }
     }
 
     fn float_value(&self, id: i32) -> f32 {
@@ -209,6 +265,14 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideRenderContex
 
     fn integer_value(&self, id: i32) -> i32 {
         match id {
+            // ---- Hi-speed (NUMBER_HISPEED_LR2: 10) ----
+            // Java: (hispeed * 100) as int
+            10 => self
+                .current_play_config_ref()
+                .map_or(i32::MIN, |pc| (pc.hispeed * 100.0) as i32),
+            // ---- Judge timing (NUMBER_JUDGETIMING: 12) ----
+            // Java: player.getJudgeConfig().getJudgetiming()
+            12 => self.resource.player_config().judge_settings.judgetiming,
             // Volume (0-100 scale) from audio config
             // Java: IntegerPropertyFactory volume_system/volume_key/volume_background
             57 => {
@@ -241,6 +305,36 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideRenderContex
                     })
                     * 100.0) as i32
             }
+            // ---- EX score (NUMBER_SCORE / SCORE2 / SCORE3: 71/101/171) ----
+            // Java: AbstractResult -> getNewScore().getExscore()
+            71 | 101 | 171 => self.resource.score_data().map_or(i32::MIN, |s| s.exscore()),
+            // ---- Max score (NUMBER_MAXSCORE: 72) ----
+            // Java: score.getNotes() * 2
+            72 => self.resource.score_data().map_or(i32::MIN, |s| s.notes * 2),
+            // ---- Max combo (NUMBER_MAXCOMBO: 75) ----
+            75 => self.resource.score_data().map_or(i32::MIN, |s| s.maxcombo),
+            // ---- Miss count / minbp (NUMBER_MISSCOUNT: 76) ----
+            76 => self.resource.score_data().map_or(i32::MIN, |s| s.minbp),
+            // ---- Judge counts (NUMBER_PERFECT2..NUMBER_POOR2: 80-84) ----
+            // Java: score != null ? score.getJudgeCount(index) : Integer.MIN_VALUE
+            80..=84 => {
+                let index = id - 80;
+                self.resource
+                    .score_data()
+                    .map_or(i32::MIN, |s| s.judge_count_total(index))
+            }
+            // ---- Judge count rates (NUMBER_PERFECT_RATE..NUMBER_POOR_RATE: 85-89) ----
+            // Java: score != null && notes > 0 ? count * 100 / notes : Integer.MIN_VALUE
+            85..=89 => {
+                let index = id - 85;
+                self.resource.score_data().map_or(i32::MIN, |s| {
+                    if s.notes > 0 {
+                        s.judge_count_total(index) * 100 / s.notes
+                    } else {
+                        i32::MIN
+                    }
+                })
+            }
             // Song BPM from songdata
             90 => self
                 .resource
@@ -259,10 +353,142 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideRenderContex
                     .map(|i| i.mainbpm as i32)
                     .unwrap_or(i32::MIN)
             }),
-            // Total notes
-            350 => self.resource.songdata().map_or(0, |s| s.chart.notes),
+            // Chart level
+            96 => self.resource.songdata().map_or(i32::MIN, |s| s.chart.level),
+            // ---- Point / score (NUMBER_POINT: 100) ----
+            // Java: getScoreDataProperty().getNowScore()
+            100 => self.score_data_property.now_score(),
+            // ---- Score rate (NUMBER_SCORE_RATE: 102) ----
+            // Java: score != null ? getNowRateInt() : Integer.MIN_VALUE
+            102 => {
+                if self.resource.score_data().is_some() {
+                    self.score_data_property.nowrate_int
+                } else {
+                    i32::MIN
+                }
+            }
+            // ---- Score rate afterdot (NUMBER_SCORE_RATE_AFTERDOT: 103) ----
+            103 => {
+                if self.resource.score_data().is_some() {
+                    self.score_data_property.nowrate_after_dot
+                } else {
+                    i32::MIN
+                }
+            }
+            // ---- Diff vs target (NUMBER_DIFF_EXSCORE / DIFF_EXSCORE2 / DIFF_TARGETSCORE: 108/128/153) ----
+            // Java: nowEXScore - nowRivalScore
+            108 | 128 | 153 => {
+                self.score_data_property.nowscore - self.score_data_property.nowrivalscore
+            }
+            // ---- Total rate (NUMBER_TOTAL_RATE / NUMBER_SCORE_RATE2: 115/155) ----
+            // Java: score != null ? getRateInt() : Integer.MIN_VALUE
+            115 | 155 => {
+                if self.resource.score_data().is_some() {
+                    self.score_data_property.rate_int
+                } else {
+                    i32::MIN
+                }
+            }
+            // ---- Total rate afterdot (NUMBER_TOTAL_RATE_AFTERDOT / NUMBER_SCORE_RATE_AFTERDOT2: 116/156) ----
+            116 | 156 => {
+                if self.resource.score_data().is_some() {
+                    self.score_data_property.rate_after_dot
+                } else {
+                    i32::MIN
+                }
+            }
+            // ---- Target / rival score (NUMBER_TARGET_SCORE / TARGET_SCORE2: 121/151) ----
+            // Java: getScoreDataProperty().getRivalScore()
+            121 | 151 => self.score_data_property.rivalscore,
+            // ---- Target / rival score rate (NUMBER_TARGET_SCORE_RATE / TARGET_TOTAL_RATE: 122/157) ----
+            122 | 157 => self.score_data_property.rivalrate_int,
+            // ---- Target / rival score rate afterdot (123/158) ----
+            123 | 158 => self.score_data_property.rivalrate_after_dot,
+            // ---- Diff vs high score (NUMBER_DIFF_HIGHSCORE / DIFF_HIGHSCORE2: 152/172) ----
+            // Java: nowEXScore - nowBestScore
+            152 | 172 => self.score_data_property.nowscore - self.score_data_property.nowbestscore,
+            // ---- Diff next rank (NUMBER_DIFF_NEXTRANK: 154) ----
+            154 => self.score_data_property.nextrank,
+            // ---- Best rate (NUMBER_BEST_RATE: 183) ----
+            183 => self.score_data_property.bestrate_int,
+            // ---- Best rate afterdot (NUMBER_BEST_RATE_AFTERDOT: 184) ----
+            184 => self.score_data_property.bestrate_after_dot,
+            // ---- Hi-speed integer part (NUMBER_HISPEED: 310) ----
+            310 => self
+                .current_play_config_ref()
+                .map_or(i32::MIN, |pc| pc.hispeed as i32),
+            // ---- Hi-speed afterdot (NUMBER_HISPEED_AFTERDOT: 311) ----
+            311 => self
+                .current_play_config_ref()
+                .map_or(i32::MIN, |pc| ((pc.hispeed * 100.0) as i32) % 100),
             // Song duration
             312 => self.resource.songdata().map_or(0, |s| s.chart.length),
+            // ---- Duration green number (NUMBER_DURATION_GREEN: 313) ----
+            // Java: (int)(PlayConfig.duration_green)
+            313 => self
+                .current_play_config_ref()
+                .map_or(i32::MIN, |pc| pc.duration),
+            // Total notes
+            350 => self.resource.songdata().map_or(0, |s| s.chart.notes),
+            // ---- Chart note breakdown from SongInformation (351-353) ----
+            // Java: SongInformation.getN() / .getLn() / .getS()
+            351 => self
+                .resource
+                .songdata()
+                .and_then(|s| s.info.as_ref())
+                .map_or(i32::MIN, |i| i.n),
+            352 => self
+                .resource
+                .songdata()
+                .and_then(|s| s.info.as_ref())
+                .map_or(i32::MIN, |i| i.ln),
+            353 => self
+                .resource
+                .songdata()
+                .and_then(|s| s.info.as_ref())
+                .map_or(i32::MIN, |i| i.s),
+            // ---- Density integers + afterdot (360-365) ----
+            // Java: (int) peakdensity, (int)((peakdensity*100)%100), etc.
+            360 => self
+                .resource
+                .songdata()
+                .and_then(|s| s.info.as_ref())
+                .map_or(i32::MIN, |i| i.peakdensity as i32),
+            361 => self
+                .resource
+                .songdata()
+                .and_then(|s| s.info.as_ref())
+                .map_or(i32::MIN, |i| ((i.peakdensity * 100.0) as i32) % 100),
+            362 => self
+                .resource
+                .songdata()
+                .and_then(|s| s.info.as_ref())
+                .map_or(i32::MIN, |i| i.enddensity as i32),
+            363 => self
+                .resource
+                .songdata()
+                .and_then(|s| s.info.as_ref())
+                .map_or(i32::MIN, |i| ((i.enddensity * 100.0) as i32) % 100),
+            364 => self
+                .resource
+                .songdata()
+                .and_then(|s| s.info.as_ref())
+                .map_or(i32::MIN, |i| i.density as i32),
+            365 => self
+                .resource
+                .songdata()
+                .and_then(|s| s.info.as_ref())
+                .map_or(i32::MIN, |i| ((i.density * 100.0) as i32) % 100),
+            // ---- Chart total gauge integer (368) ----
+            368 => self
+                .resource
+                .songdata()
+                .and_then(|s| s.info.as_ref())
+                .map_or(i32::MIN, |i| i.total as i32),
+            // ---- Judge rank (NUMBER_JUDGERANK: 400) ----
+            // Java: PlayConfig.getJudgerank() -- custom judge rank
+            400 => self.resource.player_config().judge_settings.judgetiming,
+            // Song duration minutes/seconds
             1163 => self
                 .resource
                 .songdata()
@@ -285,8 +511,6 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideRenderContex
                 .resource
                 .player_data()
                 .map_or(0, |data| (data.playtime % 60) as i32),
-            // Chart level
-            96 => self.resource.songdata().map_or(i32::MIN, |s| s.chart.level),
             // ---- Player profile stats (IDs 30-37, 333) ----
             // Java: state.resource.getPlayerData().getPlaycount() etc.
             // Available on all screens (global IntegerPropertyFactory).
@@ -480,7 +704,54 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideMouseContext
     }
 
     fn boolean_value(&self, id: i32) -> bool {
-        self.default_boolean_value(id)
+        match id {
+            // ---- BGA on/off (OPTION_BGAOFF: 40 / OPTION_BGAON: 41) ----
+            40 => self.main.config().render.bga == rubato_types::config::BgaMode::Off,
+            41 => self.main.config().render.bga != rubato_types::config::BgaMode::Off,
+            // ---- Save score (OPTION_DISABLE_SAVE_SCORE: 60 / OPTION_ENABLE_SAVE_SCORE: 61) ----
+            60 => !self.resource.is_update_score(),
+            61 => self.resource.is_update_score(),
+            // ---- Stagefile/banner/backbmp existence (190-195) ----
+            190 => self
+                .resource
+                .songdata()
+                .is_none_or(|s| s.file.stagefile.is_empty()),
+            191 => self
+                .resource
+                .songdata()
+                .is_some_and(|s| !s.file.stagefile.is_empty()),
+            192 => self
+                .resource
+                .songdata()
+                .is_none_or(|s| s.file.banner.is_empty()),
+            193 => self
+                .resource
+                .songdata()
+                .is_some_and(|s| !s.file.banner.is_empty()),
+            194 => self
+                .resource
+                .songdata()
+                .is_none_or(|s| s.file.backbmp.is_empty()),
+            195 => self
+                .resource
+                .songdata()
+                .is_some_and(|s| !s.file.backbmp.is_empty()),
+            // ---- Course stage (280-283, 289, 290) ----
+            280 => self.resource.course_data().is_some() && self.resource.course_index() == 0,
+            281 => self.resource.course_data().is_some() && self.resource.course_index() == 1,
+            282 => self.resource.course_data().is_some() && self.resource.course_index() == 2,
+            283 => self.resource.course_data().is_some() && self.resource.course_index() == 3,
+            289 => {
+                if let Some(cd) = self.resource.course_data() {
+                    let song_count = cd.hash.len();
+                    song_count > 0 && self.resource.course_index() == song_count - 1
+                } else {
+                    false
+                }
+            }
+            290 => self.resource.course_data().is_some(),
+            _ => self.default_boolean_value(id),
+        }
     }
 
     fn float_value(&self, id: i32) -> f32 {
@@ -517,6 +788,12 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideMouseContext
 
     fn integer_value(&self, id: i32) -> i32 {
         match id {
+            // ---- Hi-speed (NUMBER_HISPEED_LR2: 10) ----
+            10 => self
+                .current_play_config_ref()
+                .map_or(i32::MIN, |pc| (pc.hispeed * 100.0) as i32),
+            // ---- Judge timing (NUMBER_JUDGETIMING: 12) ----
+            12 => self.resource.player_config().judge_settings.judgetiming,
             // Volume (0-100 scale) from audio config
             57 => {
                 (self
@@ -548,6 +825,32 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideMouseContext
                     })
                     * 100.0) as i32
             }
+            // ---- EX score (71/101/171) ----
+            71 | 101 | 171 => self.resource.score_data().map_or(i32::MIN, |s| s.exscore()),
+            // ---- Max score (72) ----
+            72 => self.resource.score_data().map_or(i32::MIN, |s| s.notes * 2),
+            // ---- Max combo (75) ----
+            75 => self.resource.score_data().map_or(i32::MIN, |s| s.maxcombo),
+            // ---- Miss count / minbp (76) ----
+            76 => self.resource.score_data().map_or(i32::MIN, |s| s.minbp),
+            // ---- Judge counts (80-84) ----
+            80..=84 => {
+                let index = id - 80;
+                self.resource
+                    .score_data()
+                    .map_or(i32::MIN, |s| s.judge_count_total(index))
+            }
+            // ---- Judge count rates (85-89) ----
+            85..=89 => {
+                let index = id - 85;
+                self.resource.score_data().map_or(i32::MIN, |s| {
+                    if s.notes > 0 {
+                        s.judge_count_total(index) * 100 / s.notes
+                    } else {
+                        i32::MIN
+                    }
+                })
+            }
             90 => self
                 .resource
                 .songdata()
@@ -562,8 +865,125 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideMouseContext
                     .map(|i| i.mainbpm as i32)
                     .unwrap_or(i32::MIN)
             }),
-            350 => self.resource.songdata().map_or(0, |s| s.chart.notes),
+            // ---- Point / score (100) ----
+            100 => self.score_data_property.now_score(),
+            // ---- Score rate (102) ----
+            102 => {
+                if self.resource.score_data().is_some() {
+                    self.score_data_property.nowrate_int
+                } else {
+                    i32::MIN
+                }
+            }
+            // ---- Score rate afterdot (103) ----
+            103 => {
+                if self.resource.score_data().is_some() {
+                    self.score_data_property.nowrate_after_dot
+                } else {
+                    i32::MIN
+                }
+            }
+            // ---- Diff vs target (108/128/153) ----
+            108 | 128 | 153 => {
+                self.score_data_property.nowscore - self.score_data_property.nowrivalscore
+            }
+            // ---- Total rate (115/155) ----
+            115 | 155 => {
+                if self.resource.score_data().is_some() {
+                    self.score_data_property.rate_int
+                } else {
+                    i32::MIN
+                }
+            }
+            // ---- Total rate afterdot (116/156) ----
+            116 | 156 => {
+                if self.resource.score_data().is_some() {
+                    self.score_data_property.rate_after_dot
+                } else {
+                    i32::MIN
+                }
+            }
+            // ---- Target / rival score (121/151) ----
+            121 | 151 => self.score_data_property.rivalscore,
+            // ---- Target / rival score rate (122/157) ----
+            122 | 157 => self.score_data_property.rivalrate_int,
+            // ---- Target / rival score rate afterdot (123/158) ----
+            123 | 158 => self.score_data_property.rivalrate_after_dot,
+            // ---- Diff vs high score (152/172) ----
+            152 | 172 => self.score_data_property.nowscore - self.score_data_property.nowbestscore,
+            // ---- Diff next rank (154) ----
+            154 => self.score_data_property.nextrank,
+            // ---- Best rate (183/184) ----
+            183 => self.score_data_property.bestrate_int,
+            184 => self.score_data_property.bestrate_after_dot,
+            // ---- Hi-speed integer/afterdot (310/311) ----
+            310 => self
+                .current_play_config_ref()
+                .map_or(i32::MIN, |pc| pc.hispeed as i32),
+            311 => self
+                .current_play_config_ref()
+                .map_or(i32::MIN, |pc| ((pc.hispeed * 100.0) as i32) % 100),
             312 => self.resource.songdata().map_or(0, |s| s.chart.length),
+            // ---- Duration green number (313) ----
+            313 => self
+                .current_play_config_ref()
+                .map_or(i32::MIN, |pc| pc.duration),
+            350 => self.resource.songdata().map_or(0, |s| s.chart.notes),
+            // ---- Chart note breakdown from SongInformation (351-353) ----
+            351 => self
+                .resource
+                .songdata()
+                .and_then(|s| s.info.as_ref())
+                .map_or(i32::MIN, |i| i.n),
+            352 => self
+                .resource
+                .songdata()
+                .and_then(|s| s.info.as_ref())
+                .map_or(i32::MIN, |i| i.ln),
+            353 => self
+                .resource
+                .songdata()
+                .and_then(|s| s.info.as_ref())
+                .map_or(i32::MIN, |i| i.s),
+            // ---- Density integers + afterdot (360-365) ----
+            360 => self
+                .resource
+                .songdata()
+                .and_then(|s| s.info.as_ref())
+                .map_or(i32::MIN, |i| i.peakdensity as i32),
+            361 => self
+                .resource
+                .songdata()
+                .and_then(|s| s.info.as_ref())
+                .map_or(i32::MIN, |i| ((i.peakdensity * 100.0) as i32) % 100),
+            362 => self
+                .resource
+                .songdata()
+                .and_then(|s| s.info.as_ref())
+                .map_or(i32::MIN, |i| i.enddensity as i32),
+            363 => self
+                .resource
+                .songdata()
+                .and_then(|s| s.info.as_ref())
+                .map_or(i32::MIN, |i| ((i.enddensity * 100.0) as i32) % 100),
+            364 => self
+                .resource
+                .songdata()
+                .and_then(|s| s.info.as_ref())
+                .map_or(i32::MIN, |i| i.density as i32),
+            365 => self
+                .resource
+                .songdata()
+                .and_then(|s| s.info.as_ref())
+                .map_or(i32::MIN, |i| ((i.density * 100.0) as i32) % 100),
+            // ---- Chart total gauge integer (368) ----
+            368 => self
+                .resource
+                .songdata()
+                .and_then(|s| s.info.as_ref())
+                .map_or(i32::MIN, |i| i.total as i32),
+            // ---- Judge rank (400) ----
+            400 => self.resource.player_config().judge_settings.judgetiming,
             1163 => self
                 .resource
                 .songdata()
@@ -2917,5 +3337,309 @@ mod tests {
             "DecideMouseContext::rival_score_data_ref must delegate"
         );
         assert_eq!(rival_data.unwrap().notes, 666);
+    }
+
+    // ============================================================
+    // integer_value: ScoreDataProperty-backed IDs (71, 80-84, 100, 102, 103)
+    // ============================================================
+
+    #[test]
+    fn decide_render_context_integer_value_exscore_71() {
+        let mut resource = SongLengthResource::with_length_ms(0);
+        let mut score = rubato_core::score_data::ScoreData::new(bms_model::mode::Mode::BEAT_7K);
+        score.judge_counts.epg = 50;
+        score.notes = 100;
+        resource.score = Some(score.clone());
+
+        let mut sdp = rubato_types::score_data_property::ScoreDataProperty::new();
+        sdp.update_score(Some(&score));
+
+        let mut timer = TimerManager::new();
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let ctx = DecideRenderContext {
+            timer: &mut timer,
+            resource: &resource,
+            main: &mut main,
+            score_data_property: &sdp,
+            offsets: &EMPTY_OFFSETS,
+        };
+        use rubato_types::skin_render_context::SkinRenderContext;
+        // exscore = epg*2 = 100
+        assert_eq!(
+            ctx.integer_value(71),
+            100,
+            "ID 71 should return exscore from score_data"
+        );
+    }
+
+    #[test]
+    fn decide_render_context_integer_value_judge_counts_80_84() {
+        let mut resource = SongLengthResource::with_length_ms(0);
+        let mut score = rubato_core::score_data::ScoreData::new(bms_model::mode::Mode::BEAT_7K);
+        score.judge_counts.epg = 10;
+        score.judge_counts.lpg = 5;
+        score.judge_counts.egr = 3;
+        score.judge_counts.lgr = 2;
+        score.notes = 100;
+        resource.score = Some(score.clone());
+
+        let mut sdp = rubato_types::score_data_property::ScoreDataProperty::new();
+        sdp.update_score(Some(&score));
+
+        let mut timer = TimerManager::new();
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let ctx = DecideRenderContext {
+            timer: &mut timer,
+            resource: &resource,
+            main: &mut main,
+            score_data_property: &sdp,
+            offsets: &EMPTY_OFFSETS,
+        };
+        use rubato_types::skin_render_context::SkinRenderContext;
+        // ID 80 = PG total = epg+lpg = 15
+        assert_eq!(
+            ctx.integer_value(80),
+            15,
+            "ID 80 should return PG judge_count_total"
+        );
+        // ID 81 = GR total = egr+lgr = 5
+        assert_eq!(
+            ctx.integer_value(81),
+            5,
+            "ID 81 should return GR judge_count_total"
+        );
+    }
+
+    #[test]
+    fn decide_render_context_integer_value_score_rate_102_103() {
+        let mut resource = SongLengthResource::with_length_ms(0);
+        let mut score = rubato_core::score_data::ScoreData::new(bms_model::mode::Mode::BEAT_7K);
+        score.judge_counts.epg = 50;
+        score.notes = 100;
+        resource.score = Some(score.clone());
+
+        let mut sdp = rubato_types::score_data_property::ScoreDataProperty::new();
+        sdp.update_score(Some(&score));
+
+        let mut timer = TimerManager::new();
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let ctx = DecideRenderContext {
+            timer: &mut timer,
+            resource: &resource,
+            main: &mut main,
+            score_data_property: &sdp,
+            offsets: &EMPTY_OFFSETS,
+        };
+        use rubato_types::skin_render_context::SkinRenderContext;
+        // rate = 100/200 = 0.5, rate_int = 50, afterdot = 0
+        // But these are "now" rate based on current notes, not total rate.
+        // nowrate_int corresponds to ID 102, nowrate_after_dot to ID 103.
+        assert_eq!(
+            ctx.integer_value(102),
+            sdp.nowrate_int,
+            "ID 102 should return nowrate_int"
+        );
+        assert_eq!(
+            ctx.integer_value(103),
+            sdp.nowrate_after_dot,
+            "ID 103 should return nowrate_after_dot"
+        );
+    }
+
+    #[test]
+    fn decide_render_context_integer_value_hispeed_10() {
+        let mut resource = SongLengthResource::with_length_ms(0);
+        resource.song.chart.mode = 7;
+        resource.player_config.mode7.playconfig.hispeed = 2.5;
+
+        let mut timer = TimerManager::new();
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
+        let ctx = DecideRenderContext {
+            timer: &mut timer,
+            resource: &resource,
+            main: &mut main,
+            score_data_property: &sdp,
+            offsets: &EMPTY_OFFSETS,
+        };
+        use rubato_types::skin_render_context::SkinRenderContext;
+        // ID 10 = NUMBER_HISPEED_LR2 = (hispeed * 100) as i32 = 250
+        assert_eq!(
+            ctx.integer_value(10),
+            250,
+            "ID 10 should return hispeed * 100"
+        );
+    }
+
+    #[test]
+    fn decide_render_context_integer_value_judgetiming_12() {
+        let mut resource = SongLengthResource::with_length_ms(0);
+        resource.player_config.judge_settings.judgetiming = 5;
+
+        let mut timer = TimerManager::new();
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
+        let ctx = DecideRenderContext {
+            timer: &mut timer,
+            resource: &resource,
+            main: &mut main,
+            score_data_property: &sdp,
+            offsets: &EMPTY_OFFSETS,
+        };
+        use rubato_types::skin_render_context::SkinRenderContext;
+        assert_eq!(ctx.integer_value(12), 5, "ID 12 should return judgetiming");
+    }
+
+    // ============================================================
+    // boolean_value: BGA on/off (40/41), stagefile/banner/backbmp (190-195),
+    // course stage (280-283, 289, 290), save score (60/61)
+    // ============================================================
+
+    #[test]
+    fn decide_render_context_boolean_value_bga_off_on() {
+        use rubato_types::config::BgaMode;
+        let resource = SongLengthResource::with_length_ms(0);
+
+        let mut timer = TimerManager::new();
+        let changed_states = Arc::new(Mutex::new(Vec::new()));
+        let mut config = rubato_types::config::Config::default();
+        config.render.bga = BgaMode::Off;
+        let audio_configs = Arc::new(Mutex::new(Vec::new()));
+        let mut main =
+            MainControllerRef::new(Box::new(RecordingMainController::with_audio_recording(
+                Arc::clone(&changed_states),
+                Arc::clone(&audio_configs),
+                config,
+            )));
+        let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
+        let ctx = DecideRenderContext {
+            timer: &mut timer,
+            resource: &resource,
+            main: &mut main,
+            score_data_property: &sdp,
+            offsets: &EMPTY_OFFSETS,
+        };
+        use rubato_types::skin_render_context::SkinRenderContext;
+        assert!(
+            ctx.boolean_value(40),
+            "ID 40 (BGAOFF) should be true when BGA is Off"
+        );
+        assert!(
+            !ctx.boolean_value(41),
+            "ID 41 (BGAON) should be false when BGA is Off"
+        );
+    }
+
+    #[test]
+    fn decide_render_context_boolean_value_stagefile_exists() {
+        let mut resource = SongLengthResource::with_length_ms(0);
+        resource.song.file.stagefile = "stage.png".to_string();
+
+        let mut timer = TimerManager::new();
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
+        let ctx = DecideRenderContext {
+            timer: &mut timer,
+            resource: &resource,
+            main: &mut main,
+            score_data_property: &sdp,
+            offsets: &EMPTY_OFFSETS,
+        };
+        use rubato_types::skin_render_context::SkinRenderContext;
+        assert!(
+            ctx.boolean_value(191),
+            "ID 191 (STAGEFILE) should be true when stagefile is set"
+        );
+        assert!(
+            !ctx.boolean_value(190),
+            "ID 190 (NO_STAGEFILE) should be false when stagefile is set"
+        );
+    }
+
+    #[test]
+    fn decide_render_context_boolean_value_course_mode() {
+        let resource = SongLengthResource::with_length_ms(0);
+
+        let mut timer = TimerManager::new();
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
+        let ctx = DecideRenderContext {
+            timer: &mut timer,
+            resource: &resource,
+            main: &mut main,
+            score_data_property: &sdp,
+            offsets: &EMPTY_OFFSETS,
+        };
+        use rubato_types::skin_render_context::SkinRenderContext;
+        // No course data -> course mode is false
+        assert!(
+            !ctx.boolean_value(290),
+            "ID 290 (MODE_COURSE) should be false when not in course mode"
+        );
+    }
+
+    // ============================================================
+    // DecideMouseContext: mirror tests for the same IDs
+    // ============================================================
+
+    #[test]
+    fn decide_mouse_context_integer_value_exscore_71() {
+        let mut resource = SongLengthResource::with_length_ms(0);
+        let mut score = rubato_core::score_data::ScoreData::new(bms_model::mode::Mode::BEAT_7K);
+        score.judge_counts.epg = 50;
+        score.notes = 100;
+        resource.score = Some(score.clone());
+
+        let mut sdp = rubato_types::score_data_property::ScoreDataProperty::new();
+        sdp.update_score(Some(&score));
+
+        let mut timer = TimerManager::new();
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let ctx = DecideMouseContext {
+            timer: &mut timer,
+            main: &mut main,
+            resource: &mut resource,
+            score_data_property: &sdp,
+            offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
+        };
+        use rubato_types::skin_render_context::SkinRenderContext;
+        assert_eq!(
+            ctx.integer_value(71),
+            100,
+            "DecideMouseContext ID 71 should return exscore"
+        );
+    }
+
+    #[test]
+    fn decide_mouse_context_boolean_value_bga_off() {
+        use rubato_types::config::BgaMode;
+        let mut resource = SongLengthResource::with_length_ms(0);
+
+        let changed_states = Arc::new(Mutex::new(Vec::new()));
+        let mut config = rubato_types::config::Config::default();
+        config.render.bga = BgaMode::Off;
+        let audio_configs = Arc::new(Mutex::new(Vec::new()));
+        let mut timer = TimerManager::new();
+        let mut main =
+            MainControllerRef::new(Box::new(RecordingMainController::with_audio_recording(
+                Arc::clone(&changed_states),
+                Arc::clone(&audio_configs),
+                config,
+            )));
+        let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
+        let ctx = DecideMouseContext {
+            timer: &mut timer,
+            main: &mut main,
+            resource: &mut resource,
+            score_data_property: &sdp,
+            offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
+        };
+        use rubato_types::skin_render_context::SkinRenderContext;
+        assert!(
+            ctx.boolean_value(40),
+            "DecideMouseContext ID 40 (BGAOFF) should be true when BGA is Off"
+        );
     }
 }
