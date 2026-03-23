@@ -1,7 +1,0 @@
-{
-  "database": "dolt",
-  "backend": "dolt",
-  "dolt_mode": "server",
-  "dolt_database": "rubato",
-  "project_id": "3e67e494-ad83-4490-9e10-5ed41338928e"
-}
