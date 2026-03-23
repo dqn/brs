@@ -411,7 +411,6 @@ impl MainState for MusicSelector {
                     rival,
                     state: &adapter,
                     lnmode,
-                    loader_finished: false,
                 };
                 bar_renderer.render(&mut renderer, skin_bar, &ctx);
                 std::mem::swap(&mut renderer.sprite, sprite);

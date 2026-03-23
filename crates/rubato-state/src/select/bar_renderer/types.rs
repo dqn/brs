@@ -40,8 +40,6 @@ pub struct RenderContext<'a> {
     pub rival: bool,
     pub state: &'a dyn MainState,
     pub lnmode: i32,
-    /// True if the loader thread has terminated and images should be reloaded.
-    pub loader_finished: bool,
 }
 
 /// Context for BarRenderer::input()

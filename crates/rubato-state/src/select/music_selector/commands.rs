@@ -140,6 +140,9 @@ impl MusicSelector {
         );
         if self.manager.update_bar_refresh_with_context(Some(&mut ctx)) {
             self.load_bar_contents();
+            if let Some(bar) = self.bar_rendering.bar.as_mut() {
+                bar.update_bar_text();
+            }
         }
     }
 
@@ -156,6 +159,9 @@ impl MusicSelector {
         let updated = self.manager.update_bar_with_context(bar, Some(&mut ctx));
         if updated {
             self.load_bar_contents();
+            if let Some(bar) = self.bar_rendering.bar.as_mut() {
+                bar.update_bar_text();
+            }
         }
         updated
     }

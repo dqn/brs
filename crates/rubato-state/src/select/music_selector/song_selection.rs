@@ -30,6 +30,13 @@ impl MusicSelector {
             self.pending_state_change = Some(MainStateType::SkinConfig);
         }
 
+        // Java: SearchTextField sets textmode=true which suppresses key-to-game-button
+        // mappings while the search field has keyboard focus. Skip game input processing
+        // when search is focused so typing does not trigger bar navigation or play actions.
+        if self.search.as_ref().is_some_and(|s| s.has_focus) {
+            return;
+        }
+
         // Classify the selected bar before borrowing musicinput
         let selected_bar_type = BarType::classify(self.manager.selected());
         let selected_replay = self.selectedreplay;
@@ -148,6 +155,9 @@ impl MusicSelector {
                     );
                     self.manager.close_with_context(Some(&mut ctx));
                     self.load_bar_contents();
+                    if let Some(bar) = self.bar_rendering.bar.as_mut() {
+                        bar.update_bar_text();
+                    }
                 }
                 InputEvent::OpenDirectory => {
                     // In Java: select.getBarManager().updateBar(dirbar)
@@ -163,6 +173,9 @@ impl MusicSelector {
                         .update_bar_with_selected_and_context(Some(&mut ctx));
                     if opened {
                         self.load_bar_contents();
+                        if let Some(bar) = self.bar_rendering.bar.as_mut() {
+                            bar.update_bar_text();
+                        }
                         self.play_sound(SoundType::FolderOpen);
                     }
                 }
@@ -328,6 +341,9 @@ impl MusicSelector {
                     self.manager.update_bar_with_context(None, Some(&mut ctx));
                 }
                 self.load_bar_contents();
+                if let Some(bar) = self.bar_rendering.bar.as_mut() {
+                    bar.update_bar_text();
+                }
                 self.manager.set_selected(&grade_bar);
             }
         } else {

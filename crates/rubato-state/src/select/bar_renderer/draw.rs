@@ -24,11 +24,6 @@ impl BarRenderer {
                 }
             }
         }
-
-        // Check terminated loader thread and load song images.
-        if ctx.loader_finished {
-            self.bartextupdate = true;
-        }
     }
 
     /// Draw bar background images for each bar slot.
@@ -165,10 +160,8 @@ impl BarRenderer {
                 let sd = &ctx.currentsongs[idx];
                 if let Some(text) = baro.text.get_mut(ba.text).and_then(|o| o.as_mut()) {
                     text.get_text_data_mut().set_text(sd.title().to_string());
-                    // TODO: Java calls prepareFont() for all bar text widgets in a charset-collection
-                    // phase before the draw loop. Newly attached SkinTextFont widgets may not have their
-                    // font state initialized here. Finding 12's bartextupdate=true fix mitigates this for
-                    // initial load, but dynamically attached text objects may still need explicit prepare().
+                    // Font glyphs are prepared via update_bar_text_charset() at the top of
+                    // render(), triggered by update_bar_text() after each load_bar_contents() call.
                     text.draw_with_offset(sprite, ba.x, ba.y);
                 }
             }

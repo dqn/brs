@@ -123,7 +123,6 @@ fn test_bar_renderer_two_phase_prepare_render() {
         rival: false,
         state: &state,
         lnmode: 0,
-        loader_finished: false,
     };
     renderer.render(&mut sprite, &mut bar, &render_ctx);
 }
@@ -259,7 +258,6 @@ fn test_bar_renderer_render_bartextupdate_collects_chars() {
         rival: false,
         state: &state,
         lnmode: 0,
-        loader_finished: false,
     };
 
     let mut sprite = SkinObjectRenderer::new();
@@ -312,7 +310,6 @@ fn test_bar_renderer_render_draws_ecfn_bitmap_bartext_quads() {
         rival: false,
         state: &state,
         lnmode: 0,
-        loader_finished: false,
     };
 
     let mut sprite = SkinObjectRenderer::new();
@@ -394,7 +391,6 @@ fn test_bar_renderer_render_draws_ecfn_loaded_songlist_bitmap_bartext_quads() {
         rival: false,
         state: &state,
         lnmode: 0,
-        loader_finished: false,
     };
 
     let mut sprite = SkinObjectRenderer::new();
@@ -494,7 +490,6 @@ fn test_bar_renderer_centers_ecfn_loaded_songlist_bitmap_bartext_vertically() {
         rival: false,
         state: &state,
         lnmode: 0,
-        loader_finished: false,
     };
 
     let text_region = bar
@@ -684,7 +679,6 @@ fn test_draw_bar_images_invalidates_value_when_draw_is_false() {
         rival: false,
         state: &state,
         lnmode: 0,
-        loader_finished: false,
     };
 
     let mut sprite = SkinObjectRenderer::new();
