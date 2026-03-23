@@ -105,11 +105,16 @@ impl BitmapFontBatchLoader {
                 .filter_map(|ip| loaded_textures.get(ip).cloned())
                 .collect();
 
-            // Use parsed font data metrics, fall back to read_font_sizes for legacy
-            let mut size = font_data.line_height;
+            // Use font_size (from `size=` in info line) as primary originalSize,
+            // matching Java SkinTextBitmap.java:161. Fall back to lineHeight, then
+            // to read_font_sizes for legacy.
+            let mut size = font_data.font_size;
             let mut scale_w = font_data.scale_w;
             let mut scale_h = font_data.scale_h;
 
+            if size == 0.0 {
+                size = font_data.line_height;
+            }
             if size == 0.0
                 && let Some(s) = read_font_sizes(path)
             {

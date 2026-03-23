@@ -520,11 +520,16 @@ impl SkinTextBitmapSource {
                 })
                 .collect();
 
-            // Use parsed font data metrics, fall back to create_cacheable_font header parsing
-            let mut size = font_data.line_height;
+            // Use font_size (from `size=` in info line) as primary originalSize,
+            // matching Java SkinTextBitmap.java:161. Fall back to lineHeight, then
+            // to create_cacheable_font header parsing.
+            let mut size = font_data.font_size;
             let mut scale_w = font_data.scale_w;
             let mut scale_h = font_data.scale_h;
 
+            if size == 0.0 {
+                size = font_data.line_height;
+            }
             if size == 0.0 {
                 let header = self.create_cacheable_font(&self.font_path, self.source_type);
                 size = header.original_size;
@@ -971,6 +976,81 @@ mod tests {
         assert_eq!(cached.page_width, 512.0);
         assert_eq!(cached.page_height, 256.0);
 
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Java SkinTextBitmap.java:161 reads `size=` from the .fnt info line as the
+    /// primary `originalSize`, falling back to `lineHeight` only on exception.
+    /// The `originalSize` is the denominator in `scale = desired_size / original_size`,
+    /// so using `lineHeight` (which is typically larger than `size`) produces smaller
+    /// rendered text than Java.
+    #[test]
+    fn test_font_original_size_uses_font_size_not_line_height() {
+        use std::sync::atomic::{AtomicU64, Ordering as AOrdering};
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let id = COUNTER.fetch_add(1, AOrdering::Relaxed);
+
+        let dir = std::env::temp_dir().join(format!("rubato_test_fnt_size_precedence_{id}"));
+        let _ = std::fs::create_dir_all(&dir);
+        let fnt_path = dir.join("test_precedence.fnt");
+        // size=24 but lineHeight=32: Java uses 24 as originalSize, not 32.
+        // Must include page + char lines so BitmapFontData::from_fnt succeeds
+        // (it returns None when glyphs or pages are empty).
+        std::fs::write(
+            &fnt_path,
+            "info face=\"TestFont\" size=24 bold=0\ncommon lineHeight=32 base=22 scaleW=256 scaleH=256 pages=1\npage id=0 file=\"test.png\"\nchar id=65 x=0 y=0 width=16 height=16 xoffset=0 yoffset=0 xadvance=16 page=0\n",
+        )
+        .unwrap();
+
+        // Clear cache for this path to ensure fresh derivation
+        crate::bitmap_font_cache::clear();
+
+        let mut source = SkinTextBitmapSource::new(fnt_path.clone(), false);
+        // Call font() which parses the .fnt and caches original_size
+        let _ = source.font();
+
+        // After font(), original_size must be 24 (from size=), not 32 (from lineHeight)
+        assert_eq!(
+            source.original_size, 24.0,
+            "original_size must come from font_size (size=24), not line_height (32); got {}",
+            source.original_size,
+        );
+
+        crate::bitmap_font_cache::clear();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// When font_size is 0 (missing size= in info line), fall back to lineHeight.
+    #[test]
+    fn test_font_original_size_falls_back_to_line_height_when_font_size_zero() {
+        use std::sync::atomic::{AtomicU64, Ordering as AOrdering};
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let id = COUNTER.fetch_add(1, AOrdering::Relaxed);
+
+        let dir = std::env::temp_dir().join(format!("rubato_test_fnt_size_fallback_{id}"));
+        let _ = std::fs::create_dir_all(&dir);
+        let fnt_path = dir.join("test_fallback.fnt");
+        // No size= in info line, lineHeight=28.
+        // Must include page + char lines so BitmapFontData::from_fnt succeeds.
+        std::fs::write(
+            &fnt_path,
+            "info face=\"TestFont\" bold=0\ncommon lineHeight=28 base=22 scaleW=256 scaleH=256 pages=1\npage id=0 file=\"test.png\"\nchar id=65 x=0 y=0 width=16 height=16 xoffset=0 yoffset=0 xadvance=16 page=0\n",
+        )
+        .unwrap();
+
+        crate::bitmap_font_cache::clear();
+
+        let mut source = SkinTextBitmapSource::new(fnt_path.clone(), false);
+        let _ = source.font();
+
+        // font_size is 0 (no size= field), so should fall back to lineHeight=28
+        assert_eq!(
+            source.original_size, 28.0,
+            "when font_size is 0, must fall back to line_height (28); got {}",
+            source.original_size,
+        );
+
+        crate::bitmap_font_cache::clear();
         let _ = std::fs::remove_dir_all(&dir);
     }
 
