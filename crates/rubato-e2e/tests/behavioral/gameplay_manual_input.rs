@@ -188,9 +188,9 @@ fn gameplay_key_held_during_ready_is_cleared_at_play_start() {
 
     let frames_to_timer_play = harness.render_until(
         |h| {
-            h.controller().current_state().is_some_and(|state| {
-                state.main_state_data().timer.is_timer_on(timer_play)
-            })
+            h.controller()
+                .current_state()
+                .is_some_and(|state| state.main_state_data().timer.is_timer_on(timer_play))
         },
         240,
     );
