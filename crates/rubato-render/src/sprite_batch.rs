@@ -314,11 +314,33 @@ impl SpriteBatch {
     /// drawn separately, keeping individual GPU uploads bounded to
     /// MAX_VERTICES. Reuses a persistent vertex buffer (growing
     /// geometrically when needed).
+    ///
+    /// # Required call sequence
+    ///
+    /// Before calling this method, callers **must**:
+    /// 1. Call [`drain_pending_textures()`](Self::drain_pending_textures) to
+    ///    collect textures that need GPU upload.
+    /// 2. Upload them via `GpuTextureManager::ensure_uploaded()`.
+    ///
+    /// If pending textures have not been drained and uploaded, segments will
+    /// render with missing bind groups, falling back to the white texture.
     pub fn flush_to_gpu<'a>(
         &mut self,
         render_pass: &mut wgpu::RenderPass<'a>,
         ctx: &'a GpuRenderContext<'a>,
     ) {
+        debug_assert!(
+            self.pending_textures.is_empty(),
+            "flush_to_gpu called with undrained pending_textures in active buffer; \
+             call drain_pending_textures() + ensure_uploaded() first"
+        );
+        debug_assert!(
+            self.flushed_segments
+                .iter()
+                .all(|s| s.pending_textures.is_empty()),
+            "flush_to_gpu called with undrained pending_textures in flushed segments; \
+             call drain_pending_textures() + ensure_uploaded() first"
+        );
         // Move the active buffer into a final segment so we can process
         // everything uniformly. This avoids borrow conflicts between
         // the vertex data and the GPU buffer fields on `self`.
