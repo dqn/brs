@@ -369,7 +369,7 @@ impl LR2SelectSkinLoaderState {
                         &DestinationParams {
                             time: values[2] as i64,
                             x: values[3] as f32 * dstw,
-                            y: self.csv.dst.height - (values[4] + values[6]) as f32 * dsth,
+                            y: -(values[4] + values[6]) as f32 * dsth,
                             w: values[5] as f32 * dstw,
                             h: values[6] as f32 * dsth,
                             acc: values[7],
@@ -441,7 +441,7 @@ impl LR2SelectSkinLoaderState {
                                 &DestinationParams {
                                     time: values[2] as i64,
                                     x: values[3] as f32 * dstw,
-                                    y: self.csv.dst.height - (values[4] + values[6]) as f32 * dsth,
+                                    y: -(values[4] + values[6]) as f32 * dsth,
                                     w: values[5] as f32 * dstw,
                                     h: values[6] as f32 * dsth,
                                     acc: values[7],
@@ -515,7 +515,7 @@ impl LR2SelectSkinLoaderState {
                                 &DestinationParams {
                                     time: values[2] as i64,
                                     x: values[3] as f32 * dstw,
-                                    y: self.csv.dst.height - (values[4] + values[6]) as f32 * dsth,
+                                    y: -(values[4] + values[6]) as f32 * dsth,
                                     w: values[5] as f32 * dstw,
                                     h: values[6] as f32 * dsth,
                                     acc: values[7],
@@ -589,7 +589,7 @@ impl LR2SelectSkinLoaderState {
                                 &DestinationParams {
                                     time: values[2] as i64,
                                     x: values[3] as f32 * dstw,
-                                    y: self.csv.dst.height - (values[4] + values[6]) as f32 * dsth,
+                                    y: -(values[4] + values[6]) as f32 * dsth,
                                     w: values[5] as f32 * dstw,
                                     h: values[6] as f32 * dsth,
                                     acc: values[7],
@@ -651,7 +651,7 @@ impl LR2SelectSkinLoaderState {
                         &DestinationParams {
                             time: values[2] as i64,
                             x: values[3] as f32 * dstw,
-                            y: self.csv.dst.height - (values[4] + values[6]) as f32 * dsth,
+                            y: -(values[4] + values[6]) as f32 * dsth,
                             w: values[5] as f32 * dstw,
                             h: values[6] as f32 * dsth,
                             acc: values[7],
@@ -711,7 +711,7 @@ impl LR2SelectSkinLoaderState {
                         &DestinationParams {
                             time: values[2] as i64,
                             x: values[3] as f32 * dstw,
-                            y: self.csv.dst.height - (values[4] + values[6]) as f32 * dsth,
+                            y: -(values[4] + values[6]) as f32 * dsth,
                             w: values[5] as f32 * dstw,
                             h: values[6] as f32 * dsth,
                             acc: values[7],
@@ -802,7 +802,7 @@ impl LR2SelectSkinLoaderState {
                     return;
                 }
                 let font_idx = values[2] as usize;
-                let bartext = if font_idx < self.csv.fontlist.len()
+                let mut bartext = if font_idx < self.csv.fontlist.len()
                     && let Some(source) = self.csv.fontlist[font_idx].clone()
                 {
                     let text = crate::skin_text_image::SkinTextImage::new(source);
@@ -816,6 +816,7 @@ impl LR2SelectSkinLoaderState {
                     );
                     crate::skin_text::SkinTextEnum::Font(text)
                 };
+                bartext.get_text_data_mut().align = values[4];
                 let idx = values[1] as usize;
                 if idx < self.bartext.len() {
                     self.bartext[idx] = Some(bartext);
@@ -839,7 +840,7 @@ impl LR2SelectSkinLoaderState {
                             &DestinationParams {
                                 time: values[2] as i64,
                                 x: values[3] as f32 * dstw,
-                                y: self.csv.dst.height - (values[4] + values[6]) as f32 * dsth,
+                                y: -(values[4] + values[6]) as f32 * dsth,
                                 w: values[5] as f32 * dstw,
                                 h: values[6] as f32 * dsth,
                                 acc: values[7],
