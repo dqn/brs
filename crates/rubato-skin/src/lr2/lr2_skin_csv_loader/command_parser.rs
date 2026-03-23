@@ -432,8 +432,8 @@ impl LR2SkinCSVLoaderState {
                     self.collected_objects.push(SkinObject::Number(n));
                 }
                 let values = Self::parse_int(str_parts);
-                let divx = if values[7] > 0 { values[7] } else { 1 };
-                let divy = if values[8] > 0 { values[8] } else { 1 };
+                let divx = if values[7] > 0 { values[7] } else { 1 }.min(256);
+                let divy = if values[8] > 0 { values[8] } else { 1 }.min(256);
 
                 if divx * divy >= 10
                     && let Some(images) = self.source_image(&values)
@@ -480,7 +480,7 @@ impl LR2SkinCSVLoaderState {
                     } else {
                         // Standard number sheet: 10 or 11 images per animation frame
                         let d = if images.len() % 10 == 0 { 10 } else { 11 };
-                        let total = (divx * divy) as usize;
+                        let total = images.len();
                         let frame_count = total / d;
                         let mut nimages: Vec<Vec<TextureRegion>> = Vec::with_capacity(frame_count);
                         for j in 0..frame_count {
@@ -938,8 +938,8 @@ impl LR2SkinCSVLoaderState {
                 if gr < self.imagelist.len()
                     && matches!(self.imagelist[gr], ImageListEntry::TextureEntry(_))
                 {
-                    let divx = if values[7] > 0 { values[7] } else { 1 };
-                    let divy = if values[8] > 0 { values[8] } else { 1 };
+                    let divx = if values[7] > 0 { values[7] } else { 1 }.min(256);
+                    let divy = if values[8] > 0 { values[8] } else { 1 }.min(256);
                     let total = (divx * divy) as usize;
                     let is_ex = cmd == "SRC_GROOVEGAUGE_EX";
 

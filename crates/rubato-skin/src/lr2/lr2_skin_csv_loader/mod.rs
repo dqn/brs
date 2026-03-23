@@ -1500,4 +1500,122 @@ SCENETIME,9999\n\
             gauger.data.offset
         );
     }
+
+    // --- Overflow clamping tests ---
+
+    #[test]
+    fn test_src_groovegauge_huge_divx_divy_no_overflow() {
+        // divx=50000 * divy=50000 overflows i32 without clamping
+        let mut state = make_state();
+        let tex = Texture {
+            width: 256,
+            height: 256,
+            ..Default::default()
+        };
+        state.imagelist.push(ImageListEntry::TextureEntry(tex));
+
+        let parts = str_vec(&[
+            "#SRC_GROOVEGAUGE",
+            "0",
+            "0",     // gr
+            "0",     // x
+            "0",     // y
+            "256",   // w
+            "256",   // h
+            "50000", // divx (huge)
+            "50000", // divy (huge)
+            "0",     // cycle
+            "0",     // timer
+            "0",     // num
+            "0",
+            "50", // parts
+            "0",  // anim_type
+            "3",  // anim_range
+            "33", // duration
+            "0",  // starttime
+            "0",  // endtime
+        ]);
+        // Must not panic from i32 overflow in divx*divy
+        state.process_csv_command("SRC_GROOVEGAUGE", &parts, None);
+        // Should still produce a valid gauger (clamped divx/divy)
+        assert!(
+            state.gauger.is_some(),
+            "SRC_GROOVEGAUGE with huge divx/divy should still create gauger after clamping"
+        );
+    }
+
+    #[test]
+    fn test_src_number_huge_divx_divy_no_overflow() {
+        // divx=50000 * divy=50000 overflows i32 without clamping.
+        // Also, images.len() (clamped internally) < raw divx*divy causes OOB.
+        let mut state = make_state();
+        let tex = Texture {
+            width: 256,
+            height: 256,
+            ..Default::default()
+        };
+        state.imagelist.push(ImageListEntry::TextureEntry(tex));
+
+        // SRC_NUMBER format:
+        // #SRC_NUMBER,(NULL),gr,x,y,w,h,div_x,div_y,cycle,timer,num,align,keta,zeropadding,space
+        let parts = str_vec(&[
+            "#SRC_NUMBER",
+            "0",     // NULL
+            "0",     // gr
+            "0",     // x
+            "0",     // y
+            "256",   // w
+            "256",   // h
+            "50000", // divx (huge)
+            "50000", // divy (huge)
+            "0",     // cycle
+            "0",     // timer
+            "0",     // num
+            "0",     // align
+            "10",    // keta
+            "0",     // zeropadding
+            "0",     // space
+        ]);
+        // Must not panic from i32 overflow or index-out-of-bounds
+        state.process_csv_command("SRC_NUMBER", &parts, None);
+    }
+
+    #[test]
+    fn test_src_number_divx_divy_check_uses_clamped_value() {
+        // If divx=300, divy=300 => raw product = 90000 >= 10, but clamped to 256
+        // means actual image count = 256*256 = 65536, not 90000.
+        // The frame_count / total logic must use the clamped image count.
+        let mut state = make_state();
+        let tex = Texture {
+            width: 256,
+            height: 256,
+            ..Default::default()
+        };
+        state.imagelist.push(ImageListEntry::TextureEntry(tex));
+
+        let parts = str_vec(&[
+            "#SRC_NUMBER",
+            "0",
+            "0", // gr
+            "0",
+            "0",
+            "256",
+            "256",
+            "300", // divx (> 256, will be clamped)
+            "300", // divy (> 256, will be clamped)
+            "0",
+            "0",
+            "0",
+            "0",
+            "10",
+            "0",
+            "0",
+        ]);
+        // Must not panic from mismatched total vs images.len()
+        state.process_csv_command("SRC_NUMBER", &parts, None);
+        assert!(
+            state.num.is_some(),
+            "SRC_NUMBER with clamped divx/divy should still create number"
+        );
+    }
 }
