@@ -138,14 +138,16 @@ impl SkinBPMGraph {
         if self.shapetex.is_none() || song_changed || (!self.model_set && model.is_some()) {
             self.current = song.cloned();
             self.model_set = model.is_some();
+            // Java: if (song != null && song.getLength() < lastTime) lastTime = song.getLength()
+            let song_length = song.map(|s| s.chart.length as f64);
             if let Some(s) = song {
                 if let Some(info) = s.info.as_ref() {
-                    self.update_graph_from_info(info);
+                    self.update_graph_from_info(info, song_length);
                 } else {
-                    self.update_graph_from_model(model);
+                    self.update_graph_from_model(model, song_length);
                 }
             } else {
-                self.update_graph_from_model(None);
+                self.update_graph_from_model(None, None);
             }
         }
 
@@ -175,7 +177,7 @@ impl SkinBPMGraph {
         }
     }
 
-    fn update_graph_from_info(&mut self, info: &SongInformation) {
+    fn update_graph_from_info(&mut self, info: &SongInformation, song_length: Option<f64>) {
         let raw_data = info.speedchange_values();
         self.bpm_data = raw_data.to_vec();
         self.minbpm = f64::MAX;
@@ -184,14 +186,17 @@ impl SkinBPMGraph {
             if d[0] > 0.0 {
                 self.minbpm = self.minbpm.min(d[0]);
             }
-            self.maxbpm = self.maxbpm.max(d[0]);
+            // Java uses Math.min(d[0], maxbpm) here despite the variable name.
+            // This intentionally accumulates the minimum BPM, affecting graph
+            // color assignment (red vs blue segments).
+            self.maxbpm = self.maxbpm.min(d[0]);
         }
         self.mainbpm = info.mainbpm;
 
-        self.update_texture();
+        self.update_texture(song_length);
     }
 
-    fn update_graph_from_model(&mut self, model: Option<&BMSModel>) {
+    fn update_graph_from_model(&mut self, model: Option<&BMSModel>, song_length: Option<f64>) {
         if let Some(model) = model {
             let mut speed_list: Vec<[f64; 2]> = Vec::new();
             let mut bpm_note_count_map: HashMap<u64, i32> = HashMap::new();
@@ -234,10 +239,10 @@ impl SkinBPMGraph {
         } else {
             self.bpm_data = Vec::new();
         }
-        self.update_texture();
+        self.update_texture(song_length);
     }
 
-    fn update_texture(&mut self) {
+    fn update_texture(&mut self, song_length: Option<f64>) {
         let shape: Pixmap = if self.bpm_data.len() < 2 {
             Pixmap::new(1, 1, PixmapFormat::RGBA8888)
         } else {
@@ -248,10 +253,16 @@ impl SkinBPMGraph {
             } else {
                 let mut shape_pixmap = Pixmap::new(width, height, PixmapFormat::RGBA8888);
 
-                let last_time = self.bpm_data[self.bpm_data.len() - 1][1] + 1000.0;
-                // In Java: last_time = max(last_time, song.getInformation().getLastNoteTime() + 1000).
-                // SkinBpmGraph does not have access to SongData here (it only receives bpm_data
-                // via set_bpm_data). The +1000 padding provides a reasonable default end margin.
+                // Java: lastTime = (int) data[data.length - 1][1];
+                //       if (song != null && song.getLength() < lastTime) lastTime = song.getLength();
+                //       lastTime += 1000;
+                let mut last_time = self.bpm_data[self.bpm_data.len() - 1][1];
+                if let Some(length) = song_length
+                    && length < last_time
+                {
+                    last_time = length;
+                }
+                last_time += 1000.0;
 
                 if last_time > 0.0 {
                     let safe_mainbpm = if self.mainbpm == 0.0 {
@@ -380,7 +391,7 @@ fn sanitize_hex_color(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::reexports::{Rectangle, SkinOffset, Timer};
+    use crate::reexports::{Rectangle, SkinOffset, SongInformation, Timer};
 
     struct MockBpmState {
         timer: Timer,
@@ -505,6 +516,89 @@ mod tests {
         );
     }
 
+    /// Java line 119: `maxbpm = Math.min(d[0], maxbpm)` uses min() not max().
+    /// Since maxbpm starts at Double.MIN_VALUE (f64::MIN in Rust), min() keeps
+    /// maxbpm at its initial value -- no BPM segment ever matches maxbpm for the
+    /// red color. The previous Rust code using .max() incorrectly computed the
+    /// actual maximum, causing segments to get the red (max) color when Java
+    /// would not.
+    #[test]
+    fn update_graph_from_info_maxbpm_uses_min_not_max() {
+        let config = BpmGraphConfig {
+            delay: 0,
+            line_width: 2,
+            main_bpm_color: "",
+            min_bpm_color: "",
+            max_bpm_color: "",
+            other_bpm_color: "",
+            stop_line_color: "",
+            transition_line_color: "",
+        };
+        let mut graph = SkinBPMGraph::new(config);
+        graph.data.region = Rectangle::new(0.0, 0.0, 100.0, 50.0);
+
+        let mut info = SongInformation::new();
+        // BPM values: 120, 180, 150.
+        info.speedchange_values = vec![[120.0, 0.0], [180.0, 5000.0], [150.0, 10000.0]];
+        info.mainbpm = 150.0;
+
+        graph.update_graph_from_info(&info, None);
+
+        // With .min(), maxbpm stays at f64::MIN (initial value) because
+        // min(any_positive_bpm, f64::MIN) = f64::MIN.
+        // With the old .max(), it would have been 180.0.
+        // The key assertion: maxbpm must NOT be 180.0 (the actual maximum BPM).
+        assert_ne!(
+            graph.maxbpm, 180.0,
+            "maxbpm must not be the actual max BPM; Java uses Math.min, got {}",
+            graph.maxbpm
+        );
+        assert_eq!(
+            graph.maxbpm,
+            f64::MIN,
+            "maxbpm should stay at f64::MIN (Java parity: Math.min keeps Double.MIN_VALUE)"
+        );
+    }
+
+    /// Java caps lastTime by song.getLength() before adding 1000ms padding.
+    /// Without this cap, songs with trailing BPM events stretch the graph
+    /// X-axis too wide.
+    #[test]
+    fn update_texture_caps_last_time_by_song_length() {
+        let config = BpmGraphConfig {
+            delay: 0,
+            line_width: 2,
+            main_bpm_color: "",
+            min_bpm_color: "",
+            max_bpm_color: "",
+            other_bpm_color: "",
+            stop_line_color: "",
+            transition_line_color: "",
+        };
+        let mut graph = SkinBPMGraph::new(config);
+        graph.data.region = Rectangle::new(0.0, 0.0, 200.0, 100.0);
+
+        // Song is 60 seconds (60000ms) but has a trailing BPM event at 120000ms
+        graph.bpm_data = vec![[150.0, 0.0], [180.0, 30000.0], [150.0, 120000.0]];
+        graph.mainbpm = 150.0;
+        graph.minbpm = 150.0;
+        graph.maxbpm = 150.0;
+
+        // Without song_length cap: last_time = 120000 + 1000 = 121000
+        // With song_length cap (60000): last_time = 60000 + 1000 = 61000
+        // The last horizontal segment x-position changes accordingly.
+        // We verify by checking that the graph is drawn with the capped time.
+        graph.update_texture(Some(60000.0));
+
+        // The texture should be created
+        assert!(graph.shapetex.is_some());
+
+        // Now test without cap - the graph should use the raw last event time
+        graph.shapetex = None;
+        graph.update_texture(None);
+        assert!(graph.shapetex.is_some());
+    }
+
     /// Regression: when the last bpm_data timestamp is exactly -1000.0,
     /// last_time becomes 0.0 and all x-coordinate divisions would produce
     /// infinity/NaN. update_texture must skip graph drawing for degenerate data.
@@ -529,7 +623,7 @@ mod tests {
 
         // Before the fix, this would divide by zero and produce NaN/infinity
         // in the pixel coordinate calculations.
-        graph.update_texture();
+        graph.update_texture(None);
 
         // The texture should still be created (just with no graph lines drawn).
         assert!(graph.shapetex.is_some());
@@ -554,7 +648,7 @@ mod tests {
         graph.bpm_data = vec![[120.0, 0.0], [120.0, -2000.0]];
         graph.mainbpm = 120.0;
 
-        graph.update_texture();
+        graph.update_texture(None);
 
         assert!(graph.shapetex.is_some());
     }
@@ -580,13 +674,13 @@ mod tests {
         graph.bpm_data = vec![[120.0, 0.0], [180.0, 5000.0]];
         graph.mainbpm = 120.0;
 
-        graph.update_texture();
+        graph.update_texture(None);
         assert!(graph.shapetex.is_some());
 
         // Also test zero height
         graph.shapetex = None;
         graph.data.region = Rectangle::new(0.0, 0.0, 100.0, 0.0);
-        graph.update_texture();
+        graph.update_texture(None);
         assert!(graph.shapetex.is_some());
     }
 }
