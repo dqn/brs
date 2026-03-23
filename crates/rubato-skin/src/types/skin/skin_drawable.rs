@@ -319,6 +319,12 @@ impl rubato_types::skin_render_context::SkinRenderContext for TimerOnlyMainState
         self.ctx.as_deref().map_or(0.0, |c| c.gauge_min())
     }
 
+    fn gauge_transition_last_value(&self, gauge_type: i32) -> Option<f32> {
+        self.ctx
+            .as_deref()
+            .and_then(|c| c.gauge_transition_last_value(gauge_type))
+    }
+
     fn is_gauge_max(&self) -> bool {
         self.ctx.as_deref().is_some_and(|c| c.is_gauge_max())
     }
@@ -450,6 +456,68 @@ impl crate::reexports::MainState for TimerOnlyMainState<'_> {
     }
 }
 
+/// Drop guard that restores `image_registry` after `std::mem::take` even if the
+/// caller panics.  The main controller wraps rendering in `catch_unwind`, so a
+/// panic in any skin method would permanently leave `image_registry` empty
+/// without this guard.
+///
+/// Uses a raw pointer because the guard must coexist with `&mut self` method
+/// calls on the `Skin` that owns the registry.
+///
+/// # Safety contract
+/// The guard is always stack-local and the `Skin` (and its `image_registry`
+/// field) outlives the guard.  No other code reads `*target` while the guard
+/// holds the data (the field is empty).
+struct ImageRegistryGuard {
+    target: *mut HashMap<i32, TextureRegion>,
+    data: Option<HashMap<i32, TextureRegion>>,
+}
+
+impl ImageRegistryGuard {
+    /// Takes the registry out of `target`, leaving it empty.
+    ///
+    /// # Safety
+    /// The caller must ensure `target` outlives the guard and that no other
+    /// code reads `*target` while the guard holds the data.
+    unsafe fn take(target: &mut HashMap<i32, TextureRegion>) -> Self {
+        let data = std::mem::take(target);
+        Self {
+            target: target as *mut _,
+            data: Some(data),
+        }
+    }
+
+    /// Returns a shared reference to the held registry data.
+    fn data(&self) -> &HashMap<i32, TextureRegion> {
+        self.data
+            .as_ref()
+            .expect("ImageRegistryGuard: data already consumed")
+    }
+
+    /// Consume the guard, restoring the data to the target without relying on
+    /// `Drop`.
+    fn restore(mut self) {
+        if let Some(data) = self.data.take() {
+            // SAFETY: see `take()` contract.
+            unsafe {
+                *self.target = data;
+            }
+        }
+    }
+}
+
+impl Drop for ImageRegistryGuard {
+    fn drop(&mut self) {
+        if let Some(data) = self.data.take() {
+            // SAFETY: see `take()` contract -- target is alive and we are the
+            // only writer because the registry is empty.
+            unsafe {
+                *self.target = data;
+            }
+        }
+    }
+}
+
 impl rubato_core::main_state::SkinDrawable for Skin {
     fn prepare_skin(&mut self, state_type: Option<rubato_types::main_state_type::MainStateType>) {
         let null_timer = rubato_types::timer_access::NullTimer;
@@ -461,21 +529,22 @@ impl rubato_core::main_state::SkinDrawable for Skin {
         &mut self,
         ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
     ) {
-        // Take image registry out to avoid borrow conflict (&mut self vs &self.image_registry)
-        let registry = std::mem::take(&mut self.image_registry);
-        let adapter = TimerOnlyMainState::from_render_context_with_images(ctx, &registry);
+        // SAFETY: `self` (and its `image_registry` field) outlives the guard.
+        let guard = unsafe { ImageRegistryGuard::take(&mut self.image_registry) };
+        let adapter = TimerOnlyMainState::from_render_context_with_images(ctx, guard.data());
         self.draw_all_objects(&adapter);
-        self.image_registry = registry;
+        guard.restore();
     }
 
     fn update_custom_objects_timed(
         &mut self,
         ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
     ) {
-        let registry = std::mem::take(&mut self.image_registry);
-        let mut adapter = TimerOnlyMainState::from_render_context_with_images(ctx, &registry);
+        // SAFETY: `self` (and its `image_registry` field) outlives the guard.
+        let guard = unsafe { ImageRegistryGuard::take(&mut self.image_registry) };
+        let mut adapter = TimerOnlyMainState::from_render_context_with_images(ctx, guard.data());
         self.update_custom_objects(&mut adapter);
-        self.image_registry = registry;
+        guard.restore();
     }
 
     fn mouse_pressed_at(
@@ -485,10 +554,11 @@ impl rubato_core::main_state::SkinDrawable for Skin {
         x: i32,
         y: i32,
     ) {
-        let registry = std::mem::take(&mut self.image_registry);
-        let mut adapter = TimerOnlyMainState::from_render_context_with_images(ctx, &registry);
+        // SAFETY: `self` (and its `image_registry` field) outlives the guard.
+        let guard = unsafe { ImageRegistryGuard::take(&mut self.image_registry) };
+        let mut adapter = TimerOnlyMainState::from_render_context_with_images(ctx, guard.data());
         self.mouse_pressed(&mut adapter, button, x, y);
-        self.image_registry = registry;
+        guard.restore();
     }
 
     fn mouse_dragged_at(
@@ -498,10 +568,11 @@ impl rubato_core::main_state::SkinDrawable for Skin {
         x: i32,
         y: i32,
     ) {
-        let registry = std::mem::take(&mut self.image_registry);
-        let mut adapter = TimerOnlyMainState::from_render_context_with_images(ctx, &registry);
+        // SAFETY: `self` (and its `image_registry` field) outlives the guard.
+        let guard = unsafe { ImageRegistryGuard::take(&mut self.image_registry) };
+        let mut adapter = TimerOnlyMainState::from_render_context_with_images(ctx, guard.data());
         self.mouse_dragged(&mut adapter, button, x, y);
-        self.image_registry = registry;
+        guard.restore();
     }
 
     fn dispose_skin(&mut self) {
@@ -568,10 +639,11 @@ impl rubato_core::main_state::SkinDrawable for Skin {
         arg1: i32,
         arg2: i32,
     ) {
-        let registry = std::mem::take(&mut self.image_registry);
-        let mut adapter = TimerOnlyMainState::from_render_context_with_images(ctx, &registry);
+        // SAFETY: `self` (and its `image_registry` field) outlives the guard.
+        let guard = unsafe { ImageRegistryGuard::take(&mut self.image_registry) };
+        let mut adapter = TimerOnlyMainState::from_render_context_with_images(ctx, guard.data());
         Skin::execute_custom_event(self, &mut adapter, id, arg1, arg2);
-        self.image_registry = registry;
+        guard.restore();
     }
 
     fn offset_entries(&self) -> Vec<(i32, rubato_types::skin_offset::SkinOffset)> {
@@ -816,6 +888,14 @@ mod skin_drawable_delegation_tests {
         ) -> Option<rubato_types::distribution_data::DistributionData> {
             Some(rubato_types::distribution_data::DistributionData::default())
         }
+
+        fn gauge_transition_last_value(&self, gauge_type: i32) -> Option<f32> {
+            if gauge_type == 0 {
+                Some(0.75)
+            } else {
+                None
+            }
+        }
     }
 
     /// Regression test: verify that TimerOnlyMainState delegates ALL SkinRenderContext
@@ -938,6 +1018,18 @@ mod skin_drawable_delegation_tests {
         );
         // score_data_property returns a reference; just verify it doesn't panic
         let _ = adapter.score_data_property();
+
+        // -- gauge_transition_last_value (regression for e715ed69 fix) --
+        assert_eq!(
+            adapter.gauge_transition_last_value(0),
+            Some(0.75),
+            "gauge_transition_last_value must delegate for known gauge type"
+        );
+        assert_eq!(
+            adapter.gauge_transition_last_value(1),
+            None,
+            "gauge_transition_last_value must delegate and return None for unknown gauge type"
+        );
     }
 
     /// Verify that when ctx is None (timer-only mode), all methods return
@@ -977,6 +1069,7 @@ mod skin_drawable_delegation_tests {
         assert!(adapter.gauge_history().is_none());
         assert!(adapter.course_gauge_history().is_empty());
         assert!(adapter.gauge_border_max().is_none());
+        assert!(adapter.gauge_transition_last_value(0).is_none());
     }
 
     /// Verify mutable context methods (notify_audio_config_changed, select_song_mode)
@@ -1060,6 +1153,58 @@ mod skin_drawable_delegation_tests {
 
         // Unregistered ID should return None
         assert!(adapter.skin_image(999).is_none());
+    }
+
+    /// Verify `ImageRegistryGuard::restore` returns the data to the target.
+    #[test]
+    fn test_image_registry_guard_restore_happy_path() {
+        use rubato_render::pixmap::{Pixmap, PixmapFormat};
+        use rubato_render::texture::{Texture, TextureRegion};
+
+        let pix = Pixmap::new(1, 1, PixmapFormat::RGBA8888);
+        let tr = TextureRegion::from_texture(Texture::from_pixmap(&pix));
+
+        let mut registry = HashMap::new();
+        registry.insert(42, tr);
+
+        // SAFETY: registry outlives the guard.
+        let guard = unsafe { ImageRegistryGuard::take(&mut registry) };
+        assert!(registry.is_empty(), "take() must leave target empty");
+        assert!(guard.data().contains_key(&42), "guard must hold the data");
+
+        guard.restore();
+        assert!(
+            registry.contains_key(&42),
+            "restore() must put the data back"
+        );
+    }
+
+    /// Verify `ImageRegistryGuard::drop` restores data when the guard is not
+    /// explicitly restored (simulates panic path).
+    #[test]
+    fn test_image_registry_guard_drop_restores_on_panic_path() {
+        use rubato_render::pixmap::{Pixmap, PixmapFormat};
+        use rubato_render::texture::{Texture, TextureRegion};
+
+        let pix = Pixmap::new(1, 1, PixmapFormat::RGBA8888);
+        let tr = TextureRegion::from_texture(Texture::from_pixmap(&pix));
+
+        let mut registry = HashMap::new();
+        registry.insert(7, tr);
+
+        // Simulate the panic path: create the guard and let it drop without
+        // calling restore().
+        {
+            // SAFETY: registry outlives the guard.
+            let _guard = unsafe { ImageRegistryGuard::take(&mut registry) };
+            assert!(registry.is_empty());
+            // _guard drops here without restore()
+        }
+
+        assert!(
+            registry.contains_key(&7),
+            "Drop must restore the data even without explicit restore()"
+        );
     }
 }
 
