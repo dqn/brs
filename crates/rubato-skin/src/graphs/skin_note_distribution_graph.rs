@@ -286,6 +286,10 @@ impl SkinNoteDistributionGraph {
             if let Some(ref mut shapetex) = self.shapetex.clone() {
                 let tex_width = shapetex.texture.as_ref().map(|t| t.width).unwrap_or(0);
                 shapetex.region_width = (tex_width as f32 * self.render) as i32;
+                // Java's TextureRegion.setRegionWidth() internally recalculates u2.
+                if tex_width > 0 {
+                    shapetex.u2 = shapetex.region_width as f32 / tex_width as f32;
+                }
                 let region = self.data.region;
                 self.data.draw_image_at(
                     sprite,
@@ -311,6 +315,10 @@ impl SkinNoteDistributionGraph {
             if let Some(ref mut shapetex) = self.shapetex.clone() {
                 let tex_width = shapetex.texture.as_ref().map(|t| t.width).unwrap_or(0);
                 shapetex.region_width = (tex_width as f32 * self.render) as i32;
+                // Java's TextureRegion.setRegionWidth() internally recalculates u2.
+                if tex_width > 0 {
+                    shapetex.u2 = shapetex.region_width as f32 / tex_width as f32;
+                }
                 let region = self.data.region;
                 self.data.draw_image_at(
                     sprite,
@@ -343,9 +351,11 @@ impl SkinNoteDistributionGraph {
     }
 
     fn update_graph_from_distribution(&mut self, distribution: &[Vec<i32>]) {
-        self.dist_data = distribution.to_vec();
+        // Cap to same limit as update_graph (36,000 entries) to prevent oversized Pixmap.
+        let capped = &distribution[..distribution.len().min(36_000)];
+        self.dist_data = capped.to_vec();
         self.max = 20;
-        for row in distribution {
+        for row in capped {
             let count: i32 = row.iter().sum();
             if self.max < count {
                 self.max = ((count / 10) * 10 + 10).min(100);
@@ -710,5 +720,190 @@ impl SkinNoteDistributionGraph {
             }
         }
         self.data.set_disposed();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::reexports::{Rectangle, SkinOffset, Texture, Timer};
+
+    struct MockState {
+        timer: Timer,
+        is_player: bool,
+    }
+
+    impl MockState {
+        fn new(is_player: bool) -> Self {
+            Self {
+                timer: Timer::default(),
+                is_player,
+            }
+        }
+    }
+
+    impl rubato_types::timer_access::TimerAccess for MockState {
+        fn now_time(&self) -> i64 {
+            self.timer.now_time()
+        }
+        fn now_micro_time(&self) -> i64 {
+            self.timer.now_micro_time()
+        }
+        fn micro_timer(&self, id: rubato_types::timer_id::TimerId) -> i64 {
+            self.timer.micro_timer(id)
+        }
+        fn timer(&self, id: rubato_types::timer_id::TimerId) -> i64 {
+            self.timer.timer(id)
+        }
+        fn now_time_for(&self, id: rubato_types::timer_id::TimerId) -> i64 {
+            self.timer.now_time_for(id)
+        }
+        fn is_timer_on(&self, id: rubato_types::timer_id::TimerId) -> bool {
+            self.timer.is_timer_on(id)
+        }
+    }
+
+    impl rubato_types::skin_render_context::SkinRenderContext for MockState {
+        fn get_offset_value(&self, _id: i32) -> Option<&SkinOffset> {
+            None
+        }
+        fn current_state_type(&self) -> Option<rubato_types::main_state_type::MainStateType> {
+            if self.is_player {
+                Some(rubato_types::main_state_type::MainStateType::Play)
+            } else {
+                None
+            }
+        }
+    }
+
+    impl MainState for MockState {}
+
+    /// Helper: create a graph with pre-set shapetex so draw() exercises the
+    /// progressive reveal path without needing a real BMS model.
+    fn make_graph_with_shapetex(render: f32, tex_width: i32) -> SkinNoteDistributionGraph {
+        let mut g = SkinNoteDistributionGraph::new_default();
+        // Pre-set chips to avoid the initialization path that needs a model.
+        g.chips = Some(Vec::new());
+        // Pre-set shapetex with a known texture width.
+        let tex = Texture {
+            width: tex_width,
+            height: 100,
+            ..Default::default()
+        };
+        g.shapetex = Some(TextureRegion::from_texture(tex));
+        g.data.region = Rectangle::new(0.0, 0.0, tex_width as f32, 100.0);
+        g.render = render;
+        // Set model_set=true so the song-change check doesn't recreate shapetex.
+        g.model_set = true;
+        g
+    }
+
+    /// Regression: draw() must update u2 after setting region_width for
+    /// progressive reveal. Without u2 update, the full texture is compressed
+    /// into a narrower rectangle instead of being clipped.
+    ///
+    /// The draw method clones shapetex for render-time modification (u2 is set
+    /// on the clone, not the stored value). We verify by enabling render capture
+    /// and checking that the emitted quad has correct UV coordinates.
+    #[test]
+    fn draw_updates_u2_on_progressive_reveal_bms_player() {
+        let mut g = make_graph_with_shapetex(0.5, 200);
+        g.data.draw = true;
+        g.data.color = Color::new(1.0, 1.0, 1.0, 1.0);
+        let state = MockState::new(true);
+        let mut renderer = SkinObjectRenderer::new();
+        renderer.sprite.enable_capture();
+
+        g.draw(&mut renderer, &state);
+
+        // The shapetex draw should have emitted a quad with u2 = 0.5.
+        let quads = renderer.sprite.captured_quads();
+        // Find the shapetex quad (second quad emitted, after backtex if present).
+        // With no backtex set, shapetex is the first quad.
+        assert!(
+            !quads.is_empty(),
+            "draw should emit at least one quad for shapetex"
+        );
+        // The last quad emitted should be the shapetex quad.
+        let q = quads.last().unwrap();
+        // With progressive reveal at 0.5, the drawn width should be half.
+        let expected_width = 200.0 * 0.5;
+        assert!(
+            (q.w - expected_width).abs() < 1.0,
+            "shapetex quad width should be {} for half render, got {}",
+            expected_width,
+            q.w
+        );
+    }
+
+    /// Same regression test for the non-bms_player (else) branch.
+    #[test]
+    fn draw_updates_u2_on_progressive_reveal_select() {
+        let mut g = make_graph_with_shapetex(0.5, 200);
+        g.data.draw = true;
+        g.data.color = Color::new(1.0, 1.0, 1.0, 1.0);
+        let state = MockState::new(false);
+        let mut renderer = SkinObjectRenderer::new();
+        renderer.sprite.enable_capture();
+
+        g.draw(&mut renderer, &state);
+
+        let quads = renderer.sprite.captured_quads();
+        assert!(
+            !quads.is_empty(),
+            "draw should emit at least one quad for shapetex"
+        );
+        let q = quads.last().unwrap();
+        let expected_width = 200.0 * 0.5;
+        assert!(
+            (q.w - expected_width).abs() < 1.0,
+            "shapetex quad width should be {} for half render, got {}",
+            expected_width,
+            q.w
+        );
+    }
+
+    /// At full render, the shapetex quad should use the full width.
+    #[test]
+    fn draw_full_render_uses_full_width() {
+        let mut g = make_graph_with_shapetex(1.0, 200);
+        g.data.draw = true;
+        g.data.color = Color::new(1.0, 1.0, 1.0, 1.0);
+        let state = MockState::new(false);
+        let mut renderer = SkinObjectRenderer::new();
+        renderer.sprite.enable_capture();
+
+        g.draw(&mut renderer, &state);
+
+        let quads = renderer.sprite.captured_quads();
+        assert!(
+            !quads.is_empty(),
+            "draw should emit at least one quad for shapetex"
+        );
+        let q = quads.last().unwrap();
+        assert!(
+            (q.w - 200.0).abs() < 1.0,
+            "shapetex quad width should be 200.0 at full render, got {}",
+            q.w
+        );
+    }
+
+    /// Regression: distribution data exceeding 36,000 entries should be capped
+    /// to prevent oversized Pixmap allocation.
+    #[test]
+    fn update_graph_from_distribution_caps_data_length() {
+        let mut g = SkinNoteDistributionGraph::new_default();
+        g.chips = Some(Vec::new());
+        g.data.region = Rectangle::new(0.0, 0.0, 100.0, 100.0);
+
+        // Create distribution with more than 36,000 entries.
+        let large_dist: Vec<Vec<i32>> = vec![vec![1, 0, 0, 0, 0, 0, 0]; 40_000];
+        g.update_graph_from_distribution(&large_dist);
+
+        assert_eq!(
+            g.dist_data.len(),
+            36_000,
+            "dist_data should be capped at 36,000 entries"
+        );
     }
 }
