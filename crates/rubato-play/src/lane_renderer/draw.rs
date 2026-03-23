@@ -547,14 +547,14 @@ impl LaneRenderer {
                                             } else {
                                                 0.0
                                             };
-                                            let ln_height = if dsty
-                                                < (lanes[lane].region_y - dscale)
-                                            {
-                                                dsty - (lanes[lane].region_y - dscale)
-                                            } else {
-                                                dy as f32
-                                            };
-                                            let ln_height = ln_height.max(0.0);
+                                            // Smoothly reduce body height as the start
+                                            // note scrolls past the judge line, avoiding
+                                            // single-frame flicker from float jitter at
+                                            // the boundary. The visible portion equals the
+                                            // full body minus the distance below the line.
+                                            let ln_height = (dy as f32 + dsty
+                                                - (lanes[lane].region_y - dscale))
+                                                .clamp(0.0, dy as f32);
                                             self.draw_long_note_commands(
                                                 &mut commands,
                                                 ctx,

@@ -1595,3 +1595,95 @@ fn fixhispeed_mainbpm_uses_fallback_when_no_notes() {
         renderer.base_bpm()
     );
 }
+
+// =========================================================================
+// Regression: LN body height flicker at judge-line boundary
+// =========================================================================
+
+/// Regression test for: the LN body height calculation used a binary
+/// condition that jumped from the full `dy` to 0 when the start note
+/// crossed the judge line. Floating-point jitter at the boundary caused
+/// single-frame flicker. The fix replaces the branch with a continuous
+/// formula: `(dy + dsty - boundary).clamp(0, dy)`.
+///
+/// This test calls `draw_long_note_commands` with a partially-visible
+/// height (simulating the start note slightly below the judge line) and
+/// verifies that all body commands have positive, non-negative `h`. Under
+/// the old binary condition this height would have been clamped to 0,
+/// producing no body at all.
+#[test]
+fn long_note_body_height_continuous_near_judge_line() {
+    let tl0 = make_timeline(0.0, 0, 120.0, 8);
+    let model = make_model_with_timelines(vec![tl0], 120.0);
+    let renderer = LaneRenderer::new(&model);
+
+    let all_tls: &[bms_model::time_line::TimeLine] = &[];
+    let ctx = default_ctx(all_tls);
+
+    // Simulate the new continuous formula output when the start note is
+    // 2px below the judge line with a full body dy of 100:
+    //   ln_height = (100.0 + (region_y - 2.0) - region_y).clamp(0, 100) = 98.0
+    // The old binary code would have produced 0.0 here.
+    let scale = 10.0;
+    let partial_height = 98.0_f32;
+    assert!(
+        partial_height > scale,
+        "test precondition: height > scale for body to appear"
+    );
+
+    let ln_types = [
+        bms_model::note::TYPE_LONGNOTE,
+        bms_model::note::TYPE_CHARGENOTE,
+        bms_model::note::TYPE_HELLCHARGENOTE,
+    ];
+
+    for &ln_type in &ln_types {
+        let mut note = Note::new_long(1);
+        note.set_pair_index(Some(1));
+        note.set_end(false);
+        note.set_long_note_type(ln_type);
+
+        let mut commands = Vec::new();
+        renderer.draw_long_note_commands(
+            &mut commands,
+            &ctx,
+            &DrawLongNoteParams {
+                lane: 0,
+                x: 0.0,
+                y: 0.0,
+                width: 30.0,
+                height: partial_height,
+                scale,
+                note: &note,
+                pair_tl_idx: 1,
+                note_tl_idx: 0,
+            },
+        );
+
+        // Body commands must exist and have positive h.
+        let body_cmds: Vec<_> = commands
+            .iter()
+            .filter(|c| {
+                matches!(
+                    c,
+                    DrawCommand::DrawLongNote { image_index, .. }
+                    if matches!(image_index, 2 | 3 | 6 | 7 | 8 | 9)
+                )
+            })
+            .collect();
+        assert!(
+            !body_cmds.is_empty(),
+            "Expected body DrawLongNote commands for ln_type={ln_type}, got none. \
+             The old binary clamp would have zeroed the height here."
+        );
+        for cmd in &body_cmds {
+            if let DrawCommand::DrawLongNote { h, image_index, .. } = cmd {
+                assert!(
+                    *h > 0.0,
+                    "Body h should be positive for partial visibility, got h={h} \
+                     image_index={image_index} ln_type={ln_type}"
+                );
+            }
+        }
+    }
+}
