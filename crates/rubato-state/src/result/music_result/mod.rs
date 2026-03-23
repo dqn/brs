@@ -1021,6 +1021,54 @@ mod tests {
     }
 
     #[test]
+    fn test_result_render_context_delegates_course_gauge_history() {
+        let mut mr = make_result_for_mouse();
+        // Populate course gauge data on the resource
+        mr.resource
+            .add_course_gauge(vec![vec![0.5, 0.6], vec![0.7, 0.8]]);
+        mr.resource.add_course_gauge(vec![vec![1.0]]);
+
+        let mut timer = TimerManager::new();
+        let ctx = ResultRenderContext {
+            timer: &mut timer,
+            data: &mr.data,
+            resource: &mr.resource,
+            main: &mut mr.main,
+            offsets: &mr.main_data.offsets,
+        };
+
+        let history = ctx.course_gauge_history();
+        assert_eq!(
+            history.len(),
+            2,
+            "ResultRenderContext must delegate course_gauge_history, not return empty default"
+        );
+        assert_eq!(history[0].len(), 2);
+        assert_eq!(history[1].len(), 1);
+    }
+
+    #[test]
+    fn test_result_mouse_context_delegates_course_gauge_history() {
+        let mut mr = make_result_for_mouse();
+        // Populate course gauge data on the resource
+        mr.resource
+            .add_course_gauge(vec![vec![0.5, 0.6], vec![0.7, 0.8]]);
+
+        let mut timer = TimerManager::new();
+        let ctx = ResultMouseContext {
+            timer: &mut timer,
+            result: &mut mr,
+        };
+
+        let history = ctx.course_gauge_history();
+        assert_eq!(
+            history.len(),
+            1,
+            "ResultMouseContext must delegate course_gauge_history, not return empty default"
+        );
+    }
+
+    #[test]
     fn test_state_type_returns_result() {
         let mr = MusicResult::default();
         assert_eq!(mr.state_type(), Some(MainStateType::Result));

@@ -310,6 +310,10 @@ impl rubato_types::skin_render_context::SkinRenderContext for ResultRenderContex
         shared_render_context::gauge_history(self.resource)
     }
 
+    fn course_gauge_history(&self) -> &[Vec<Vec<f32>>] {
+        shared_render_context::course_gauge_history(self.resource)
+    }
+
     fn gauge_border_max(&self) -> Option<(f32, f32)> {
         shared_render_context::gauge_border_max(self.resource, self.data.gauge_type)
     }
@@ -477,6 +481,10 @@ impl rubato_types::skin_render_context::SkinRenderContext for ResultMouseContext
 
     fn gauge_history(&self) -> Option<&Vec<Vec<f32>>> {
         shared_render_context::gauge_history(&self.result.resource)
+    }
+
+    fn course_gauge_history(&self) -> &[Vec<Vec<f32>>] {
+        shared_render_context::course_gauge_history(&self.result.resource)
     }
 
     fn gauge_element_borders(&self) -> Vec<(f32, f32)> {
