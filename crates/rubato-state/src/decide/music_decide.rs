@@ -486,8 +486,8 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideRenderContex
                 .and_then(|s| s.info.as_ref())
                 .map_or(i32::MIN, |i| i.total as i32),
             // ---- Judge rank (NUMBER_JUDGERANK: 400) ----
-            // Java: PlayConfig.getJudgerank() -- custom judge rank
-            400 => self.resource.player_config().judge_settings.judgetiming,
+            // Java: state.resource.getSongdata().getJudge() -- chart judge rank
+            400 => self.resource.songdata().map_or(i32::MIN, |s| s.chart.judge),
             // Song duration minutes/seconds
             1163 => self
                 .resource
@@ -982,8 +982,9 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideMouseContext
                 .songdata()
                 .and_then(|s| s.info.as_ref())
                 .map_or(i32::MIN, |i| i.total as i32),
-            // ---- Judge rank (400) ----
-            400 => self.resource.player_config().judge_settings.judgetiming,
+            // ---- Judge rank (NUMBER_JUDGERANK: 400) ----
+            // Java: state.resource.getSongdata().getJudge() -- chart judge rank
+            400 => self.resource.songdata().map_or(i32::MIN, |s| s.chart.judge),
             1163 => self
                 .resource
                 .songdata()
@@ -3640,6 +3641,78 @@ mod tests {
         assert!(
             ctx.boolean_value(40),
             "DecideMouseContext ID 40 (BGAOFF) should be true when BGA is Off"
+        );
+    }
+
+    #[test]
+    fn decide_render_context_integer_value_400_returns_chart_judge() {
+        let mut resource = SongLengthResource::with_length_ms(0);
+        resource.song.chart.judge = 42;
+        // Set judgetiming to a different value to ensure we are NOT returning it
+        resource.player_config.judge_settings.judgetiming = 999;
+
+        let mut timer = TimerManager::new();
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
+        let ctx = DecideRenderContext {
+            timer: &mut timer,
+            resource: &resource,
+            main: &mut main,
+            score_data_property: &sdp,
+            offsets: &EMPTY_OFFSETS,
+        };
+        use rubato_types::skin_render_context::SkinRenderContext;
+        assert_eq!(
+            ctx.integer_value(400),
+            42,
+            "DecideRenderContext::integer_value(400) must return chart judge rank, not judgetiming"
+        );
+    }
+
+    #[test]
+    fn decide_render_context_integer_value_400_no_songdata() {
+        let mut timer = TimerManager::new();
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let resource = NullPlayerResource::new();
+        let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
+        let ctx = DecideRenderContext {
+            timer: &mut timer,
+            resource: &resource,
+            main: &mut main,
+            score_data_property: &sdp,
+            offsets: &EMPTY_OFFSETS,
+        };
+        use rubato_types::skin_render_context::SkinRenderContext;
+        assert_eq!(
+            ctx.integer_value(400),
+            i32::MIN,
+            "DecideRenderContext::integer_value(400) must return i32::MIN when songdata is absent"
+        );
+    }
+
+    #[test]
+    fn decide_mouse_context_integer_value_400_returns_chart_judge() {
+        let mut resource = SongLengthResource::with_length_ms(0);
+        resource.song.chart.judge = 77;
+        // Set judgetiming to a different value to ensure we are NOT returning it
+        resource.player_config.judge_settings.judgetiming = 888;
+
+        let mut timer = TimerManager::new();
+        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
+        let ctx = DecideMouseContext {
+            timer: &mut timer,
+            main: &mut main,
+            resource: &mut resource,
+            score_data_property: &sdp,
+            offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
+        };
+        use rubato_types::skin_render_context::SkinRenderContext;
+        assert_eq!(
+            ctx.integer_value(400),
+            77,
+            "DecideMouseContext::integer_value(400) must return chart judge rank, not judgetiming"
         );
     }
 }
