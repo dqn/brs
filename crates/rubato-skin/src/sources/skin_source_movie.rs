@@ -171,6 +171,11 @@ pub struct SkinSourceMovie {
     _playing: bool,
     disposed: bool,
     _region: TextureRegion,
+    /// Stable texture key for GPU texture manager. Using `__pixmap_` prefix ensures
+    /// re-upload every frame (matching the pixmap re-upload contract), while the stable
+    /// key avoids creating a new GPU texture allocation each frame.
+    #[cfg(feature = "ffmpeg")]
+    stable_texture_key: std::sync::Arc<str>,
     #[cfg(feature = "ffmpeg")]
     decoder: Mutex<Option<MovieDecoder>>,
 }
@@ -191,6 +196,8 @@ impl SkinSourceMovie {
             disposed: false,
             _region: TextureRegion::new(),
             #[cfg(feature = "ffmpeg")]
+            stable_texture_key: std::sync::Arc::from(format!("__pixmap_movie_{}", path)),
+            #[cfg(feature = "ffmpeg")]
             decoder,
         }
     }
@@ -206,10 +213,10 @@ impl SkinSource for SkinSourceMovie {
             let decoder = guard.as_mut()?;
             let (rgba_data, width, height) = decoder.decode_frame(time)?;
 
-            // Build a Texture from the decoded dimensions.
-            // Actual GPU upload happens later when a GpuContext is available.
-            let _ = &rgba_data; // RGBA data available for future GPU upload
+            // Build a Texture with a stable key so the GPU texture manager reuses
+            // the same GPU texture slot across frames instead of allocating a new one.
             let texture = Texture {
+                path: Some(std::sync::Arc::clone(&self.stable_texture_key)),
                 width: width as i32,
                 height: height as i32,
                 disposed: false,
