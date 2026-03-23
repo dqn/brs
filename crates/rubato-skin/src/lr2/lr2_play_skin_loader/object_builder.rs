@@ -306,7 +306,10 @@ impl LR2SkinLoaderAccess for LR2PlaySkinLoaderState {
 
         // 5. Create SkinBgaObject if BGA was requested
         if self.bga {
-            let bga_obj = crate::skin_bga_object::SkinBgaObject::new(0);
+            let mut bga_obj = crate::skin_bga_object::SkinBgaObject::new(0);
+            if let Some(bga_data) = self.bga_data.take() {
+                bga_obj.data = bga_data;
+            }
             skin.add(SkinObject::Bga(bga_obj));
         }
 

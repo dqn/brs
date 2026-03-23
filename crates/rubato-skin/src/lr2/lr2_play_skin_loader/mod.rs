@@ -4,6 +4,7 @@ use crate::reexports::{Rectangle, Resolution, TextureRegion};
 use crate::skin_bpm_graph::SkinBPMGraph;
 use crate::skin_image::SkinImage;
 use crate::skin_note_distribution_graph::SkinNoteDistributionGraph;
+use crate::skin_object::SkinObjectData;
 
 /// LR2 play skin loader
 ///
@@ -83,6 +84,9 @@ pub struct LR2PlaySkinLoaderState {
     pub lanerender: bool,
     pub judgeline: Option<SkinImage>,
     pub bga: bool,
+    /// Accumulated BGA destination data from DST_BGA commands.
+    /// Stored during parsing and transferred to SkinBgaObject in assemble_objects().
+    pub bga_data: Option<SkinObjectData>,
 
     // Accumulated play skin property values (applied by caller)
     /// Close time (ms) — set by CLOSE command
@@ -166,6 +170,7 @@ impl LR2PlaySkinLoaderState {
             lanerender: false,
             judgeline: None,
             bga: false,
+            bga_data: None,
             play_close: None,
             play_playstart: None,
             play_loadstart: None,
@@ -317,11 +322,77 @@ mod tests {
     }
 
     #[test]
+    fn test_dst_bga_stores_destination_values() {
+        let mut state = make_state();
+        // src=640x480, dst=1920x1080, so dstw/srcw=3.0, dsth/srch=2.25
+        state.process_play_command("SRC_BGA", &str_vec(&["SRC_BGA"]));
+        assert!(state.bga);
+        assert!(state.bga_data.is_none());
+
+        // make_parts("DST_BGA", vals): vals[0]->values[1], vals[1]->values[2]=time, ...
+        // values[3]=x=100, values[4]=y=50, values[5]=w=320, values[6]=h=240
+        // values[7]=acc=0, values[8]=a=255, values[9..11]=rgb=255
+        // values[12]=blend, ..., values[17]=timer, values[18..20]=ops
+        let parts = make_parts(
+            "DST_BGA",
+            //       v[1] v[2] v[3] v[4] v[5] v[6] v[7] v[8] v[9] v[10]v[11]v[12]v[13]v[14]v[15]v[16]v[17]v[18]v[19]v[20]
+            &[
+                0, 0, 100, 50, 320, 240, 0, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            ],
+        );
+        state.process_play_command("DST_BGA", &parts);
+        assert!(state.bga_data.is_some());
+
+        let data = state.bga_data.as_ref().unwrap();
+        assert_eq!(data.dst.len(), 1);
+        let dst = &data.dst[0];
+        // x = 100 * 3.0 = 300.0
+        assert!((dst.region.x - 300.0).abs() < 0.01);
+        // y = dsth - (y + h) * dsth/srch = 1080.0 - (50 + 240) * 2.25 = 1080.0 - 652.5 = 427.5
+        assert!((dst.region.y - 427.5).abs() < 0.01);
+        // w = 320 * 3.0 = 960.0
+        assert!((dst.region.width - 960.0).abs() < 0.01);
+        // h = 240 * 2.25 = 540.0
+        assert!((dst.region.height - 540.0).abs() < 0.01);
+    }
+
+    #[test]
     fn test_dst_bga_without_src_no_panic() {
         let mut state = make_state();
         state.process_play_command("DST_BGA", &make_parts("DST_BGA", &[0; 21]));
-        // No panic, bga still false
+        // No panic, bga still false, bga_data not stored
         assert!(!state.bga);
+        assert!(state.bga_data.is_none());
+    }
+
+    #[test]
+    fn test_dst_bga_assembled_into_skin_object() {
+        let mut state = make_state();
+        state.process_play_command("SRC_BGA", &str_vec(&["SRC_BGA"]));
+        // vals[2]=values[3]=x=100, vals[4]=values[5]=w=320, vals[5]=values[6]=h=240
+        let parts = make_parts(
+            "DST_BGA",
+            &[
+                0, 0, 100, 50, 320, 240, 0, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            ],
+        );
+        state.process_play_command("DST_BGA", &parts);
+
+        let mut skin = crate::skin::Skin::new(crate::skin_header::SkinHeader::new());
+        use crate::lr2::lr2_skin_csv_loader::LR2SkinLoaderAccess;
+        state.assemble_objects(&mut skin);
+
+        // Find the BGA object in the skin
+        let bga_obj = skin
+            .objects()
+            .iter()
+            .find(|o| matches!(o, crate::skin::SkinObject::Bga(_)));
+        assert!(bga_obj.is_some(), "BGA object should be present in skin");
+
+        let data = bga_obj.unwrap().data();
+        assert_eq!(data.dst.len(), 1, "BGA should have one destination");
+        // w = 320 * 3.0 = 960.0
+        assert!((data.dst[0].region.width - 960.0).abs() < 0.01);
     }
 
     // ===== SRC_NOWJUDGE / DST_NOWJUDGE =====

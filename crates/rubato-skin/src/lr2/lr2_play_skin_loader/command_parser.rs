@@ -66,11 +66,37 @@ impl LR2PlaySkinLoaderState {
             "DST_BGA" => {
                 // DST_BGA sets the destination for the BGA object.
                 // In Java: skin.setDestination(bga, 0, values[3], srch - values[4] - values[6], values[5], values[6], ...)
-                // The destination is applied by the caller using the skin's setDestination.
-                // We store the raw values for the caller.
                 if self.bga {
-                    let _values = lr2_skin_loader::parse_int(str_parts);
-                    // BGA destination will be applied by caller when connecting to Skin
+                    let values = lr2_skin_loader::parse_int(str_parts);
+                    let dstw = safe_div_f32(self.dstw, self.srcw);
+                    let dsth = safe_div_f32(self.dsth, self.srch);
+                    let offsets = LR2SkinCSVLoaderState::read_offset(str_parts, 21);
+                    let bga_data = self.bga_data.get_or_insert_with(Default::default);
+                    bga_data.set_destination_with_int_timer_and_offsets(
+                        &DestinationParams {
+                            time: values[2] as i64,
+                            x: values[3] as f32 * dstw,
+                            y: self.dsth - (values[4] + values[6]) as f32 * dsth,
+                            w: values[5] as f32 * dstw,
+                            h: values[6] as f32 * dsth,
+                            acc: values[7],
+                            a: values[8],
+                            r: values[9],
+                            g: values[10],
+                            b: values[11],
+                            blend: values[12],
+                            filter: values[13],
+                            angle: values[14],
+                            center: values[15],
+                            loop_val: values[16],
+                        },
+                        values[17],
+                        values[18],
+                        values[19],
+                        values[20],
+                        &offsets,
+                    );
+                    bga_data.set_stretch_by_id(self.csv.stretch);
                 }
             }
             "SRC_LINE" => {
