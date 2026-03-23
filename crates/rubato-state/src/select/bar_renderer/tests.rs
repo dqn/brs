@@ -634,6 +634,71 @@ fn test_bar_renderer_mouse_pressed_no_hit() {
     assert!(matches!(result, MousePressedAction::None));
 }
 
+/// When a bar image's `draw` flag is false at render time, `draw_bar_images`
+/// must set `bararea[i].value = -1` so that subsequent draw passes (text, lamps,
+/// levels, etc.) skip that slot. Without this invalidation, floating UI elements
+/// appear on invisible bars. The `draw` flag is a per-frame skin property that
+/// can change between prepare and render, so render-time invalidation is needed.
+#[test]
+fn test_draw_bar_images_invalidates_value_when_draw_is_false() {
+    let mut renderer = BarRenderer::new(300, 100, 5);
+    let mut bar = SkinBar::new(0);
+
+    // Both bar images start with draw=true so prepare assigns valid values
+    bar.barimageoff[0] = Some(make_test_image(0.0, 0.0, 100.0, 30.0));
+    bar.barimageoff[1] = Some(make_test_image(0.0, 40.0, 100.0, 30.0));
+
+    let songs = vec![
+        make_song_bar_bar("a", Some("/a.bms")),
+        make_song_bar_bar("b", Some("/b.bms")),
+    ];
+
+    let prep_ctx = PrepareContext {
+        center_bar: 2, // neither 0 nor 1, so both use off images
+        currentsongs: &songs,
+        selectedindex: 0,
+    };
+    renderer.prepare(&bar, 1000, &prep_ctx);
+
+    // After prepare, both bars should have valid (non -1) values
+    assert_ne!(
+        renderer.bararea[0].value, -1,
+        "bar 0 should be valid after prepare"
+    );
+    assert_ne!(
+        renderer.bararea[1].value, -1,
+        "bar 1 should be valid after prepare"
+    );
+
+    // Simulate skin draw condition flipping bar 1's draw flag to false between
+    // prepare and render (this happens per-frame with skin draw conditions).
+    bar.barimageoff[1].as_mut().unwrap().data.draw = false;
+
+    let state = MockMainState::default();
+    let render_ctx = RenderContext {
+        center_bar: 2,
+        currentsongs: &songs,
+        rival: false,
+        state: &state,
+        lnmode: 0,
+        loader_finished: false,
+    };
+
+    let mut sprite = SkinObjectRenderer::new();
+    renderer.render(&mut sprite, &mut bar, &render_ctx);
+
+    // Bar 0 (draw=true) should keep its value
+    assert_ne!(
+        renderer.bararea[0].value, -1,
+        "bar 0 with draw=true should retain value"
+    );
+    // Bar 1 (draw=false at render time) should be invalidated to -1
+    assert_eq!(
+        renderer.bararea[1].value, -1,
+        "bar 1 with draw=false should be invalidated to -1"
+    );
+}
+
 /// Regression: when center_bar is negative, `center_bar as usize` wraps to
 /// usize::MAX, corrupting the index computation. The fix uses i64 arithmetic
 /// with rem_euclid to handle negative values correctly.

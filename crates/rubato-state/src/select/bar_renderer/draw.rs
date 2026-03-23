@@ -33,14 +33,13 @@ impl BarRenderer {
 
     /// Draw bar background images for each bar slot.
     pub(super) fn draw_bar_images(
-        &self,
+        &mut self,
         sprite: &mut SkinObjectRenderer,
         baro: &mut SkinBar,
         ctx: &RenderContext,
     ) {
         let position = baro.position();
         for i in 0..self.barlength {
-            let ba = &self.bararea[i];
             let on = i as i32 == ctx.center_bar;
 
             let images = if on {
@@ -69,6 +68,7 @@ impl BarRenderer {
                 } else {
                     0.0
                 };
+                let ba = &self.bararea[i];
                 si.draw_with_value(
                     sprite,
                     self.time,
@@ -77,6 +77,8 @@ impl BarRenderer {
                     ba.x - base_region.x,
                     ba.y - base_region.y - position_offset,
                 );
+            } else {
+                self.bararea[i].value = -1;
             }
         }
     }
