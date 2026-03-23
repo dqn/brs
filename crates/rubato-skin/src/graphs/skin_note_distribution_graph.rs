@@ -198,7 +198,7 @@ impl SkinNoteDistributionGraph {
         self.starttime = starttime;
         self.endtime = endtime;
         self.freq = freq;
-        self.render = if time >= self.delay as i64 {
+        self.render = if self.delay == 0 || time >= self.delay as i64 {
             1.0_f32
         } else {
             time as f32 / self.delay as f32
@@ -268,61 +268,48 @@ impl SkinNoteDistributionGraph {
 
         // Real-time update during play (BMSPlayer check)
         // In Java: model != null && state instanceof BMSPlayer
-        let is_bms_player = state.is_bms_player();
+        // TODO: Java's bms_player branch has a real-time update path that
+        // differs from the non-player path. Currently both branches share
+        // identical draw logic. Kept for future differentiation.
+        let _is_bms_player = state.is_bms_player();
 
-        if is_bms_player {
-            // Real-time update path (stubbed)
-            if let Some(ref backtex) = self.backtex {
-                let region = self.data.region;
-                self.data.draw_image_at(
-                    sprite,
-                    backtex,
-                    region.x,
-                    region.y + region.height,
-                    region.width,
-                    -region.height,
-                );
-            }
-            if let Some(ref mut shapetex) = self.shapetex.clone() {
-                let tex_width = shapetex.texture.as_ref().map(|t| t.width).unwrap_or(0);
-                shapetex.region_width = (tex_width as f32 * self.render) as i32;
-                // Java's TextureRegion.setRegionWidth() internally recalculates u2.
-                if tex_width > 0 {
-                    shapetex.u2 = shapetex.region_width as f32 / tex_width as f32;
-                }
-                let region = self.data.region;
+        // Both bms_player and non-bms_player paths share the same draw logic.
+        if let Some(ref backtex) = self.backtex {
+            let region = self.data.region;
+            self.data.draw_image_at(
+                sprite,
+                backtex,
+                region.x,
+                region.y + region.height,
+                region.width,
+                -region.height,
+            );
+        }
+        if let Some(ref shapetex) = self.shapetex {
+            let region = self.data.region;
+            if self.render >= 1.0 {
+                // Fast path: no progressive reveal needed, use shapetex directly
+                // without cloning.
                 self.data.draw_image_at(
                     sprite,
                     shapetex,
                     region.x,
                     region.y + region.height,
-                    region.width * self.render,
-                    -region.height,
-                );
-            }
-        } else {
-            if let Some(ref backtex) = self.backtex {
-                let region = self.data.region;
-                self.data.draw_image_at(
-                    sprite,
-                    backtex,
-                    region.x,
-                    region.y + region.height,
                     region.width,
                     -region.height,
                 );
-            }
-            if let Some(ref mut shapetex) = self.shapetex.clone() {
-                let tex_width = shapetex.texture.as_ref().map(|t| t.width).unwrap_or(0);
-                shapetex.region_width = (tex_width as f32 * self.render) as i32;
+            } else {
+                // Progressive reveal: clone and modify u2 for partial rendering.
+                let mut cloned = shapetex.clone();
+                let tex_width = cloned.texture.as_ref().map(|t| t.width).unwrap_or(0);
+                cloned.region_width = (tex_width as f32 * self.render) as i32;
                 // Java's TextureRegion.setRegionWidth() internally recalculates u2.
                 if tex_width > 0 {
-                    shapetex.u2 = shapetex.region_width as f32 / tex_width as f32;
+                    cloned.u2 = cloned.region_width as f32 / tex_width as f32;
                 }
-                let region = self.data.region;
                 self.data.draw_image_at(
                     sprite,
-                    shapetex,
+                    &cloned,
                     region.x,
                     region.y + region.height,
                     region.width * self.render,
@@ -904,6 +891,51 @@ mod tests {
             g.dist_data.len(),
             36_000,
             "dist_data should be capped at 36,000 entries"
+        );
+    }
+
+    /// Regression: when delay=0 and time is negative, the division
+    /// `time as f32 / self.delay as f32` produces NEG_INFINITY.
+    /// With the guard, render should be 1.0 when delay is 0.
+    #[test]
+    fn prepare_with_zero_delay_sets_render_to_one() {
+        let mut g = SkinNoteDistributionGraph::new(TYPE_NORMAL, 0, 0, 0, 0, 0);
+        let state = MockState::new(false);
+
+        // Negative time with delay=0 previously caused division by zero.
+        g.prepare_with_region(-100, &state, None, -1, -1, -1.0);
+        assert_eq!(g.render, 1.0, "render should be 1.0 when delay is 0");
+
+        // Positive time with delay=0 should also yield 1.0.
+        g.prepare_with_region(100, &state, None, -1, -1, -1.0);
+        assert_eq!(g.render, 1.0, "render should be 1.0 when delay is 0");
+    }
+
+    /// Regression: draw() should not clone shapetex when render >= 1.0.
+    /// When render is 1.0, the shapetex quad should use the full original width
+    /// and no clone-based u2 modification is needed.
+    #[test]
+    fn draw_full_render_skips_clone_path() {
+        let mut g = make_graph_with_shapetex(1.0, 300);
+        g.data.draw = true;
+        g.data.color = Color::new(1.0, 1.0, 1.0, 1.0);
+        let state = MockState::new(false);
+        let mut renderer = SkinObjectRenderer::new();
+        renderer.sprite.enable_capture();
+
+        g.draw(&mut renderer, &state);
+
+        let quads = renderer.sprite.captured_quads();
+        assert!(
+            !quads.is_empty(),
+            "draw should emit at least one quad for shapetex"
+        );
+        let q = quads.last().unwrap();
+        // Full render: width should equal the full region width (300).
+        assert!(
+            (q.w - 300.0).abs() < 1.0,
+            "shapetex quad width should be 300.0 at full render, got {}",
+            q.w
         );
     }
 }
