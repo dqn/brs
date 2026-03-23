@@ -614,6 +614,89 @@ fn test_offset_all_returns_none_when_offset_not_registered() {
     );
 }
 
+/// Verify that the OFFSET_ALL transform is applied to the sprite batch even
+/// when swap_sprite_batch() has already created the renderer. Before the fix,
+/// the transform was inside `if self.renderer.is_none()`, making it dead code
+/// because swap_sprite_batch() always creates the renderer first.
+#[test]
+fn test_offset_all_transform_applied_after_swap_sprite_batch() {
+    let mut skin = make_play_skin(rubato_types::skin_type::SkinType::Play7Keys);
+    // Default header resolution is 640x480
+    let width = skin.width;
+    let height = skin.height;
+    assert!(
+        width > 0.0 && height > 0.0,
+        "skin must have nonzero dimensions"
+    );
+
+    skin.offset.insert(
+        crate::skin_property::OFFSET_ALL,
+        crate::skin_config_offset::SkinConfigOffset {
+            name: "All offset(%)".to_string(),
+            x: 5.0,
+            y: 10.0,
+            w: 20.0,
+            h: 15.0,
+            ..Default::default()
+        },
+    );
+
+    // Simulate the real caller pattern: swap_sprite_batch creates the renderer
+    let mut batch = rubato_render::sprite_batch::SpriteBatch::new();
+    skin.swap_sprite_batch(&mut batch);
+
+    // draw_all_objects must apply the OFFSET_ALL transform even though
+    // the renderer already exists
+    let state = crate::test_helpers::MockMainState::default();
+    skin.draw_all_objects(&state);
+
+    // Swap the batch back out to inspect the projection/transform matrix
+    skin.swap_sprite_batch(&mut batch);
+    let proj = batch.projection();
+
+    // Expected transform (column-major, quaternion=0 so pure scale+translate):
+    // values[0] = sx = (20 + 100) / 100 = 1.2
+    // values[5] = sy = (15 + 100) / 100 = 1.15
+    // values[10] = sz = 1.0
+    // values[12] = tx = width * 5 / 100
+    // values[13] = ty = height * 10 / 100
+    let expected_sx = (20.0 + 100.0) / 100.0; // 1.2
+    let expected_sy = (15.0 + 100.0) / 100.0; // 1.15
+    let expected_tx = width * 5.0 / 100.0;
+    let expected_ty = height * 10.0 / 100.0;
+
+    let eps = 1e-5;
+    assert!(
+        (proj[0] - expected_sx).abs() < eps,
+        "sx: expected {}, got {}",
+        expected_sx,
+        proj[0]
+    );
+    assert!(
+        (proj[5] - expected_sy).abs() < eps,
+        "sy: expected {}, got {}",
+        expected_sy,
+        proj[5]
+    );
+    assert!(
+        (proj[10] - 1.0).abs() < eps,
+        "sz: expected 1.0, got {}",
+        proj[10]
+    );
+    assert!(
+        (proj[12] - expected_tx).abs() < eps,
+        "tx: expected {}, got {}",
+        expected_tx,
+        proj[12]
+    );
+    assert!(
+        (proj[13] - expected_ty).abs() < eps,
+        "ty: expected {}, got {}",
+        expected_ty,
+        proj[13]
+    );
+}
+
 // =========================================================================
 // Phase 40a: Two-phase prepare/draw via SkinObject enum dispatch
 // =========================================================================

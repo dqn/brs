@@ -390,41 +390,45 @@ impl Skin {
 
     pub fn draw_all_objects(&mut self, state: &dyn MainState) {
         if self.renderer.is_none() {
-            let mut renderer = SkinObjectRenderer::new();
-            // Apply OFFSET_ALL transform matrix (Java: Skin.drawAllObjects)
-            let offset_all = self.offset_all();
-            let transform = if let Some(ref oa) = offset_all {
-                rubato_render::color::TransformComponents {
-                    tx: self.width * oa.x / 100.0,
-                    ty: self.height * oa.y / 100.0,
-                    tz: 0.0,
-                    qx: 0.0,
-                    qy: 0.0,
-                    qz: 0.0,
-                    qw: 0.0,
-                    sx: (oa.w + 100.0) / 100.0,
-                    sy: (oa.h + 100.0) / 100.0,
-                    sz: 1.0,
-                }
-            } else {
-                rubato_render::color::TransformComponents {
-                    tx: 0.0,
-                    ty: 0.0,
-                    tz: 0.0,
-                    qx: 0.0,
-                    qy: 0.0,
-                    qz: 0.0,
-                    qw: 0.0,
-                    sx: 1.0,
-                    sy: 1.0,
-                    sz: 1.0,
-                }
-            };
-            let mut matrix = rubato_render::color::Matrix4::new();
-            matrix.set(&transform);
-            renderer.sprite.set_transform_matrix(&matrix);
-            self.renderer = Some(renderer);
+            self.renderer = Some(SkinObjectRenderer::new());
         }
+        // Apply OFFSET_ALL transform every frame (offsets can change via skin editor).
+        // In Java, this was inside the `renderer == null` guard, but the Rust port
+        // separates renderer creation into swap_sprite_batch(), which runs before
+        // draw_all_objects(). Moving the transform outside the guard ensures it is
+        // always applied regardless of initialization order.
+        let offset_all = self.offset_all();
+        let transform = if let Some(ref oa) = offset_all {
+            rubato_render::color::TransformComponents {
+                tx: self.width * oa.x / 100.0,
+                ty: self.height * oa.y / 100.0,
+                tz: 0.0,
+                qx: 0.0,
+                qy: 0.0,
+                qz: 0.0,
+                qw: 0.0,
+                sx: (oa.w + 100.0) / 100.0,
+                sy: (oa.h + 100.0) / 100.0,
+                sz: 1.0,
+            }
+        } else {
+            rubato_render::color::TransformComponents {
+                tx: 0.0,
+                ty: 0.0,
+                tz: 0.0,
+                qx: 0.0,
+                qy: 0.0,
+                qz: 0.0,
+                qw: 0.0,
+                sx: 1.0,
+                sy: 1.0,
+                sz: 1.0,
+            }
+        };
+        let mut matrix = rubato_render::color::Matrix4::new();
+        matrix.set(&transform);
+        let renderer = self.renderer.as_mut().unwrap();
+        renderer.sprite.set_transform_matrix(&matrix);
 
         let microtime = state.now_micro_time();
         let debug = false; // MainController.debug stubbed as false
