@@ -159,7 +159,13 @@ impl Drop for WatchBlock {
     fn drop(&mut self) {
         let metrics = PerformanceMetrics::get();
         let end_time = metrics.nanos();
-        metrics.submit_watch_result(&self.name, self.start_time, end_time - self.start_time);
+        let duration = end_time - self.start_time;
+        // Use try_lock to match EventBlock::Drop pattern and avoid deadlock
+        // during panic unwinding when the same Mutex may already be held.
+        if let Ok(mut records) = metrics.watch_records.try_lock() {
+            let deque = records.entry(self.name.clone()).or_default();
+            deque.push_back((self.start_time, duration));
+        }
     }
 }
 
