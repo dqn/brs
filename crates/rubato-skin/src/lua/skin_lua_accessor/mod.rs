@@ -60,6 +60,14 @@ impl SkinLuaAccessor {
                 .expect("Failed to create sandboxed Lua VM"),
         );
 
+        // Remove package.loadlib and package.searchpath to prevent native library loading.
+        // PACKAGE stdlib is needed for require()/package.loaded, but loadlib can load
+        // arbitrary .so/.dll files which is a sandbox escape.
+        if let Ok(pkg) = lua.globals().get::<LuaTable>("package") {
+            let _ = pkg.set("loadlib", mlua::Value::Nil);
+            let _ = pkg.set("searchpath", mlua::Value::Nil);
+        }
+
         // Capture the initial package.path before any modifications.
         // Accepted trade-off: the base package.path includes system Lua module paths,
         // so require() is not fully restricted to skin-owned modules. Since skins are

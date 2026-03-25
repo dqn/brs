@@ -399,6 +399,11 @@ impl LauncherUi {
 
     fn commit_config(&mut self) {
         let safe_name = Self::sanitize_profile_name(&self.player_name);
+        let safe_name = if safe_name.trim().is_empty() {
+            "player1".to_string()
+        } else {
+            safe_name
+        };
         self.config.playername = Some(safe_name.clone());
         // Sync player.id so PlayerConfig::write() saves to the correct profile directory
         self.player.id = Some(safe_name);
