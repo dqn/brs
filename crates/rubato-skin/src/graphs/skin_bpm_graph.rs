@@ -152,7 +152,7 @@ impl SkinBPMGraph {
         }
 
         if let Some(ref mut shapetex) = self.shapetex {
-            let render = if self.time >= self.delay as i64 {
+            let render = if self.delay <= 0 || self.time >= self.delay as i64 {
                 1.0_f32
             } else {
                 self.time as f32 / self.delay as f32
@@ -181,7 +181,7 @@ impl SkinBPMGraph {
         let raw_data = info.speedchange_values();
         self.bpm_data = raw_data.to_vec();
         self.minbpm = f64::MAX;
-        self.maxbpm = f64::MIN;
+        self.maxbpm = f64::MIN_POSITIVE;
         for d in &self.bpm_data {
             if d[0] > 0.0 {
                 self.minbpm = self.minbpm.min(d[0]);
@@ -544,9 +544,9 @@ mod tests {
 
         graph.update_graph_from_info(&info, None);
 
-        // With .min(), maxbpm stays at f64::MIN (initial value) because
-        // min(any_positive_bpm, f64::MIN) = f64::MIN.
-        // With the old .max(), it would have been 180.0.
+        // With .min(), maxbpm stays at f64::MIN_POSITIVE (initial value) because
+        // min(any_positive_bpm, f64::MIN_POSITIVE) = f64::MIN_POSITIVE.
+        // Java's Double.MIN_VALUE == f64::MIN_POSITIVE (~4.9e-324), not f64::MIN.
         // The key assertion: maxbpm must NOT be 180.0 (the actual maximum BPM).
         assert_ne!(
             graph.maxbpm, 180.0,
@@ -555,8 +555,8 @@ mod tests {
         );
         assert_eq!(
             graph.maxbpm,
-            f64::MIN,
-            "maxbpm should stay at f64::MIN (Java parity: Math.min keeps Double.MIN_VALUE)"
+            f64::MIN_POSITIVE,
+            "maxbpm should stay at f64::MIN_POSITIVE (Java parity: Math.min keeps Double.MIN_VALUE)"
         );
     }
 
@@ -682,5 +682,118 @@ mod tests {
         graph.data.region = Rectangle::new(0.0, 0.0, 100.0, 0.0);
         graph.update_texture(None);
         assert!(graph.shapetex.is_some());
+    }
+
+    /// Regression: f64::MIN was used instead of f64::MIN_POSITIVE to translate
+    /// Java's Double.MIN_VALUE. Java's Double.MIN_VALUE is the smallest positive
+    /// double (~4.9e-324), not the most negative. Verify the sentinel is positive.
+    #[test]
+    fn maxbpm_sentinel_is_min_positive_not_min() {
+        let config = BpmGraphConfig {
+            delay: 0,
+            line_width: 2,
+            main_bpm_color: "",
+            min_bpm_color: "",
+            max_bpm_color: "",
+            other_bpm_color: "",
+            stop_line_color: "",
+            transition_line_color: "",
+        };
+        let mut graph = SkinBPMGraph::new(config);
+        graph.data.region = Rectangle::new(0.0, 0.0, 100.0, 50.0);
+
+        let mut info = SongInformation::new();
+        info.speedchange_values = vec![[120.0, 0.0], [180.0, 5000.0]];
+        info.mainbpm = 150.0;
+
+        graph.update_graph_from_info(&info, None);
+
+        // maxbpm must be positive (f64::MIN_POSITIVE), not negative (f64::MIN).
+        assert!(
+            graph.maxbpm > 0.0,
+            "maxbpm sentinel should be positive (f64::MIN_POSITIVE), got {}",
+            graph.maxbpm
+        );
+        assert_eq!(graph.maxbpm, f64::MIN_POSITIVE);
+    }
+
+    /// Regression: division by zero when delay == 0 and time < 0.
+    /// Before the fix, `time as f32 / delay as f32` produced NEG_INFINITY,
+    /// which propagated to region_width and draw calls.
+    #[test]
+    fn draw_with_zero_delay_does_not_divide_by_zero() {
+        let config = BpmGraphConfig {
+            delay: 0,
+            line_width: 2,
+            main_bpm_color: "",
+            min_bpm_color: "",
+            max_bpm_color: "",
+            other_bpm_color: "",
+            stop_line_color: "",
+            transition_line_color: "",
+        };
+        let mut graph = SkinBPMGraph::new(config);
+
+        let tex = Texture {
+            width: 200,
+            height: 100,
+            ..Default::default()
+        };
+        graph.shapetex = Some(TextureRegion::from_texture(tex));
+        graph.data.region = Rectangle::new(0.0, 0.0, 200.0, 100.0);
+        graph.time = -500; // negative time with delay == 0
+        graph.delay = 0;
+
+        let state = MockBpmState::default();
+        let mut renderer = SkinObjectRenderer::new();
+        graph.draw(&mut renderer, &state);
+
+        let shapetex = graph.shapetex.as_ref().unwrap();
+        // With delay <= 0, render should be 1.0 (instant reveal), not NEG_INFINITY.
+        assert_eq!(shapetex.region_width, 200);
+        assert!(
+            (shapetex.u2 - 1.0).abs() < 1e-5,
+            "u2 should be 1.0 when delay is 0 (instant reveal), got {}",
+            shapetex.u2
+        );
+    }
+
+    /// Verify negative delay is also treated as instant reveal.
+    #[test]
+    fn draw_with_negative_delay_treats_as_instant_reveal() {
+        let config = BpmGraphConfig {
+            delay: -100,
+            line_width: 2,
+            main_bpm_color: "",
+            min_bpm_color: "",
+            max_bpm_color: "",
+            other_bpm_color: "",
+            stop_line_color: "",
+            transition_line_color: "",
+        };
+        let mut graph = SkinBPMGraph::new(config);
+
+        let tex = Texture {
+            width: 200,
+            height: 100,
+            ..Default::default()
+        };
+        graph.shapetex = Some(TextureRegion::from_texture(tex));
+        graph.data.region = Rectangle::new(0.0, 0.0, 200.0, 100.0);
+        graph.time = -500;
+        // Constructor clamps negative delay to 0
+        assert_eq!(graph.delay, 0);
+
+        let state = MockBpmState::default();
+        let mut renderer = SkinObjectRenderer::new();
+        graph.draw(&mut renderer, &state);
+
+        let shapetex = graph.shapetex.as_ref().unwrap();
+        assert_eq!(shapetex.region_width, 200);
+        assert!(
+            (shapetex.u2 - 1.0).abs() < 1e-5,
+            "u2 should be 1.0 when delay is negative (clamped to 0), got {}",
+            shapetex.u2
+        );
     }
 }
