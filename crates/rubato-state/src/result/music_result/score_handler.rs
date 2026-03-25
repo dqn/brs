@@ -155,6 +155,7 @@ impl MusicResult {
             cs.judge_counts.lpr += newscore.judge_counts.lpr;
             cs.judge_counts.ems += newscore.judge_counts.ems;
             cs.judge_counts.lms += newscore.judge_counts.lms;
+            cs.maxcombo += newscore.maxcombo;
             cs.minbp += newscore.minbp;
             cs.timing_stats.total_duration += newscore.timing_stats.total_duration;
 
