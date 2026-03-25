@@ -63,7 +63,9 @@ impl SkinGauge {
             None => return,
         };
 
-        if self.animation_range < 0 || self.animation_range == i32::MAX || self.duration <= 0 {
+        // Guard: animation_range must be in [0, i32::MAX/2) to prevent overflow
+        // in (animation + animation_range) additions below.
+        if self.animation_range < 0 || self.animation_range > i32::MAX / 2 || self.duration <= 0 {
             self.animation = 0;
         } else {
             match self.animation_type {
