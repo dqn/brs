@@ -363,8 +363,12 @@ impl SkinSource for SkinSourceMovie {
                 if let Some(tx) = self.cmd_tx.take() {
                     let _ = tx.send(MovieCommand::Halt);
                 }
-                // Drop the thread handle to detach (don't join -- decode can be slow)
-                self.thread_handle.take();
+                // Join the decode thread for clean shutdown (matches FFmpegProcessor pattern).
+                // The decode loop checks for Halt every iteration (~8ms sleep + one frame decode),
+                // so join should complete quickly.
+                if let Some(handle) = self.thread_handle.take() {
+                    let _ = handle.join();
+                }
             }
             self.disposed = true;
             log::debug!("Disposed movie source: {}", self.path);
