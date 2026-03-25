@@ -40,3 +40,4 @@ crates/bms-model/fuzz/Cargo.lock
 *.db-shm
 *.db-wal
 .agent/tmp/
+abs_test
