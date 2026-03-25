@@ -152,10 +152,12 @@ impl SkinBPMGraph {
         }
 
         if let Some(ref mut shapetex) = self.shapetex {
-            let render = if self.delay <= 0 || self.time >= self.delay as i64 {
+            // delay is in milliseconds, time is in microseconds; convert before comparison
+            let time_ms = self.time / 1000;
+            let render = if self.delay <= 0 || time_ms >= self.delay as i64 {
                 1.0_f32
             } else {
-                self.time as f32 / self.delay as f32
+                time_ms as f32 / self.delay as f32
             };
             let tex_width = shapetex.texture.as_ref().map(|t| t.width).unwrap_or(0);
             shapetex.region_width = (tex_width as f32 * render) as i32;
@@ -460,7 +462,7 @@ mod tests {
         };
         graph.shapetex = Some(TextureRegion::from_texture(tex));
         graph.data.region = Rectangle::new(0.0, 0.0, 200.0, 100.0);
-        graph.time = 500; // half of delay=1000 => render=0.5
+        graph.time = 500_000; // 500ms in microseconds; half of delay=1000ms => render=0.5
         graph.delay = 1000;
 
         let state = MockBpmState::default();
@@ -500,7 +502,7 @@ mod tests {
         };
         graph.shapetex = Some(TextureRegion::from_texture(tex));
         graph.data.region = Rectangle::new(0.0, 0.0, 200.0, 100.0);
-        graph.time = 2000; // past delay => render=1.0
+        graph.time = 2_000_000; // 2000ms in microseconds; past delay=1000ms => render=1.0
         graph.delay = 1000;
 
         let state = MockBpmState::default();
@@ -741,7 +743,7 @@ mod tests {
         };
         graph.shapetex = Some(TextureRegion::from_texture(tex));
         graph.data.region = Rectangle::new(0.0, 0.0, 200.0, 100.0);
-        graph.time = -500; // negative time with delay == 0
+        graph.time = -500_000; // negative time (microseconds) with delay == 0
         graph.delay = 0;
 
         let state = MockBpmState::default();
@@ -780,7 +782,7 @@ mod tests {
         };
         graph.shapetex = Some(TextureRegion::from_texture(tex));
         graph.data.region = Rectangle::new(0.0, 0.0, 200.0, 100.0);
-        graph.time = -500;
+        graph.time = -500_000; // microseconds
         // Constructor clamps negative delay to 0
         assert_eq!(graph.delay, 0);
 
@@ -794,6 +796,51 @@ mod tests {
             (shapetex.u2 - 1.0).abs() < 1e-5,
             "u2 should be 1.0 when delay is negative (clamped to 0), got {}",
             shapetex.u2
+        );
+    }
+
+    /// Regression: delay is in milliseconds but time is in microseconds.
+    /// Before the fix, 500us was compared directly against 1000ms delay,
+    /// making the animation complete 1000x too fast (any time >= 1000us
+    /// would show the full graph instead of requiring >= 1000ms).
+    #[test]
+    fn draw_delay_comparison_uses_milliseconds_not_microseconds() {
+        let config = BpmGraphConfig {
+            delay: 1000,
+            line_width: 2,
+            main_bpm_color: "",
+            min_bpm_color: "",
+            max_bpm_color: "",
+            other_bpm_color: "",
+            stop_line_color: "",
+            transition_line_color: "",
+        };
+        let mut graph = SkinBPMGraph::new(config);
+
+        let tex = Texture {
+            width: 200,
+            height: 100,
+            ..Default::default()
+        };
+        graph.shapetex = Some(TextureRegion::from_texture(tex));
+        graph.data.region = Rectangle::new(0.0, 0.0, 200.0, 100.0);
+
+        // 1500us = 1.5ms, well below the 1000ms delay.
+        // Before fix: 1500 >= 1000 => render=1.0 (wrong, animation completes instantly).
+        // After fix: 1500/1000 = 1ms < 1000ms => render=1/1000=0.001 (correct, barely started).
+        graph.time = 1500;
+        graph.delay = 1000;
+
+        let state = MockBpmState::default();
+        let mut renderer = SkinObjectRenderer::new();
+        graph.draw(&mut renderer, &state);
+
+        let shapetex = graph.shapetex.as_ref().unwrap();
+        // render should be ~0.001, not 1.0
+        assert!(
+            shapetex.region_width < 200,
+            "at 1.5ms elapsed with 1000ms delay, graph should not be fully revealed (region_width={})",
+            shapetex.region_width
         );
     }
 }

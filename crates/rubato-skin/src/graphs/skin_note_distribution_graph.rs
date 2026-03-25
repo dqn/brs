@@ -198,10 +198,12 @@ impl SkinNoteDistributionGraph {
         self.starttime = starttime;
         self.endtime = endtime;
         self.freq = freq;
-        self.render = if self.delay == 0 || time >= self.delay as i64 {
+        // delay is in milliseconds, time is in microseconds; convert before comparison
+        let time_ms = time / 1000;
+        self.render = if self.delay == 0 || time_ms >= self.delay as i64 {
             1.0_f32
         } else {
-            time as f32 / self.delay as f32
+            time_ms as f32 / self.delay as f32
         };
     }
 
@@ -909,6 +911,46 @@ mod tests {
         // Positive time with delay=0 should also yield 1.0.
         g.prepare_with_region(100, &state, None, -1, -1, -1.0);
         assert_eq!(g.render, 1.0, "render should be 1.0 when delay is 0");
+    }
+
+    /// Regression: delay is in milliseconds but time is in microseconds.
+    /// Before the fix, 1500us was compared directly against 500ms delay,
+    /// making the animation complete 1000x too fast (any time >= 500us
+    /// would show the full graph instead of requiring >= 500ms).
+    #[test]
+    fn prepare_delay_comparison_uses_milliseconds_not_microseconds() {
+        let mut g = SkinNoteDistributionGraph::new(TYPE_NORMAL, 500, 0, 0, 0, 0);
+        let state = MockState::new(false);
+
+        // 1500us = 1.5ms, well below the 500ms delay.
+        // Before fix: 1500 >= 500 => render=1.0 (wrong).
+        // After fix: 1500/1000 = 1ms < 500ms => render=1/500=0.002 (correct).
+        g.prepare_with_region(1500, &state, None, -1, -1, -1.0);
+        assert!(
+            g.render < 1.0,
+            "at 1.5ms elapsed with 500ms delay, render should not be 1.0 (got {})",
+            g.render
+        );
+        assert!(
+            g.render < 0.01,
+            "at 1.5ms elapsed with 500ms delay, render should be near 0 (got {})",
+            g.render
+        );
+
+        // At 250_000us = 250ms = half of 500ms delay, render should be 0.5.
+        g.prepare_with_region(250_000, &state, None, -1, -1, -1.0);
+        assert!(
+            (g.render - 0.5).abs() < 0.01,
+            "at 250ms elapsed with 500ms delay, render should be ~0.5 (got {})",
+            g.render
+        );
+
+        // At 500_000us = 500ms = full delay, render should be 1.0.
+        g.prepare_with_region(500_000, &state, None, -1, -1, -1.0);
+        assert_eq!(
+            g.render, 1.0,
+            "at 500ms elapsed with 500ms delay, render should be 1.0"
+        );
     }
 
     /// Regression: draw() should not clone shapetex when render >= 1.0.
