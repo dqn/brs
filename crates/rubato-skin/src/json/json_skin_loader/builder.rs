@@ -205,13 +205,26 @@ impl JSONSkinLoader {
                 op.push(item.op);
                 names.push(item.name.clone().unwrap_or_default());
             }
+            // Java: getDefaultOption() finds index where contents[i].equals(def),
+            // returns option[i]; falls back to option[0].
+            let selected_option = pr
+                .def
+                .as_ref()
+                .and_then(|def| {
+                    names
+                        .iter()
+                        .position(|n| n == def)
+                        .and_then(|i| op.get(i).copied())
+                })
+                .or_else(|| op.first().copied())
+                .unwrap_or(0);
+
             let option = CustomOptionData {
                 name: pr.name.clone().unwrap_or_default(),
                 option: op.clone(),
                 names,
                 def: pr.def.clone(),
-                // Default to the first option value (Java: property.item[0].op)
-                selected_option: op.first().copied().unwrap_or(0),
+                selected_option,
             };
 
             // Associate with categories

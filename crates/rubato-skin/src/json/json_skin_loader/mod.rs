@@ -275,6 +275,76 @@ mod tests {
     }
 
     #[test]
+    fn test_custom_option_default_from_def_field() {
+        // Skin JSON with a property whose `def` points to the second item.
+        // Java's getDefaultOption() finds the matching content name and returns
+        // its op value. The Rust port must do the same.
+        let input = r#"{
+            "type": 5, "w": 1920, "h": 1080,
+            "property": [{
+                "name": "Note Style",
+                "def": "Rainbow",
+                "item": [
+                    {"name": "Default", "op": 900},
+                    {"name": "Rainbow", "op": 901},
+                    {"name": "Neon", "op": 902}
+                ]
+            }]
+        }"#;
+        let skin = parse_skin_json(input).unwrap();
+        let loader = JSONSkinLoader::default();
+        let header = loader
+            .load_header_from_skin(&skin, std::path::Path::new("/tmp/test.json"))
+            .unwrap();
+        assert_eq!(header.custom_options.len(), 1);
+        // def="Rainbow" matches item[1] whose op=901
+        assert_eq!(header.custom_options[0].selected_option, 901);
+    }
+
+    #[test]
+    fn test_custom_option_default_fallback_to_first() {
+        // When `def` is absent, fall back to the first option value.
+        let input = r#"{
+            "type": 5, "w": 1920, "h": 1080,
+            "property": [{
+                "name": "BG",
+                "item": [
+                    {"name": "A", "op": 800},
+                    {"name": "B", "op": 801}
+                ]
+            }]
+        }"#;
+        let skin = parse_skin_json(input).unwrap();
+        let loader = JSONSkinLoader::default();
+        let header = loader
+            .load_header_from_skin(&skin, std::path::Path::new("/tmp/test.json"))
+            .unwrap();
+        assert_eq!(header.custom_options[0].selected_option, 800);
+    }
+
+    #[test]
+    fn test_custom_option_default_unmatched_def_falls_back() {
+        // When `def` doesn't match any item name, fall back to first option.
+        let input = r#"{
+            "type": 5, "w": 1920, "h": 1080,
+            "property": [{
+                "name": "Style",
+                "def": "NonExistent",
+                "item": [
+                    {"name": "A", "op": 700},
+                    {"name": "B", "op": 701}
+                ]
+            }]
+        }"#;
+        let skin = parse_skin_json(input).unwrap();
+        let loader = JSONSkinLoader::default();
+        let header = loader
+            .load_header_from_skin(&skin, std::path::Path::new("/tmp/test.json"))
+            .unwrap();
+        assert_eq!(header.custom_options[0].selected_option, 700);
+    }
+
+    #[test]
     fn test_is_skin_customize_button_in_range() {
         // BUTTON_SKIN_CUSTOMIZE1 = 220, BUTTON_SKIN_CUSTOMIZE10 = 229
         // Range is [220, 229] inclusive — all 10 slots

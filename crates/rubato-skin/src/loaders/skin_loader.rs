@@ -186,6 +186,10 @@ pub fn load_skin_from_config(
             return None;
         }
     };
+    // TODO: Pass the user's saved skin config (option selections, file paths,
+    // offsets) here. Java's setSkinConfigProperty() applies these to the header
+    // before loading, enabling skin variant switching. Currently a unit struct,
+    // so all skins load with default options/filemaps.
     let property = crate::json::json_skin_loader::SkinConfigProperty;
 
     let mut skin = if skin_path.ends_with(".json") {
