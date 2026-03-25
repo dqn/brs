@@ -279,10 +279,12 @@ impl SkinGaugeGraphObject {
     pub fn prepare(&mut self, time: i64, state: &dyn MainState) {
         self.data.prepare(time, state);
 
-        self.render = if time >= self.delay as i64 {
+        // delay is in milliseconds (Java: delay = 1500), time is in microseconds
+        let time_ms = time / 1000;
+        self.render = if time_ms >= self.delay as i64 {
             1.0
         } else if self.delay > 0 {
-            time as f32 / self.delay as f32
+            time_ms as f32 / self.delay as f32
         } else {
             1.0
         };
