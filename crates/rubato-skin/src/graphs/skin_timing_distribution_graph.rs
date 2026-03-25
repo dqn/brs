@@ -156,7 +156,7 @@ impl SkinTimingDistributionGraph {
                 shape.draw_line(self.c + avg, 0, self.c + avg, max);
             }
 
-            if self.draw_dev && td.std_dev() != -1.0 {
+            if self.draw_dev && td.std_dev() != -1.0 && td.average() != f32::MAX {
                 let avg = td.average().round() as i32;
                 let dev = td.std_dev().round() as i32;
                 shape.set_color(&self.dev_color);

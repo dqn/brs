@@ -5,6 +5,15 @@ use crate::graphs::skin_timing_visualizer::color_string_validation;
 use crate::reexports::{Color, MainState, Pixmap, PixmapFormat, Texture, TextureRegion};
 use crate::types::skin_object::{SkinObjectData, SkinObjectRenderer};
 
+/// Check if a judge value falls within the window at the given index.
+/// Returns false if the index is out of bounds or the inner Vec has < 2 elements.
+fn judge_area_contains(areas: &[Vec<i32>], idx: usize, judge: i64) -> bool {
+    areas
+        .get(idx)
+        .filter(|a| a.len() >= 2)
+        .is_some_and(|a| judge > a[0] as i64 && judge < a[1] as i64)
+}
+
 /// Configuration for constructing a `SkinHitErrorVisualizer`.
 pub struct HitErrorVisualizerConfig<'a> {
     pub width: i32,
@@ -177,25 +186,13 @@ impl SkinHitErrorVisualizer {
                 // Judge color or single color
                 if self.color_mode {
                     let judge = self.recent[cycle];
-                    if !self.judge_area.is_empty()
-                        && judge > self.judge_area[0][0] as i64
-                        && judge < self.judge_area[0][1] as i64
-                    {
+                    if judge_area_contains(&self.judge_area, 0, judge) {
                         shape.set_color(&self.j_color[0]);
-                    } else if self.judge_area.len() > 1
-                        && judge > self.judge_area[1][0] as i64
-                        && judge < self.judge_area[1][1] as i64
-                    {
+                    } else if judge_area_contains(&self.judge_area, 1, judge) {
                         shape.set_color(&self.j_color[1]);
-                    } else if self.judge_area.len() > 2
-                        && judge > self.judge_area[2][0] as i64
-                        && judge < self.judge_area[2][1] as i64
-                    {
+                    } else if judge_area_contains(&self.judge_area, 2, judge) {
                         shape.set_color(&self.j_color[2]);
-                    } else if self.judge_area.len() > 3
-                        && judge > self.judge_area[3][0] as i64
-                        && judge < self.judge_area[3][1] as i64
-                    {
+                    } else if judge_area_contains(&self.judge_area, 3, judge) {
                         shape.set_color(&self.j_color[3]);
                     } else {
                         shape.set_color(&self.j_color[4]);
@@ -239,10 +236,7 @@ impl SkinHitErrorVisualizer {
             if self.index < self.recent.len() {
                 let last = self.recent[self.index];
                 // Ignore misses
-                if last != i64::MIN
-                    && self.judge_area.len() > 3
-                    && (last > self.judge_area[3][0] as i64 && last < self.judge_area[3][1] as i64)
-                {
+                if last != i64::MIN && judge_area_contains(&self.judge_area, 3, last) {
                     // Inline update_ema to avoid borrow conflict with shape
                     if let Some(ema) = self.ema {
                         self.ema = Some(ema + (self.alpha * (last - ema) as f32) as i64);
