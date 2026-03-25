@@ -60,6 +60,8 @@ impl BMSLoudnessAnalyzer {
         // Matches the Java original which uses a relative "cache/normalize" directory.
         // A platform-appropriate cache dir (dirs::cache_dir()) would be more robust but
         // diverges from the original behavior where cache lives next to the application.
+        // Accepted trade-off: CWD-relative path for Java parity.
+        // Cache misses when launched from non-standard working directory.
         let cache_dir = PathBuf::from("cache/normalize");
         if let Err(e) = std::fs::create_dir_all(&cache_dir) {
             log::warn!("Failed to create cache directory: {}", e);

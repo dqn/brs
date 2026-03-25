@@ -10,6 +10,17 @@ use crate::{
     StringPropertyFactory,
 };
 
+static HTTP_CLIENT: std::sync::OnceLock<reqwest::blocking::Client> = std::sync::OnceLock::new();
+
+fn get_http_client() -> &'static reqwest::blocking::Client {
+    HTTP_CLIENT.get_or_init(|| {
+        reqwest::blocking::Client::builder()
+            .timeout(Duration::from_secs(30))
+            .build()
+            .unwrap_or_else(|_| reqwest::blocking::Client::new())
+    })
+}
+
 /// WebhookHandler - handles webhook creation and sending for Discord webhooks.
 /// Translated from Java: WebhookHandler
 pub struct WebhookHandler;
@@ -81,9 +92,7 @@ impl WebhookHandler {
             Self::write_multipart_file(&mut body, &boundary, "files[0]", Path::new(image_path))?;
             body.write_all(format!("--{}--\r\n", boundary).as_bytes())?;
 
-            let client = reqwest::blocking::Client::builder()
-                .timeout(Duration::from_secs(30))
-                .build()?;
+            let client = get_http_client();
             let response = client
                 .post(webhook_url)
                 .header(

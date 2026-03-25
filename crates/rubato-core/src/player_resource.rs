@@ -563,6 +563,8 @@ impl PlayerResource {
         self.freq_string = Some(freq_string);
     }
 
+    /// **Note**: Performs synchronous filesystem I/O on each call (reads table JSON files).
+    /// Callers should avoid invoking this in hot render paths.
     pub fn reverse_lookup_data(&self) -> Vec<String> {
         let Some(songdata) = self.songdata.as_ref() else {
             return Vec::new();
@@ -597,6 +599,8 @@ impl PlayerResource {
         result
     }
 
+    /// **Note**: Performs synchronous filesystem I/O on each call (reads table JSON files).
+    /// Callers should avoid invoking this in hot render paths.
     pub fn reverse_lookup_levels(&self) -> Vec<String> {
         let Some(songdata) = self.songdata.as_ref() else {
             return Vec::new();

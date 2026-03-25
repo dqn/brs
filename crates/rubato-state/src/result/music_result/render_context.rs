@@ -200,6 +200,14 @@ impl rubato_types::skin_render_context::SkinRenderContext for ResultRenderContex
                     .map_or(DEFAULT_AUDIO_VOLUME, |a| a.bgvolume)
                     * 100.0) as i32
             }
+            // ---- Hi-speed integer part (NUMBER_HISPEED: 310) ----
+            310 => self
+                .current_play_config_ref()
+                .map_or(i32::MIN, |pc| pc.hispeed as i32),
+            // ---- Hi-speed afterdot (NUMBER_HISPEED_AFTERDOT: 311) ----
+            311 => self
+                .current_play_config_ref()
+                .map_or(i32::MIN, |pc| ((pc.hispeed * 100.0) as i32) % 100),
             _ => {
                 let playtime = self.resource.player_data().playtime;
                 shared_render_context::integer_value(
@@ -249,6 +257,15 @@ impl rubato_types::skin_render_context::SkinRenderContext for ResultRenderContex
 
     fn boolean_value(&self, id: i32) -> bool {
         match id {
+            // Autoplay indicators (Java: BooleanPropertyFactory OPTION_AUTOPLAYOFF=32, OPTION_AUTOPLAYON=33)
+            32 => {
+                self.resource.play_mode().mode != rubato_core::bms_player_mode::Mode::Autoplay
+                    && self.resource.play_mode().mode != rubato_core::bms_player_mode::Mode::Replay
+            }
+            33 => {
+                self.resource.play_mode().mode == rubato_core::bms_player_mode::Mode::Autoplay
+                    || self.resource.play_mode().mode == rubato_core::bms_player_mode::Mode::Replay
+            }
             42 | 43 | 90 | 91 | 1046 => shared_render_context::boolean_value(
                 self.data,
                 self.resource.course_score_data(),
@@ -564,6 +581,14 @@ impl rubato_types::skin_render_context::SkinRenderContext for ResultMouseContext
                     .map_or(DEFAULT_AUDIO_VOLUME, |a| a.bgvolume)
                     * 100.0) as i32
             }
+            // ---- Hi-speed integer part (NUMBER_HISPEED: 310) ----
+            310 => self
+                .current_play_config_ref()
+                .map_or(i32::MIN, |pc| pc.hispeed as i32),
+            // ---- Hi-speed afterdot (NUMBER_HISPEED_AFTERDOT: 311) ----
+            311 => self
+                .current_play_config_ref()
+                .map_or(i32::MIN, |pc| ((pc.hispeed * 100.0) as i32) % 100),
             _ => {
                 let playtime = self.result.resource.player_data().playtime;
                 shared_render_context::integer_value(
@@ -615,6 +640,19 @@ impl rubato_types::skin_render_context::SkinRenderContext for ResultMouseContext
 
     fn boolean_value(&self, id: i32) -> bool {
         match id {
+            // Autoplay indicators (Java: BooleanPropertyFactory OPTION_AUTOPLAYOFF=32, OPTION_AUTOPLAYON=33)
+            32 => {
+                self.result.resource.play_mode().mode
+                    != rubato_core::bms_player_mode::Mode::Autoplay
+                    && self.result.resource.play_mode().mode
+                        != rubato_core::bms_player_mode::Mode::Replay
+            }
+            33 => {
+                self.result.resource.play_mode().mode
+                    == rubato_core::bms_player_mode::Mode::Autoplay
+                    || self.result.resource.play_mode().mode
+                        == rubato_core::bms_player_mode::Mode::Replay
+            }
             42 | 43 | 90 | 91 | 1046 => shared_render_context::boolean_value(
                 &self.result.data,
                 self.result.resource.course_score_data(),

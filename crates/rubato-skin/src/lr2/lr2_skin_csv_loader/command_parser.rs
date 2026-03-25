@@ -558,6 +558,8 @@ impl LR2SkinCSVLoaderState {
                     t.text_data.editable = values[5] != 0;
                     SkinObject::TextImage(t)
                 } else {
+                    // Java parity: fallback font path is CWD-relative (not skin-file-relative).
+                    // Requires the process to be launched from the game root directory.
                     let mut t = SkinTextFont::new("skin/default/VL-Gothic-Regular.ttf", 0, 48, 2);
                     t.text_data.ref_prop =
                         crate::property::string_property_factory::string_property_by_id(values[3]);
@@ -801,7 +803,7 @@ impl LR2SkinCSVLoaderState {
                         // Split source images into `length` groups
                         match self.source_image(&values) {
                             Some(srcimg) => {
-                                let len = length as usize;
+                                let len = (length.max(1)) as usize;
                                 let group_size = srcimg.len() / len;
                                 if group_size == 0 {
                                     Vec::new()

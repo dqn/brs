@@ -87,6 +87,8 @@ impl PatternModifier for ScrollSpeedModifier {
                 if tl.section_line {
                     sectioncount += 1;
                     if self.section == sectioncount {
+                        // Java parity: Math.random() is not seeded by the pattern modifier seed.
+                        // This means identical replays may produce different scroll speeds in Add mode.
                         current =
                             base * (1.0 + rand::random::<f64>() * self.rate * 2.0 - self.rate);
                         sectioncount = 0;

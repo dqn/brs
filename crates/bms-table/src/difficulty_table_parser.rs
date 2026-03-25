@@ -498,6 +498,7 @@ impl DifficultyTableParser {
         Ok(())
     }
 
+    /// **Blocking**: Performs synchronous HTTP requests. Must be called from a background thread.
     pub fn decode_json_table_data_from_url(
         &self,
         dt: &mut DifficultyTable,

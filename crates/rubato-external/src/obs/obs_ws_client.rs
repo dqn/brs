@@ -87,7 +87,7 @@ pub fn action_label(action: &str) -> Option<String> {
 
 /// Shared inner state for ObsWsClient
 struct ObsWsClientInner {
-    ws_sender: Option<tokio::sync::mpsc::UnboundedSender<Message>>,
+    ws_sender: Option<tokio::sync::mpsc::Sender<Message>>,
     /// JoinHandle for the dedicated writer task spawned in do_connect().
     /// Stored so it can be aborted during close/disconnect to avoid leaking
     /// a blocked task past the runtime shutdown timeout.
@@ -274,10 +274,10 @@ impl ObsWsClient {
         let (ws_stream, _) = connect_async(server_uri).await?;
         let (mut sink, mut stream) = ws_stream.split();
 
-        // Create an mpsc channel and spawn a dedicated writer task that
+        // Create a bounded mpsc channel and spawn a dedicated writer task that
         // serializes all WebSocket writes, eliminating the take-send-put-back
         // race that previously caused concurrent message loss.
-        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Message>();
+        let (tx, mut rx) = tokio::sync::mpsc::channel::<Message>(64);
         let writer_handle = {
             let inner_writer = Arc::clone(&inner);
             tokio::spawn(async move {
@@ -797,8 +797,10 @@ impl ObsWsClient {
             let guard = lock_or_recover(inner);
             guard.ws_sender.clone()
         };
-        if let Some(tx) = sender {
-            let _ = tx.send(Message::Text(message.to_string()));
+        if let Some(tx) = sender
+            && let Err(e) = tx.try_send(Message::Text(message.to_string()))
+        {
+            warn!("OBS WebSocket send dropped (channel full or closed): {}", e);
         }
     }
 
@@ -1325,7 +1327,7 @@ mod tests {
         let config = make_test_config();
         let client = ObsWsClient::new(&config).expect("failed to create client");
 
-        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Message>();
+        let (tx, mut rx) = tokio::sync::mpsc::channel::<Message>(64);
 
         // Inject the sender as if we were connected
         {
@@ -1394,7 +1396,7 @@ mod tests {
         let config = make_test_config();
         let client = ObsWsClient::new(&config).expect("failed to create client");
 
-        let (tx, _rx) = tokio::sync::mpsc::unbounded_channel::<Message>();
+        let (tx, _rx) = tokio::sync::mpsc::channel::<Message>(64);
         {
             let mut guard = lock_or_recover(&client.inner);
             guard.ws_sender = Some(tx);

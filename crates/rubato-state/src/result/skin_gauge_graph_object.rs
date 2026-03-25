@@ -215,6 +215,10 @@ impl SkinGaugeGraphObject {
         // if (state instanceof AbstractResult) type = ((AbstractResult) state).gaugeType;
         let current_type = result_gauge_type;
 
+        if current_type < 0 {
+            return;
+        }
+
         if self.current_type != current_type {
             self.redraw = true;
             self.current_type = current_type;

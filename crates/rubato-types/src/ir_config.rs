@@ -1,6 +1,10 @@
 use crate::ir_connection_registry::IRConnectionManager;
 use crate::validatable::Validatable;
 
+// Accepted trade-off: AES-128-ECB with hardcoded key for IR credential obfuscation.
+// This matches the original Java beatoraja implementation. ECB mode provides only
+// obfuscation (not security) since identical plaintext produces identical ciphertext
+// and the key is embedded in the binary. This is a local config file concern only.
 const KEY: &str = "0123456789abcdef";
 
 pub const IR_SEND_ALWAYS: i32 = 0;

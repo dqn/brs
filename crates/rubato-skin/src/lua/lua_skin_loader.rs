@@ -37,6 +37,11 @@ impl LuaSkinLoader {
         let loader = Self::new_without_state(config);
         let state_ptr: *mut dyn MainState =
             unsafe { std::mem::transmute(state as *mut dyn MainState) };
+        // Safety limitation: lifetime of `state` is erased via transmute.
+        // The caller MUST ensure the LuaSkinLoader does not outlive the `state` borrow.
+        // Adding PhantomData<&'a mut dyn MainState> would enforce this at the type level
+        // but requires a larger refactor of the loader API.
+        //
         // SAFETY: the caller keeps `state` alive for the loader's lifetime; this
         // matches MainStateAccessor's raw-pointer contract. The transmute only
         // erases the trait-object lifetime; mutability already comes from the

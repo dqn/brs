@@ -114,6 +114,7 @@ impl RandomizerBase {
         sorted_entries.sort_by_key(|(k, _)| **k);
 
         // Safety: x values come from modify_lanes which are validated lane indices (0..mode_key).
+        // Callers (set_modify_lanes) must ensure all lanes are in [0, mode_key).
         for &(&x, &y) in &sorted_entries {
             let n = notes[x as usize].take();
             let hn = hnotes[x as usize].take();

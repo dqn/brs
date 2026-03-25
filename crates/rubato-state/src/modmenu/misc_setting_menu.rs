@@ -263,6 +263,11 @@ impl MiscSettingMenu {
 }
 
 /// Build a PlayConfig from the current UI statics, preserving fields not shown in the UI.
+///
+// Known limitation: reads from process-global PLAYER_CONFIG which may be stale
+// if hispeed was changed in-game via scroll keys. A proper fix requires either
+// making PLAYER_CONFIG receive UpdatePlayConfig events, or selectively applying
+// only modmenu-managed fields instead of using `..base` spread.
 fn build_play_config_from_statics() -> PlayConfig {
     let base = get_play_config();
     PlayConfig {

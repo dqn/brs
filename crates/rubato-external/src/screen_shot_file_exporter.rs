@@ -180,76 +180,83 @@ impl ScreenShotFileExporter {
 
         let path = path.to_string();
 
-        if let Ok(mut guard) = self.webhook_threads.lock() {
-            // Drain finished threads, joining them to observe panics.
-            guard.retain(|h| {
-                if h.is_finished() {
-                    // Cannot join through a shared reference in retain, so just
-                    // detect finished threads here.  They will be dropped (detached)
-                    // which is safe because they already completed.
-                    false
-                } else {
-                    true
-                }
-            });
+        // Use lock_or_recover to handle poisoned mutex (consistent with rest of codebase)
+        let mut guard = self
+            .webhook_threads
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
 
-            if guard.len() >= MAX_CONCURRENT_WEBHOOK_THREADS {
-                log::warn!(
-                    "Skipping webhook send: {} threads already in flight (max {})",
-                    guard.len(),
-                    MAX_CONCURRENT_WEBHOOK_THREADS
-                );
-                return;
+        // Drain finished threads, joining them to observe panics.
+        guard.retain(|h| {
+            if h.is_finished() {
+                // Cannot join through a shared reference in retain, so just
+                // detect finished threads here.  They will be dropped (detached)
+                // which is safe because they already completed.
+                false
+            } else {
+                true
             }
+        });
 
-            let handle = std::thread::spawn(move || {
-                for webhook_url in &webhook_urls {
-                    handler.send_webhook_with_image(&payload, &path, webhook_url);
-                }
-            });
-
-            guard.push(handle);
+        if guard.len() >= MAX_CONCURRENT_WEBHOOK_THREADS {
+            log::warn!(
+                "Skipping webhook send: {} threads already in flight (max {})",
+                guard.len(),
+                MAX_CONCURRENT_WEBHOOK_THREADS
+            );
+            return;
         }
+
+        let handle = std::thread::spawn(move || {
+            for webhook_url in &webhook_urls {
+                handler.send_webhook_with_image(&payload, &path, webhook_url);
+            }
+        });
+
+        guard.push(handle);
     }
 }
 
 impl Drop for ScreenShotFileExporter {
     fn drop(&mut self) {
         // Join all in-flight webhook threads with a shared 5-second timeout.
-        if let Ok(mut guard) = self.webhook_threads.lock() {
-            let handles: Vec<_> = guard.drain(..).collect();
-            if handles.is_empty() {
-                return;
+        // Use lock_or_recover to handle poisoned mutex (consistent with rest of codebase)
+        let mut guard = self
+            .webhook_threads
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let handles: Vec<_> = guard.drain(..).collect();
+        if handles.is_empty() {
+            return;
+        }
+
+        let start = std::time::Instant::now();
+        let timeout = std::time::Duration::from_secs(5);
+
+        for handle in handles {
+            if handle.is_finished() {
+                if let Err(e) = handle.join() {
+                    log::warn!("Webhook send thread panicked: {:?}", e);
+                }
+                continue;
             }
 
-            let start = std::time::Instant::now();
-            let timeout = std::time::Duration::from_secs(5);
-
-            for handle in handles {
+            // Poll until finished or timeout expires.
+            loop {
                 if handle.is_finished() {
                     if let Err(e) = handle.join() {
                         log::warn!("Webhook send thread panicked: {:?}", e);
                     }
-                    continue;
+                    break;
                 }
-
-                // Poll until finished or timeout expires.
-                loop {
-                    if handle.is_finished() {
-                        if let Err(e) = handle.join() {
-                            log::warn!("Webhook send thread panicked: {:?}", e);
-                        }
-                        break;
-                    }
-                    if start.elapsed() >= timeout {
-                        log::warn!(
-                            "Webhook send thread did not finish within {:?} during drop, detaching",
-                            timeout
-                        );
-                        break;
-                    }
-                    std::thread::sleep(std::time::Duration::from_millis(50));
+                if start.elapsed() >= timeout {
+                    log::warn!(
+                        "Webhook send thread did not finish within {:?} during drop, detaching",
+                        timeout
+                    );
+                    break;
                 }
+                std::thread::sleep(std::time::Duration::from_millis(50));
             }
         }
     }

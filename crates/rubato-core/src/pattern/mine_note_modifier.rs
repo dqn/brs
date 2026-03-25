@@ -102,6 +102,7 @@ impl PatternModifier for MineNoteModifier {
                     if blank[key] {
                         match self.mode {
                             Mode::AddRandom => {
+                                // Java parity: Math.random() (not seeded JavaRandom) -- same as long_note_modifier.rs
                                 if rand::random::<f64>() > 0.9 {
                                     tl.set_note(
                                         key as i32,

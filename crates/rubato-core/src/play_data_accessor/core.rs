@@ -276,7 +276,7 @@ impl PlayDataAccessor {
         score.playcount += 1;
         score.date = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .expect("system clock")
+            .unwrap_or_default()
             .as_secs() as i64;
         score.scorehash = self.get_score_hash(&score).unwrap_or_default();
         scoredb.set_score_data(&score);
@@ -352,7 +352,7 @@ impl PlayDataAccessor {
         score.playcount += 1;
         score.date = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .expect("system clock")
+            .unwrap_or_default()
             .as_secs() as i64;
         score.scorehash = self.get_score_hash(&score).unwrap_or_default();
         scoredb.set_score_data(&score);

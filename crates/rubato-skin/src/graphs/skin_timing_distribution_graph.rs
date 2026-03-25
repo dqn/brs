@@ -110,8 +110,8 @@ impl SkinTimingDistributionGraph {
                     max = (d / 10) * 10 + 10;
                 }
             }
-            self.max = max;
-            let max = max.min(4096);
+            self.max = max.min(4096);
+            let max = self.max;
 
             let mut shape = Pixmap::new(self.gx, max, PixmapFormat::RGBA8888);
             shape.set_color(&self.j_color[0]);

@@ -743,6 +743,10 @@ impl Validatable for Config {
     }
 }
 
+// Minimal validation: only checks non-empty and valid UTF-8.
+// Does not block directory traversal (e.g., "../../../etc") because this is
+// a local config file that only the user can edit. The download_directory
+// is used for HTTP resource downloads within the user's own filesystem.
 fn validate_path(path: &str) -> bool {
     // Check if the path is valid by trying to create a PathBuf
     let p = Path::new(path);

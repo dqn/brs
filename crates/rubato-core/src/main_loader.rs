@@ -475,6 +475,7 @@ mod tests {
     #[test]
     fn test_version_checker_default() {
         let vc = MainLoader::version_checker();
+        // Test-only: lock_or_recover not used because VERSION_CHECKER is only accessed in tests.
         let guard = vc.lock().expect("mutex poisoned");
         assert!(guard.is_some());
     }

@@ -14,6 +14,7 @@ pub struct BGImageProcessor {
 
 impl BGImageProcessor {
     pub fn new(size: usize, _maxgen: i32) -> Self {
+        debug_assert!(size > 0, "BGImageProcessor cache_size must be > 0");
         BGImageProcessor {
             bgamap: vec![None; 1000],
             bgacache_ids: vec![-1; size],

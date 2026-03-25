@@ -354,6 +354,8 @@ impl AudioDriver for PortAudioDriver {
         for (path, sound_data, plays) in self.deferred_path_loader.poll() {
             self.path_sound_cache
                 .insert(path.clone(), sound_data.clone());
+            // Intentional: play only the most recent request. Earlier queued requests
+            // for the same path are discarded to avoid simultaneous playback.
             if let Some(&(volume, loop_play)) = plays.last() {
                 let sound = configure_path_sound_for_play(&sound_data, volume, loop_play);
                 match self.manager.play(sound) {

@@ -150,7 +150,10 @@ impl ScoreDataImporter {
     }
 
     fn read_lr2_scores(path: &str) -> anyhow::Result<Vec<HashMap<String, serde_json::Value>>> {
-        let conn = rusqlite::Connection::open(path)?;
+        let conn = rusqlite::Connection::open_with_flags(
+            path,
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+        )?;
         let mut stmt = conn.prepare("SELECT * FROM score")?;
         let column_count = stmt.column_count();
         let column_names: Vec<String> = (0..column_count)

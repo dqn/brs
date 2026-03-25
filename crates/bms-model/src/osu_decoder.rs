@@ -268,7 +268,10 @@ impl OSUDecoder {
             if hit_object.time < 0 {
                 continue;
             }
-            let adjusted_time = hit_object.time + offset;
+            let adjusted_time = match hit_object.time.checked_add(offset) {
+                Some(t) => t,
+                None => continue,
+            };
 
             let column_idx = ((hit_object.x as f32 * keymode as f32 / 512.0).floor() as i32)
                 .max(0)

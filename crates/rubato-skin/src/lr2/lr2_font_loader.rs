@@ -173,6 +173,10 @@ impl LR2FontLoader {
 
         let sjisbyte: Vec<u8>;
         if code >= 8127 {
+            if code > 16254 {
+                log::warn!("LR2 font code {} exceeds map_code range, skipping", code);
+                return vec![];
+            }
             let sjiscode = (code + 49281) as u16;
             sjisbyte = vec![(sjiscode >> 8) as u8, (sjiscode & 0xff) as u8];
         } else if code >= 256 {
