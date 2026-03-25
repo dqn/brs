@@ -280,6 +280,17 @@ pub trait MainState {
         None
     }
 
+    /// Take pending full PlayerConfig update from MusicSelector.
+    ///
+    /// MusicSelector modifies PlayerConfig fields (play options, sort, target, etc.)
+    /// via skin events. Since MusicSelector owns a clone, changes must be pushed back
+    /// to MainController so periodic_config_save() persists them.
+    fn take_pending_player_config_update(
+        &mut self,
+    ) -> Option<rubato_types::player_config::PlayerConfig> {
+        None
+    }
+
     /// Drain pending audio path play requests queued by skin scripts during rendering.
     ///
     /// Each entry is (path, volume, is_loop). BMSPlayer overrides this to drain

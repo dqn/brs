@@ -801,6 +801,10 @@ pub struct MusicSelector {
     /// MainController polls this via take_pending_state_change() each frame.
     pending_state_change: Option<MainStateType>,
 
+    /// Dirty flag for PlayerConfig changes made on the select screen.
+    /// Set by play_option_change() and cleared by take_pending_player_config_update().
+    pub(crate) pending_player_config_dirty: bool,
+
     /// Local PlayerResource for BMS file loading in read_chart().
     /// Handed off to MainController via take_player_resource_box() during state transition.
     player_resource: Option<rubato_core::player_resource::PlayerResource>,

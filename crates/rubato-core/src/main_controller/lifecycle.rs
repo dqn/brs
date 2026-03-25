@@ -236,6 +236,7 @@ impl MainController {
         let mut pending_audio_config: Option<rubato_types::audio_config::AudioConfig> = None;
         let mut pending_audio_path_plays: Vec<(String, f32, bool)> = Vec::new();
         let mut pending_audio_path_stops: Vec<String> = Vec::new();
+        let mut pending_player_config: Option<rubato_types::player_config::PlayerConfig> = None;
 
         if let Some(ref mut current) = self.current {
             pending_sounds = current.drain_pending_sounds();
@@ -246,6 +247,7 @@ impl MainController {
             pending_quick_retry_score = current.take_pending_quick_retry_score();
             pending_quick_retry_replay = current.take_pending_quick_retry_replay();
             pending_play_config = current.take_pending_play_config_update();
+            pending_player_config = current.take_pending_player_config_update();
             pending_audio_config = current.take_pending_audio_config();
             pending_audio_path_plays = current.drain_pending_audio_path_plays();
             pending_audio_path_stops = current.drain_pending_audio_path_stops();
@@ -371,6 +373,13 @@ impl MainController {
         // uses apply_modmenu_fields() to avoid overwriting live-mutated fields.
         if let Some((mode, play_config)) = pending_play_config {
             self.player.play_config(mode).playconfig = play_config;
+        }
+
+        // Apply full PlayerConfig update from MusicSelector.
+        // MusicSelector owns a clone of PlayerConfig; skin events modify it locally.
+        // This outbox pushes the entire config back so periodic_config_save() persists changes.
+        if let Some(player_config) = pending_player_config {
+            self.player = player_config;
         }
 
         // Quick retry: reset replay seed (START/assist) or save score+replay (SELECT).

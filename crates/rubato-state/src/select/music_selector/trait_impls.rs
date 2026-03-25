@@ -188,6 +188,17 @@ impl MainState for MusicSelector {
         self.pending_state_change.take()
     }
 
+    fn take_pending_player_config_update(
+        &mut self,
+    ) -> Option<rubato_types::player_config::PlayerConfig> {
+        if self.pending_player_config_dirty {
+            self.pending_player_config_dirty = false;
+            Some(self.config.clone())
+        } else {
+            None
+        }
+    }
+
     fn take_player_resource_box(&mut self) -> Option<Box<dyn std::any::Any + Send>> {
         let should_handoff = self.player_resource.as_ref().is_some_and(|resource| {
             resource.bms_model().is_some()

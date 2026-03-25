@@ -3162,3 +3162,60 @@ fn refresh_cached_score_data_property_no_rival_zeroes_rival_fields() {
         "rival must be None when no rival score exists"
     );
 }
+
+// ============================================================
+// PlayerConfig outbox (pending_player_config_dirty) tests
+// ============================================================
+
+#[test]
+fn take_pending_player_config_update_returns_none_when_clean() {
+    let mut selector = MusicSelector::new();
+    assert!(
+        selector.take_pending_player_config_update().is_none(),
+        "should return None when no config change occurred"
+    );
+}
+
+#[test]
+fn play_option_change_sets_dirty_and_take_returns_config() {
+    let mut selector = MusicSelector::new();
+    // Modify a config field to verify the returned clone reflects the change
+    selector.config.judge_settings.judgetiming = 42;
+
+    // Trigger play_option_change which sets the dirty flag
+    selector.play_option_change();
+
+    assert!(
+        selector.pending_player_config_dirty,
+        "dirty flag should be set after play_option_change"
+    );
+
+    let config = selector.take_pending_player_config_update();
+    assert!(
+        config.is_some(),
+        "should return Some after play_option_change"
+    );
+    assert_eq!(
+        config.unwrap().judge_settings.judgetiming,
+        42,
+        "returned config should reflect the modified value"
+    );
+    assert!(
+        !selector.pending_player_config_dirty,
+        "dirty flag should be cleared after take"
+    );
+}
+
+#[test]
+fn take_pending_player_config_update_returns_none_on_second_call() {
+    let mut selector = MusicSelector::new();
+    selector.play_option_change();
+
+    // First take returns Some
+    assert!(selector.take_pending_player_config_update().is_some());
+    // Second take returns None (dirty flag was cleared)
+    assert!(
+        selector.take_pending_player_config_update().is_none(),
+        "second call should return None after dirty flag was cleared"
+    );
+}

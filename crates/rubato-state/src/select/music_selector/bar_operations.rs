@@ -1,8 +1,9 @@
 use super::*;
 
 impl MusicSelector {
-    /// Play the OPTION_CHANGE system sound.
+    /// Play the OPTION_CHANGE system sound and mark PlayerConfig as dirty.
     pub(super) fn play_option_change(&mut self) {
+        self.pending_player_config_dirty = true;
         self.play_sound(SoundType::OptionChange);
     }
 
