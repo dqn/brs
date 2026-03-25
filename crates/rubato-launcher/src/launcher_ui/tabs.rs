@@ -651,7 +651,9 @@ impl LauncherUi {
                 ui.add(egui::TextEdit::singleline(&mut self.ir_password_buf).password(true));
                 ui.end_row();
 
-                let selected_label = IR_SEND_LABELS.get(ir.irsend as usize).unwrap_or(&"ALWAYS");
+                let selected_label = IR_SEND_LABELS
+                    .get(clamped_option_index(ir.irsend, IR_SEND_LABELS.len()))
+                    .unwrap_or(&"ALWAYS");
                 ui.label("Send Mode:");
                 egui::ComboBox::from_id_salt("ir_send_mode")
                     .selected_text(*selected_label)
