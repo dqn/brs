@@ -1,10 +1,12 @@
 use std::collections::HashMap;
 
+use crate::audio_config::DEFAULT_AUDIO_VOLUME;
 use crate::config::Config;
 use crate::distribution_data::DistributionData;
 use crate::main_state_type::MainStateType;
 use crate::play_config::PlayConfig;
 use crate::player_config::PlayerConfig;
+use crate::player_data::PlayerData;
 use crate::replay_data::ReplayData;
 use crate::score_data::ScoreData;
 use crate::score_data_property::ScoreDataProperty;
@@ -163,6 +165,20 @@ pub struct PropertySnapshot {
     pub lane_shuffle_patterns: Option<Vec<Vec<i32>>>,
 
     // ================================================================
+    // Player / course data (for shared property computations)
+    // ================================================================
+    /// Player statistics (playcount, clear, judge counts, playtime).
+    pub player_data: Option<PlayerData>,
+    /// Current course stage index (0-based).
+    pub course_index: usize,
+    /// Number of songs in the current course.
+    pub course_song_count: usize,
+    /// Whether a course is active.
+    pub is_course_mode: bool,
+    /// Whether score saving is enabled.
+    pub is_update_score: bool,
+
+    // ================================================================
     // Write-back action queue
     // ================================================================
     /// Actions collected during skin rendering (mouse clicks, Lua writes).
@@ -221,6 +237,11 @@ impl Default for PropertySnapshot {
             ranking_offset: 0,
             ranking_clear_types: Vec::new(),
             lane_shuffle_patterns: None,
+            player_data: None,
+            course_index: 0,
+            course_song_count: 0,
+            is_course_mode: false,
+            is_update_score: false,
             actions: SkinActionQueue::default(),
         }
     }
@@ -229,6 +250,302 @@ impl Default for PropertySnapshot {
 impl PropertySnapshot {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    // ================================================================
+    // Shared property computations
+    //
+    // These compute property values from the raw data stored in the
+    // snapshot, covering ~80 IDs shared across most screens. Returns
+    // `None` when the ID is not a shared property, signaling the
+    // caller to fall through to default_*_value.
+    // ================================================================
+
+    fn shared_integer_value(&self, id: i32) -> Option<i32> {
+        self.player_data_integer(id)
+            .or_else(|| self.volume_integer(id))
+            .or_else(|| self.song_data_integer(id))
+            .or_else(|| self.score_property_integer(id))
+            .or_else(|| self.play_config_integer(id))
+    }
+
+    fn player_data_integer(&self, id: i32) -> Option<i32> {
+        let pd = self.player_data.as_ref()?;
+        let val = match id {
+            // Cumulative playtime (hours/minutes/seconds)
+            17 => (pd.playtime / 3600) as i32,
+            18 => ((pd.playtime / 60) % 60) as i32,
+            19 => (pd.playtime % 60) as i32,
+            // Player profile stats
+            30 => pd.playcount as i32,
+            31 => pd.clear as i32,
+            32 => (pd.playcount - pd.clear) as i32,
+            33 => pd.judge_count(0) as i32,
+            34 => pd.judge_count(1) as i32,
+            35 => pd.judge_count(2) as i32,
+            36 => pd.judge_count(3) as i32,
+            37 => pd.judge_count(4) as i32,
+            333 => {
+                let total: i64 = (0..=3).map(|j| pd.judge_count(j)).sum();
+                total.min(i32::MAX as i64) as i32
+            }
+            _ => return None,
+        };
+        Some(val)
+    }
+
+    fn volume_integer(&self, id: i32) -> Option<i32> {
+        let audio = self.config.as_ref()?.audio.as_ref()?;
+        let val = match id {
+            57 => (audio.systemvolume * 100.0) as i32,
+            58 => (audio.keyvolume * 100.0) as i32,
+            59 => (audio.bgvolume * 100.0) as i32,
+            _ => return None,
+        };
+        Some(val)
+    }
+
+    fn song_data_integer(&self, id: i32) -> Option<i32> {
+        let song = self.song_data.as_ref()?;
+        let val = match id {
+            90 => song.chart.maxbpm,
+            91 => song.chart.minbpm,
+            92 => song
+                .info
+                .as_ref()
+                .map(|i| i.mainbpm as i32)
+                .unwrap_or(i32::MIN),
+            96 => song.chart.level,
+            312 => song.chart.length,
+            350 => song.chart.notes,
+            351 => song.info.as_ref().map_or(i32::MIN, |i| i.n),
+            352 => song.info.as_ref().map_or(i32::MIN, |i| i.ln),
+            353 => song.info.as_ref().map_or(i32::MIN, |i| i.s),
+            360 => song
+                .info
+                .as_ref()
+                .map_or(i32::MIN, |i| i.peakdensity as i32),
+            361 => song
+                .info
+                .as_ref()
+                .map_or(i32::MIN, |i| ((i.peakdensity * 100.0) as i32) % 100),
+            362 => song.info.as_ref().map_or(i32::MIN, |i| i.enddensity as i32),
+            363 => song
+                .info
+                .as_ref()
+                .map_or(i32::MIN, |i| ((i.enddensity * 100.0) as i32) % 100),
+            364 => song.info.as_ref().map_or(i32::MIN, |i| i.density as i32),
+            365 => song
+                .info
+                .as_ref()
+                .map_or(i32::MIN, |i| ((i.density * 100.0) as i32) % 100),
+            368 => song.info.as_ref().map_or(i32::MIN, |i| i.total as i32),
+            400 => song.chart.judge,
+            1163 => (song.chart.length.max(0) / 60000) % 60,
+            1164 => (song.chart.length.max(0) / 1000) % 60,
+            _ => return None,
+        };
+        Some(val)
+    }
+
+    fn score_property_integer(&self, id: i32) -> Option<i32> {
+        let sp = &self.score_data_property;
+        let has_score = self.score_data.is_some();
+        let val = match id {
+            // EX score
+            71 | 101 | 171 => self.score_data.as_ref().map_or(i32::MIN, |s| s.exscore()),
+            // Max score (notes * 2)
+            72 => self.score_data.as_ref().map_or(i32::MIN, |s| s.notes * 2),
+            // Max combo
+            75 => self.score_data.as_ref().map_or(i32::MIN, |s| s.maxcombo),
+            // Miss count / minbp
+            76 => self.score_data.as_ref().map_or(i32::MIN, |s| s.minbp),
+            // Judge counts (total)
+            80..=84 => {
+                let index = id - 80;
+                self.score_data
+                    .as_ref()
+                    .map_or(i32::MIN, |s| s.judge_count_total(index))
+            }
+            // Judge count rates (count * 100 / notes)
+            85..=89 => {
+                let index = id - 85;
+                self.score_data.as_ref().map_or(i32::MIN, |s| {
+                    if s.notes > 0 {
+                        s.judge_count_total(index) * 100 / s.notes
+                    } else {
+                        i32::MIN
+                    }
+                })
+            }
+            // Score data property values
+            100 => sp.now_score(),
+            102 => {
+                if has_score {
+                    sp.nowrate_int
+                } else {
+                    i32::MIN
+                }
+            }
+            103 => {
+                if has_score {
+                    sp.nowrate_after_dot
+                } else {
+                    i32::MIN
+                }
+            }
+            108 | 128 | 153 => sp.nowscore - sp.nowrivalscore,
+            115 | 155 => {
+                if has_score {
+                    sp.rate_int
+                } else {
+                    i32::MIN
+                }
+            }
+            116 | 156 => {
+                if has_score {
+                    sp.rate_after_dot
+                } else {
+                    i32::MIN
+                }
+            }
+            121 | 151 => sp.rivalscore,
+            122 | 157 => sp.rivalrate_int,
+            123 | 158 => sp.rivalrate_after_dot,
+            152 | 172 => sp.nowscore - sp.nowbestscore,
+            154 => sp.nextrank,
+            183 => sp.bestrate_int,
+            184 => sp.bestrate_after_dot,
+            _ => return None,
+        };
+        Some(val)
+    }
+
+    fn play_config_integer(&self, id: i32) -> Option<i32> {
+        let pc = self.play_config.as_ref()?;
+        let val = match id {
+            10 => (pc.hispeed * 100.0) as i32,
+            12 => self
+                .player_config
+                .as_ref()
+                .map_or(i32::MIN, |p| p.judge_settings.judgetiming),
+            310 => pc.hispeed as i32,
+            311 => ((pc.hispeed * 100.0) as i32) % 100,
+            313 => pc.duration,
+            _ => return None,
+        };
+        Some(val)
+    }
+
+    fn shared_boolean_value(&self, id: i32) -> Option<bool> {
+        let val = match id {
+            // BGA on/off from config
+            40 => self
+                .config
+                .as_ref()
+                .is_some_and(|c| c.render.bga == crate::config::BgaMode::Off),
+            41 => self
+                .config
+                .as_ref()
+                .is_none_or(|c| c.render.bga != crate::config::BgaMode::Off),
+            // Save score on/off
+            60 => !self.is_update_score,
+            61 => self.is_update_score,
+            // Stagefile/banner/backbmp existence
+            190 => self
+                .song_data
+                .as_ref()
+                .is_none_or(|s| s.file.stagefile.is_empty()),
+            191 => self
+                .song_data
+                .as_ref()
+                .is_some_and(|s| !s.file.stagefile.is_empty()),
+            192 => self
+                .song_data
+                .as_ref()
+                .is_none_or(|s| s.file.banner.is_empty()),
+            193 => self
+                .song_data
+                .as_ref()
+                .is_some_and(|s| !s.file.banner.is_empty()),
+            194 => self
+                .song_data
+                .as_ref()
+                .is_none_or(|s| s.file.backbmp.is_empty()),
+            195 => self
+                .song_data
+                .as_ref()
+                .is_some_and(|s| !s.file.backbmp.is_empty()),
+            // Course stage
+            280 => self.is_course_mode && self.course_index == 0,
+            281 => self.is_course_mode && self.course_index == 1,
+            282 => self.is_course_mode && self.course_index == 2,
+            283 => self.is_course_mode && self.course_index == 3,
+            // Course final stage
+            289 => {
+                self.is_course_mode
+                    && self.course_song_count > 0
+                    && self.course_index == self.course_song_count - 1
+            }
+            // Course mode
+            290 => self.is_course_mode,
+            _ => return None,
+        };
+        Some(val)
+    }
+
+    fn shared_float_value(&self, id: i32) -> Option<f32> {
+        let audio = self.config.as_ref()?.audio.as_ref();
+        let val = match id {
+            17 => audio.map_or(DEFAULT_AUDIO_VOLUME, |a| a.systemvolume),
+            18 => audio.map_or(DEFAULT_AUDIO_VOLUME, |a| a.keyvolume),
+            19 => audio.map_or(DEFAULT_AUDIO_VOLUME, |a| a.bgvolume),
+            _ => return None,
+        };
+        Some(val)
+    }
+
+    fn shared_string_value(&self, id: i32) -> Option<String> {
+        let song = self.song_data.as_ref()?;
+        let val = match id {
+            10 => song.metadata.title.clone(),
+            11 => song.metadata.subtitle.clone(),
+            12 => {
+                if song.metadata.subtitle.is_empty() {
+                    song.metadata.title.clone()
+                } else {
+                    format!("{} {}", song.metadata.title, song.metadata.subtitle)
+                }
+            }
+            13 => song.metadata.genre.clone(),
+            14 => song.metadata.artist.clone(),
+            15 => song.metadata.subartist.clone(),
+            16 => {
+                if song.metadata.subartist.is_empty() {
+                    song.metadata.artist.clone()
+                } else {
+                    format!("{} {}", song.metadata.artist, song.metadata.subartist)
+                }
+            }
+            _ => return None,
+        };
+        Some(val)
+    }
+
+    fn shared_image_index_value(&self, id: i32) -> Option<i32> {
+        match id {
+            308 => {
+                if let Some(song) = self.song_data.as_ref()
+                    && let Some(override_val) =
+                        crate::skin_render_context::compute_lnmode_from_chart(&song.chart)
+                {
+                    Some(override_val)
+                } else {
+                    None // fall through to default_image_index_value
+                }
+            }
+            _ => None,
+        }
     }
 }
 
@@ -317,6 +634,7 @@ impl crate::skin_render_context::SkinRenderContext for PropertySnapshot {
         self.integers
             .get(&id)
             .copied()
+            .or_else(|| self.shared_integer_value(id))
             .unwrap_or_else(|| self.default_integer_value(id))
     }
 
@@ -324,6 +642,7 @@ impl crate::skin_render_context::SkinRenderContext for PropertySnapshot {
         self.image_indices
             .get(&id)
             .copied()
+            .or_else(|| self.shared_image_index_value(id))
             .unwrap_or_else(|| self.default_image_index_value(id))
     }
 
@@ -331,6 +650,7 @@ impl crate::skin_render_context::SkinRenderContext for PropertySnapshot {
         self.booleans
             .get(&id)
             .copied()
+            .or_else(|| self.shared_boolean_value(id))
             .unwrap_or_else(|| self.default_boolean_value(id))
     }
 
@@ -338,11 +658,16 @@ impl crate::skin_render_context::SkinRenderContext for PropertySnapshot {
         self.floats
             .get(&id)
             .copied()
+            .or_else(|| self.shared_float_value(id))
             .unwrap_or_else(|| self.default_float_value(id))
     }
 
     fn string_value(&self, id: i32) -> String {
-        self.strings.get(&id).cloned().unwrap_or_default()
+        self.strings
+            .get(&id)
+            .cloned()
+            .or_else(|| self.shared_string_value(id))
+            .unwrap_or_default()
     }
 
     fn set_float_value(&mut self, id: i32, value: f32) {
@@ -792,5 +1117,265 @@ mod tests {
 
         snapshot.state_type = Some(MainStateType::Result);
         assert!(snapshot.is_result_state());
+    }
+
+    // ================================================================
+    // Shared property computation tests
+    // ================================================================
+
+    #[test]
+    fn shared_player_data_integers() {
+        let mut snapshot = PropertySnapshot::new();
+        let mut pd = PlayerData::default();
+        pd.playtime = 3723; // 1h 2m 3s
+        pd.playcount = 500;
+        pd.clear = 300;
+        pd.epg = 100;
+        pd.lpg = 50;
+        pd.egr = 80;
+        pd.lgr = 40;
+        pd.egd = 30;
+        pd.lgd = 20;
+        pd.ebd = 10;
+        pd.lbd = 5;
+        pd.epr = 8;
+        pd.lpr = 3;
+        pd.ems = 2;
+        pd.lms = 1;
+        snapshot.player_data = Some(pd);
+
+        // Playtime: 3723s = 1h 2m 3s
+        assert_eq!(snapshot.integer_value(17), 1); // hours
+        assert_eq!(snapshot.integer_value(18), 2); // minutes
+        assert_eq!(snapshot.integer_value(19), 3); // seconds
+        // Player stats
+        assert_eq!(snapshot.integer_value(30), 500); // playcount
+        assert_eq!(snapshot.integer_value(31), 300); // clear
+        assert_eq!(snapshot.integer_value(32), 200); // playcount - clear
+    }
+
+    #[test]
+    fn shared_player_data_none_falls_through() {
+        let snapshot = PropertySnapshot::new();
+        // Without player_data, IDs 17-19 should fall through to default (FPS/date)
+        // ID 17 is in player_data_integer range but player_data is None,
+        // so it falls through to default_integer_value which returns i32::MIN for 17
+        assert_eq!(snapshot.integer_value(17), i32::MIN);
+    }
+
+    #[test]
+    fn shared_volume_integers() {
+        let mut snapshot = PropertySnapshot::new();
+        let mut config = Config::default();
+        let mut audio = crate::audio_config::AudioConfig::default();
+        audio.systemvolume = 0.75;
+        audio.keyvolume = 0.5;
+        audio.bgvolume = 0.25;
+        config.audio = Some(audio);
+        snapshot.config = Some(Box::new(config));
+
+        assert_eq!(snapshot.integer_value(57), 75);
+        assert_eq!(snapshot.integer_value(58), 50);
+        assert_eq!(snapshot.integer_value(59), 25);
+    }
+
+    #[test]
+    fn shared_song_data_integers() {
+        let mut snapshot = PropertySnapshot::new();
+        let mut song = SongData::default();
+        song.chart.maxbpm = 200;
+        song.chart.minbpm = 100;
+        song.chart.level = 12;
+        song.chart.notes = 1500;
+        song.chart.length = 125000; // 2m 5s
+        song.chart.judge = 50;
+        snapshot.song_data = Some(Box::new(song));
+
+        assert_eq!(snapshot.integer_value(90), 200); // maxbpm
+        assert_eq!(snapshot.integer_value(91), 100); // minbpm
+        assert_eq!(snapshot.integer_value(96), 12); // level
+        assert_eq!(snapshot.integer_value(312), 125000); // length
+        assert_eq!(snapshot.integer_value(350), 1500); // notes
+        assert_eq!(snapshot.integer_value(400), 50); // judge
+        assert_eq!(snapshot.integer_value(1163), 2); // duration minutes
+        assert_eq!(snapshot.integer_value(1164), 5); // duration seconds
+    }
+
+    #[test]
+    fn shared_score_property_integers() {
+        let mut snapshot = PropertySnapshot::new();
+        let mut score = ScoreData::default();
+        score.judge_counts.epg = 100;
+        score.judge_counts.lpg = 50;
+        score.notes = 200;
+        score.maxcombo = 180;
+        score.minbp = 10;
+        snapshot.score_data = Some(Box::new(score));
+        snapshot.score_data_property.nowpoint = 300;
+        snapshot.score_data_property.nowscore = 350;
+        snapshot.score_data_property.nowrivalscore = 250;
+        snapshot.score_data_property.nowbestscore = 280;
+        snapshot.score_data_property.nowrate_int = 85;
+        snapshot.score_data_property.nowrate_after_dot = 50;
+
+        // EX score = (epg + lpg) * 2 + egr + lgr = (100+50)*2 = 300
+        assert_eq!(snapshot.integer_value(71), 300);
+        // Max score = notes * 2
+        assert_eq!(snapshot.integer_value(72), 400);
+        // Max combo
+        assert_eq!(snapshot.integer_value(75), 180);
+        // Miss count
+        assert_eq!(snapshot.integer_value(76), 10);
+        // Score property (now_score() reads nowpoint)
+        assert_eq!(snapshot.integer_value(100), 300); // nowpoint
+        assert_eq!(snapshot.integer_value(102), 85); // nowrate_int
+        // Diff vs target (nowscore - nowrivalscore)
+        assert_eq!(snapshot.integer_value(108), 100); // 350 - 250
+        // Diff vs best (nowscore - nowbestscore)
+        assert_eq!(snapshot.integer_value(152), 70); // 350 - 280
+    }
+
+    #[test]
+    fn shared_play_config_integers() {
+        let mut snapshot = PropertySnapshot::new();
+        let mut pc = PlayConfig::default();
+        pc.hispeed = 3.75;
+        pc.duration = 500;
+        snapshot.play_config = Some(Box::new(pc));
+        snapshot.player_config = Some(Box::new(PlayerConfig::default()));
+
+        assert_eq!(snapshot.integer_value(10), 375); // hispeed * 100
+        assert_eq!(snapshot.integer_value(310), 3); // hispeed integer part
+        assert_eq!(snapshot.integer_value(311), 75); // hispeed afterdot
+        assert_eq!(snapshot.integer_value(313), 500); // duration
+    }
+
+    #[test]
+    fn shared_boolean_bga() {
+        let mut snapshot = PropertySnapshot::new();
+        let mut config = Config::default();
+        config.render.bga = crate::config::BgaMode::Off;
+        snapshot.config = Some(Box::new(config));
+
+        assert!(snapshot.boolean_value(40)); // BGA off
+        assert!(!snapshot.boolean_value(41)); // BGA on
+    }
+
+    #[test]
+    fn shared_boolean_save_score() {
+        let mut snapshot = PropertySnapshot::new();
+        snapshot.is_update_score = true;
+
+        assert!(!snapshot.boolean_value(60)); // disable save = false
+        assert!(snapshot.boolean_value(61)); // enable save = true
+    }
+
+    #[test]
+    fn shared_boolean_stagefile() {
+        let mut snapshot = PropertySnapshot::new();
+        let mut song = SongData::default();
+        song.file.stagefile = "stage.bmp".to_string();
+        snapshot.song_data = Some(Box::new(song));
+
+        assert!(!snapshot.boolean_value(190)); // no stagefile = false
+        assert!(snapshot.boolean_value(191)); // has stagefile = true
+    }
+
+    #[test]
+    fn shared_boolean_course() {
+        let mut snapshot = PropertySnapshot::new();
+        snapshot.is_course_mode = true;
+        snapshot.course_index = 2;
+        snapshot.course_song_count = 4;
+
+        assert!(!snapshot.boolean_value(280)); // stage 0
+        assert!(!snapshot.boolean_value(281)); // stage 1
+        assert!(snapshot.boolean_value(282)); // stage 2 (current)
+        assert!(!snapshot.boolean_value(283)); // stage 3
+        assert!(!snapshot.boolean_value(289)); // final stage (index 2 != 3)
+        assert!(snapshot.boolean_value(290)); // is course mode
+    }
+
+    #[test]
+    fn shared_boolean_course_final_stage() {
+        let mut snapshot = PropertySnapshot::new();
+        snapshot.is_course_mode = true;
+        snapshot.course_index = 3;
+        snapshot.course_song_count = 4;
+
+        assert!(snapshot.boolean_value(289)); // final stage
+    }
+
+    #[test]
+    fn shared_float_volume() {
+        let mut snapshot = PropertySnapshot::new();
+        let mut config = Config::default();
+        let mut audio = crate::audio_config::AudioConfig::default();
+        audio.systemvolume = 0.8;
+        audio.keyvolume = 0.6;
+        audio.bgvolume = 0.4;
+        config.audio = Some(audio);
+        snapshot.config = Some(Box::new(config));
+
+        assert_eq!(snapshot.float_value(17), 0.8);
+        assert_eq!(snapshot.float_value(18), 0.6);
+        assert_eq!(snapshot.float_value(19), 0.4);
+    }
+
+    #[test]
+    fn shared_string_song_metadata() {
+        let mut snapshot = PropertySnapshot::new();
+        let mut song = SongData::default();
+        song.metadata.title = "Test Song".to_string();
+        song.metadata.subtitle = "~remix~".to_string();
+        song.metadata.artist = "DJ Test".to_string();
+        song.metadata.subartist = "feat. Vocal".to_string();
+        song.metadata.genre = "Techno".to_string();
+        snapshot.song_data = Some(Box::new(song));
+
+        assert_eq!(snapshot.string_value(10), "Test Song");
+        assert_eq!(snapshot.string_value(11), "~remix~");
+        assert_eq!(snapshot.string_value(12), "Test Song ~remix~");
+        assert_eq!(snapshot.string_value(13), "Techno");
+        assert_eq!(snapshot.string_value(14), "DJ Test");
+        assert_eq!(snapshot.string_value(15), "feat. Vocal");
+        assert_eq!(snapshot.string_value(16), "DJ Test feat. Vocal");
+    }
+
+    #[test]
+    fn shared_string_no_subtitle() {
+        let mut snapshot = PropertySnapshot::new();
+        let mut song = SongData::default();
+        song.metadata.title = "Test Song".to_string();
+        snapshot.song_data = Some(Box::new(song));
+
+        // ID 12 (full title) should be just title when subtitle is empty
+        assert_eq!(snapshot.string_value(12), "Test Song");
+    }
+
+    #[test]
+    fn shared_image_index_lnmode() {
+        let mut snapshot = PropertySnapshot::new();
+        let mut song = SongData::default();
+        song.chart.feature = crate::song_data::FEATURE_LONGNOTE;
+        snapshot.song_data = Some(Box::new(song));
+
+        // LN type = 0 (LN) because has_long_note && has_any_long_note && !has_undefined
+        assert_eq!(snapshot.image_index_value(308), 0);
+    }
+
+    #[test]
+    fn hashmap_overrides_shared_value() {
+        let mut snapshot = PropertySnapshot::new();
+        let mut pd = PlayerData::default();
+        pd.playcount = 500;
+        snapshot.player_data = Some(pd);
+
+        // Shared value: ID 30 = playcount = 500
+        assert_eq!(snapshot.integer_value(30), 500);
+
+        // HashMap override takes priority
+        snapshot.integers.insert(30, 999);
+        assert_eq!(snapshot.integer_value(30), 999);
     }
 }
