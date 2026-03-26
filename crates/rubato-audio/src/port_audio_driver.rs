@@ -155,6 +155,10 @@ impl AudioDriver for PortAudioDriver {
     fn set_model(&mut self, model: &BMSModel) {
         log::info!("Loading keysound files.");
 
+        // Clear deferred path loader: old path loads become irrelevant when
+        // switching to a new model.
+        self.deferred_path_loader.clear();
+
         // Stop all active handles before clearing (matches stop_note(None) pattern)
         for (_, handles) in self.wav_handles.drain() {
             for mut handle in handles {
@@ -509,6 +513,9 @@ impl AudioDriver for PortAudioDriver {
     }
 
     fn dispose(&mut self) {
+        // Clear deferred path loader first to drain pending state and join
+        // finished background threads before tearing down the rest of the driver.
+        self.deferred_path_loader.clear();
         // Drop the receiver first so the background thread's send() returns Err
         // and the thread exits promptly, then drop the handle instead of joining
         // to avoid blocking while par_iter() completes remaining file I/O.

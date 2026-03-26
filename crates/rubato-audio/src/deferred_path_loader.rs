@@ -207,7 +207,6 @@ impl DeferredPathLoader {
     ///
     /// Joins already-finished handles to log panics; drops in-flight handles
     /// to avoid blocking dispose (per "Loader thread: drop handle, don't join").
-    #[allow(dead_code)]
     pub fn clear(&mut self) {
         self.loading.clear();
         self.pending_plays.clear();
