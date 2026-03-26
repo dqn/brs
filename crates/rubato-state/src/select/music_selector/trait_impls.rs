@@ -370,7 +370,7 @@ impl MainState for MusicSelector {
             bar_renderer.prepare(skin_bar, time, &ctx);
         }
 
-        // Skin draw cycle with rich render context (config + timer)
+        // Skin draw cycle with PropertySnapshot
         {
             let mut skin = match self.main_state_data.skin.take() {
                 Some(s) => s,
@@ -378,19 +378,41 @@ impl MainState for MusicSelector {
             };
             let mut timer = std::mem::take(&mut self.main_state_data.timer);
 
-            // Refresh cached data before creating the render context
+            // Refresh cached data before building the snapshot
             self.refresh_cached_target_score();
             self.refresh_cached_score_data_property();
 
-            {
-                let mut ctx = SelectSkinContext {
-                    timer: &mut timer,
-                    selector: self,
-                };
-                skin.update_custom_objects_timed(&mut ctx);
-                skin.swap_sprite_batch(sprite);
-                skin.draw_all_objects_timed(&mut ctx);
-                skin.swap_sprite_batch(sprite);
+            let mut snapshot = self.build_snapshot(&timer);
+            skin.update_custom_objects_timed(&mut snapshot);
+            skin.swap_sprite_batch(sprite);
+            skin.draw_all_objects_timed(&mut snapshot);
+            skin.swap_sprite_batch(sprite);
+
+            // Drain non-event actions (timers, audio, state changes)
+            self.drain_actions(&mut snapshot.actions, &mut timer);
+            self.propagate_player_config(&snapshot);
+            self.propagate_app_config(&snapshot);
+
+            // Replay queued custom events now that the skin is available again.
+            let mut pending_events = std::mem::take(&mut snapshot.actions.custom_events);
+            let mut depth = 0;
+            while !pending_events.is_empty() && depth < 8 {
+                let mut replay_snapshot = self.build_snapshot(&timer);
+                for (id, arg1, arg2) in pending_events {
+                    if let Some(event) = delegated_event_type_from_id(id) {
+                        self.execute_event_with_args(event, arg1, arg2);
+                    } else {
+                        skin.execute_custom_event(&mut replay_snapshot, id, arg1, arg2);
+                    }
+                }
+                self.drain_actions(&mut replay_snapshot.actions, &mut timer);
+                self.propagate_player_config(&replay_snapshot);
+                self.propagate_app_config(&replay_snapshot);
+                pending_events = replay_snapshot.actions.custom_events;
+                depth += 1;
+            }
+            if depth >= 8 {
+                log::warn!("Select render_skin event replay exceeded depth limit");
             }
 
             self.main_state_data.timer = timer;
@@ -452,12 +474,32 @@ impl MainState for MusicSelector {
         };
         let mut timer = std::mem::take(&mut self.main_state_data.timer);
 
-        {
-            let mut ctx = SelectSkinContext {
-                timer: &mut timer,
-                selector: self,
-            };
-            skin.mouse_pressed_at(&mut ctx, button, x, y);
+        let mut snapshot = self.build_snapshot(&timer);
+        skin.mouse_pressed_at(&mut snapshot, button, x, y);
+        self.drain_actions(&mut snapshot.actions, &mut timer);
+        self.propagate_player_config(&snapshot);
+        self.propagate_app_config(&snapshot);
+
+        // Replay queued custom events.
+        let mut pending_events = std::mem::take(&mut snapshot.actions.custom_events);
+        let mut depth = 0;
+        while !pending_events.is_empty() && depth < 8 {
+            let mut replay_snapshot = self.build_snapshot(&timer);
+            for (id, arg1, arg2) in pending_events {
+                if let Some(event) = delegated_event_type_from_id(id) {
+                    self.execute_event_with_args(event, arg1, arg2);
+                } else {
+                    skin.execute_custom_event(&mut replay_snapshot, id, arg1, arg2);
+                }
+            }
+            self.drain_actions(&mut replay_snapshot.actions, &mut timer);
+            self.propagate_player_config(&replay_snapshot);
+            self.propagate_app_config(&replay_snapshot);
+            pending_events = replay_snapshot.actions.custom_events;
+            depth += 1;
+        }
+        if depth >= 8 {
+            log::warn!("Select mouse_pressed event replay exceeded depth limit");
         }
 
         self.main_state_data.timer = timer;
@@ -521,12 +563,32 @@ impl MainState for MusicSelector {
         };
         let mut timer = std::mem::take(&mut self.main_state_data.timer);
 
-        {
-            let mut ctx = SelectSkinContext {
-                timer: &mut timer,
-                selector: self,
-            };
-            skin.mouse_dragged_at(&mut ctx, button, x, y);
+        let mut snapshot = self.build_snapshot(&timer);
+        skin.mouse_dragged_at(&mut snapshot, button, x, y);
+        self.drain_actions(&mut snapshot.actions, &mut timer);
+        self.propagate_player_config(&snapshot);
+        self.propagate_app_config(&snapshot);
+
+        // Replay queued custom events.
+        let mut pending_events = std::mem::take(&mut snapshot.actions.custom_events);
+        let mut depth = 0;
+        while !pending_events.is_empty() && depth < 8 {
+            let mut replay_snapshot = self.build_snapshot(&timer);
+            for (id, arg1, arg2) in pending_events {
+                if let Some(event) = delegated_event_type_from_id(id) {
+                    self.execute_event_with_args(event, arg1, arg2);
+                } else {
+                    skin.execute_custom_event(&mut replay_snapshot, id, arg1, arg2);
+                }
+            }
+            self.drain_actions(&mut replay_snapshot.actions, &mut timer);
+            self.propagate_player_config(&replay_snapshot);
+            self.propagate_app_config(&replay_snapshot);
+            pending_events = replay_snapshot.actions.custom_events;
+            depth += 1;
+        }
+        if depth >= 8 {
+            log::warn!("Select mouse_dragged event replay exceeded depth limit");
         }
 
         self.main_state_data.timer = timer;

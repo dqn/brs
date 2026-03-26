@@ -504,6 +504,7 @@ mod pattern;
 mod render_skin;
 mod scoring;
 mod skin_context;
+mod snapshot;
 
 #[cfg(test)]
 pub(crate) use main_state_impl::pad_gaugelog_with_zeros;

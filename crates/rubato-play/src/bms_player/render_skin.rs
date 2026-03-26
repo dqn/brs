@@ -1,4 +1,3 @@
-use super::skin_context::PlayRenderContext;
 use super::*;
 
 /// Maximum time difference (in microseconds) allowed when falling back to
@@ -194,100 +193,32 @@ impl BMSPlayer {
         }
 
         {
-            let lr_ref = self.lanerender.as_ref();
-            let mut ctx = PlayRenderContext {
-                timer: &mut timer,
-                judge: &self.judge,
-                gauge: self.gauge.as_ref(),
-                player_config: &self.player_config,
-                live_hispeed: lr_ref.map_or(0.0, |lr| lr.hispeed()),
-                live_lanecover: lr_ref.map_or(0.0, |lr| lr.lanecover()),
-                live_lift: lr_ref.map_or(0.0, |lr| lr.lift_region()),
-                live_hidden: lr_ref.map_or(0.0, |lr| lr.hidden_cover()),
-                option_info: &self.score.playinfo,
-                play_config: &self
-                    .player_config
-                    .play_config_ref(
-                        self.model
-                            .mode()
-                            .cloned()
-                            .unwrap_or(bms_model::mode::Mode::BEAT_7K),
-                    )
-                    .playconfig,
-                target_score: self.score.target_score.as_ref(),
-                score_data: self.score.db_score.as_ref(),
-                playtime: self.playtime,
-                total_notes: self.total_notes(),
-                play_mode: self.play_mode,
-                state: self.state,
-                media_load_finished: self.media_load_finished,
-                audio_progress: self.audio_progress,
-                bga_progress: self.bga_progress,
-                bga_enabled: self.bga_enabled,
-                now_bpm: lr_ref.map_or(0.0, |lr| lr.now_bpm()),
-                min_bpm: lr_ref.map_or(0.0, |lr| lr.min_bpm()),
-                max_bpm: lr_ref.map_or(0.0, |lr| lr.max_bpm()),
-                main_bpm: lr_ref.map_or(0.0, |lr| lr.main_bpm()),
-                system_volume: self.system_volume,
-                key_volume: self.key_volume,
-                bg_volume: self.bg_volume,
-                is_mode_changed: self.orgmode.is_some_and(|org| {
-                    self.model
-                        .mode()
-                        .copied()
-                        .unwrap_or(bms_model::mode::Mode::BEAT_7K)
-                        != org
-                }),
-                lnmode_override: self.lnmode_override,
-                config: &mut self.config,
-                score_data_property: &self.main_state_data.score,
-                song_metadata: &self.song_metadata,
-                song_data: self.song_data.as_ref(),
-                player_data: self.player_data.as_ref(),
-                offsets: &self.main_state_data.offsets,
-                cumulative_playtime_seconds: self.cumulative_playtime_seconds,
-                current_duration: lr_ref.map_or(0, |lr| lr.current_duration()),
-                pending: &mut self.pending,
-                judge_area: {
-                    let mode = self
-                        .model
-                        .mode()
-                        .copied()
-                        .unwrap_or(bms_model::mode::Mode::BEAT_7K);
-                    let rule = BMSPlayerRule::for_mode(&mode);
-                    let mut jwr = if self.player_config.judge_settings.custom_judge {
-                        [
-                            self.player_config
-                                .judge_settings
-                                .key_judge_window_rate_perfect_great,
-                            self.player_config
-                                .judge_settings
-                                .key_judge_window_rate_great,
-                            self.player_config.judge_settings.key_judge_window_rate_good,
-                        ]
-                    } else {
-                        [100, 100, 100]
-                    };
-                    for con in &self.constraints {
-                        use rubato_core::course_data::CourseDataConstraint;
-                        match con {
-                            CourseDataConstraint::NoGreat => {
-                                jwr[1] = 0;
-                                jwr[2] = 0;
-                            }
-                            CourseDataConstraint::NoGood => {
-                                jwr[2] = 0;
-                            }
-                            _ => {}
-                        }
-                    }
-                    Some(rule.judge.note_judge(self.model.judgerank, &jwr))
-                },
-            };
-            skin.update_custom_objects_timed(&mut ctx);
+            let mut snapshot = self.build_snapshot(&timer);
+            skin.update_custom_objects_timed(&mut snapshot);
             skin.swap_sprite_batch(sprite);
-            skin.draw_all_objects_timed(&mut ctx);
+            skin.draw_all_objects_timed(&mut snapshot);
             skin.swap_sprite_batch(sprite);
+
+            // Drain non-event actions (timers, audio, state changes)
+            self.drain_actions(&mut snapshot.actions, &mut timer);
+            self.propagate_snapshot_config(&snapshot);
+
+            // Replay queued custom events now that the skin is available again.
+            let mut pending_events = std::mem::take(&mut snapshot.actions.custom_events);
+            let mut depth = 0;
+            while !pending_events.is_empty() && depth < 8 {
+                let mut replay_snapshot = self.build_snapshot(&timer);
+                for (id, arg1, arg2) in pending_events {
+                    skin.execute_custom_event(&mut replay_snapshot, id, arg1, arg2);
+                }
+                self.drain_actions(&mut replay_snapshot.actions, &mut timer);
+                self.propagate_snapshot_config(&replay_snapshot);
+                pending_events = replay_snapshot.actions.custom_events;
+                depth += 1;
+            }
+            if depth >= 8 {
+                log::warn!("Play render_skin event replay exceeded depth limit");
+            }
         }
 
         self.main_state_data.timer = timer;

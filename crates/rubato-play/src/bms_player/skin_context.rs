@@ -1,8 +1,10 @@
 use super::*;
 
 /// Render context adapter for BMSPlayer skin rendering.
-/// Provides real gameplay data (judge, gauge, combo) through SkinRenderContext
-/// so skin objects can query live state during the draw cycle.
+///
+/// NOTE: Production code now uses PropertySnapshot-based rendering (see snapshot.rs).
+/// This struct is retained for existing unit tests that validate property computation parity.
+#[cfg_attr(not(test), allow(dead_code))]
 pub(super) struct PlayRenderContext<'a> {
     pub(super) timer: &'a mut TimerManager,
     pub(super) judge: &'a JudgeManager,
@@ -508,6 +510,9 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayRenderContext<
     }
 }
 
+/// NOTE: Production code now uses PropertySnapshot-based rendering (see snapshot.rs).
+/// This struct is retained for existing unit tests.
+#[cfg_attr(not(test), allow(dead_code))]
 pub(super) struct PlayMouseContext<'a> {
     pub(super) timer: &'a mut TimerManager,
     pub(super) player: &'a mut BMSPlayer,

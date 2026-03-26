@@ -894,6 +894,7 @@ impl ChartReplicationMode {
 
 mod bar_operations;
 mod commands;
+mod snapshot;
 mod song_selection;
 mod trait_impls;
 

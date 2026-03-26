@@ -1,4 +1,3 @@
-use super::skin_context::PlayMouseContext;
 use super::*;
 
 impl BMSPlayer {
@@ -9,14 +8,26 @@ impl BMSPlayer {
         };
         let mut timer = std::mem::take(&mut self.main_state_data.timer);
 
-        {
-            // Known limitation: PlayMouseContext cannot dispatch custom events (IDs 1000-1999)
-            // because the skin is take()-ed before context creation. See AGENTS.md.
-            let mut ctx = PlayMouseContext {
-                timer: &mut timer,
-                player: self,
-            };
-            skin.mouse_pressed_at(&mut ctx, button, x, y);
+        let mut snapshot = self.build_snapshot(&timer);
+        skin.mouse_pressed_at(&mut snapshot, button, x, y);
+        self.drain_actions(&mut snapshot.actions, &mut timer);
+        self.propagate_snapshot_config(&snapshot);
+
+        // Replay queued custom events.
+        let mut pending_events = std::mem::take(&mut snapshot.actions.custom_events);
+        let mut depth = 0;
+        while !pending_events.is_empty() && depth < 8 {
+            let mut replay_snapshot = self.build_snapshot(&timer);
+            for (id, arg1, arg2) in pending_events {
+                skin.execute_custom_event(&mut replay_snapshot, id, arg1, arg2);
+            }
+            self.drain_actions(&mut replay_snapshot.actions, &mut timer);
+            self.propagate_snapshot_config(&replay_snapshot);
+            pending_events = replay_snapshot.actions.custom_events;
+            depth += 1;
+        }
+        if depth >= 8 {
+            log::warn!("Play mouse_pressed event replay exceeded depth limit");
         }
 
         self.main_state_data.timer = timer;
@@ -30,12 +41,26 @@ impl BMSPlayer {
         };
         let mut timer = std::mem::take(&mut self.main_state_data.timer);
 
-        {
-            let mut ctx = PlayMouseContext {
-                timer: &mut timer,
-                player: self,
-            };
-            skin.mouse_dragged_at(&mut ctx, button, x, y);
+        let mut snapshot = self.build_snapshot(&timer);
+        skin.mouse_dragged_at(&mut snapshot, button, x, y);
+        self.drain_actions(&mut snapshot.actions, &mut timer);
+        self.propagate_snapshot_config(&snapshot);
+
+        // Replay queued custom events.
+        let mut pending_events = std::mem::take(&mut snapshot.actions.custom_events);
+        let mut depth = 0;
+        while !pending_events.is_empty() && depth < 8 {
+            let mut replay_snapshot = self.build_snapshot(&timer);
+            for (id, arg1, arg2) in pending_events {
+                skin.execute_custom_event(&mut replay_snapshot, id, arg1, arg2);
+            }
+            self.drain_actions(&mut replay_snapshot.actions, &mut timer);
+            self.propagate_snapshot_config(&replay_snapshot);
+            pending_events = replay_snapshot.actions.custom_events;
+            depth += 1;
+        }
+        if depth >= 8 {
+            log::warn!("Play mouse_dragged event replay exceeded depth limit");
         }
 
         self.main_state_data.timer = timer;
