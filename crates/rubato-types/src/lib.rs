@@ -109,6 +109,12 @@ pub mod score_data_property;
 // Skin render context (SkinDrawable expansion)
 pub mod skin_render_context;
 
+// Skin action queue (write-back actions from skin rendering)
+pub mod skin_action_queue;
+
+// Property snapshot (read-only game state for skin rendering)
+pub mod property_snapshot;
+
 // Distribution data (SkinDistributionGraph bridge)
 pub mod distribution_data;
 
