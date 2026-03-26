@@ -2,8 +2,9 @@
 /// to avoid blocking the render thread on cache misses.
 ///
 /// Used by GdxSoundDriver, GdxAudioDeviceDriver, and PortAudioDriver.
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::mpsc;
+use std::thread::JoinHandle;
 
 use kira::sound::static_sound::StaticSoundData;
 
@@ -28,6 +29,9 @@ pub(crate) struct DeferredPathLoader {
     loading: HashSet<String>,
     /// Play requests waiting for their path to finish loading.
     pending_plays: Vec<(String, f32, bool)>,
+    /// JoinHandles for background load threads, keyed by path.
+    /// Used to detect and log panics from loader threads.
+    loading_handles: HashMap<String, JoinHandle<()>>,
 }
 
 impl DeferredPathLoader {
@@ -38,6 +42,7 @@ impl DeferredPathLoader {
             rx,
             loading: HashSet::new(),
             pending_plays: Vec::new(),
+            loading_handles: HashMap::new(),
         }
     }
 
@@ -71,7 +76,8 @@ impl DeferredPathLoader {
         self.loading.insert(path.to_string());
         let tx = self.tx.clone();
         let path_owned = path.to_string();
-        std::thread::Builder::new()
+        let path_key = path.to_string();
+        match std::thread::Builder::new()
             .name(format!("path-audio-load:{}", path))
             .spawn(move || {
                 let candidates = crate::audio_driver::paths(&path_owned);
@@ -86,10 +92,18 @@ impl DeferredPathLoader {
                     path: path_owned,
                     sound: loaded,
                 });
-            })
-            .ok();
-        self.pending_plays
-            .push((path.to_string(), volume, loop_play));
+            }) {
+            Ok(handle) => {
+                self.loading_handles.insert(path_key, handle);
+                self.pending_plays
+                    .push((path.to_string(), volume, loop_play));
+            }
+            Err(e) => {
+                log::warn!("Failed to spawn audio load thread for {}: {}", path, e);
+                self.loading.remove(path);
+                // Don't add to pending_plays -- no thread will drain it.
+            }
+        }
     }
 
     /// Poll for completed background loads. Returns newly loaded sounds
@@ -101,6 +115,12 @@ impl DeferredPathLoader {
 
         while let Ok(result) = self.rx.try_recv() {
             self.loading.remove(&result.path);
+            // Join the handle for this completed path to detect panics.
+            if let Some(handle) = self.loading_handles.remove(&result.path)
+                && let Err(e) = handle.join()
+            {
+                log::warn!("Audio load thread panicked for {}: {:?}", result.path, e);
+            }
             if let Some(sound) = result.sound {
                 // Collect all pending plays for this path
                 let plays: Vec<(f32, bool)> = self
@@ -117,16 +137,49 @@ impl DeferredPathLoader {
             }
         }
 
+        // Join finished handles whose results were never received (thread
+        // panicked before sending). This prevents silent panic swallowing.
+        let finished_paths: Vec<String> = self
+            .loading_handles
+            .iter()
+            .filter(|(_, h)| h.is_finished())
+            .map(|(p, _)| p.clone())
+            .collect();
+        for path in finished_paths {
+            if let Some(handle) = self.loading_handles.remove(&path) {
+                if let Err(e) = handle.join() {
+                    log::warn!("Audio load thread panicked for {}: {:?}", path, e);
+                }
+                // Clean up associated state since the thread will never send a result.
+                self.loading.remove(&path);
+                self.pending_plays.retain(|(p, _, _)| *p != path);
+            }
+        }
+
         results
     }
 
     /// Drain all pending state (e.g., on dispose).
+    ///
+    /// Joins already-finished handles to log panics; drops in-flight handles
+    /// to avoid blocking dispose (per "Loader thread: drop handle, don't join").
     #[allow(dead_code)]
     pub fn clear(&mut self) {
         self.loading.clear();
         self.pending_plays.clear();
         // Drain any remaining messages
         while self.rx.try_recv().is_ok() {}
+        // Join finished handles to observe panics, drop the rest.
+        for (path, handle) in self.loading_handles.drain() {
+            if handle.is_finished()
+                && let Err(e) = handle.join()
+            {
+                log::warn!("Audio load thread panicked for {}: {:?}", path, e);
+            }
+            // In-flight handles are dropped (detached), which is safe --
+            // they will complete in the background and their send() will
+            // fail harmlessly since the receiver is about to be dropped.
+        }
     }
 }
 
@@ -192,5 +245,80 @@ mod tests {
         assert_eq!(loader.pending_plays[0].0, "my_path");
         assert!((loader.pending_plays[0].1 - 0.8).abs() < f32::EPSILON);
         assert!(loader.pending_plays[0].2);
+    }
+
+    /// When a background thread panics before sending its result, poll()
+    /// must detect the finished-but-panicked handle, clean up loading/pending
+    /// state, and not leave orphaned entries.
+    #[test]
+    fn poll_cleans_up_panicked_thread_handle() {
+        let mut loader = DeferredPathLoader::new();
+
+        // Spawn a thread that panics without sending a PathLoadResult.
+        let handle = std::thread::Builder::new()
+            .name("test-panic-thread".into())
+            .spawn(|| {
+                panic!("simulated audio load panic");
+            })
+            .unwrap();
+
+        // Wait for the thread to finish (it will panic).
+        while !handle.is_finished() {
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+
+        // Manually insert the panicked handle and associated state.
+        let path = "panicked_path".to_string();
+        loader.loading.insert(path.clone());
+        loader.pending_plays.push((path.clone(), 1.0, false));
+        loader.loading_handles.insert(path.clone(), handle);
+
+        // poll() should detect the finished handle, join it (observing the
+        // panic), and clean up loading + pending_plays for that path.
+        let results = loader.poll();
+
+        assert!(results.is_empty(), "no sound data from a panicked thread");
+        assert!(
+            !loader.loading.contains("panicked_path"),
+            "loading set should be cleaned up after panic"
+        );
+        assert!(
+            loader.pending_plays.is_empty(),
+            "pending_plays should be cleaned up after panic"
+        );
+        assert!(
+            loader.loading_handles.is_empty(),
+            "loading_handles should be cleaned up after panic"
+        );
+    }
+
+    /// clear() joins finished handles and drops in-flight ones without blocking.
+    #[test]
+    fn clear_joins_finished_handles_and_drops_inflight() {
+        let mut loader = DeferredPathLoader::new();
+
+        // Spawn a normal thread that completes quickly.
+        let handle = std::thread::Builder::new()
+            .name("test-normal-thread".into())
+            .spawn(|| {
+                // no-op, completes immediately
+            })
+            .unwrap();
+
+        // Wait for the thread to finish.
+        while !handle.is_finished() {
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+
+        loader
+            .loading_handles
+            .insert("done_path".to_string(), handle);
+        loader.loading.insert("done_path".to_string());
+
+        loader.clear();
+
+        assert!(loader.loading.is_empty());
+        assert!(loader.pending_plays.is_empty());
+        assert!(loader.loading_handles.is_empty());
     }
 }
