@@ -1,8 +1,63 @@
+use std::io::Write;
 use std::time::Duration;
 
+use anyhow::{Result, bail};
 use serde::Deserialize;
 
 use crate::{SongData, TableAccessor, TableData, TableDataAccessor, TableFolder};
+
+/// A `Write` adapter that caps buffered data at a fixed size.
+/// Returns `WriteZero` when the accumulated bytes would exceed the limit,
+/// causing `Response::copy_to()` to abort the transfer early.
+struct LimitedWriter {
+    buf: Vec<u8>,
+    limit: usize,
+}
+
+impl Write for LimitedWriter {
+    fn write(&mut self, data: &[u8]) -> std::io::Result<usize> {
+        if self.buf.len() + data.len() > self.limit {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::WriteZero,
+                "response exceeded size limit",
+            ));
+        }
+        self.buf.extend_from_slice(data);
+        Ok(data.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+/// Read response body with streaming size enforcement.
+///
+/// Unlike `response.bytes()`, this rejects oversized responses during streaming,
+/// preventing memory exhaustion from chunked responses that omit Content-Length.
+fn read_response_bytes_limited(
+    mut response: reqwest::blocking::Response,
+    max_bytes: u64,
+) -> Result<Vec<u8>> {
+    if let Some(content_length) = response.content_length()
+        && content_length > max_bytes
+    {
+        bail!("Response too large: {} bytes", content_length);
+    }
+
+    let mut writer = LimitedWriter {
+        buf: Vec::new(),
+        limit: max_bytes as usize,
+    };
+
+    match response.copy_to(&mut writer) {
+        Ok(_) => Ok(writer.buf),
+        Err(_) if writer.buf.len() >= writer.limit => {
+            bail!("Response too large (>{} bytes)", max_bytes)
+        }
+        Err(e) => bail!("Failed to read response: {}", e),
+    }
+}
 
 /// BMS Search accessor class.
 /// Translated from Java: BMSSearchAccessor extends TableDataAccessor.TableAccessor
@@ -86,15 +141,21 @@ impl BMSSearchAccessor {
     }
 
     fn fetch_elements() -> anyhow::Result<Vec<BMSSearchElement>> {
-        let body = Self::http_client()?.get(API_STRING).send()?.text()?;
-        let elements: Vec<BMSSearchElement> = serde_json::from_str(&body)?;
+        const MAX_RESPONSE_BYTES: u64 = 16 * 1024 * 1024; // 16 MB
+
+        let response = Self::http_client()?.get(API_STRING).send()?;
+        let bytes = read_response_bytes_limited(response, MAX_RESPONSE_BYTES)?;
+        let elements: Vec<BMSSearchElement> = serde_json::from_slice(&bytes)?;
         Ok(elements)
     }
 
     fn fetch_patterns(id: &str) -> anyhow::Result<Vec<BMSPatterns>> {
+        const MAX_RESPONSE_BYTES: u64 = 16 * 1024 * 1024; // 16 MB
+
         let url = format!("https://api.bmssearch.net/v1/bmses/{}/patterns?limit=1", id);
-        let body = Self::http_client()?.get(&url).send()?.text()?;
-        let patterns: Vec<BMSPatterns> = serde_json::from_str(&body)?;
+        let response = Self::http_client()?.get(&url).send()?;
+        let bytes = read_response_bytes_limited(response, MAX_RESPONSE_BYTES)?;
+        let patterns: Vec<BMSPatterns> = serde_json::from_slice(&bytes)?;
         Ok(patterns)
     }
 }
