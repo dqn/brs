@@ -254,6 +254,7 @@ fn play(bms_path: Option<PathBuf>, player_mode: Option<BMSPlayerMode>) -> Result
         fps_tracker: rubato_types::fps_counter::FpsTracker::new(),
         initialized: false,
         key_state,
+        disposed: false,
     };
 
     event_loop.run_app(&mut app)?;
@@ -294,6 +295,10 @@ struct RubatoApp {
     initialized: bool,
     /// Shared key state bridging winit keyboard events to the input system
     key_state: rubato_input::winit_input_bridge::SharedKeyState,
+    /// Set after dispose() is called to prevent redraws on a disposed controller.
+    /// Between event_loop.exit() and actual loop termination, about_to_wait can
+    /// still fire; this flag gates redraw requests.
+    disposed: bool,
 }
 
 impl ApplicationHandler for RubatoApp {
@@ -386,6 +391,7 @@ impl ApplicationHandler for RubatoApp {
                 self.key_state.add_scroll(dx, dy);
             }
             WindowEvent::CloseRequested => {
+                self.disposed = true;
                 self.controller.dispose();
                 event_loop.exit();
             }
@@ -402,8 +408,12 @@ impl ApplicationHandler for RubatoApp {
     /// Called when the event loop is about to wait for new events.
     /// Request continuous redraws to match the Java game loop behavior.
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        if self.disposed {
+            return;
+        }
         // Java: MainController checks exit flag and calls Platform.exit()
         if self.controller.is_exit_requested() {
+            self.disposed = true;
             self.controller.dispose();
             event_loop.exit();
             return;
@@ -633,6 +643,9 @@ impl RubatoApp {
 
     /// Main frame render: game logic, egui overlay, wgpu present.
     fn handle_redraw(&mut self) {
+        if self.disposed {
+            return;
+        }
         // FPS capping
         // Java: gdxConfig.setForegroundFPS(config.getMaxFramePerSecond())
         if self.max_fps > 0 {
@@ -657,20 +670,31 @@ impl RubatoApp {
             return;
         };
 
-        // Process window commands from MainController
-        if rubato_core::window_command::take_fullscreen_toggle() {
-            if window.fullscreen().is_some() {
-                window.set_fullscreen(None);
-            } else {
-                let monitor = window.current_monitor();
-                window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(monitor)));
+        // Wrap in catch_unwind so that gpu is restored even if a panic occurs
+        // between take and put-back (panic safety, same pattern as sprite
+        // take/put-back in lifecycle.rs).
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            // Process window commands from MainController
+            if rubato_core::window_command::take_fullscreen_toggle() {
+                if window.fullscreen().is_some() {
+                    window.set_fullscreen(None);
+                } else {
+                    let monitor = window.current_monitor();
+                    window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(monitor)));
+                }
+            }
+            let screenshot_requested = rubato_core::window_command::take_screenshot_request();
+
+            let full_output = self.run_egui_frame(&window);
+
+            self.submit_gpu_frame(&gpu, &window, full_output, screenshot_requested);
+        })) {
+            Ok(()) => {}
+            Err(payload) => {
+                self.gpu = Some(gpu);
+                std::panic::resume_unwind(payload);
             }
         }
-        let screenshot_requested = rubato_core::window_command::take_screenshot_request();
-
-        let full_output = self.run_egui_frame(&window);
-
-        self.submit_gpu_frame(&gpu, &window, full_output, screenshot_requested);
 
         // Put gpu back
         self.gpu = Some(gpu);
