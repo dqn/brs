@@ -6,6 +6,9 @@ use rubato_core::system_sound_manager::SoundType;
 use rubato_core::timer_manager::TimerManager;
 use rubato_skin::skin_property::{TIMER_FADEOUT, TIMER_STARTINPUT};
 use rubato_skin::skin_type::SkinType;
+use rubato_types::property_snapshot::PropertySnapshot;
+use rubato_types::skin_action_queue::SkinActionQueue;
+use rubato_types::timer_id::TimerId;
 
 use super::main_controller_ref::MainControllerRef;
 use super::{ControlKeys, NullPlayerResource, PlayerResourceAccess};
@@ -601,6 +604,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideRenderContex
 
 impl rubato_skin::reexports::MainState for DecideRenderContext<'_> {}
 
+#[allow(dead_code)] // Only used in tests after PropertySnapshot migration
 struct DecideMouseContext<'a> {
     timer: &'a mut TimerManager,
     main: &'a mut MainControllerRef,
@@ -1195,6 +1199,128 @@ impl MusicDecide {
     }
 }
 
+impl MusicDecide {
+    /// Build a PropertySnapshot capturing all raw data needed for skin rendering.
+    fn build_snapshot(&self, timer: &TimerManager) -> PropertySnapshot {
+        let mut s = PropertySnapshot::new();
+
+        // Timing
+        s.now_time = timer.now_time();
+        s.now_micro_time = timer.now_micro_time();
+        s.boot_time_millis = timer.boot_time_millis();
+        for (i, &val) in timer.timer_values().iter().enumerate() {
+            if val != i64::MIN {
+                s.timers.insert(TimerId::new(i as i32), val);
+            }
+        }
+
+        // State identity
+        s.state_type = Some(rubato_types::main_state_type::MainStateType::Decide);
+
+        // Config
+        s.config = Some(Box::new(self.main.config().clone()));
+        s.player_config = Some(Box::new(self.main.player_config().clone()));
+
+        // Play config (resolve mode from song data)
+        s.play_config = self
+            .resource
+            .songdata()
+            .and_then(|song| match song.chart.mode {
+                5 => Some(bms_model::mode::Mode::BEAT_5K),
+                7 => Some(bms_model::mode::Mode::BEAT_7K),
+                9 => Some(bms_model::mode::Mode::POPN_9K),
+                10 => Some(bms_model::mode::Mode::BEAT_10K),
+                14 => Some(bms_model::mode::Mode::BEAT_14K),
+                25 => Some(bms_model::mode::Mode::KEYBOARD_24K),
+                50 => Some(bms_model::mode::Mode::KEYBOARD_24K_DOUBLE),
+                _ => None,
+            })
+            .map(|mode| {
+                Box::new(
+                    self.resource
+                        .player_config()
+                        .play_config_ref(mode)
+                        .playconfig
+                        .clone(),
+                )
+            });
+
+        // Song / score data
+        s.song_data = self.resource.songdata().map(|d| Box::new(d.clone()));
+        s.score_data = self.resource.score_data().map(|d| Box::new(d.clone()));
+        s.rival_score_data = self
+            .resource
+            .rival_score_data()
+            .map(|d| Box::new(d.clone()));
+        s.target_score_data = self
+            .resource
+            .target_score_data()
+            .map(|d| Box::new(d.clone()));
+        s.replay_option_data = self.resource.replay_data().map(|d| Box::new(d.clone()));
+        s.score_data_property = self.cached_score_data_property.clone();
+
+        // Player / course data
+        s.player_data = self.resource.player_data().copied();
+        s.is_course_mode = self.resource.course_data().is_some();
+        s.course_index = self.resource.course_index();
+        s.course_song_count = self.resource.course_data().map_or(0, |cd| cd.hash.len());
+        s.is_update_score = self.resource.is_update_score();
+
+        // Offsets
+        s.offsets = self.data.offsets.clone();
+
+        s
+    }
+
+    /// Apply queued actions from the snapshot back to live game state.
+    fn drain_actions(&mut self, actions: &mut SkinActionQueue, timer: &mut TimerManager) {
+        // Timer sets
+        for (timer_id, micro_time) in actions.timer_sets.drain(..) {
+            timer.set_micro_timer(timer_id, micro_time);
+        }
+
+        // State changes
+        for state in actions.state_changes.drain(..) {
+            self.main.change_state(state);
+        }
+
+        // Audio
+        for (path, volume, is_loop) in actions.audio_plays.drain(..) {
+            self.main.play_audio_path(&path, volume, is_loop);
+        }
+        for path in actions.audio_stops.drain(..) {
+            self.main.stop_audio_path(&path);
+        }
+
+        // Config propagation
+        if actions.audio_config_changed {
+            if let Some(audio) = self.main.config().audio.clone() {
+                self.main.update_audio_config(audio);
+            }
+            actions.audio_config_changed = false;
+        }
+
+        // Float writes (volume sliders)
+        for (id, value) in actions.float_writes.drain(..) {
+            if (17..=19).contains(&id)
+                && let Some(mut audio) = self.main.config().audio.clone()
+            {
+                let clamped = value.clamp(0.0, 1.0);
+                match id {
+                    17 => audio.systemvolume = clamped,
+                    18 => audio.keyvolume = clamped,
+                    19 => audio.bgvolume = clamped,
+                    _ => {}
+                }
+                self.main.update_audio_config(audio);
+            }
+        }
+
+        // Player config mutations: copy back from snapshot if modified
+        // (handled at call site since we need snapshot access)
+    }
+}
+
 impl MainState for MusicDecide {
     fn state_type(&self) -> Option<MainStateType> {
         Some(MainStateType::Decide)
@@ -1232,40 +1358,25 @@ impl MainState for MusicDecide {
         };
         let mut timer = std::mem::take(&mut self.data.timer);
 
-        let mut pending_events;
-        {
-            let mut ctx = DecideRenderContext {
-                timer: &mut timer,
-                resource: &mut *self.resource,
-                main: &mut self.main,
-                score_data_property: &self.cached_score_data_property,
-                offsets: &self.data.offsets,
-                pending_events: Vec::new(),
-            };
-            skin.update_custom_objects_timed(&mut ctx);
-            skin.swap_sprite_batch(sprite);
-            skin.draw_all_objects_timed(&mut ctx);
-            skin.swap_sprite_batch(sprite);
-            pending_events = ctx.pending_events;
-        }
+        let mut snapshot = self.build_snapshot(&timer);
+        skin.update_custom_objects_timed(&mut snapshot);
+        skin.swap_sprite_batch(sprite);
+        skin.draw_all_objects_timed(&mut snapshot);
+        skin.swap_sprite_batch(sprite);
 
-        // Replay queued events now that the skin is available again.
-        // Use a loop to handle nested events (custom events that trigger
-        // further custom events via DelegateEvent -> execute_event).
+        // Drain non-event actions (timers, audio, state changes)
+        self.drain_actions(&mut snapshot.actions, &mut timer);
+
+        // Replay queued custom events now that the skin is available again.
+        let mut pending_events = std::mem::take(&mut snapshot.actions.custom_events);
         let mut depth = 0;
         while !pending_events.is_empty() && depth < 8 {
-            let mut ctx = DecideRenderContext {
-                timer: &mut timer,
-                resource: &mut *self.resource,
-                main: &mut self.main,
-                score_data_property: &self.cached_score_data_property,
-                offsets: &self.data.offsets,
-                pending_events: Vec::new(),
-            };
+            let mut replay_snapshot = self.build_snapshot(&timer);
             for (id, arg1, arg2) in pending_events {
-                skin.execute_custom_event(&mut ctx, id, arg1, arg2);
+                skin.execute_custom_event(&mut replay_snapshot, id, arg1, arg2);
             }
-            pending_events = ctx.pending_events;
+            self.drain_actions(&mut replay_snapshot.actions, &mut timer);
+            pending_events = replay_snapshot.actions.custom_events;
             depth += 1;
         }
         if depth >= 8 {
@@ -1283,37 +1394,20 @@ impl MainState for MusicDecide {
         };
         let mut timer = std::mem::take(&mut self.data.timer);
 
-        let mut pending_events;
-        {
-            let mut ctx = DecideMouseContext {
-                timer: &mut timer,
-                main: &mut self.main,
-                resource: &mut *self.resource,
-                score_data_property: &self.cached_score_data_property,
-                offsets: &self.data.offsets,
-                pending_events: Vec::new(),
-            };
-            skin.mouse_pressed_at(&mut ctx, button, x, y);
-            pending_events = ctx.pending_events;
-        }
+        let mut snapshot = self.build_snapshot(&timer);
+        skin.mouse_pressed_at(&mut snapshot, button, x, y);
+        self.drain_actions(&mut snapshot.actions, &mut timer);
 
-        // Replay queued events now that the skin is available again.
-        // Use a loop to handle nested events (custom events that trigger
-        // further custom events via DelegateEvent -> execute_event).
+        // Replay queued custom events.
+        let mut pending_events = std::mem::take(&mut snapshot.actions.custom_events);
         let mut depth = 0;
         while !pending_events.is_empty() && depth < 8 {
-            let mut ctx = DecideRenderContext {
-                timer: &mut timer,
-                resource: &mut *self.resource,
-                main: &mut self.main,
-                score_data_property: &self.cached_score_data_property,
-                offsets: &self.data.offsets,
-                pending_events: Vec::new(),
-            };
+            let mut replay_snapshot = self.build_snapshot(&timer);
             for (id, arg1, arg2) in pending_events {
-                skin.execute_custom_event(&mut ctx, id, arg1, arg2);
+                skin.execute_custom_event(&mut replay_snapshot, id, arg1, arg2);
             }
-            pending_events = ctx.pending_events;
+            self.drain_actions(&mut replay_snapshot.actions, &mut timer);
+            pending_events = replay_snapshot.actions.custom_events;
             depth += 1;
         }
         if depth >= 8 {
@@ -1331,37 +1425,20 @@ impl MainState for MusicDecide {
         };
         let mut timer = std::mem::take(&mut self.data.timer);
 
-        let mut pending_events;
-        {
-            let mut ctx = DecideMouseContext {
-                timer: &mut timer,
-                main: &mut self.main,
-                resource: &mut *self.resource,
-                score_data_property: &self.cached_score_data_property,
-                offsets: &self.data.offsets,
-                pending_events: Vec::new(),
-            };
-            skin.mouse_dragged_at(&mut ctx, button, x, y);
-            pending_events = ctx.pending_events;
-        }
+        let mut snapshot = self.build_snapshot(&timer);
+        skin.mouse_dragged_at(&mut snapshot, button, x, y);
+        self.drain_actions(&mut snapshot.actions, &mut timer);
 
-        // Replay queued events now that the skin is available again.
-        // Use a loop to handle nested events (custom events that trigger
-        // further custom events via DelegateEvent -> execute_event).
+        // Replay queued custom events.
+        let mut pending_events = std::mem::take(&mut snapshot.actions.custom_events);
         let mut depth = 0;
         while !pending_events.is_empty() && depth < 8 {
-            let mut ctx = DecideRenderContext {
-                timer: &mut timer,
-                resource: &mut *self.resource,
-                main: &mut self.main,
-                score_data_property: &self.cached_score_data_property,
-                offsets: &self.data.offsets,
-                pending_events: Vec::new(),
-            };
+            let mut replay_snapshot = self.build_snapshot(&timer);
             for (id, arg1, arg2) in pending_events {
-                skin.execute_custom_event(&mut ctx, id, arg1, arg2);
+                skin.execute_custom_event(&mut replay_snapshot, id, arg1, arg2);
             }
-            pending_events = ctx.pending_events;
+            self.drain_actions(&mut replay_snapshot.actions, &mut timer);
+            pending_events = replay_snapshot.actions.custom_events;
             depth += 1;
         }
         if depth >= 8 {

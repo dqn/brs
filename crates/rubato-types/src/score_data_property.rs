@@ -3,6 +3,7 @@ use bms_model::mode::Mode;
 use crate::score_data::ScoreData;
 
 /// Class for calculating various values from score data
+#[derive(Clone)]
 pub struct ScoreDataProperty {
     pub score: Option<ScoreData>,
     pub rival: Option<ScoreData>,
