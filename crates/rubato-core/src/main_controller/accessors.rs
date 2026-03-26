@@ -59,58 +59,60 @@ impl MainController {
         let input = BMSPlayerInputProcessor::new(&config, &player);
 
         Self {
-            config,
-            player,
+            ctx: AppContext {
+                config,
+                player,
+                audio: None,
+                sound: Some(sound),
+                loudness_analyzer: Some(
+                    rubato_audio::bms_loudness_analyzer::BMSLoudnessAnalyzer::new(),
+                ),
+                timer,
+                input: Some(input),
+                input_poll_quit: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                db: DatabaseState {
+                    playdata,
+                    songdb: None,
+                    infodb: None,
+                    rivals: RivalDataAccessor::new(),
+                    ircache: None,
+                    ir: Vec::new(),
+                },
+                offset,
+                showfps: false,
+                debug: false,
+                integration: IntegrationState::default(),
+                lifecycle: LifecycleState::new(),
+                exit_requested: AtomicBool::new(false),
+            },
             auto,
             song_updated,
-            lifecycle: LifecycleState::new(),
-            audio: None,
             resource: None,
             current: None,
             state_factory: None,
-            timer,
             sprite: None,
             bmsfile: f,
-            input: Some(input),
-            input_poll_quit: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
-            showfps: false,
-            db: DatabaseState {
-                playdata,
-                songdb: None,
-                infodb: None,
-                rivals: RivalDataAccessor::new(),
-                ircache: None,
-                ir: Vec::new(),
-            },
-            sound: Some(sound),
-            offset,
             state_listener,
             event_senders: Vec::new(),
             command_queue: rubato_types::main_controller_access::MainControllerCommandQueue::new(),
-            integration: IntegrationState::default(),
             shared_music_selector: None,
             state_references_callback: None,
             background_threads: Vec::new(),
-            exit_requested: AtomicBool::new(false),
-            debug: false,
             state_event_log: None,
-            loudness_analyzer: Some(
-                rubato_audio::bms_loudness_analyzer::BMSLoudnessAnalyzer::new(),
-            ),
         }
     }
 
     pub fn offset(&self, index: i32) -> Option<&SkinOffset> {
-        if index >= 0 && (index as usize) < self.offset.len() {
-            Some(&self.offset[index as usize])
+        if index >= 0 && (index as usize) < self.ctx.offset.len() {
+            Some(&self.ctx.offset[index as usize])
         } else {
             None
         }
     }
 
     pub fn offset_mut(&mut self, index: i32) -> Option<&mut SkinOffset> {
-        if index >= 0 && (index as usize) < self.offset.len() {
-            Some(&mut self.offset[index as usize])
+        if index >= 0 && (index as usize) < self.ctx.offset.len() {
+            Some(&mut self.ctx.offset[index as usize])
         } else {
             None
         }
@@ -132,11 +134,11 @@ impl MainController {
     }
 
     pub fn config(&self) -> &Config {
-        &self.config
+        &self.ctx.config
     }
 
     pub fn player_config(&self) -> &PlayerConfig {
-        &self.player
+        &self.ctx.player
     }
 
     pub fn sprite_batch(&self) -> Option<&SpriteBatch> {
@@ -148,45 +150,45 @@ impl MainController {
     }
 
     pub fn play_data_accessor(&self) -> Option<&PlayDataAccessor> {
-        self.db.playdata.as_ref()
+        self.ctx.db.playdata.as_ref()
     }
 
     pub fn rival_data_accessor(&self) -> &RivalDataAccessor {
-        &self.db.rivals
+        &self.ctx.db.rivals
     }
 
     pub fn rival_data_accessor_mut(&mut self) -> &mut RivalDataAccessor {
-        &mut self.db.rivals
+        &mut self.ctx.db.rivals
     }
 
     pub fn ranking_data_cache(&self) -> Option<&dyn RankingDataCacheAccess> {
-        self.db.ircache.as_deref()
+        self.ctx.db.ircache.as_deref()
     }
 
     pub fn ranking_data_cache_mut(
         &mut self,
     ) -> Option<&mut (dyn RankingDataCacheAccess + 'static)> {
-        self.db.ircache.as_deref_mut()
+        self.ctx.db.ircache.as_deref_mut()
     }
 
     pub fn set_ranking_data_cache(&mut self, cache: Box<dyn RankingDataCacheAccess>) {
-        self.db.ircache = Some(cache);
+        self.ctx.db.ircache = Some(cache);
     }
 
     pub fn sound_manager(&self) -> Option<&SystemSoundManager> {
-        self.sound.as_ref()
+        self.ctx.sound.as_ref()
     }
 
     pub fn sound_manager_mut(&mut self) -> Option<&mut SystemSoundManager> {
-        self.sound.as_mut()
+        self.ctx.sound.as_mut()
     }
 
     pub fn ir_status(&self) -> &[IRStatus] {
-        &self.db.ir
+        &self.ctx.db.ir
     }
 
     pub fn ir_status_mut(&mut self) -> &mut Vec<IRStatus> {
-        &mut self.db.ir
+        &mut self.ctx.db.ir
     }
 
     /// Clone the shared controller command queue used by launcher-side state proxies.
@@ -197,23 +199,23 @@ impl MainController {
     }
 
     pub fn timer(&self) -> &TimerManager {
-        &self.timer
+        &self.ctx.timer
     }
 
     pub fn timer_mut(&mut self) -> &mut TimerManager {
-        &mut self.timer
+        &mut self.ctx.timer
     }
 
     pub fn has_obs_client(&self) -> bool {
-        self.integration.obs_client.is_some()
+        self.ctx.integration.obs_client.is_some()
     }
 
     pub fn set_obs_client(&mut self, client: Box<dyn rubato_types::obs_access::ObsAccess>) {
-        self.integration.obs_client = Some(client);
+        self.ctx.integration.obs_client = Some(client);
     }
 
     pub fn save_last_recording(&self, reason: &str) {
-        if let Some(ref client) = self.integration.obs_client {
+        if let Some(ref client) = self.ctx.integration.obs_client {
             client.save_last_recording(reason);
         }
     }
@@ -269,7 +271,7 @@ impl MainController {
     /// The override is consumed (taken) during render(), so it must be
     /// re-set before each call that needs deterministic input processing.
     pub fn set_input_gate_time_override(&mut self, time_ms: i64) {
-        self.lifecycle.override_input_gate_time = Some(time_ms);
+        self.ctx.lifecycle.override_input_gate_time = Some(time_ms);
     }
 
     /// Return the current input gate `prevtime` (milliseconds).
@@ -277,7 +279,7 @@ impl MainController {
     /// Used by the E2E harness to seed its monotonic input gate counter so
     /// that an existing controller's time is not regressed.
     pub fn input_gate_prevtime(&self) -> i64 {
-        self.lifecycle.prevtime
+        self.ctx.lifecycle.prevtime
     }
 
     /// Emit a state event to the event log and to all channel-based receivers.

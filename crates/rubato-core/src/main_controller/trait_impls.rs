@@ -2,11 +2,11 @@ use super::*;
 
 impl MainControllerAccess for MainController {
     fn config(&self) -> &Config {
-        &self.config
+        &self.ctx.config
     }
 
     fn player_config(&self) -> &PlayerConfig {
-        &self.player
+        &self.ctx.player
     }
 
     fn change_state(&mut self, state: MainStateType) {
@@ -46,33 +46,49 @@ impl MainControllerAccess for MainController {
     }
 
     fn play_sound(&mut self, sound: &SoundType, loop_sound: bool) {
-        let volume = self.config.audio.as_ref().map_or(1.0, |a| a.systemvolume);
-        let path = self.sound.as_ref().and_then(|sm| sm.sound(sound).cloned());
+        let volume = self
+            .ctx
+            .config
+            .audio
+            .as_ref()
+            .map_or(1.0, |a| a.systemvolume);
+        let path = self
+            .ctx
+            .sound
+            .as_ref()
+            .and_then(|sm| sm.sound(sound).cloned());
         if let Some(path) = path
-            && let Some(ref mut audio) = self.audio
+            && let Some(ref mut audio) = self.ctx.audio
         {
             audio.play_path(&path, volume, loop_sound);
         }
     }
 
     fn stop_sound(&mut self, sound: &SoundType) {
-        let path = self.sound.as_ref().and_then(|sm| sm.sound(sound).cloned());
+        let path = self
+            .ctx
+            .sound
+            .as_ref()
+            .and_then(|sm| sm.sound(sound).cloned());
         if let Some(path) = path
-            && let Some(ref mut audio) = self.audio
+            && let Some(ref mut audio) = self.ctx.audio
         {
             audio.stop_path(&path);
         }
     }
 
     fn sound_path(&self, sound: &SoundType) -> Option<String> {
-        self.sound.as_ref().and_then(|sm| sm.sound(sound).cloned())
+        self.ctx
+            .sound
+            .as_ref()
+            .and_then(|sm| sm.sound(sound).cloned())
     }
 
     fn play_audio_path(&mut self, path: &str, volume: f32, loop_play: bool) {
         if path.is_empty() {
             return;
         }
-        if let Some(ref mut audio) = self.audio {
+        if let Some(ref mut audio) = self.ctx.audio {
             audio.play_path(path, volume, loop_play);
         }
     }
@@ -81,7 +97,7 @@ impl MainControllerAccess for MainController {
         if path.is_empty() {
             return;
         }
-        if let Some(ref mut audio) = self.audio {
+        if let Some(ref mut audio) = self.ctx.audio {
             audio.set_volume_path(path, volume);
         }
     }
@@ -90,7 +106,8 @@ impl MainControllerAccess for MainController {
         if path.is_empty() {
             return false;
         }
-        self.audio
+        self.ctx
+            .audio
             .as_ref()
             .is_some_and(|audio| audio.is_playing_path(path))
     }
@@ -99,7 +116,7 @@ impl MainControllerAccess for MainController {
         if path.is_empty() {
             return;
         }
-        if let Some(ref mut audio) = self.audio {
+        if let Some(ref mut audio) = self.ctx.audio {
             audio.stop_path(path);
         }
     }
@@ -108,15 +125,15 @@ impl MainControllerAccess for MainController {
         if path.is_empty() {
             return;
         }
-        if let Some(ref mut audio) = self.audio {
+        if let Some(ref mut audio) = self.ctx.audio {
             audio.dispose_path(path);
         }
     }
 
     fn shuffle_sounds(&mut self) {
-        if let Some(ref mut sm) = self.sound {
+        if let Some(ref mut sm) = self.ctx.sound {
             let old_paths = sm.shuffle();
-            if let Some(ref mut audio) = self.audio {
+            if let Some(ref mut audio) = self.ctx.audio {
                 for path in &old_paths {
                     audio.dispose_path(path);
                 }
@@ -126,12 +143,12 @@ impl MainControllerAccess for MainController {
         // Preload all system sound paths into the audio driver's path sound cache
         // to avoid blocking file I/O on the render thread when play_path() is
         // first called for each sound.
-        if let Some(ref sm) = self.sound {
+        if let Some(ref sm) = self.ctx.sound {
             let paths: Vec<String> = SoundType::values()
                 .iter()
                 .filter_map(|st| sm.sound(st).cloned())
                 .collect();
-            if let Some(ref mut audio) = self.audio {
+            if let Some(ref mut audio) = self.ctx.audio {
                 for path in &paths {
                     audio.preload_path(path);
                 }
@@ -140,7 +157,8 @@ impl MainControllerAccess for MainController {
     }
 
     fn exists_replay_data(&self, sha256: &str, has_ln: bool, lnmode: i32, index: i32) -> bool {
-        self.db
+        self.ctx
+            .db
             .playdata
             .as_ref()
             .is_some_and(|pda| pda.exists_replay_data(sha256, has_ln, lnmode, index))
@@ -153,7 +171,8 @@ impl MainControllerAccess for MainController {
         lnmode: i32,
         index: i32,
     ) -> Option<rubato_types::replay_data::ReplayData> {
-        self.db
+        self.ctx
+            .db
             .playdata
             .as_ref()
             .and_then(|pda| pda.read_replay_data(sha256, has_ln, lnmode, index))
@@ -176,27 +195,29 @@ impl MainControllerAccess for MainController {
         &mut self,
     ) -> Option<&mut (dyn rubato_types::ranking_data_cache_access::RankingDataCacheAccess + 'static)>
     {
-        self.db.ircache.as_deref_mut()
+        self.ctx.db.ircache.as_deref_mut()
     }
 
     fn http_downloader(
         &self,
     ) -> Option<&dyn rubato_types::http_download_submitter::HttpDownloadSubmitter> {
-        self.integration
+        self.ctx
+            .integration
             .http_download_processor
             .as_ref()
             .map(|processor| processor.as_ref())
     }
 
     fn is_ipfs_download_alive(&self) -> bool {
-        self.integration
+        self.ctx
+            .integration
             .download
             .as_ref()
             .is_some_and(|dl| dl.is_alive())
     }
 
     fn start_ipfs_download(&mut self, song: &rubato_types::song_data::SongData) -> bool {
-        if let Some(ref dl) = self.integration.download {
+        if let Some(ref dl) = self.ctx.integration.download {
             dl.start_download(song);
             true
         } else {
@@ -205,14 +226,14 @@ impl MainControllerAccess for MainController {
     }
 
     fn rival_count(&self) -> usize {
-        self.db.rivals.rival_count()
+        self.ctx.db.rivals.rival_count()
     }
 
     fn rival_information(
         &self,
         index: usize,
     ) -> Option<rubato_types::player_information::PlayerInformation> {
-        self.db.rivals.rival_information(index).cloned()
+        self.ctx.db.rivals.rival_information(index).cloned()
     }
 
     fn read_score_data_by_hash(
@@ -221,25 +242,28 @@ impl MainControllerAccess for MainController {
         ln: bool,
         lnmode: i32,
     ) -> Option<rubato_types::score_data::ScoreData> {
-        self.db
+        self.ctx
+            .db
             .playdata
             .as_ref()
             .and_then(|pda| pda.read_score_data_by_hash(hash, ln, lnmode))
     }
 
     fn read_player_data(&self) -> Option<rubato_types::player_data::PlayerData> {
-        self.db
+        self.ctx
+            .db
             .playdata
             .as_ref()
             .and_then(|pda| pda.read_player_data())
     }
 
     fn info_database(&self) -> Option<&dyn rubato_types::song_information_db::SongInformationDb> {
-        self.db.infodb.as_deref()
+        self.ctx.db.infodb.as_deref()
     }
 
     fn ir_connection_any(&self) -> Option<&dyn std::any::Any> {
-        self.db
+        self.ctx
+            .db
             .ir
             .first()
             .and_then(|status| status.connection.as_ref())

@@ -16,6 +16,7 @@ pub(crate) use rubato_types::song_database_accessor::SongDatabaseAccessor as Son
 pub(crate) use rubato_types::song_information_db::SongInformationDb;
 pub(crate) use rubato_types::sound_type::SoundType;
 
+pub(crate) use crate::app_context::AppContext;
 pub(crate) use crate::bms_player_mode::BMSPlayerMode;
 pub(crate) use crate::config::Config;
 pub(crate) use crate::ir_config::IRConfig;
@@ -202,17 +203,11 @@ pub struct IntegrationState {
 /// MainController - root class of the application
 #[allow(dead_code)]
 pub struct MainController {
-    pub config: Config,
-    pub player: PlayerConfig,
+    /// Shared application context (config, audio, input, timer, database, etc.).
+    pub(crate) ctx: AppContext,
+
     auto: Option<BMSPlayerMode>,
     song_updated: bool,
-
-    /// Timing and lifecycle state.
-    lifecycle: LifecycleState,
-
-    /// Audio driver
-    /// Translated from: MainController.audio (AudioDriver)
-    audio: Option<AudioSystem>,
 
     /// Player resource
     resource: Option<PlayerResource>,
@@ -226,32 +221,11 @@ pub struct MainController {
     /// Set by the application entry point (e.g. launcher) before state transitions.
     state_factory: Option<Box<dyn StateFactory>>,
 
-    /// Timer manager
-    timer: TimerManager,
-
     /// SpriteBatch (LibGDX)
     sprite: Option<SpriteBatch>,
 
     /// BMS file for single-song play
     bmsfile: Option<PathBuf>,
-
-    /// Input processor
-    input: Option<BMSPlayerInputProcessor>,
-
-    /// Input polling thread quit flag
-    input_poll_quit: std::sync::Arc<std::sync::atomic::AtomicBool>,
-
-    /// Show FPS flag
-    showfps: bool,
-
-    /// Database and data accessor state.
-    db: DatabaseState,
-
-    /// System sound manager
-    sound: Option<SystemSoundManager>,
-
-    /// Offset array for skin
-    offset: Vec<SkinOffset>,
 
     /// State listeners (legacy trait-based, kept for backward compatibility during migration)
     #[allow(deprecated)]
@@ -262,9 +236,6 @@ pub struct MainController {
 
     /// Deferred controller commands from state-facing access proxies.
     command_queue: rubato_types::main_controller_access::MainControllerCommandQueue,
-
-    /// External integration state (ImGui, OBS, IR, downloads, streaming).
-    pub integration: IntegrationState,
 
     /// Shared music selector (type-erased Arc<Mutex<MusicSelector>>).
     /// Java shares the same MusicSelector between StreamController and MusicSelect state.
@@ -279,24 +250,10 @@ pub struct MainController {
     /// Joined on dispose() to ensure clean shutdown and release of DB handles.
     background_threads: Vec<std::thread::JoinHandle<()>>,
 
-    /// Exit requested flag.
-    /// Uses AtomicBool because exit() takes &self (required by MainControllerAccess trait).
-    ///
-    /// Translated from: Gdx.app.exit() triggers LibGDX's ApplicationListener.dispose()
-    exit_requested: AtomicBool,
-
-    /// Debug flag
-    pub debug: bool,
-
     /// Optional event log for state machine observability (E2E testing).
     /// When set, state transition / lifecycle / handoff events are pushed here.
     state_event_log:
         Option<std::sync::Arc<std::sync::Mutex<Vec<rubato_types::state_event::StateEvent>>>>,
-
-    /// Loudness analyzer for volume normalization.
-    ///
-    /// Translated from: MainController.loudnessAnalyzer (BMSLoudnessAnalyzer)
-    loudness_analyzer: Option<rubato_audio::bms_loudness_analyzer::BMSLoudnessAnalyzer>,
 }
 
 /// Offset count (SkinProperty.OFFSET_MAX + 1)

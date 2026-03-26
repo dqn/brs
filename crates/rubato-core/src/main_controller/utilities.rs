@@ -16,7 +16,7 @@ impl MainController {
     #[allow(deprecated)]
     pub fn update_main_state_listener(&mut self, status: i32) {
         if let Some(ref current) = self.current {
-            // Create adapter that bridges MainState → MainStateAccess
+            // Create adapter that bridges MainState -> MainStateAccess
             let screen_type = current
                 .state_type()
                 .map(ScreenType::from_state_type)
@@ -28,7 +28,7 @@ impl MainController {
             let adapter = StateAccessAdapter {
                 screen_type,
                 resource,
-                config: &self.config,
+                config: &self.ctx.config,
             };
 
             // Temporarily take the listeners to avoid borrow conflict
@@ -44,31 +44,31 @@ impl MainController {
     }
 
     pub fn play_time(&self) -> i64 {
-        self.lifecycle.boottime.elapsed().as_millis() as i64
+        self.ctx.lifecycle.boottime.elapsed().as_millis() as i64
     }
 
     pub fn start_time(&self) -> i64 {
-        self.timer.start_time()
+        self.ctx.timer.start_time()
     }
 
     pub fn start_micro_time(&self) -> i64 {
-        self.timer.start_micro_time()
+        self.ctx.timer.start_micro_time()
     }
 
     pub fn now_time(&self) -> i64 {
-        self.timer.now_time()
+        self.ctx.timer.now_time()
     }
 
     pub fn now_time_for_id(&self, id: rubato_types::timer_id::TimerId) -> i64 {
-        self.timer.now_time_for_id(id)
+        self.ctx.timer.now_time_for_id(id)
     }
 
     pub fn now_micro_time(&self) -> i64 {
-        self.timer.now_micro_time()
+        self.ctx.timer.now_micro_time()
     }
 
     pub fn now_micro_time_for_id(&self, id: rubato_types::timer_id::TimerId) -> i64 {
-        self.timer.now_micro_time_for_id(id)
+        self.ctx.timer.now_micro_time_for_id(id)
     }
 
     pub fn timer_value(&self, id: rubato_types::timer_id::TimerId) -> i64 {
@@ -76,7 +76,7 @@ impl MainController {
     }
 
     pub fn micro_timer(&self, id: rubato_types::timer_id::TimerId) -> i64 {
-        self.timer.micro_timer(id)
+        self.ctx.timer.micro_timer(id)
     }
 
     pub fn is_timer_on(&self, id: rubato_types::timer_id::TimerId) -> bool {
@@ -84,7 +84,7 @@ impl MainController {
     }
 
     pub fn set_timer_on(&mut self, id: rubato_types::timer_id::TimerId) {
-        self.timer.set_timer_on(id);
+        self.ctx.timer.set_timer_on(id);
     }
 
     pub fn set_timer_off(&mut self, id: rubato_types::timer_id::TimerId) {
@@ -92,17 +92,18 @@ impl MainController {
     }
 
     pub fn set_micro_timer(&mut self, id: rubato_types::timer_id::TimerId, microtime: i64) {
-        self.timer.set_micro_timer(id, microtime);
+        self.ctx.timer.set_micro_timer(id, microtime);
     }
 
     pub fn switch_timer(&mut self, id: rubato_types::timer_id::TimerId, on: bool) {
-        self.timer.switch_timer(id, on);
+        self.ctx.timer.switch_timer(id, on);
     }
 
     pub fn http_download_processor(
         &self,
     ) -> Option<&dyn rubato_types::http_download_submitter::HttpDownloadSubmitter> {
-        self.integration
+        self.ctx
+            .integration
             .http_download_processor
             .as_ref()
             .map(|processor| processor.as_ref())
@@ -112,21 +113,21 @@ impl MainController {
         &self,
     ) -> Option<std::sync::Arc<dyn rubato_types::http_download_submitter::HttpDownloadSubmitter>>
     {
-        self.integration.http_download_processor.clone()
+        self.ctx.integration.http_download_processor.clone()
     }
 
     pub fn set_http_download_processor(
         &mut self,
         processor: Box<dyn rubato_types::http_download_submitter::HttpDownloadSubmitter>,
     ) {
-        self.integration.http_download_processor = Some(std::sync::Arc::from(processor));
+        self.ctx.integration.http_download_processor = Some(std::sync::Arc::from(processor));
     }
 
     /// Start song database update.
     ///
     /// Translated from: MainController.updateSong(String)
     /// In Java, spawns SongUpdateThread calling songdb.updateSongDatas().
-    /// Requires SongDatabaseAccessor trait to expose update_song_datas() — deferred.
+    /// Requires SongDatabaseAccessor trait to expose update_song_datas() -- deferred.
     pub fn update_song(&mut self, path: &str) {
         self.update_song_with_flag(path, false);
     }
@@ -149,8 +150,8 @@ impl MainController {
         } else {
             Some(path.to_string())
         };
-        let bmsroot = self.config.paths.bmsroot.to_vec();
-        if let Some(ref songdb) = self.db.songdb {
+        let bmsroot = self.ctx.config.paths.bmsroot.to_vec();
+        if let Some(ref songdb) = self.ctx.db.songdb {
             // Spawn on a background thread to avoid blocking the main/render loop.
             // Java: SongUpdateThread.
             let songdb = std::sync::Arc::clone(songdb);
@@ -179,13 +180,13 @@ impl MainController {
     /// Translated from: MainController.getSongDatabase()
     /// In Java: return MainLoader.getScoreDatabaseAccessor()
     pub fn song_database(&self) -> Option<&dyn SongDatabaseAccessorTrait> {
-        self.db.songdb.as_deref()
+        self.ctx.db.songdb.as_deref()
     }
 
     /// Set the song database accessor.
     /// Called by the application entry point (beatoraja-launcher) after creating the DB.
     pub fn set_song_database(&mut self, songdb: Box<dyn SongDatabaseAccessorTrait>) {
-        self.db.songdb = Some(std::sync::Arc::from(songdb));
+        self.ctx.db.songdb = Some(std::sync::Arc::from(songdb));
     }
 
     /// Returns the current state.
@@ -221,24 +222,24 @@ impl MainController {
     ///
     /// Translated from: MainController.getInputProcessor()
     pub fn input_processor(&self) -> Option<&BMSPlayerInputProcessor> {
-        self.input.as_ref()
+        self.ctx.input.as_ref()
     }
 
     /// Returns a mutable reference to the input processor.
     pub fn input_processor_mut(&mut self) -> Option<&mut BMSPlayerInputProcessor> {
-        self.input.as_mut()
+        self.ctx.input.as_mut()
     }
 
     /// Returns the audio processor.
     ///
     /// Translated from: MainController.getAudioProcessor()
     pub fn audio_processor(&self) -> Option<&AudioSystem> {
-        self.audio.as_ref()
+        self.ctx.audio.as_ref()
     }
 
     /// Returns a mutable reference to the audio processor.
     pub fn audio_processor_mut(&mut self) -> Option<&mut AudioSystem> {
-        self.audio.as_mut()
+        self.ctx.audio.as_mut()
     }
 
     /// Set the audio driver.
@@ -248,7 +249,7 @@ impl MainController {
     /// In Java, the audio driver is created in create() based on AudioConfig.DriverType.
     /// In Rust, we inject it to avoid pulling in the concrete driver crate.
     pub fn set_audio_driver(&mut self, audio: AudioSystem) {
-        self.audio = Some(audio);
+        self.ctx.audio = Some(audio);
     }
 
     /// Returns the loudness analyzer.
@@ -257,14 +258,14 @@ impl MainController {
     pub fn loudness_analyzer(
         &self,
     ) -> Option<&rubato_audio::bms_loudness_analyzer::BMSLoudnessAnalyzer> {
-        self.loudness_analyzer.as_ref()
+        self.ctx.loudness_analyzer.as_ref()
     }
 
     /// Shutdown the loudness analyzer.
     ///
     /// Translated from: MainController.dispose() lines 864-866
     pub fn shutdown_loudness_analyzer(&mut self) {
-        if let Some(ref analyzer) = self.loudness_analyzer {
+        if let Some(ref analyzer) = self.ctx.loudness_analyzer {
             analyzer.shutdown();
         }
     }
@@ -280,39 +281,39 @@ impl MainController {
     }
 
     pub fn info_database(&self) -> Option<&dyn SongInformationDb> {
-        self.db.infodb.as_deref()
+        self.ctx.db.infodb.as_deref()
     }
 
     /// Set the song information database.
     /// Called from launcher layer since beatoraja-core cannot depend on beatoraja-song.
     pub fn set_info_database(&mut self, db: Box<dyn SongInformationDb>) {
-        self.db.infodb = Some(db);
+        self.ctx.db.infodb = Some(db);
     }
 
     pub fn music_download_processor(
         &self,
     ) -> Option<&dyn rubato_types::music_download_access::MusicDownloadAccess> {
-        self.integration.download.as_deref()
+        self.ctx.integration.download.as_deref()
     }
 
     pub fn set_music_download_processor(
         &mut self,
         processor: Box<dyn rubato_types::music_download_access::MusicDownloadAccess>,
     ) {
-        self.integration.download = Some(processor);
+        self.ctx.integration.download = Some(processor);
     }
 
     pub fn stream_controller(
         &self,
     ) -> Option<&dyn rubato_types::stream_controller_access::StreamControllerAccess> {
-        self.integration.stream_controller.as_deref()
+        self.ctx.integration.stream_controller.as_deref()
     }
 
     pub fn set_stream_controller(
         &mut self,
         controller: Box<dyn rubato_types::stream_controller_access::StreamControllerAccess>,
     ) {
-        self.integration.stream_controller = Some(controller);
+        self.ctx.integration.stream_controller = Some(controller);
     }
 
     /// Gets the shared MusicSelector as `&dyn Any`. Callers downcast via
@@ -330,26 +331,26 @@ impl MainController {
     pub fn ir_resend_service(
         &self,
     ) -> Option<&dyn rubato_types::ir_resend_service::IrResendService> {
-        self.integration.ir_resend_service.as_deref()
+        self.ctx.integration.ir_resend_service.as_deref()
     }
 
     pub fn set_ir_resend_service(
         &mut self,
         service: Box<dyn rubato_types::ir_resend_service::IrResendService>,
     ) {
-        self.integration.ir_resend_service = Some(service);
+        self.ctx.integration.ir_resend_service = Some(service);
     }
 
     pub fn set_imgui(&mut self, imgui: Box<dyn rubato_types::imgui_access::ImGuiAccess>) {
-        self.integration.imgui = Some(imgui);
+        self.ctx.integration.imgui = Some(imgui);
     }
 
     /// Load a new player profile, re-initialize states and IR config.
     ///
     /// Translated from: MainController.loadNewProfile(PlayerConfig)
     pub fn load_new_profile(&mut self, pc: PlayerConfig) {
-        self.config.playername = pc.id.clone();
-        self.player = pc;
+        self.ctx.config.playername = pc.id.clone();
+        self.ctx.player = pc;
 
         // playdata = new PlayDataAccessor(config);
         self.initialize_ir_config();
@@ -371,7 +372,7 @@ impl MainController {
         // Enter select state
         self.change_state(MainStateType::MusicSelect);
 
-        self.lifecycle.last_config_save = Instant::now();
+        self.ctx.lifecycle.last_config_save = Instant::now();
     }
 
     /// Initialize IR configurations from config.
@@ -412,12 +413,12 @@ impl MainController {
     pub fn initialize_states(&mut self) {
         // In Java: resource = new PlayerResource(audio, config, player, loudnessAnalyzer);
         self.resource = Some(PlayerResource::new(
-            self.config.clone(),
-            self.player.clone(),
+            self.ctx.config.clone(),
+            self.ctx.player.clone(),
         ));
 
         // In Java: playdata = new PlayDataAccessor(config);
-        self.db.playdata = Some(PlayDataAccessor::new(&self.config));
+        self.ctx.db.playdata = Some(PlayDataAccessor::new(&self.ctx.config));
 
         info!("Initializing states (PlayerResource created, states created on-demand via factory)");
     }
@@ -439,7 +440,7 @@ impl MainController {
     /// `set_state_references_callback()` to wire these references.
     pub fn update_state_references(&self) {
         if let Some(ref callback) = self.state_references_callback {
-            callback.update_references(&self.config, &self.player);
+            callback.update_references(&self.ctx.config, &self.ctx.player);
         }
     }
 
@@ -473,7 +474,7 @@ impl MainController {
     /// }
     /// ```
     pub fn trigger_ln_warning(&self) {
-        let ln_mode_name = match self.player.play_settings.lnmode {
+        let ln_mode_name = match self.ctx.player.play_settings.lnmode {
             1 => "CN",
             2 => "HCN",
             _ => "LN",
@@ -511,15 +512,15 @@ impl MainController {
     /// display names via rubato_types::target_list.
     pub fn set_target_list(&mut self) {
         // Build target list: player's target list + rival targets
-        let mut targetlist: Vec<String> = self.player.select_settings.targetlist.clone();
-        for i in 0..self.db.rivals.rival_count() {
+        let mut targetlist: Vec<String> = self.ctx.player.select_settings.targetlist.clone();
+        for i in 0..self.ctx.db.rivals.rival_count() {
             targetlist.push(format!("RIVAL_{}", i + 1));
         }
 
         // Resolve display names for each target ID
         let rivals: Vec<rubato_types::player_information::PlayerInformation> =
-            (0..self.db.rivals.rival_count())
-                .filter_map(|i| self.db.rivals.rival_information(i).cloned())
+            (0..self.ctx.db.rivals.rival_count())
+                .filter_map(|i| self.ctx.db.rivals.rival_information(i).cloned())
                 .collect();
         let names: Vec<String> = targetlist
             .iter()
@@ -553,12 +554,12 @@ impl MainController {
         }
 
         // Save once every 2 minutes (Java: 2 * 60 * 1000000000L ns)
-        let elapsed = self.lifecycle.last_config_save.elapsed();
+        let elapsed = self.ctx.lifecycle.last_config_save.elapsed();
         if elapsed.as_secs() < 120 {
             return;
         }
 
-        self.lifecycle.last_config_save = Instant::now();
+        self.ctx.lifecycle.last_config_save = Instant::now();
         self.save_config();
     }
 
@@ -583,7 +584,7 @@ impl MainController {
     pub fn download_ipfs_message_renderer(&mut self, message: &str) {
         // In Java: spawns DownloadMessageThread that polls download.isDownload() + download.getMessage()
         // When download processor is available, poll its status; otherwise show initial notification.
-        if let Some(ref dl) = self.integration.download
+        if let Some(ref dl) = self.ctx.integration.download
             && dl.is_download()
         {
             let msg = dl.message();

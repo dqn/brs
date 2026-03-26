@@ -59,12 +59,12 @@ impl MainController {
 
         // Determine the actual state type to create
         // (for Decide with skip, we create Play instead)
-        let actual_type = if state == MainStateType::Decide && self.config.select.skip_decide_screen
-        {
-            MainStateType::Play
-        } else {
-            state
-        };
+        let actual_type =
+            if state == MainStateType::Decide && self.ctx.config.select.skip_decide_screen {
+                MainStateType::Play
+            } else {
+                state
+            };
 
         // Check if we're already in this state type.
         // Allow Play->Play transitions for quick retry (creates a fresh Play state).
@@ -180,7 +180,7 @@ impl MainController {
             }
             // Flush pending audio commands before shutdown so they operate on
             // live state rather than potentially disposed resources.
-            if let Some(ref mut audio) = self.audio {
+            if let Some(ref mut audio) = self.ctx.audio {
                 old_state.sync_audio(audio);
             }
             // Emit state shutdown event before shutdown.
@@ -204,7 +204,7 @@ impl MainController {
             // PreviewMusicProcessor) can see the stop flag and actually halt playback.
             // In Java the preview thread exits its loop autonomously, but in Rust
             // preview runs via sync_audio ticks on the main thread.
-            if let Some(ref mut audio) = self.audio {
+            if let Some(ref mut audio) = self.ctx.audio {
                 old_state.sync_audio(audio);
             }
             // setSkin(null) equivalent -- Java's setSkin(null) calls skin.dispose() first
@@ -232,18 +232,18 @@ impl MainController {
         // MainController's input processor.
         if let Some(effects) = new_state.take_state_create_effects() {
             if effects.disable_input {
-                if let Some(ref mut input) = self.input {
+                if let Some(ref mut input) = self.ctx.input {
                     input.set_enable(false);
                 }
             } else if let Some(mode) = effects.play_config_mode
-                && let Some(ref mut input) = self.input
+                && let Some(ref mut input) = self.ctx.input
             {
                 input.set_enable(true);
-                input.set_play_config(self.player.play_config(mode));
+                input.set_play_config(self.ctx.player.play_config(mode));
             }
-            if let Some(ref mut audio) = self.audio {
+            if let Some(ref mut audio) = self.ctx.audio {
                 if effects.guide_se {
-                    if let Some(ref sm) = self.sound {
+                    if let Some(ref sm) = self.ctx.sound {
                         use rubato_types::sound_type::SoundType;
                         let guide_se_types = [
                             SoundType::GuidesePg,
@@ -275,7 +275,7 @@ impl MainController {
         // in Rust the audio driver is owned by MainController, so we call it here
         // after create() has set up the model.
         if let Some(model) = new_state.bms_model()
-            && let Some(ref mut audio) = self.audio
+            && let Some(ref mut audio) = self.ctx.audio
         {
             audio.set_model(model);
         }
@@ -396,32 +396,32 @@ impl MainController {
                     let _ = <Self as MainControllerAccess>::start_ipfs_download(self, &song);
                 }
                 MainControllerCommand::SetGlobalPitch(pitch) => {
-                    if let Some(ref mut audio) = self.audio {
+                    if let Some(ref mut audio) = self.ctx.audio {
                         audio.set_global_pitch(pitch);
                     }
                 }
                 MainControllerCommand::StopAllNotes => {
-                    if let Some(ref mut audio) = self.audio {
+                    if let Some(ref mut audio) = self.ctx.audio {
                         audio.stop_note(None);
                     }
                 }
                 MainControllerCommand::PlayAudioPath(path, volume, loop_play) => {
-                    if let Some(ref mut audio) = self.audio {
+                    if let Some(ref mut audio) = self.ctx.audio {
                         audio.play_path(&path, volume, loop_play);
                     }
                 }
                 MainControllerCommand::SetAudioPathVolume(path, volume) => {
-                    if let Some(ref mut audio) = self.audio {
+                    if let Some(ref mut audio) = self.ctx.audio {
                         audio.set_volume_path(&path, volume);
                     }
                 }
                 MainControllerCommand::StopAudioPath(path) => {
-                    if let Some(ref mut audio) = self.audio {
+                    if let Some(ref mut audio) = self.ctx.audio {
                         audio.stop_path(&path);
                     }
                 }
                 MainControllerCommand::DisposeAudioPath(path) => {
-                    if let Some(ref mut audio) = self.audio {
+                    if let Some(ref mut audio) = self.ctx.audio {
                         audio.dispose_path(&path);
                     }
                 }
@@ -433,7 +433,8 @@ impl MainController {
                     // Only merge modmenu-managed fields to avoid overwriting
                     // live fields (e.g. hispeed changed via scroll wheel) with
                     // stale values from the modmenu's PlayConfig snapshot.
-                    self.player
+                    self.ctx
+                        .player
                         .play_config(mode)
                         .playconfig
                         .apply_modmenu_fields(&pc);
@@ -442,15 +443,16 @@ impl MainController {
                     }
                 }
                 MainControllerCommand::UpdateAudioConfig(audio) => {
-                    self.config.audio = Some(audio);
+                    self.ctx.config.audio = Some(audio);
                 }
                 MainControllerCommand::UpdateSkinConfig(id, skin_config) => {
-                    if id < self.player.skin.len() {
-                        self.player.skin[id] = skin_config.map(|c| *c);
+                    if id < self.ctx.player.skin.len() {
+                        self.ctx.player.skin[id] = skin_config.map(|c| *c);
                     }
                 }
                 MainControllerCommand::UpdateSkinHistory(skin_path, skin_config) => {
                     if let Some(entry) = self
+                        .ctx
                         .player
                         .skin_history
                         .iter_mut()
@@ -458,7 +460,7 @@ impl MainController {
                     {
                         *entry = *skin_config;
                     } else {
-                        self.player.skin_history.push(*skin_config);
+                        self.ctx.player.skin_history.push(*skin_config);
                     }
                 }
             }

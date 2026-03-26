@@ -488,12 +488,12 @@ fn test_render_input_gating_by_time() {
     mc.create();
 
     // prevtime starts at 0; first render should update it
-    assert_eq!(mc.lifecycle.prevtime, 0);
+    assert_eq!(mc.ctx.lifecycle.prevtime, 0);
 
     mc.render();
 
     // After render, prevtime should be updated to current time
-    assert!(mc.lifecycle.prevtime > 0);
+    assert!(mc.ctx.lifecycle.prevtime > 0);
 }
 
 #[test]
@@ -1011,7 +1011,7 @@ fn test_render_produces_vertices_via_skin() {
 fn test_trigger_ln_warning_lnmode_0_is_ln_no_warning() {
     // lnmode=0 → "LN" → no warning (default)
     let mut mc = make_test_controller();
-    mc.player.play_settings.lnmode = 0;
+    mc.ctx.player.play_settings.lnmode = 0;
     // Should not panic; "LN" mode does not trigger warning
     mc.trigger_ln_warning();
 }
@@ -1020,7 +1020,7 @@ fn test_trigger_ln_warning_lnmode_0_is_ln_no_warning() {
 fn test_trigger_ln_warning_lnmode_1_is_cn() {
     // lnmode=1 → "CN" → warning triggered
     let mut mc = make_test_controller();
-    mc.player.play_settings.lnmode = 1;
+    mc.ctx.player.play_settings.lnmode = 1;
     mc.trigger_ln_warning();
     // No assertion on log output, but should not panic
 }
@@ -1029,7 +1029,7 @@ fn test_trigger_ln_warning_lnmode_1_is_cn() {
 fn test_trigger_ln_warning_lnmode_2_is_hcn() {
     // lnmode=2 → "HCN" → warning triggered
     let mut mc = make_test_controller();
-    mc.player.play_settings.lnmode = 2;
+    mc.ctx.player.play_settings.lnmode = 2;
     mc.trigger_ln_warning();
 }
 
@@ -1037,7 +1037,7 @@ fn test_trigger_ln_warning_lnmode_2_is_hcn() {
 fn test_trigger_ln_warning_lnmode_3_is_ln_no_warning() {
     // lnmode=3 → default "LN" → no warning
     let mut mc = make_test_controller();
-    mc.player.play_settings.lnmode = 3;
+    mc.ctx.player.play_settings.lnmode = 3;
     mc.trigger_ln_warning();
 }
 
@@ -1543,24 +1543,24 @@ fn test_periodic_config_save_skips_during_play() {
     let mut mc = make_test_controller();
     mc.change_state(MainStateType::Play);
     // Set last_config_save to a long time ago to ensure it would trigger otherwise
-    mc.lifecycle.last_config_save = Instant::now() - std::time::Duration::from_secs(300);
+    mc.ctx.lifecycle.last_config_save = Instant::now() - std::time::Duration::from_secs(300);
 
     // Should skip because current state is Play
     mc.periodic_config_save();
     // Verify it was NOT reset (still old)
-    assert!(mc.lifecycle.last_config_save.elapsed().as_secs() >= 299);
+    assert!(mc.ctx.lifecycle.last_config_save.elapsed().as_secs() >= 299);
 }
 
 #[test]
 fn test_periodic_config_save_does_not_trigger_within_interval() {
     let mut mc = make_test_controller();
     mc.change_state(MainStateType::MusicSelect);
-    mc.lifecycle.last_config_save = Instant::now();
+    mc.ctx.lifecycle.last_config_save = Instant::now();
 
     // Should not trigger because less than 2 minutes elapsed
     mc.periodic_config_save();
     // last_config_save should not have changed significantly
-    assert!(mc.lifecycle.last_config_save.elapsed().as_millis() < 100);
+    assert!(mc.ctx.lifecycle.last_config_save.elapsed().as_millis() < 100);
 }
 
 // --- Phase 24f: add_state_listener tests ---
@@ -1790,7 +1790,7 @@ fn test_save_config_writes_config_sys_json() {
     let deserialized: Config = serde_json::from_str(&contents).unwrap();
     assert_eq!(
         deserialized.display.window_width,
-        mc.config.display.window_width
+        mc.ctx.config.display.window_width
     );
 }
 
@@ -2221,7 +2221,8 @@ fn update_play_config_command_forwards_to_current_state() {
 
     // Set a live hispeed that differs from default (simulating scroll wheel change)
     let live_hispeed = 7.0;
-    mc.player
+    mc.ctx
+        .player
         .play_config(bms_model::mode::Mode::BEAT_7K)
         .playconfig
         .hispeed = live_hispeed;
@@ -2244,6 +2245,7 @@ fn update_play_config_command_forwards_to_current_state() {
 
     // Verify MainController's authoritative PlayerConfig: non-modmenu fields preserved
     let mc_pc = &mc
+        .ctx
         .player
         .play_config_ref(bms_model::mode::Mode::BEAT_7K)
         .playconfig;
@@ -2553,7 +2555,7 @@ fn input_gate_override_forces_input_processing() {
     mc.change_state(MainStateType::MusicSelect);
 
     // Set prevtime to far future so the wall-clock gate would never pass
-    mc.lifecycle.prevtime = i64::MAX / 2;
+    mc.ctx.lifecycle.prevtime = i64::MAX / 2;
 
     // Without override, render() should skip input processing
     mc.render();
@@ -2564,7 +2566,7 @@ fn input_gate_override_forces_input_processing() {
     );
 
     // With override, render() should process input even though wall-clock < prevtime
-    mc.set_input_gate_time_override(mc.lifecycle.prevtime + 1);
+    mc.set_input_gate_time_override(mc.ctx.lifecycle.prevtime + 1);
     mc.render();
     assert_eq!(
         *input_count.lock().unwrap(),
@@ -2585,10 +2587,10 @@ fn input_gate_override_is_consumed_after_render() {
     mc.change_state(MainStateType::MusicSelect);
 
     // Set prevtime to far future
-    mc.lifecycle.prevtime = i64::MAX / 2;
+    mc.ctx.lifecycle.prevtime = i64::MAX / 2;
 
     // Set override once
-    mc.set_input_gate_time_override(mc.lifecycle.prevtime + 1);
+    mc.set_input_gate_time_override(mc.ctx.lifecycle.prevtime + 1);
     mc.render();
     assert_eq!(*input_count.lock().unwrap(), 1);
 
@@ -2675,7 +2677,7 @@ fn update_skin_config_command_updates_player_skin_slot() {
     let slot = rubato_types::skin_type::SkinType::Play7Keys.id() as usize;
 
     // Verify slot starts with default
-    assert!(mc.player.skin[slot].is_some());
+    assert!(mc.ctx.player.skin[slot].is_some());
 
     let config = rubato_types::skin_config::SkinConfig {
         path: Some("/skins/new_play7.json".to_string()),
@@ -2690,7 +2692,7 @@ fn update_skin_config_command_updates_player_skin_slot() {
     mc.process_queued_controller_commands();
 
     assert_eq!(
-        mc.player.skin[slot].as_ref().and_then(|c| c.path()),
+        mc.ctx.player.skin[slot].as_ref().and_then(|c| c.path()),
         Some("/skins/new_play7.json"),
     );
 }
@@ -2705,7 +2707,7 @@ fn update_skin_config_none_clears_slot() {
     );
     mc.process_queued_controller_commands();
 
-    assert!(mc.player.skin[slot].is_none());
+    assert!(mc.ctx.player.skin[slot].is_none());
 }
 
 #[test]
@@ -2726,7 +2728,8 @@ fn update_skin_history_adds_new_entry() {
     mc.process_queued_controller_commands();
 
     assert!(
-        mc.player
+        mc.ctx
+            .player
             .skin_history
             .iter()
             .any(|h| h.path() == Some("/skins/history_test.json")),
@@ -2740,13 +2743,14 @@ fn update_skin_history_updates_existing_entry() {
     let path = "/skins/history_update.json".to_string();
 
     // Pre-populate skin_history
-    mc.player
+    mc.ctx
+        .player
         .skin_history
         .push(rubato_types::skin_config::SkinConfig {
             path: Some(path.clone()),
             properties: None,
         });
-    let original_len = mc.player.skin_history.len();
+    let original_len = mc.ctx.player.skin_history.len();
 
     // Push an update with properties
     let property = rubato_types::skin_config::SkinProperty {
@@ -2771,8 +2775,9 @@ fn update_skin_history_updates_existing_entry() {
     mc.process_queued_controller_commands();
 
     // Should update in-place, not add a new entry
-    assert_eq!(mc.player.skin_history.len(), original_len);
+    assert_eq!(mc.ctx.player.skin_history.len(), original_len);
     let entry = mc
+        .ctx
         .player
         .skin_history
         .iter()

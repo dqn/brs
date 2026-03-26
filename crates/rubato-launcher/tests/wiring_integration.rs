@@ -8,9 +8,6 @@
 // This catches "missing wiring" bugs where individual components work but the
 // caller fails to assemble all required parts before first use.
 
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-
 use rubato_core::config::Config;
 use rubato_core::main_controller::MainController;
 use rubato_core::main_loader::MainLoader;

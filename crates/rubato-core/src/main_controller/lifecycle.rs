@@ -19,9 +19,9 @@ impl MainController {
         // to this Y-up system (e.g. y = dsth - (skin_y + skin_h) * scale).
         ortho.set_to_ortho(
             0.0,
-            self.config.display.window_width as f32,
+            self.ctx.config.display.window_width as f32,
             0.0,
-            self.config.display.window_height as f32,
+            self.ctx.config.display.window_height as f32,
             -1.0,
             1.0,
         );
@@ -37,8 +37,9 @@ impl MainController {
         // }
         // In Rust, the audio driver is injected via set_audio_driver() from the launcher.
         // If no driver was set in the constructor (for PortAudio), we log for OpenAL:
-        if self.audio.is_none() {
+        if self.ctx.audio.is_none() {
             let driver_type = self
+                .ctx
                 .config
                 .audio_config()
                 .map(|ac| format!("{:?}", ac.driver))
@@ -83,12 +84,12 @@ impl MainController {
         self.trigger_ln_warning();
         self.set_target_list();
 
-        self.lifecycle.last_config_save = Instant::now();
+        self.ctx.lifecycle.last_config_save = Instant::now();
 
         info!("Initialization time (ms): {}", t.elapsed().as_millis());
     }
 
-    /// Main render lifecycle method — called every frame.
+    /// Main render lifecycle method -- called every frame.
     ///
     /// Translated from: MainController.render()
     ///
@@ -114,7 +115,7 @@ impl MainController {
     /// ```
     pub fn render(&mut self) {
         // timer.update()
-        self.timer.update();
+        self.ctx.timer.update();
 
         // GL clear is handled by wgpu render pass in main.rs
 
@@ -132,7 +133,7 @@ impl MainController {
         }
 
         // Poll background keysound loading (non-blocking check each frame)
-        if let Some(ref mut audio) = self.audio {
+        if let Some(ref mut audio) = self.ctx.audio {
             audio.poll_loading();
         }
 
@@ -140,7 +141,7 @@ impl MainController {
         // Audio progress comes from the audio driver; BGA progress is read
         // internally by BMSPlayer from its own BGAProcessor.
         if let Some(ref mut current) = self.current {
-            let audio_progress = self.audio.as_ref().map_or(1.0, |a| a.get_progress());
+            let audio_progress = self.ctx.audio.as_ref().map_or(1.0, |a| a.get_progress());
             let bga_on = self.resource.as_ref().is_some_and(|r| r.is_bga_on());
             current.update_loading_progress(audio_progress, bga_on);
         }
@@ -151,7 +152,7 @@ impl MainController {
         }
 
         if let Some(ref mut current) = self.current
-            && let Some(ref mut audio) = self.audio
+            && let Some(ref mut audio) = self.ctx.audio
         {
             current.sync_audio(audio);
         }
@@ -166,7 +167,7 @@ impl MainController {
                 s.begin();
             }
 
-            // Skin update and draw — delegated to state via render_skin() override.
+            // Skin update and draw -- delegated to state via render_skin() override.
             // Default implementation does update_custom_objects + draw_all_objects.
             // MusicSelector overrides to add BarRenderer prepare/render around the cycle.
             if let Some(ref mut current) = self.current {
@@ -180,7 +181,7 @@ impl MainController {
                 // Keep boot-relative time in sync so skin property IDs 27-29 show
                 // time since application start, not time since state creation.
                 data.timer
-                    .set_boot_time_millis(self.lifecycle.boottime.elapsed().as_millis() as i64);
+                    .set_boot_time_millis(self.ctx.lifecycle.boottime.elapsed().as_millis() as i64);
 
                 if current.main_state_data().skin.is_some() {
                     if let Some(ref mut s) = sprite {
@@ -190,7 +191,7 @@ impl MainController {
                     use std::sync::Once;
                     static WARN_ONCE: Once = Once::new();
                     WARN_ONCE.call_once(|| {
-                        log::warn!("No skin loaded for current state — screen will be blank");
+                        log::warn!("No skin loaded for current state -- screen will be blank");
                     });
                 }
             }
@@ -219,7 +220,7 @@ impl MainController {
         // FPS display (Phase 22+: requires system font)
 
         // --- Outbox consumption: poll pending operations from current state ---
-        // Order: sounds → pitch → score handoff → reload → state change (last, destroys current)
+        // Order: sounds -> pitch -> score handoff -> reload -> state change (last, destroys current)
         let mut pending_sounds: Vec<(SoundType, bool)> = Vec::new();
         let mut pending_pitch: Option<f32> = None;
         let mut pending_handoff: Option<rubato_types::score_handoff::ScoreHandoff> = None;
@@ -261,22 +262,31 @@ impl MainController {
         // ORDERING: Must be applied BEFORE system sound playback so that
         // sounds use the updated volume, not the stale one.
         if let Some(audio_config) = pending_audio_config {
-            self.config.audio = Some(audio_config);
+            self.ctx.config.audio = Some(audio_config);
         }
 
         // Apply sounds
         for (sound, loop_sound) in pending_sounds {
-            let volume = self.config.audio.as_ref().map_or(1.0, |a| a.systemvolume);
-            let path = self.sound.as_ref().and_then(|sm| sm.sound(&sound).cloned());
+            let volume = self
+                .ctx
+                .config
+                .audio
+                .as_ref()
+                .map_or(1.0, |a| a.systemvolume);
+            let path = self
+                .ctx
+                .sound
+                .as_ref()
+                .and_then(|sm| sm.sound(&sound).cloned());
             if let Some(path) = path
-                && let Some(ref mut audio) = self.audio
+                && let Some(ref mut audio) = self.ctx.audio
             {
                 audio.play_path(&path, volume, loop_sound);
             }
         }
 
         // Apply skin-scripted audio path plays (from SkinRenderContext::audio_play)
-        if let Some(ref mut audio) = self.audio {
+        if let Some(ref mut audio) = self.ctx.audio {
             for (path, volume, is_loop) in pending_audio_path_plays {
                 if !path.is_empty() {
                     audio.play_path(&path, volume, is_loop);
@@ -291,7 +301,7 @@ impl MainController {
 
         // Apply global pitch
         if let Some(pitch) = pending_pitch
-            && let Some(ref mut audio) = self.audio
+            && let Some(ref mut audio) = self.ctx.audio
         {
             audio.set_global_pitch(pitch);
         }
@@ -337,7 +347,7 @@ impl MainController {
             // BMSPlayer builds pattern info (random options, seeds, gauge type, etc.)
             // and MainController appends the recorded key input log from BMSPlayerInputProcessor.
             if let Some(mut rd) = handoff.replay_data {
-                Self::append_keylog_to_replay(&self.input, &mut rd);
+                Self::append_keylog_to_replay(&self.ctx.input, &mut rd);
                 resource.set_replay_data(rd);
             }
 
@@ -372,14 +382,14 @@ impl MainController {
         // authoritative live values (hispeed, lanecover, etc.). The modmenu path
         // uses apply_modmenu_fields() to avoid overwriting live-mutated fields.
         if let Some((mode, play_config)) = pending_play_config {
-            self.player.play_config(mode).playconfig = play_config;
+            self.ctx.player.play_config(mode).playconfig = play_config;
         }
 
         // Apply full PlayerConfig update from MusicSelector.
         // MusicSelector owns a clone of PlayerConfig; skin events modify it locally.
         // This outbox pushes the entire config back so periodic_config_save() persists changes.
         if let Some(player_config) = pending_player_config {
-            self.player = player_config;
+            self.ctx.player = player_config;
         }
 
         // Quick retry: reset replay seed (START/assist) or save score+replay (SELECT).
@@ -392,7 +402,7 @@ impl MainController {
                 resource.set_score_data(score);
             }
             if let Some(mut replay) = pending_quick_retry_replay {
-                Self::append_keylog_to_replay(&self.input, &mut replay);
+                Self::append_keylog_to_replay(&self.ctx.input, &mut replay);
                 resource.set_replay_data(replay);
             }
         }
@@ -455,22 +465,22 @@ impl MainController {
         // Using Instant would be more robust but changes timing semantics vs Java.
         // Java: final long time = System.currentTimeMillis();
         //       if(time > prevtime) { prevtime = time; current.input(); ... }
-        let time = match self.lifecycle.override_input_gate_time.take() {
+        let time = match self.ctx.lifecycle.override_input_gate_time.take() {
             Some(t) => t,
             None => std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_millis() as i64,
         };
-        if time > self.lifecycle.prevtime {
-            self.lifecycle.prevtime = time;
+        if time > self.ctx.lifecycle.prevtime {
+            self.ctx.lifecycle.prevtime = time;
             // Poll input (Java: done in a separate thread, Rust: done synchronously).
             // Polling inside the time gate ensures no intermediate key transitions
             // are lost between poll and sync_input_from/input/sync_input_back_to.
-            if let Some(ref mut input) = self.input {
+            if let Some(ref mut input) = self.ctx.input {
                 input.poll();
             }
-            if let Some(ref input) = self.input
+            if let Some(ref input) = self.ctx.input
                 && let Some(ref mut current) = self.current
             {
                 current.sync_input_from(input);
@@ -478,19 +488,19 @@ impl MainController {
             if let Some(ref mut current) = self.current {
                 current.input();
             }
-            if let Some(ref mut input) = self.input
+            if let Some(ref mut input) = self.ctx.input
                 && let Some(ref mut current) = self.current
             {
                 current.sync_input_back_to(input);
             }
-            // Mouse pressed/dragged → skin
+            // Mouse pressed/dragged -> skin
             // Java: if (input.isMousePressed()) {
             //     current.getSkin().mousePressed(current, input.getMouseButton(), input.getMouseX(), input.getMouseY());
             // }
             // Java: if (input.isMouseDragged()) {
             //     current.getSkin().mouseDragged(current, input.getMouseButton(), input.getMouseX(), input.getMouseY());
             // }
-            if let Some(ref mut input) = self.input {
+            if let Some(ref mut input) = self.ctx.input {
                 let mouse_pressed = input.is_mouse_pressed();
                 let mouse_dragged = input.is_mouse_dragged();
                 let mouse_button = input.mousebutton;
@@ -509,19 +519,22 @@ impl MainController {
                     input.consume_mouse_dragged();
                 }
 
-                // Mouse moved → cursor visibility timer
+                // Mouse moved -> cursor visibility timer
                 if input.is_mouse_moved() {
-                    self.lifecycle.mouse_moved_time = time;
+                    self.ctx.lifecycle.mouse_moved_time = time;
                     input.mouse_moved = false;
                 }
             }
 
             // KeyCommand handlers (Java: MainController.render() lines 727-819)
-            if let Some(ref mut input) = self.input {
+            if let Some(ref mut input) = self.ctx.input {
                 // FPS display toggle
                 if input.is_activated(KeyCommand::ShowFps) {
-                    self.showfps = !self.showfps;
-                    log::info!("FPS display: {}", if self.showfps { "ON" } else { "OFF" });
+                    self.ctx.showfps = !self.ctx.showfps;
+                    log::info!(
+                        "FPS display: {}",
+                        if self.ctx.showfps { "ON" } else { "OFF" }
+                    );
                 }
 
                 // Fullscreen / windowed toggle (F4 without Alt held)
@@ -539,7 +552,7 @@ impl MainController {
 
                 // Mod menu toggle
                 if input.is_activated(KeyCommand::ToggleModMenu)
-                    && let Some(ref mut imgui) = self.integration.imgui
+                    && let Some(ref mut imgui) = self.ctx.integration.imgui
                 {
                     imgui.toggle_menu();
                 }
@@ -547,18 +560,19 @@ impl MainController {
         }
     }
 
-    /// Dispose lifecycle — called on application shutdown.
+    /// Dispose lifecycle -- called on application shutdown.
     ///
     /// Translated from: MainController.dispose()
     pub fn dispose(&mut self) {
         self.save_config();
 
         // Stop input polling
-        self.input_poll_quit
+        self.ctx
+            .input_poll_quit
             .store(true, std::sync::atomic::Ordering::Release);
 
         // Dispose input processor
-        if let Some(ref mut input) = self.input {
+        if let Some(ref mut input) = self.ctx.input {
             input.dispose();
         }
 
@@ -569,12 +583,12 @@ impl MainController {
         self.current = None;
 
         // Java: if (streamController != null) { streamController.dispose(); }
-        if let Some(ref mut sc) = self.integration.stream_controller {
+        if let Some(ref mut sc) = self.ctx.integration.stream_controller {
             sc.dispose();
         }
-        self.integration.stream_controller = None;
+        self.ctx.integration.stream_controller = None;
 
-        if let Some(mut imgui) = self.integration.imgui.take() {
+        if let Some(mut imgui) = self.ctx.integration.imgui.take() {
             imgui.dispose();
         }
         if let Some(mut resource) = self.resource.take() {
@@ -583,15 +597,15 @@ impl MainController {
         // ShaderManager removed: LibGDX shader management not needed with wgpu.
 
         // Stop the IR resend background thread.
-        if let Some(ref service) = self.integration.ir_resend_service {
+        if let Some(ref service) = self.ctx.integration.ir_resend_service {
             service.stop();
         }
-        self.integration.ir_resend_service = None;
+        self.ctx.integration.ir_resend_service = None;
 
         // Dispose OBS client before audio driver so its Drop impl runs while
         // other resources are still intact. ObsAccess has no explicit close()
         // method; dropping it disconnects the WebSocket.
-        if let Some(obs) = self.integration.obs_client.take() {
+        if let Some(obs) = self.ctx.integration.obs_client.take() {
             drop(obs);
         }
 
@@ -605,15 +619,15 @@ impl MainController {
 
         // Dispose audio driver to release Kira's AudioManager and its background
         // cpal thread.
-        if let Some(ref mut audio) = self.audio {
+        if let Some(ref mut audio) = self.ctx.audio {
             audio.dispose();
         }
-        self.audio = None;
+        self.ctx.audio = None;
 
         info!("All resources disposed");
     }
 
-    /// Pause lifecycle — dispatches to current state.
+    /// Pause lifecycle -- dispatches to current state.
     ///
     /// Translated from: MainController.pause()
     pub fn pause(&mut self) {
@@ -622,7 +636,7 @@ impl MainController {
         }
     }
 
-    /// Resize lifecycle — dispatches to current state.
+    /// Resize lifecycle -- dispatches to current state.
     ///
     /// Translated from: MainController.resize(int, int)
     pub fn resize(&mut self, width: i32, height: i32) {
@@ -638,7 +652,7 @@ impl MainController {
         }
     }
 
-    /// Resume lifecycle — dispatches to current state.
+    /// Resume lifecycle -- dispatches to current state.
     ///
     /// Translated from: MainController.resume()
     pub fn resume(&mut self) {
@@ -660,10 +674,10 @@ impl MainController {
     /// }
     /// ```
     pub fn save_config(&self) {
-        if let Err(e) = Config::write(&self.config) {
+        if let Err(e) = Config::write(&self.ctx.config) {
             log::error!("Failed to write config: {}", e);
         }
-        if let Err(e) = PlayerConfig::write(&self.config.paths.playerpath, &self.player) {
+        if let Err(e) = PlayerConfig::write(&self.ctx.config.paths.playerpath, &self.ctx.player) {
             log::error!("Failed to write player config: {}", e);
         }
         info!("Config saved");
@@ -680,11 +694,11 @@ impl MainController {
     /// }
     /// ```
     ///
-    /// In Java, Gdx.app.exit() triggers the LibGDX lifecycle (pause → dispose),
+    /// In Java, Gdx.app.exit() triggers the LibGDX lifecycle (pause -> dispose),
     /// and dispose() calls saveConfig(). In Rust, we set an exit flag and save
     /// config immediately, since the main loop checks is_exit_requested().
     pub fn exit(&self) {
-        self.exit_requested.store(true, Ordering::Release);
+        self.ctx.exit_requested.store(true, Ordering::Release);
         self.save_config();
         info!("Exit requested");
     }
@@ -693,7 +707,7 @@ impl MainController {
     ///
     /// The main event loop should poll this and initiate shutdown when true.
     pub fn is_exit_requested(&self) -> bool {
-        self.exit_requested.load(Ordering::Acquire)
+        self.ctx.exit_requested.load(Ordering::Acquire)
     }
 
     /// Append recorded key input log from BMSPlayerInputProcessor to replay data.

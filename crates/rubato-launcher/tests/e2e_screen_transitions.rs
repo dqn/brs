@@ -233,7 +233,7 @@ fn e2e_all_state_types_reachable() {
     for state_type in &types {
         mc.change_state(*state_type);
         let expected =
-            if mc.config.select.skip_decide_screen && *state_type == MainStateType::Decide {
+            if mc.config().select.skip_decide_screen && *state_type == MainStateType::Decide {
                 MainStateType::Play
             } else {
                 *state_type
