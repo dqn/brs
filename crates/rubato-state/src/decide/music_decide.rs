@@ -14,10 +14,16 @@ use super::{ControlKeys, NullPlayerResource, PlayerResourceAccess};
 /// Provides config access through SkinRenderContext.
 struct DecideRenderContext<'a> {
     timer: &'a mut TimerManager,
-    resource: &'a dyn PlayerResourceAccess,
+    resource: &'a mut dyn PlayerResourceAccess,
     main: &'a mut MainControllerRef,
     score_data_property: &'a rubato_types::score_data_property::ScoreDataProperty,
     offsets: &'a std::collections::HashMap<i32, rubato_types::skin_offset::SkinOffset>,
+    /// Events collected during rendering for deferred dispatch.
+    /// Skin timer callbacks and Lua code may call `execute_event()` during
+    /// `draw_all_objects_timed`/`update_custom_objects_timed`, but the skin
+    /// is `take()`-ed so `execute_custom_event` cannot be called directly.
+    /// Events are replayed after the render block completes.
+    pending_events: Vec<(i32, i32, i32)>,
 }
 
 impl rubato_types::timer_access::TimerAccess for DecideRenderContext<'_> {
@@ -111,6 +117,21 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideRenderContex
 
     fn audio_stop(&mut self, path: &str) {
         self.main.stop_audio_path(path);
+    }
+
+    fn execute_event(&mut self, id: i32, arg1: i32, arg2: i32) {
+        // Queue events for replay after the render block completes.
+        // During rendering the skin is `take()`-ed, so we cannot call
+        // `skin.execute_custom_event()` directly here.
+        self.pending_events.push((id, arg1, arg2));
+    }
+
+    fn change_state(&mut self, state: rubato_types::main_state_type::MainStateType) {
+        self.main.change_state(state);
+    }
+
+    fn player_config_mut(&mut self) -> Option<&mut rubato_types::player_config::PlayerConfig> {
+        self.resource.player_config_mut()
     }
 
     fn string_value(&self, id: i32) -> String {
@@ -1211,18 +1232,36 @@ impl MainState for MusicDecide {
         };
         let mut timer = std::mem::take(&mut self.data.timer);
 
+        let pending_events;
         {
             let mut ctx = DecideRenderContext {
                 timer: &mut timer,
-                resource: &*self.resource,
+                resource: &mut *self.resource,
                 main: &mut self.main,
                 score_data_property: &self.cached_score_data_property,
                 offsets: &self.data.offsets,
+                pending_events: Vec::new(),
             };
             skin.update_custom_objects_timed(&mut ctx);
             skin.swap_sprite_batch(sprite);
             skin.draw_all_objects_timed(&mut ctx);
             skin.swap_sprite_batch(sprite);
+            pending_events = ctx.pending_events;
+        }
+
+        // Replay queued events now that the skin is available again
+        if !pending_events.is_empty() {
+            let mut ctx = DecideRenderContext {
+                timer: &mut timer,
+                resource: &mut *self.resource,
+                main: &mut self.main,
+                score_data_property: &self.cached_score_data_property,
+                offsets: &self.data.offsets,
+                pending_events: Vec::new(),
+            };
+            for (id, arg1, arg2) in pending_events {
+                skin.execute_custom_event(&mut ctx, id, arg1, arg2);
+            }
         }
 
         self.data.timer = timer;
@@ -1254,10 +1293,11 @@ impl MainState for MusicDecide {
         if !pending_events.is_empty() {
             let mut ctx = DecideRenderContext {
                 timer: &mut timer,
-                resource: &*self.resource,
+                resource: &mut *self.resource,
                 main: &mut self.main,
                 score_data_property: &self.cached_score_data_property,
                 offsets: &self.data.offsets,
+                pending_events: Vec::new(),
             };
             for (id, arg1, arg2) in pending_events {
                 skin.execute_custom_event(&mut ctx, id, arg1, arg2);
@@ -1293,10 +1333,11 @@ impl MainState for MusicDecide {
         if !pending_events.is_empty() {
             let mut ctx = DecideRenderContext {
                 timer: &mut timer,
-                resource: &*self.resource,
+                resource: &mut *self.resource,
                 main: &mut self.main,
                 score_data_property: &self.cached_score_data_property,
                 offsets: &self.data.offsets,
+                pending_events: Vec::new(),
             };
             for (id, arg1, arg2) in pending_events {
                 skin.execute_custom_event(&mut ctx, id, arg1, arg2);
@@ -1383,10 +1424,11 @@ impl MainState for MusicDecide {
         let skin = {
             let mut ctx = DecideRenderContext {
                 timer: &mut self.data.timer,
-                resource: &*self.resource,
+                resource: &mut *self.resource,
                 main: &mut self.main,
                 score_data_property: &self.cached_score_data_property,
                 offsets: &self.data.offsets,
+                pending_events: Vec::new(),
             };
             skin_path.as_deref().and_then(|path| {
                 rubato_skin::skin_loader::load_skin_from_path_with_state(&mut ctx, skin_type, path)
@@ -2012,16 +2054,17 @@ mod tests {
     #[test]
     fn decide_render_context_song_duration_minutes_seconds() {
         // 150_000 ms = 2 minutes 30 seconds
-        let resource = SongLengthResource::with_length_ms(150_000);
+        let mut resource = SongLengthResource::with_length_ms(150_000);
         let mut timer = TimerManager::new();
         let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(ctx.integer_value(312), 150_000, "ID 312: raw ms");
@@ -2033,14 +2076,15 @@ mod tests {
     fn decide_render_context_song_duration_no_songdata() {
         let mut timer = TimerManager::new();
         let mut main = MainControllerRef::new(Box::new(NullMainController));
-        let resource = NullPlayerResource::new();
+        let mut resource = NullPlayerResource::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(ctx.integer_value(1163), i32::MIN);
@@ -2049,16 +2093,17 @@ mod tests {
 
     #[test]
     fn decide_render_context_song_data_ref_returns_songdata() {
-        let resource = SongLengthResource::with_length_ms(100_000);
+        let mut resource = SongLengthResource::with_length_ms(100_000);
         let mut timer = TimerManager::new();
         let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert!(ctx.song_data_ref().is_some());
@@ -2067,16 +2112,17 @@ mod tests {
 
     #[test]
     fn decide_render_context_song_data_ref_none_when_no_song() {
-        let resource = NullPlayerResource::new();
+        let mut resource = NullPlayerResource::new();
         let mut timer = TimerManager::new();
         let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert!(ctx.song_data_ref().is_none());
@@ -2091,10 +2137,11 @@ mod tests {
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert!(ctx.current_play_config_ref().is_some());
@@ -2109,10 +2156,11 @@ mod tests {
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert!(ctx.current_play_config_ref().is_none());
@@ -2120,16 +2168,17 @@ mod tests {
 
     #[test]
     fn decide_render_context_current_play_config_ref_none_when_no_songdata() {
-        let resource = NullPlayerResource::new();
+        let mut resource = NullPlayerResource::new();
         let mut timer = TimerManager::new();
         let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert!(ctx.current_play_config_ref().is_none());
@@ -2144,10 +2193,11 @@ mod tests {
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         // ID 89 (favorite_song) should now return 1 instead of -1
@@ -2169,10 +2219,11 @@ mod tests {
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         // ID 92 should return mainbpm from SongInformation
@@ -2192,10 +2243,11 @@ mod tests {
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(ctx.integer_value(92), i32::MIN);
@@ -2204,16 +2256,17 @@ mod tests {
     #[test]
     fn decide_render_context_mainbpm_no_songdata_returns_min_value() {
         // When songdata is absent, Java returns Integer.MIN_VALUE.
-        let resource = NullPlayerResource::new();
+        let mut resource = NullPlayerResource::new();
         let mut timer = TimerManager::new();
         let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(ctx.integer_value(92), i32::MIN);
@@ -2223,16 +2276,17 @@ mod tests {
     fn decide_render_context_maxbpm_no_songdata_returns_min_value() {
         // When songdata is absent, ID 90 (maxbpm) should return i32::MIN
         // so skin renderers hide the value, matching select screen behavior.
-        let resource = NullPlayerResource::new();
+        let mut resource = NullPlayerResource::new();
         let mut timer = TimerManager::new();
         let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(ctx.integer_value(90), i32::MIN);
@@ -2242,16 +2296,17 @@ mod tests {
     fn decide_render_context_minbpm_no_songdata_returns_min_value() {
         // When songdata is absent, ID 91 (minbpm) should return i32::MIN
         // so skin renderers hide the value, matching select screen behavior.
-        let resource = NullPlayerResource::new();
+        let mut resource = NullPlayerResource::new();
         let mut timer = TimerManager::new();
         let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(ctx.integer_value(91), i32::MIN);
@@ -2266,10 +2321,11 @@ mod tests {
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(ctx.integer_value(90), 200);
@@ -2284,10 +2340,11 @@ mod tests {
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(ctx.integer_value(91), 120);
@@ -2297,16 +2354,17 @@ mod tests {
     fn decide_render_context_negative_length_clamped_to_zero() {
         // Negative chart.length should be clamped to 0, not produce
         // negative minutes/seconds.
-        let resource = SongLengthResource::with_length_ms(-120_000);
+        let mut resource = SongLengthResource::with_length_ms(-120_000);
         let mut timer = TimerManager::new();
         let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(
@@ -2334,10 +2392,11 @@ mod tests {
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(
@@ -2356,10 +2415,11 @@ mod tests {
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(
@@ -2378,10 +2438,11 @@ mod tests {
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(
@@ -2394,16 +2455,17 @@ mod tests {
     #[test]
     fn decide_render_context_lnmode_308_no_override_falls_through() {
         // No LN features -> falls through to config-based default
-        let resource = SongLengthResource::with_length_ms(0);
+        let mut resource = SongLengthResource::with_length_ms(0);
         let mut timer = TimerManager::new();
         let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         // default_image_index_value uses player_config.play_settings.lnmode (default 0)
@@ -2425,10 +2487,11 @@ mod tests {
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         let default_lnmode = ctx.player_config_ref().unwrap().play_settings.lnmode;
@@ -2441,16 +2504,17 @@ mod tests {
 
     #[test]
     fn decide_render_context_lnmode_308_no_songdata_falls_through() {
-        let resource = NullPlayerResource::new();
+        let mut resource = NullPlayerResource::new();
         let mut timer = TimerManager::new();
         let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         // No songdata -> falls through to config-based default
@@ -2484,10 +2548,11 @@ mod tests {
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(
@@ -2500,16 +2565,17 @@ mod tests {
     #[test]
     fn decide_render_context_image_index_370_no_score_returns_minus_one() {
         // When no score data is available, 370 should still return -1.
-        let resource = SongLengthResource::with_length_ms(0);
+        let mut resource = SongLengthResource::with_length_ms(0);
         let mut timer = TimerManager::new();
         let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(
@@ -2690,10 +2756,11 @@ mod tests {
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(
@@ -2705,16 +2772,17 @@ mod tests {
 
     #[test]
     fn decide_render_context_integer_value_chart_level_no_songdata() {
-        let resource = NullPlayerResource::new();
+        let mut resource = NullPlayerResource::new();
         let mut timer = TimerManager::new();
         let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(
@@ -3013,16 +3081,17 @@ mod tests {
     #[test]
     fn decide_render_context_replay_option_data_returns_none_without_replay() {
         // Regression: DecideRenderContext must delegate replay_option_data to resource.
-        let resource = SongLengthResource::with_length_ms(100_000);
+        let mut resource = SongLengthResource::with_length_ms(100_000);
         let mut timer = TimerManager::new();
         let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert!(
@@ -3043,10 +3112,11 @@ mod tests {
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         let replay = ctx
@@ -3132,16 +3202,17 @@ mod tests {
 
     #[test]
     fn decide_render_context_player_profile_stats() {
-        let resource = make_player_data_resource();
+        let mut resource = make_player_data_resource();
         let mut timer = TimerManager::new();
         let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(ctx.integer_value(30), 100); // playcount
@@ -3158,16 +3229,17 @@ mod tests {
 
     #[test]
     fn decide_render_context_player_profile_stats_no_player_data() {
-        let resource = SongLengthResource::with_length_ms(100_000);
+        let mut resource = SongLengthResource::with_length_ms(100_000);
         let mut timer = TimerManager::new();
         let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         for id in 30..=37 {
@@ -3227,10 +3299,11 @@ mod tests {
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         let target_data = ctx.target_score_data();
@@ -3254,10 +3327,11 @@ mod tests {
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         let rival_data = ctx.rival_score_data_ref();
@@ -3270,16 +3344,17 @@ mod tests {
 
     #[test]
     fn decide_render_context_target_and_rival_none_when_absent() {
-        let resource = SongLengthResource::with_length_ms(100_000);
+        let mut resource = SongLengthResource::with_length_ms(100_000);
         let mut timer = TimerManager::new();
         let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert!(ctx.target_score_data().is_none());
@@ -3359,10 +3434,11 @@ mod tests {
         let mut main = MainControllerRef::new(Box::new(NullMainController));
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         // exscore = epg*2 = 100
@@ -3391,10 +3467,11 @@ mod tests {
         let mut main = MainControllerRef::new(Box::new(NullMainController));
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         // ID 80 = PG total = epg+lpg = 15
@@ -3426,10 +3503,11 @@ mod tests {
         let mut main = MainControllerRef::new(Box::new(NullMainController));
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         // rate = 100/200 = 0.5, rate_int = 50, afterdot = 0
@@ -3458,10 +3536,11 @@ mod tests {
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         // ID 10 = NUMBER_HISPEED_LR2 = (hispeed * 100) as i32 = 250
@@ -3482,10 +3561,11 @@ mod tests {
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(ctx.integer_value(12), 5, "ID 12 should return judgetiming");
@@ -3499,7 +3579,7 @@ mod tests {
     #[test]
     fn decide_render_context_boolean_value_bga_off_on() {
         use rubato_types::config::BgaMode;
-        let resource = SongLengthResource::with_length_ms(0);
+        let mut resource = SongLengthResource::with_length_ms(0);
 
         let mut timer = TimerManager::new();
         let changed_states = Arc::new(Mutex::new(Vec::new()));
@@ -3515,10 +3595,11 @@ mod tests {
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert!(
@@ -3541,10 +3622,11 @@ mod tests {
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert!(
@@ -3559,17 +3641,18 @@ mod tests {
 
     #[test]
     fn decide_render_context_boolean_value_course_mode() {
-        let resource = SongLengthResource::with_length_ms(0);
+        let mut resource = SongLengthResource::with_length_ms(0);
 
         let mut timer = TimerManager::new();
         let mut main = MainControllerRef::new(Box::new(NullMainController));
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         // No course data -> course mode is false
@@ -3656,10 +3739,11 @@ mod tests {
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(
@@ -3673,14 +3757,15 @@ mod tests {
     fn decide_render_context_integer_value_400_no_songdata() {
         let mut timer = TimerManager::new();
         let mut main = MainControllerRef::new(Box::new(NullMainController));
-        let resource = NullPlayerResource::new();
+        let mut resource = NullPlayerResource::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
-            resource: &resource,
+            resource: &mut resource,
             main: &mut main,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
+            pending_events: Vec::new(),
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(
