@@ -362,6 +362,10 @@ impl AudioDriver for GdxAudioDeviceDriver {
     }
 
     fn poll_loading(&mut self) -> bool {
+        // Sweep stopped handles across all wav_ids and slice keys each frame
+        // to prevent unbounded growth for rarely-replayed sounds.
+        self.cleanup_stopped_handles();
+
         // Poll deferred path sound loads (non-blocking).
         if let Some(manager) = self.manager.as_mut() {
             for (path, sound_data, plays) in self.deferred_path_loader.poll() {
@@ -637,6 +641,21 @@ impl GdxAudioDeviceDriver {
         } else if (self.global_pitch - 1.0).abs() > f32::EPSILON {
             handle.set_playback_rate(PlaybackRate(base), Tween::default());
         }
+    }
+
+    /// Periodically sweep ALL wav_handles and slice_handles, removing entries whose
+    /// playback has stopped. Without this, handles for rarely-replayed wav_ids accumulate
+    /// indefinitely because the per-push retain in play_note_internal only prunes
+    /// when the same wav_id is played again.
+    fn cleanup_stopped_handles(&mut self) {
+        self.wav_handles.retain(|_, handles| {
+            handles.retain(|h| h.state() != PlaybackState::Stopped);
+            !handles.is_empty()
+        });
+        self.slice_handles.retain(|_, handles| {
+            handles.retain(|h| h.state() != PlaybackState::Stopped);
+            !handles.is_empty()
+        });
     }
 
     /// Generational cache eviction.
