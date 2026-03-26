@@ -417,13 +417,9 @@ impl AudioDriver for GdxAudioDeviceDriver {
         if path.is_empty() || self.path_sound_cache.contains_key(path) {
             return;
         }
-        let candidates = crate::audio_driver::paths(path);
-        for candidate in &candidates {
-            if let Ok(sound_data) = StaticSoundData::from_file(candidate) {
-                self.path_sound_cache.insert(path.to_string(), sound_data);
-                return;
-            }
-        }
+        // Route through DeferredPathLoader to avoid blocking the main thread.
+        // The sound will be cached on the next poll_loading() cycle.
+        self.deferred_path_loader.request_preload(path);
     }
 
     fn play_note(&mut self, n: &Note, volume: f32, pitch: i32) {

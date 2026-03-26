@@ -106,6 +106,50 @@ impl DeferredPathLoader {
         }
     }
 
+    /// Queue a background preload for the given path without recording a play request.
+    /// The loaded sound will be inserted into the cache on the next `poll()` call
+    /// with an empty plays list, so the caller just caches it without playing.
+    pub fn request_preload(&mut self, path: &str) {
+        if self.loading.contains(path) {
+            // Already being loaded; no need to duplicate.
+            return;
+        }
+
+        if self.loading.len() >= Self::MAX_CONCURRENT_LOADS {
+            return;
+        }
+
+        self.loading.insert(path.to_string());
+        let tx = self.tx.clone();
+        let path_owned = path.to_string();
+        let path_key = path.to_string();
+        match std::thread::Builder::new()
+            .name(format!("path-audio-preload:{}", path))
+            .spawn(move || {
+                let candidates = crate::audio_driver::paths(&path_owned);
+                let mut loaded = None;
+                for candidate in &candidates {
+                    if let Ok(sound_data) = StaticSoundData::from_file(candidate) {
+                        loaded = Some(sound_data);
+                        break;
+                    }
+                }
+                let _ = tx.send(PathLoadResult {
+                    path: path_owned,
+                    sound: loaded,
+                });
+            }) {
+            Ok(handle) => {
+                self.loading_handles.insert(path_key, handle);
+                // No pending play recorded -- preload only.
+            }
+            Err(e) => {
+                log::warn!("Failed to spawn audio preload thread for {}: {}", path, e);
+                self.loading.remove(path);
+            }
+        }
+    }
+
     /// Poll for completed background loads. Returns newly loaded sounds
     /// and their pending play requests.
     ///
@@ -320,5 +364,62 @@ mod tests {
         assert!(loader.loading.is_empty());
         assert!(loader.pending_plays.is_empty());
         assert!(loader.loading_handles.is_empty());
+    }
+
+    /// request_preload() should add to loading set but NOT add to pending_plays.
+    #[test]
+    fn request_preload_does_not_record_play_request() {
+        let mut loader = DeferredPathLoader::new();
+
+        // Simulate a path already in the loading set (avoid spawning real thread).
+        // Use request_preload for a path that's already loading -- it should
+        // return early without adding a play request.
+        loader.loading.insert("preload_path".to_string());
+
+        loader.request_preload("preload_path");
+
+        assert!(
+            loader.pending_plays.is_empty(),
+            "request_preload should never add to pending_plays, but had {} entries",
+            loader.pending_plays.len()
+        );
+    }
+
+    /// request_preload respects concurrency limit.
+    #[test]
+    fn request_preload_skips_when_concurrency_limit_reached() {
+        let mut loader = DeferredPathLoader::new();
+
+        for i in 0..DeferredPathLoader::MAX_CONCURRENT_LOADS {
+            loader.loading.insert(format!("loading_{i}"));
+        }
+
+        loader.request_preload("new_preload");
+
+        assert!(
+            !loader.loading.contains("new_preload"),
+            "preload should not be added when concurrency limit is reached"
+        );
+        assert!(loader.pending_plays.is_empty());
+    }
+
+    /// Contrast: request_load for an already-loading path DOES add a play request,
+    /// but request_preload for the same path does NOT.
+    #[test]
+    fn request_preload_vs_request_load_play_recording() {
+        let mut loader = DeferredPathLoader::new();
+        loader.loading.insert("shared_path".to_string());
+
+        // request_load adds a play request
+        loader.request_load("shared_path", 0.5, false);
+        assert_eq!(loader.pending_plays.len(), 1);
+
+        // request_preload does not
+        loader.request_preload("shared_path");
+        assert_eq!(
+            loader.pending_plays.len(),
+            1,
+            "request_preload should not add another pending play"
+        );
     }
 }
