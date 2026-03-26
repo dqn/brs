@@ -246,6 +246,9 @@ impl BMSDecoder {
 
     /// Parse a single non-conditional header line (after # prefix, not RANDOM/IF/ENDIF/ENDRANDOM).
     fn parse_header_line(&mut self, line: &str, model: &mut BMSModel, maxsec: &mut usize) {
+        if line.len() < 2 {
+            return;
+        }
         let c = line.as_bytes()[1] as char;
         let base = model.base();
 
