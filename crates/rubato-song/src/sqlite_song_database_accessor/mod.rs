@@ -483,44 +483,44 @@ impl SongDatabaseAccessor for SQLiteSongDatabaseAccessor {
         // Performance note: O(n*m) linear scan matches Java parity. Consider HashMap<&str, &ScoreData>
         // lookup for large libraries if profiling shows this as a bottleneck.
         songs.sort_by(|a, b| {
-            let mut a_index_sha256 = -1i32;
-            let mut a_index_md5 = -1i32;
-            let mut b_index_sha256 = -1i32;
-            let mut b_index_md5 = -1i32;
+            let mut a_index_sha256 = -1i64;
+            let mut a_index_md5 = -1i64;
+            let mut b_index_sha256 = -1i64;
+            let mut b_index_md5 = -1i64;
             for (i, hash) in hashes.iter().enumerate() {
                 if hash == &a.file.sha256 {
-                    a_index_sha256 = i as i32;
+                    a_index_sha256 = i as i64;
                 }
                 if hash == &a.file.md5 {
-                    a_index_md5 = i as i32;
+                    a_index_md5 = i as i64;
                 }
                 if hash == &b.file.sha256 {
-                    b_index_sha256 = i as i32;
+                    b_index_sha256 = i as i64;
                 }
                 if hash == &b.file.md5 {
-                    b_index_md5 = i as i32;
+                    b_index_md5 = i as i64;
                 }
             }
             let a_index = std::cmp::min(
                 if a_index_sha256 == -1 {
-                    i32::MAX
+                    i64::MAX
                 } else {
                     a_index_sha256
                 },
                 if a_index_md5 == -1 {
-                    i32::MAX
+                    i64::MAX
                 } else {
                     a_index_md5
                 },
             );
             let b_index = std::cmp::min(
                 if b_index_sha256 == -1 {
-                    i32::MAX
+                    i64::MAX
                 } else {
                     b_index_sha256
                 },
                 if b_index_md5 == -1 {
-                    i32::MAX
+                    i64::MAX
                 } else {
                     b_index_md5
                 },
