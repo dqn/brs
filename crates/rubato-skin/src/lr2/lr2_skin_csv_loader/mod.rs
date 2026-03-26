@@ -391,6 +391,7 @@ SCENETIME,9999\n\
         std::fs::write(&movie_path, b"fake movie data").unwrap();
 
         let mut state = make_state();
+        state.skinpath = dir.to_str().unwrap().to_string();
         state.process_csv_command(
             "IMAGE",
             &str_vec(&["#IMAGE", movie_path.to_str().unwrap()]),
@@ -421,6 +422,7 @@ SCENETIME,9999\n\
         std::fs::write(&png_path, png_data).unwrap();
 
         let mut state = make_state();
+        state.skinpath = dir.to_str().unwrap().to_string();
         state.process_csv_command(
             "IMAGE",
             &str_vec(&["#IMAGE", png_path.to_str().unwrap()]),
@@ -475,6 +477,7 @@ SCENETIME,9999\n\
         std::fs::write(&font_path, b"fake font data").unwrap();
 
         let mut state = make_state();
+        state.skinpath = dir.to_str().unwrap().to_string();
         state.process_csv_command(
             "LR2FONT",
             &str_vec(&["#LR2FONT", font_path.to_str().unwrap()]),
@@ -1003,6 +1006,7 @@ SCENETIME,9999\n\
             let movie_path = dir.join(format!("test_case.{}", ext));
             std::fs::write(&movie_path, b"fake").unwrap();
             let mut state = make_state();
+            state.skinpath = dir.to_str().unwrap().to_string();
             state.process_csv_command(
                 "IMAGE",
                 &str_vec(&["#IMAGE", movie_path.to_str().unwrap()]),

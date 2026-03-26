@@ -101,6 +101,9 @@ impl LR2PlaySkinLoaderState {
             }
             "SRC_LINE" => {
                 let values = lr2_skin_loader::parse_int(str_parts);
+                if values[1] < 0 {
+                    return;
+                }
                 if let Some(images) = self.csv.source_image(&values) {
                     let idx = values[1] as usize;
                     if idx < self.line_images.len() {

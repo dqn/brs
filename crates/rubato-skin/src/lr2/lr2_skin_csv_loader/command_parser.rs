@@ -200,6 +200,16 @@ impl LR2SkinCSVLoaderState {
                 let imagefile =
                     lr2_skin_loader::lr2_path(&self.skinpath, &str_parts[1], &self.filemap);
                 let path = Path::new(&imagefile);
+                // Security: reject paths that escape the skin root directory
+                let skin_root = Path::new(&self.skinpath);
+                if !lr2_skin_loader::is_path_within(skin_root, path) {
+                    warn!(
+                        "IMAGE: path traversal blocked: {} (skin root: {})",
+                        imagefile, self.skinpath
+                    );
+                    self.imagelist.push(ImageListEntry::Null);
+                    return;
+                }
                 if path.exists() {
                     let is_movie = ["mpg", "mpeg", "avi", "wmv", "mp4", "m4v"]
                         .iter()
@@ -228,6 +238,16 @@ impl LR2SkinCSVLoaderState {
                 let imagefile =
                     lr2_skin_loader::lr2_path(&self.skinpath, &str_parts[1], &self.filemap);
                 let path = Path::new(&imagefile);
+                // Security: reject paths that escape the skin root directory
+                let skin_root = Path::new(&self.skinpath);
+                if !lr2_skin_loader::is_path_within(skin_root, path) {
+                    warn!(
+                        "LR2FONT: path traversal blocked: {} (skin root: {})",
+                        imagefile, self.skinpath
+                    );
+                    self.fontlist.push(None);
+                    return;
+                }
                 if path.exists() {
                     let mut loader = LR2FontLoader::new(self.usecim);
                     match loader.load_font(path) {

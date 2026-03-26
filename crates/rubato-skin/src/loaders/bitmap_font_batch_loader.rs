@@ -39,13 +39,19 @@ impl BitmapFontBatchLoader {
         for font in &skin.font {
             match (|| -> Result<(), String> {
                 let font_path_str = font.path.as_deref().unwrap_or("");
+                if font_path_str.is_empty() {
+                    return Ok(());
+                }
                 let path = skin_parent.join(font_path_str);
                 let valid_path = path
                     .to_str()
                     .map(|s| s.to_lowercase().ends_with(".fnt"))
                     .unwrap_or(false);
+                if !valid_path {
+                    return Ok(());
+                }
                 let already_cached = bitmap_font_cache::has(Some(&path));
-                if !valid_path || already_cached {
+                if already_cached {
                     return Ok(());
                 }
                 font_paths.insert(path, font.font_type);
