@@ -311,25 +311,18 @@ impl MusicSelector {
             self.pending_state_change = Some(state);
         }
 
-        // Audio
-        if let Some(ref mut main) = self.main {
-            for (path, volume, is_loop) in actions.audio_plays.drain(..) {
-                main.play_audio_path(&path, volume, is_loop);
-            }
-            for path in actions.audio_stops.drain(..) {
-                main.stop_audio_path(&path);
-            }
-        } else {
-            actions.audio_plays.clear();
-            actions.audio_stops.clear();
+        // Audio: store in pending lists for outbox drain
+        for (path, volume, is_loop) in actions.audio_plays.drain(..) {
+            self.pending_audio_path_plays.push((path, volume, is_loop));
+        }
+        for path in actions.audio_stops.drain(..) {
+            self.pending_audio_path_stops.push(path);
         }
 
         // Config propagation (audio config changes)
         if actions.audio_config_changed {
-            if let Some(audio) = self.app_config.audio.clone()
-                && let Some(ref main) = self.main
-            {
-                main.update_audio_config(audio);
+            if let Some(audio) = self.app_config.audio.clone() {
+                self.pending_audio_config = Some(audio);
             }
             actions.audio_config_changed = false;
         }
@@ -349,11 +342,9 @@ impl MusicSelector {
                             _ => unreachable!(),
                         }
                     }
-                    // Propagate audio config change to MainController
-                    if let Some(audio) = self.app_config.audio.clone()
-                        && let Some(ref main) = self.main
-                    {
-                        main.update_audio_config(audio);
+                    // Propagate audio config change via outbox
+                    if let Some(audio) = self.app_config.audio.clone() {
+                        self.pending_audio_config = Some(audio);
                     }
                 }
                 _ => {}

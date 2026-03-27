@@ -263,6 +263,11 @@ pub trait MainState {
         vec![]
     }
 
+    /// Drain pending system sound stop requests (e.g., stop scratch sound on select screen).
+    fn drain_pending_sound_stops(&mut self) -> Vec<SoundType> {
+        vec![]
+    }
+
     /// Take pending score handoff data for PlayerResource.
     fn take_score_handoff(&mut self) -> Option<rubato_types::score_handoff::ScoreHandoff> {
         None

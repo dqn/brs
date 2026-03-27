@@ -205,10 +205,8 @@ impl rubato_types::skin_render_context::SkinRenderContext for SelectSkinContext<
     }
 
     fn notify_audio_config_changed(&mut self) {
-        if let Some(audio) = self.selector.app_config.audio.clone()
-            && let Some(ref main) = self.selector.main
-        {
-            main.update_audio_config(audio);
+        if let Some(audio) = self.selector.app_config.audio.clone() {
+            self.selector.pending_audio_config = Some(audio);
         }
     }
 
@@ -274,15 +272,15 @@ impl rubato_types::skin_render_context::SkinRenderContext for SelectSkinContext<
     }
 
     fn audio_play(&mut self, path: &str, volume: f32, is_loop: bool) {
-        if let Some(ref mut main) = self.selector.main {
-            main.play_audio_path(path, volume, is_loop);
-        }
+        self.selector
+            .pending_audio_path_plays
+            .push((path.to_string(), volume, is_loop));
     }
 
     fn audio_stop(&mut self, path: &str) {
-        if let Some(ref mut main) = self.selector.main {
-            main.stop_audio_path(path);
-        }
+        self.selector
+            .pending_audio_path_stops
+            .push(path.to_string());
     }
 
     fn execute_event(&mut self, id: i32, arg1: i32, arg2: i32) {
@@ -619,12 +617,9 @@ impl rubato_types::skin_render_context::SkinRenderContext for SelectSkinContext<
                         _ => unreachable!(),
                     }
                 }
-                // Propagate audio config change to MainController so it survives
-                // state transitions and config saves.
-                if let Some(audio) = self.selector.app_config.audio.clone()
-                    && let Some(ref main) = self.selector.main
-                {
-                    main.update_audio_config(audio);
+                // Propagate audio config change via outbox
+                if let Some(audio) = self.selector.app_config.audio.clone() {
+                    self.selector.pending_audio_config = Some(audio);
                 }
             }
             _ => {}
@@ -802,6 +797,17 @@ pub struct MusicSelector {
     /// Pending state change request (outbox pattern).
     /// MainController polls this via take_pending_state_change() each frame.
     pending_state_change: Option<MainStateType>,
+
+    /// Outbox: pending system sound plays (SoundType, loop).
+    pending_sounds: Vec<(SoundType, bool)>,
+    /// Outbox: pending system sound stops.
+    pending_sound_stops: Vec<SoundType>,
+    /// Outbox: pending audio path plays (path, volume, loop).
+    pending_audio_path_plays: Vec<(String, f32, bool)>,
+    /// Outbox: pending audio path stops.
+    pending_audio_path_stops: Vec<String>,
+    /// Outbox: pending audio config update.
+    pending_audio_config: Option<rubato_types::audio_config::AudioConfig>,
 
     /// Dirty flag for PlayerConfig changes made on the select screen.
     /// Set by play_option_change() and cleared by take_pending_player_config_update().

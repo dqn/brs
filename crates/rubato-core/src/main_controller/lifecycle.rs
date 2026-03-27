@@ -224,6 +224,7 @@ impl MainController {
         // --- Outbox consumption: poll pending operations from current state ---
         // Order: sounds -> pitch -> score handoff -> reload -> state change (last, destroys current)
         let mut pending_sounds: Vec<(SoundType, bool)> = Vec::new();
+        let mut pending_sound_stops: Vec<SoundType> = Vec::new();
         let mut pending_pitch: Option<f32> = None;
         let mut pending_handoff: Option<rubato_types::score_handoff::ScoreHandoff> = None;
         let mut pending_reload = false;
@@ -243,6 +244,7 @@ impl MainController {
 
         if let Some(ref mut current) = self.current {
             pending_sounds = current.drain_pending_sounds();
+            pending_sound_stops = current.drain_pending_sound_stops();
             pending_pitch = current.take_pending_global_pitch();
             pending_handoff = current.take_score_handoff();
             pending_reload = current.take_pending_reload_bms();
@@ -284,6 +286,19 @@ impl MainController {
                 && let Some(ref mut audio) = self.ctx.audio
             {
                 audio.play_path(&path, volume, loop_sound);
+            }
+        }
+        // Apply sound stops
+        for sound in pending_sound_stops {
+            let path = self
+                .ctx
+                .sound
+                .as_ref()
+                .and_then(|sm| sm.sound(&sound).cloned());
+            if let Some(path) = path
+                && let Some(ref mut audio) = self.ctx.audio
+            {
+                audio.stop_path(&path);
             }
         }
 

@@ -66,6 +66,16 @@ pub struct CourseResult {
     /// Retained for the old CourseResultMouseContext adapter (kept as dead code).
     #[allow(dead_code)]
     pub(crate) pending_custom_events: Vec<(i32, i32, i32)>,
+    /// Outbox: pending system sound plays (sound_type, is_loop).
+    pending_sounds: Vec<(SoundType, bool)>,
+    /// Outbox: pending system sound stops.
+    pending_sound_stops: Vec<SoundType>,
+    /// Outbox: pending audio path plays (path, volume, is_loop).
+    pending_audio_path_plays: Vec<(String, f32, bool)>,
+    /// Outbox: pending audio path stops.
+    pending_audio_path_stops: Vec<String>,
+    /// Outbox: pending audio config update.
+    pending_audio_config: Option<rubato_types::audio_config::AudioConfig>,
 }
 
 impl CourseResult {
@@ -85,6 +95,11 @@ impl CourseResult {
             ir_rx: None,
             ir_thread: None,
             pending_custom_events: Vec::new(),
+            pending_sounds: Vec::new(),
+            pending_sound_stops: Vec::new(),
+            pending_audio_path_plays: Vec::new(),
+            pending_audio_path_stops: Vec::new(),
+            pending_audio_config: None,
         }
     }
 
@@ -398,7 +413,7 @@ impl CourseResult {
         } else {
             self.select_course_sound(SoundType::CourseFail, SoundType::ResultFail)
         };
-        self.main.play_sound(&sound, loop_sound);
+        self.pending_sounds.push((sound, loop_sound));
     }
 
     /// Select course-specific sound, falling back to the generic result sound.
@@ -450,17 +465,14 @@ impl CourseResult {
     /// Stops course-specific sounds if available, otherwise falls back to result sounds.
     pub fn shutdown(&mut self) {
         // Java: stop(getSound(COURSE_CLEAR) != null ? COURSE_CLEAR : RESULT_CLEAR)
-        self.stop_sound_inner(
-            self.select_course_sound(SoundType::CourseClear, SoundType::ResultClear),
-        );
+        self.pending_sound_stops
+            .push(self.select_course_sound(SoundType::CourseClear, SoundType::ResultClear));
         // Java: stop(getSound(COURSE_FAIL) != null ? COURSE_FAIL : RESULT_FAIL)
-        self.stop_sound_inner(
-            self.select_course_sound(SoundType::CourseFail, SoundType::ResultFail),
-        );
+        self.pending_sound_stops
+            .push(self.select_course_sound(SoundType::CourseFail, SoundType::ResultFail));
         // Java: stop(getSound(COURSE_CLOSE) != null ? COURSE_CLOSE : RESULT_CLOSE)
-        self.stop_sound_inner(
-            self.select_course_sound(SoundType::CourseClose, SoundType::ResultClose),
-        );
+        self.pending_sound_stops
+            .push(self.select_course_sound(SoundType::CourseClose, SoundType::ResultClose));
 
         // Detach the IR send thread -- it is bounded (sends scores + fetches
         // ranking, then exits) so we do not need to block shutdown waiting for it.
@@ -476,11 +488,11 @@ impl CourseResult {
     }
 
     fn play_sound_inner(&mut self, sound: SoundType) {
-        super::result_common::play_sound(&mut self.main, &sound);
+        self.pending_sounds.push((sound, false));
     }
 
     fn stop_sound_inner(&mut self, sound: SoundType) {
-        super::result_common::stop_sound(&mut self.main, &sound);
+        self.pending_sound_stops.push(sound);
     }
 
     /// Stop clear/fail sounds and play close sound (course-specific with fallback).
@@ -996,47 +1008,35 @@ impl CourseResult {
     }
 
     /// Apply queued actions from the snapshot back to live game state.
+    /// Audio actions are stored in pending lists for lifecycle outbox consumption
+    /// (bypassing the command queue).
     fn drain_actions(&mut self, actions: &mut SkinActionQueue, timer: &mut TimerManager) {
         // Timer sets
         for (timer_id, micro_time) in actions.timer_sets.drain(..) {
             timer.set_micro_timer(timer_id, micro_time);
         }
 
-        // State changes
+        // State changes (must stay on command queue)
         for state in actions.state_changes.drain(..) {
             self.main.change_state(state);
         }
 
-        // Audio
+        // Audio: store in pending lists for outbox drain
         for (path, volume, is_loop) in actions.audio_plays.drain(..) {
-            self.main.play_audio_path(&path, volume, is_loop);
+            self.pending_audio_path_plays.push((path, volume, is_loop));
         }
         for path in actions.audio_stops.drain(..) {
-            self.main.stop_audio_path(&path);
+            self.pending_audio_path_stops.push(path);
         }
 
-        // Config propagation
-        if actions.audio_config_changed {
-            if let Some(audio) = self.main.config().audio.clone() {
-                self.main.update_audio_config(audio);
-            }
-            actions.audio_config_changed = false;
-        }
-
-        // Option change sound
-        if actions.option_change_sound {
-            self.main.play_sound(
-                &rubato_core::system_sound_manager::SoundType::OptionChange,
-                false,
-            );
-            actions.option_change_sound = false;
-        }
-
-        // Float writes (volume sliders)
+        // Float writes (volume sliders) -- apply to pending audio config
         for (id, value) in actions.float_writes.drain(..) {
-            if (17..=19).contains(&id)
-                && let Some(mut audio) = self.main.config().audio.clone()
-            {
+            if (17..=19).contains(&id) {
+                let mut audio = self
+                    .pending_audio_config
+                    .clone()
+                    .or_else(|| self.main.config().audio.clone())
+                    .unwrap_or_default();
                 let clamped = value.clamp(0.0, 1.0);
                 match id {
                     17 => audio.systemvolume = clamped,
@@ -1044,8 +1044,22 @@ impl CourseResult {
                     19 => audio.bgvolume = clamped,
                     _ => {}
                 }
-                self.main.update_audio_config(audio);
+                self.pending_audio_config = Some(audio);
             }
+        }
+
+        // Config propagation
+        if actions.audio_config_changed {
+            if self.pending_audio_config.is_none() {
+                self.pending_audio_config = self.main.config().audio.clone();
+            }
+            actions.audio_config_changed = false;
+        }
+
+        // Option change sound
+        if actions.option_change_sound {
+            self.pending_sounds.push((SoundType::OptionChange, false));
+            actions.option_change_sound = false;
         }
     }
 
@@ -1309,6 +1323,26 @@ impl rubato_core::main_state::MainState for CourseResult {
 
     fn dispose(&mut self) {
         self.dispose();
+    }
+
+    fn drain_pending_sounds(&mut self) -> Vec<(SoundType, bool)> {
+        std::mem::take(&mut self.pending_sounds)
+    }
+
+    fn drain_pending_sound_stops(&mut self) -> Vec<SoundType> {
+        std::mem::take(&mut self.pending_sound_stops)
+    }
+
+    fn drain_pending_audio_path_plays(&mut self) -> Vec<(String, f32, bool)> {
+        std::mem::take(&mut self.pending_audio_path_plays)
+    }
+
+    fn drain_pending_audio_path_stops(&mut self) -> Vec<String> {
+        std::mem::take(&mut self.pending_audio_path_stops)
+    }
+
+    fn take_pending_audio_config(&mut self) -> Option<rubato_types::audio_config::AudioConfig> {
+        self.pending_audio_config.take()
     }
 }
 
@@ -2804,7 +2838,7 @@ mod tests {
     #[test]
     fn test_do_render_auto_fadeout_plays_close_sound_when_available() {
         // Finding 1: When auto-firing TIMER_FADEOUT, should stop clear/fail and play close sound.
-        let (mut cr, played, stopped, _state_changes) =
+        let (mut cr, _played, _stopped, _state_changes) =
             make_sound_tracking_cr(vec![SoundType::CourseClose, SoundType::CourseClear]);
 
         cr.skin = Some(ResultSkinData::new_with_timings(0, 0, 0, 0));
@@ -2814,22 +2848,21 @@ mod tests {
 
         cr.do_render();
 
-        let stopped_sounds = stopped.lock().unwrap();
-        let played_sounds = played.lock().unwrap();
-
         // Should stop clear/fail sounds (using course variant since available)
         assert!(
-            stopped_sounds.contains(&SoundType::CourseClear),
+            cr.pending_sound_stops.contains(&SoundType::CourseClear),
             "should stop CourseClear on auto-fadeout"
         );
         assert!(
-            stopped_sounds.contains(&SoundType::CourseFail)
-                || stopped_sounds.contains(&SoundType::ResultFail),
+            cr.pending_sound_stops.contains(&SoundType::CourseFail)
+                || cr.pending_sound_stops.contains(&SoundType::ResultFail),
             "should stop fail sound on auto-fadeout"
         );
         // Should play close sound (using course variant since available)
         assert!(
-            played_sounds.contains(&SoundType::CourseClose),
+            cr.pending_sounds
+                .iter()
+                .any(|(s, _)| *s == SoundType::CourseClose),
             "should play CourseClose on auto-fadeout"
         );
     }
@@ -2837,7 +2870,7 @@ mod tests {
     #[test]
     fn test_do_render_auto_fadeout_no_close_sound_when_none_available() {
         // When neither COURSE_CLOSE nor RESULT_CLOSE exists, no close sound should play.
-        let (mut cr, played, stopped, _state_changes) = make_sound_tracking_cr(vec![]);
+        let (mut cr, _played, _stopped, _state_changes) = make_sound_tracking_cr(vec![]);
 
         cr.skin = Some(ResultSkinData::new_with_timings(0, 0, 0, 0));
         cr.main_data.timer.update();
@@ -2846,19 +2879,16 @@ mod tests {
 
         cr.do_render();
 
-        let played_sounds = played.lock().unwrap();
-        let stopped_sounds = stopped.lock().unwrap();
-
         assert!(
             cr.main_data.timer.is_timer_on(TIMER_FADEOUT),
             "TIMER_FADEOUT should still be fired"
         );
         assert!(
-            played_sounds.is_empty(),
+            cr.pending_sounds.is_empty(),
             "no close sound should be played when none available"
         );
         assert!(
-            stopped_sounds.is_empty(),
+            cr.pending_sound_stops.is_empty(),
             "no sounds should be stopped when no close sound available"
         );
     }
@@ -2888,7 +2918,7 @@ mod tests {
         // Finding 2: When TIMER_FADEOUT is set during do_input() (OK press path),
         // it should stop clear/fail sounds and play close sound.
         // With score_data() == None (default), the OK path triggers unconditionally.
-        let (mut cr, played, stopped, _state_changes) =
+        let (mut cr, _played, _stopped, _state_changes) =
             make_sound_tracking_cr(vec![SoundType::CourseClose, SoundType::CourseClear]);
 
         cr.main_data.timer.update();
@@ -2904,16 +2934,15 @@ mod tests {
             "TIMER_FADEOUT should be set"
         );
 
-        let stopped_sounds = stopped.lock().unwrap();
-        let played_sounds = played.lock().unwrap();
-
         // Should have stopped clear/fail and played close
         assert!(
-            stopped_sounds.contains(&SoundType::CourseClear),
+            cr.pending_sound_stops.contains(&SoundType::CourseClear),
             "should stop clear sound when close sound triggered"
         );
         assert!(
-            played_sounds.contains(&SoundType::CourseClose),
+            cr.pending_sounds
+                .iter()
+                .any(|(s, _)| *s == SoundType::CourseClose),
             "should play CourseClose on TIMER_FADEOUT"
         );
     }
@@ -2921,7 +2950,7 @@ mod tests {
     #[test]
     fn test_do_input_no_close_sound_when_none_available() {
         // When no close sound exists, TIMER_FADEOUT should still fire but no sound plays.
-        let (mut cr, played, _stopped, _state_changes) = make_sound_tracking_cr(vec![]);
+        let (mut cr, _played, _stopped, _state_changes) = make_sound_tracking_cr(vec![]);
 
         cr.main_data.timer.update();
         cr.main_data.timer.switch_timer(TIMER_STARTINPUT, true);
@@ -2929,9 +2958,8 @@ mod tests {
         cr.do_input();
 
         assert!(cr.main_data.timer.is_timer_on(TIMER_FADEOUT));
-        let played_sounds = played.lock().unwrap();
         assert!(
-            played_sounds.is_empty(),
+            cr.pending_sounds.is_empty(),
             "no close sound should be played when none available"
         );
     }
@@ -2944,7 +2972,7 @@ mod tests {
     fn test_shutdown_stops_course_sounds_when_course_sounds_available() {
         // Finding 3: shutdown() should stop exactly one per category (exclusive-or),
         // not all six unconditionally.
-        let (mut cr, _played, stopped, _state_changes) = make_sound_tracking_cr(vec![
+        let (mut cr, _played, _stopped, _state_changes) = make_sound_tracking_cr(vec![
             SoundType::CourseClear,
             SoundType::CourseFail,
             SoundType::CourseClose,
@@ -2952,30 +2980,29 @@ mod tests {
 
         cr.shutdown();
 
-        let stopped_sounds = stopped.lock().unwrap();
         // Should stop course variants only (not result variants)
         assert!(
-            stopped_sounds.contains(&SoundType::CourseClear),
+            cr.pending_sound_stops.contains(&SoundType::CourseClear),
             "should stop CourseClear"
         );
         assert!(
-            stopped_sounds.contains(&SoundType::CourseFail),
+            cr.pending_sound_stops.contains(&SoundType::CourseFail),
             "should stop CourseFail"
         );
         assert!(
-            stopped_sounds.contains(&SoundType::CourseClose),
+            cr.pending_sound_stops.contains(&SoundType::CourseClose),
             "should stop CourseClose"
         );
         assert!(
-            !stopped_sounds.contains(&SoundType::ResultClear),
+            !cr.pending_sound_stops.contains(&SoundType::ResultClear),
             "should NOT stop ResultClear when CourseClear exists"
         );
         assert!(
-            !stopped_sounds.contains(&SoundType::ResultFail),
+            !cr.pending_sound_stops.contains(&SoundType::ResultFail),
             "should NOT stop ResultFail when CourseFail exists"
         );
         assert!(
-            !stopped_sounds.contains(&SoundType::ResultClose),
+            !cr.pending_sound_stops.contains(&SoundType::ResultClose),
             "should NOT stop ResultClose when CourseClose exists"
         );
     }
@@ -2983,7 +3010,7 @@ mod tests {
     #[test]
     fn test_shutdown_falls_back_to_result_sounds_when_course_sounds_unavailable() {
         // When course-specific sounds don't exist, falls back to result sounds.
-        let (mut cr, _played, stopped, _state_changes) = make_sound_tracking_cr(vec![
+        let (mut cr, _played, _stopped, _state_changes) = make_sound_tracking_cr(vec![
             SoundType::ResultClear,
             SoundType::ResultFail,
             SoundType::ResultClose,
@@ -2991,30 +3018,29 @@ mod tests {
 
         cr.shutdown();
 
-        let stopped_sounds = stopped.lock().unwrap();
         // Should stop result variants only (not course variants)
         assert!(
-            stopped_sounds.contains(&SoundType::ResultClear),
+            cr.pending_sound_stops.contains(&SoundType::ResultClear),
             "should stop ResultClear as fallback"
         );
         assert!(
-            stopped_sounds.contains(&SoundType::ResultFail),
+            cr.pending_sound_stops.contains(&SoundType::ResultFail),
             "should stop ResultFail as fallback"
         );
         assert!(
-            stopped_sounds.contains(&SoundType::ResultClose),
+            cr.pending_sound_stops.contains(&SoundType::ResultClose),
             "should stop ResultClose as fallback"
         );
         assert!(
-            !stopped_sounds.contains(&SoundType::CourseClear),
+            !cr.pending_sound_stops.contains(&SoundType::CourseClear),
             "should NOT stop CourseClear when it doesn't exist"
         );
         assert!(
-            !stopped_sounds.contains(&SoundType::CourseFail),
+            !cr.pending_sound_stops.contains(&SoundType::CourseFail),
             "should NOT stop CourseFail when it doesn't exist"
         );
         assert!(
-            !stopped_sounds.contains(&SoundType::CourseClose),
+            !cr.pending_sound_stops.contains(&SoundType::CourseClose),
             "should NOT stop CourseClose when it doesn't exist"
         );
     }
@@ -3022,7 +3048,7 @@ mod tests {
     #[test]
     fn test_shutdown_mixed_availability() {
         // One category has course sound, another has only result fallback.
-        let (mut cr, _played, stopped, _state_changes) = make_sound_tracking_cr(vec![
+        let (mut cr, _played, _stopped, _state_changes) = make_sound_tracking_cr(vec![
             SoundType::CourseClear, // course clear available
             SoundType::ResultFail,  // only result fail available
             SoundType::CourseClose, // course close available
@@ -3030,13 +3056,12 @@ mod tests {
 
         cr.shutdown();
 
-        let stopped_sounds = stopped.lock().unwrap();
-        assert!(stopped_sounds.contains(&SoundType::CourseClear));
-        assert!(!stopped_sounds.contains(&SoundType::ResultClear));
-        assert!(stopped_sounds.contains(&SoundType::ResultFail));
-        assert!(!stopped_sounds.contains(&SoundType::CourseFail));
-        assert!(stopped_sounds.contains(&SoundType::CourseClose));
-        assert!(!stopped_sounds.contains(&SoundType::ResultClose));
+        assert!(cr.pending_sound_stops.contains(&SoundType::CourseClear));
+        assert!(!cr.pending_sound_stops.contains(&SoundType::ResultClear));
+        assert!(cr.pending_sound_stops.contains(&SoundType::ResultFail));
+        assert!(!cr.pending_sound_stops.contains(&SoundType::CourseFail));
+        assert!(cr.pending_sound_stops.contains(&SoundType::CourseClose));
+        assert!(!cr.pending_sound_stops.contains(&SoundType::ResultClose));
     }
 
     #[test]

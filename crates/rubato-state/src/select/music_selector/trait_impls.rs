@@ -169,15 +169,11 @@ impl MainState for MusicSelector {
     }
 
     fn play_sound_loop(&mut self, sound: SoundType, loop_sound: bool) {
-        if let Some(ref mut main) = self.main {
-            main.play_sound(&sound, loop_sound);
-        }
+        self.pending_sounds.push((sound, loop_sound));
     }
 
     fn stop_sound(&mut self, sound: SoundType) {
-        if let Some(ref mut main) = self.main {
-            main.stop_sound(&sound);
-        }
+        self.pending_sound_stops.push(sound);
     }
 
     fn sync_audio(&mut self, audio: &mut AudioSystem) {
@@ -1159,6 +1155,26 @@ impl MainState for MusicSelector {
         }
         self.banners.dispose_old();
         self.stagefiles.dispose_old();
+    }
+
+    fn drain_pending_sounds(&mut self) -> Vec<(SoundType, bool)> {
+        std::mem::take(&mut self.pending_sounds)
+    }
+
+    fn drain_pending_sound_stops(&mut self) -> Vec<SoundType> {
+        std::mem::take(&mut self.pending_sound_stops)
+    }
+
+    fn drain_pending_audio_path_plays(&mut self) -> Vec<(String, f32, bool)> {
+        std::mem::take(&mut self.pending_audio_path_plays)
+    }
+
+    fn drain_pending_audio_path_stops(&mut self) -> Vec<String> {
+        std::mem::take(&mut self.pending_audio_path_stops)
+    }
+
+    fn take_pending_audio_config(&mut self) -> Option<rubato_types::audio_config::AudioConfig> {
+        self.pending_audio_config.take()
     }
 
     /// Dispose — clean up bar renderer, search field, skin, and background threads.

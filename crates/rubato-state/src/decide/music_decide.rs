@@ -1176,9 +1176,15 @@ pub struct MusicDecide {
     pub resource: Box<dyn PlayerResourceAccess>,
     cancel: bool,
     /// Cached ScoreDataProperty for skin property delegation.
-    /// Java: MusicDecide inherits MainState.getScoreDataProperty() which Lua skins
-    /// call for main_state.rate()/exscore().
     cached_score_data_property: rubato_types::score_data_property::ScoreDataProperty,
+    /// Outbox: pending system sound plays.
+    pending_sounds: Vec<(SoundType, bool)>,
+    /// Outbox: pending audio path plays.
+    pending_audio_path_plays: Vec<(String, f32, bool)>,
+    /// Outbox: pending audio path stops.
+    pending_audio_path_stops: Vec<String>,
+    /// Outbox: pending audio config update.
+    pending_audio_config: Option<rubato_types::audio_config::AudioConfig>,
 }
 
 impl MusicDecide {
@@ -1197,6 +1203,10 @@ impl MusicDecide {
             resource,
             cancel: false,
             cached_score_data_property,
+            pending_sounds: Vec::new(),
+            pending_audio_path_plays: Vec::new(),
+            pending_audio_path_stops: Vec::new(),
+            pending_audio_config: None,
         }
     }
 }
@@ -1275,38 +1285,34 @@ impl MusicDecide {
     }
 
     /// Apply queued actions from the snapshot back to live game state.
+    /// Audio actions are stored in pending lists for lifecycle outbox consumption.
     fn drain_actions(&mut self, actions: &mut SkinActionQueue, timer: &mut TimerManager) {
         // Timer sets
         for (timer_id, micro_time) in actions.timer_sets.drain(..) {
             timer.set_micro_timer(timer_id, micro_time);
         }
 
-        // State changes
+        // State changes (must stay on command queue)
         for state in actions.state_changes.drain(..) {
             self.main.change_state(state);
         }
 
-        // Audio
+        // Audio: store in pending lists for outbox drain
         for (path, volume, is_loop) in actions.audio_plays.drain(..) {
-            self.main.play_audio_path(&path, volume, is_loop);
+            self.pending_audio_path_plays.push((path, volume, is_loop));
         }
         for path in actions.audio_stops.drain(..) {
-            self.main.stop_audio_path(&path);
+            self.pending_audio_path_stops.push(path);
         }
 
-        // Config propagation
-        if actions.audio_config_changed {
-            if let Some(audio) = self.main.config().audio.clone() {
-                self.main.update_audio_config(audio);
-            }
-            actions.audio_config_changed = false;
-        }
-
-        // Float writes (volume sliders)
+        // Float writes (volume sliders) -- apply to pending audio config
         for (id, value) in actions.float_writes.drain(..) {
-            if (17..=19).contains(&id)
-                && let Some(mut audio) = self.main.config().audio.clone()
-            {
+            if (17..=19).contains(&id) {
+                let mut audio = self
+                    .pending_audio_config
+                    .clone()
+                    .or_else(|| self.main.config().audio.clone())
+                    .unwrap_or_default();
                 let clamped = value.clamp(0.0, 1.0);
                 match id {
                     17 => audio.systemvolume = clamped,
@@ -1314,8 +1320,16 @@ impl MusicDecide {
                     19 => audio.bgvolume = clamped,
                     _ => {}
                 }
-                self.main.update_audio_config(audio);
+                self.pending_audio_config = Some(audio);
             }
+        }
+
+        // Config propagation
+        if actions.audio_config_changed {
+            if self.pending_audio_config.is_none() {
+                self.pending_audio_config = self.main.config().audio.clone();
+            }
+            actions.audio_config_changed = false;
         }
 
         // Player config mutations: copy back from snapshot if modified
@@ -1349,8 +1363,8 @@ impl MainState for MusicDecide {
 
     fn prepare(&mut self) {
         // super.prepare() - default empty in MainState
-        // play(DECIDE)
-        self.main.play_sound(&SoundType::Decide, false);
+        // play(DECIDE) -- via outbox, drained by lifecycle
+        self.pending_sounds.push((SoundType::Decide, false));
     }
 
     fn render_skin(&mut self, sprite: &mut rubato_render::sprite_batch::SpriteBatch) {
@@ -1475,12 +1489,10 @@ impl MainState for MusicDecide {
         }
     }
 
-    fn input(&mut self) {
+    fn input_with_ctx(&mut self, ctx: &mut rubato_core::app_context::AppContext) {
         if !self.data.timer.is_timer_on(TIMER_FADEOUT)
             && self.data.timer.is_timer_on(TIMER_STARTINPUT)
         {
-            // Collect input state first, then release &mut borrow on self.main
-            // before calling audio_processor_mut (avoids overlapping &mut borrows).
             let (decide, cancel) = {
                 let input = self.main.input_processor();
                 let decide = input.key_state(0)
@@ -1497,9 +1509,7 @@ impl MainState for MusicDecide {
             }
             if cancel {
                 self.cancel = true;
-                if let Some(audio) = self.main.audio_processor_mut() {
-                    audio.set_global_pitch(1f32);
-                }
+                ctx.set_global_pitch(1f32);
                 self.data.timer.set_timer_on(TIMER_FADEOUT);
             }
         }
@@ -1551,6 +1561,22 @@ impl MainState for MusicDecide {
         let null: Box<dyn PlayerResourceAccess> = Box::new(NullPlayerResource::new());
         let old = std::mem::replace(&mut self.resource, null);
         Some(old.into_any_send())
+    }
+
+    fn drain_pending_sounds(&mut self) -> Vec<(SoundType, bool)> {
+        std::mem::take(&mut self.pending_sounds)
+    }
+
+    fn drain_pending_audio_path_plays(&mut self) -> Vec<(String, f32, bool)> {
+        std::mem::take(&mut self.pending_audio_path_plays)
+    }
+
+    fn drain_pending_audio_path_stops(&mut self) -> Vec<String> {
+        std::mem::take(&mut self.pending_audio_path_stops)
+    }
+
+    fn take_pending_audio_config(&mut self) -> Option<rubato_types::audio_config::AudioConfig> {
+        self.pending_audio_config.take()
     }
 }
 
