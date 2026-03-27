@@ -15,7 +15,6 @@ use crate::core::main_controller::{MainController, StateCreateResult, StateCreat
 use crate::core::main_state::{MainState, MainStateType};
 use crate::core::timer_manager::TimerManager;
 use crate::play::bms_player::BMSPlayer;
-use crate::state::decide::main_controller_ref::MainControllerRef as DecideMainControllerRef;
 use crate::state::decide::music_decide::MusicDecide;
 use crate::state::result::BMSPlayerMode;
 use crate::state::result::BMSPlayerModeType;
@@ -167,12 +166,8 @@ impl LauncherStateFactory {
                 // Java: decide = new MusicDecide(this);
                 match controller.take_player_resource() {
                     Some(resource) => {
-                        let mc_access = QueuedControllerAccess::from_controller(
-                            controller,
-                            controller.controller_command_queue(),
-                        );
                         let decide = MusicDecide::new(
-                            DecideMainControllerRef::new(Box::new(mc_access)),
+                            controller.config().clone(),
                             Box::new(resource),
                             TimerManager::new(),
                         );

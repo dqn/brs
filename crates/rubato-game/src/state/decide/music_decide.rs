@@ -11,7 +11,6 @@ use rubato_types::property_snapshot::PropertySnapshot;
 use rubato_types::skin_action_queue::SkinActionQueue;
 use rubato_types::timer_id::TimerId;
 
-use super::main_controller_ref::MainControllerRef;
 use super::{ControlKeys, NullPlayerResource, PlayerResourceAccess};
 
 /// Render context adapter for decide screen skin rendering.
@@ -21,7 +20,7 @@ use super::{ControlKeys, NullPlayerResource, PlayerResourceAccess};
 struct DecideRenderContext<'a> {
     timer: &'a mut TimerManager,
     resource: &'a mut dyn PlayerResourceAccess,
-    main: &'a mut MainControllerRef,
+    config: &'a rubato_types::config::Config,
     score_data_property: &'a rubato_types::score_data_property::ScoreDataProperty,
     offsets: &'a std::collections::HashMap<i32, rubato_types::skin_offset::SkinOffset>,
     /// Events collected during rendering for deferred dispatch.
@@ -30,6 +29,11 @@ struct DecideRenderContext<'a> {
     /// is `take()`-ed so `execute_custom_event` cannot be called directly.
     /// Events are replayed after the render block completes.
     pending_events: Vec<(i32, i32, i32)>,
+    pending_audio_path_plays: &'a mut Vec<(String, f32, bool)>,
+    pending_audio_path_stops: &'a mut Vec<String>,
+    pending_state_change: &'a mut Option<MainStateType>,
+    pending_audio_config: &'a mut Option<rubato_types::audio_config::AudioConfig>,
+    pending_sounds: &'a mut Vec<(SoundType, bool)>,
 }
 
 impl rubato_types::timer_access::TimerAccess for DecideRenderContext<'_> {
@@ -63,11 +67,11 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideRenderContex
     }
 
     fn player_config_ref(&self) -> Option<&rubato_types::player_config::PlayerConfig> {
-        Some(self.main.player_config())
+        Some(self.resource.player_config())
     }
 
     fn config_ref(&self) -> Option<&rubato_types::config::Config> {
-        Some(self.main.config())
+        Some(self.config)
     }
 
     fn song_data_ref(&self) -> Option<&rubato_types::song_data::SongData> {
@@ -118,11 +122,12 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideRenderContex
     }
 
     fn audio_play(&mut self, path: &str, volume: f32, is_loop: bool) {
-        self.main.play_audio_path(path, volume, is_loop);
+        self.pending_audio_path_plays
+            .push((path.to_string(), volume, is_loop));
     }
 
     fn audio_stop(&mut self, path: &str) {
-        self.main.stop_audio_path(path);
+        self.pending_audio_path_stops.push(path.to_string());
     }
 
     fn execute_event(&mut self, id: i32, arg1: i32, arg2: i32) {
@@ -133,7 +138,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideRenderContex
     }
 
     fn change_state(&mut self, state: rubato_types::main_state_type::MainStateType) {
-        self.main.change_state(state);
+        *self.pending_state_change = Some(state);
     }
 
     fn player_config_mut(&mut self) -> Option<&mut rubato_types::player_config::PlayerConfig> {
@@ -201,8 +206,8 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideRenderContex
         match id {
             // ---- BGA on/off (OPTION_BGAOFF: 40 / OPTION_BGAON: 41) ----
             // Java: main.getConfig().getBga() == 2 (Off)
-            40 => self.main.config().render.bga == rubato_types::config::BgaMode::Off,
-            41 => self.main.config().render.bga != rubato_types::config::BgaMode::Off,
+            40 => self.config.render.bga == rubato_types::config::BgaMode::Off,
+            41 => self.config.render.bga != rubato_types::config::BgaMode::Off,
             // ---- Save score (OPTION_DISABLE_SAVE_SCORE: 60 / OPTION_ENABLE_SAVE_SCORE: 61) ----
             // Java: !resource.isUpdateScore() / resource.isUpdateScore()
             60 => !self.resource.is_update_score(),
@@ -262,22 +267,19 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideRenderContex
             // Volume (0.0-1.0) from audio config
             // Java: FloatPropertyFactory mastervolume/keyvolume/bgmvolume
             17 => self
-                .main
-                .config()
+                .config
                 .audio_config()
                 .map_or(rubato_types::audio_config::DEFAULT_AUDIO_VOLUME, |a| {
                     a.systemvolume
                 }),
             18 => self
-                .main
-                .config()
+                .config
                 .audio_config()
                 .map_or(rubato_types::audio_config::DEFAULT_AUDIO_VOLUME, |a| {
                     a.keyvolume
                 }),
             19 => self
-                .main
-                .config()
+                .config
                 .audio_config()
                 .map_or(rubato_types::audio_config::DEFAULT_AUDIO_VOLUME, |a| {
                     a.bgvolume
@@ -304,8 +306,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideRenderContex
             // Java: IntegerPropertyFactory volume_system/volume_key/volume_background
             57 => {
                 (self
-                    .main
-                    .config()
+                    .config
                     .audio_config()
                     .map_or(rubato_types::audio_config::DEFAULT_AUDIO_VOLUME, |a| {
                         a.systemvolume
@@ -314,8 +315,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideRenderContex
             }
             58 => {
                 (self
-                    .main
-                    .config()
+                    .config
                     .audio_config()
                     .map_or(rubato_types::audio_config::DEFAULT_AUDIO_VOLUME, |a| {
                         a.keyvolume
@@ -324,8 +324,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideRenderContex
             }
             59 => {
                 (self
-                    .main
-                    .config()
+                    .config
                     .audio_config()
                     .map_or(rubato_types::audio_config::DEFAULT_AUDIO_VOLUME, |a| {
                         a.bgvolume
@@ -579,9 +578,13 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideRenderContex
         }
     }
 
+    fn play_option_change_sound(&mut self) {
+        self.pending_sounds.push((SoundType::OptionChange, false));
+    }
+
     fn set_float_value(&mut self, id: i32, value: f32) {
         if (17..=19).contains(&id)
-            && let Some(mut audio) = self.main.config().audio.clone()
+            && let Some(mut audio) = self.config.audio.clone()
         {
             let clamped = value.clamp(0.0, 1.0);
             match id {
@@ -590,13 +593,13 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideRenderContex
                 19 => audio.bgvolume = clamped,
                 _ => unreachable!(),
             }
-            self.main.update_audio_config(audio);
+            *self.pending_audio_config = Some(audio);
         }
     }
 
     fn notify_audio_config_changed(&mut self) {
-        if let Some(audio) = self.main.config().audio.clone() {
-            self.main.update_audio_config(audio);
+        if let Some(audio) = self.config.audio.clone() {
+            *self.pending_audio_config = Some(audio);
         }
     }
 
@@ -610,7 +613,7 @@ impl rubato_skin::reexports::MainState for DecideRenderContext<'_> {}
 #[allow(dead_code)] // Only used in tests after PropertySnapshot migration
 struct DecideMouseContext<'a> {
     timer: &'a mut TimerManager,
-    main: &'a mut MainControllerRef,
+    config: &'a rubato_types::config::Config,
     resource: &'a mut dyn PlayerResourceAccess,
     score_data_property: &'a rubato_types::score_data_property::ScoreDataProperty,
     offsets: &'a std::collections::HashMap<i32, rubato_types::skin_offset::SkinOffset>,
@@ -620,6 +623,11 @@ struct DecideMouseContext<'a> {
     /// `set_timer_micro`, `player_config_mut`) which bypass `execute_event` entirely.
     /// Events collected here are replayed after the skin is restored.
     pending_events: Vec<(i32, i32, i32)>,
+    pending_audio_path_plays: &'a mut Vec<(String, f32, bool)>,
+    pending_audio_path_stops: &'a mut Vec<String>,
+    pending_state_change: &'a mut Option<MainStateType>,
+    pending_audio_config: &'a mut Option<rubato_types::audio_config::AudioConfig>,
+    pending_sounds: &'a mut Vec<(SoundType, bool)>,
 }
 
 impl rubato_types::timer_access::TimerAccess for DecideMouseContext<'_> {
@@ -665,7 +673,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideMouseContext
     }
 
     fn change_state(&mut self, state: rubato_types::main_state_type::MainStateType) {
-        self.main.change_state(state);
+        *self.pending_state_change = Some(state);
     }
 
     fn set_timer_micro(&mut self, timer_id: rubato_types::timer_id::TimerId, micro_time: i64) {
@@ -673,11 +681,12 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideMouseContext
     }
 
     fn audio_play(&mut self, path: &str, volume: f32, is_loop: bool) {
-        self.main.play_audio_path(path, volume, is_loop);
+        self.pending_audio_path_plays
+            .push((path.to_string(), volume, is_loop));
     }
 
     fn audio_stop(&mut self, path: &str) {
-        self.main.stop_audio_path(path);
+        self.pending_audio_path_stops.push(path.to_string());
     }
 
     fn player_config_ref(&self) -> Option<&rubato_types::player_config::PlayerConfig> {
@@ -685,7 +694,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideMouseContext
     }
 
     fn config_ref(&self) -> Option<&rubato_types::config::Config> {
-        Some(self.main.config())
+        Some(self.config)
     }
 
     fn score_data_ref(&self) -> Option<&crate::core::score_data::ScoreData> {
@@ -734,8 +743,8 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideMouseContext
     fn boolean_value(&self, id: i32) -> bool {
         match id {
             // ---- BGA on/off (OPTION_BGAOFF: 40 / OPTION_BGAON: 41) ----
-            40 => self.main.config().render.bga == rubato_types::config::BgaMode::Off,
-            41 => self.main.config().render.bga != rubato_types::config::BgaMode::Off,
+            40 => self.config.render.bga == rubato_types::config::BgaMode::Off,
+            41 => self.config.render.bga != rubato_types::config::BgaMode::Off,
             // ---- Save score (OPTION_DISABLE_SAVE_SCORE: 60 / OPTION_ENABLE_SAVE_SCORE: 61) ----
             60 => !self.resource.is_update_score(),
             61 => self.resource.is_update_score(),
@@ -786,22 +795,19 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideMouseContext
         match id {
             // Volume (0.0-1.0) from audio config
             17 => self
-                .main
-                .config()
+                .config
                 .audio_config()
                 .map_or(rubato_types::audio_config::DEFAULT_AUDIO_VOLUME, |a| {
                     a.systemvolume
                 }),
             18 => self
-                .main
-                .config()
+                .config
                 .audio_config()
                 .map_or(rubato_types::audio_config::DEFAULT_AUDIO_VOLUME, |a| {
                     a.keyvolume
                 }),
             19 => self
-                .main
-                .config()
+                .config
                 .audio_config()
                 .map_or(rubato_types::audio_config::DEFAULT_AUDIO_VOLUME, |a| {
                     a.bgvolume
@@ -825,8 +831,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideMouseContext
             // Volume (0-100 scale) from audio config
             57 => {
                 (self
-                    .main
-                    .config()
+                    .config
                     .audio_config()
                     .map_or(rubato_types::audio_config::DEFAULT_AUDIO_VOLUME, |a| {
                         a.systemvolume
@@ -835,8 +840,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideMouseContext
             }
             58 => {
                 (self
-                    .main
-                    .config()
+                    .config
                     .audio_config()
                     .map_or(rubato_types::audio_config::DEFAULT_AUDIO_VOLUME, |a| {
                         a.keyvolume
@@ -845,8 +849,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideMouseContext
             }
             59 => {
                 (self
-                    .main
-                    .config()
+                    .config
                     .audio_config()
                     .map_or(rubato_types::audio_config::DEFAULT_AUDIO_VOLUME, |a| {
                         a.bgvolume
@@ -1137,12 +1140,12 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideMouseContext
     }
 
     fn play_option_change_sound(&mut self) {
-        self.main.play_sound(&SoundType::OptionChange, false);
+        self.pending_sounds.push((SoundType::OptionChange, false));
     }
 
     fn set_float_value(&mut self, id: i32, value: f32) {
         if (17..=19).contains(&id)
-            && let Some(mut audio) = self.main.config().audio.clone()
+            && let Some(mut audio) = self.config.audio.clone()
         {
             let clamped = value.clamp(0.0, 1.0);
             match id {
@@ -1151,13 +1154,13 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideMouseContext
                 19 => audio.bgvolume = clamped,
                 _ => unreachable!(),
             }
-            self.main.update_audio_config(audio);
+            *self.pending_audio_config = Some(audio);
         }
     }
 
     fn notify_audio_config_changed(&mut self) {
-        if let Some(audio) = self.main.config().audio.clone() {
-            self.main.update_audio_config(audio);
+        if let Some(audio) = self.config.audio.clone() {
+            *self.pending_audio_config = Some(audio);
         }
     }
 
@@ -1173,7 +1176,8 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideMouseContext
 /// with MainStateData and hold references to MainController and PlayerResource.
 pub struct MusicDecide {
     pub data: MainStateData,
-    pub main: MainControllerRef,
+    pub config: rubato_types::config::Config,
+    pending_state_change: Option<MainStateType>,
     pub resource: Box<dyn PlayerResourceAccess>,
     cancel: bool,
     /// Cached ScoreDataProperty for skin property delegation.
@@ -1192,7 +1196,7 @@ pub struct MusicDecide {
 
 impl MusicDecide {
     pub fn new(
-        main: MainControllerRef,
+        config: rubato_types::config::Config,
         resource: Box<dyn PlayerResourceAccess>,
         timer: TimerManager,
     ) -> Self {
@@ -1202,7 +1206,8 @@ impl MusicDecide {
             .update_score_and_rival(resource.score_data(), resource.rival_score_data());
         Self {
             data: MainStateData::new(timer),
-            main,
+            config,
+            pending_state_change: None,
             resource,
             cancel: false,
             cached_score_data_property,
@@ -1234,8 +1239,8 @@ impl MusicDecide {
         s.state_type = Some(rubato_types::main_state_type::MainStateType::Decide);
 
         // Config
-        s.config = Some(Box::new(self.main.config().clone()));
-        s.player_config = Some(Box::new(self.main.player_config().clone()));
+        s.config = Some(Box::new(self.config.clone()));
+        s.player_config = Some(Box::new(self.resource.player_config().clone()));
 
         // Play config (resolve mode from song data)
         s.play_config = self
@@ -1296,9 +1301,9 @@ impl MusicDecide {
             timer.set_micro_timer(timer_id, micro_time);
         }
 
-        // State changes (must stay on command queue)
+        // State changes
         for state in actions.state_changes.drain(..) {
-            self.main.change_state(state);
+            self.pending_state_change = Some(state);
         }
 
         // Audio: store in pending lists for outbox drain
@@ -1315,7 +1320,7 @@ impl MusicDecide {
                 let mut audio = self
                     .pending_audio_config
                     .clone()
-                    .or_else(|| self.main.config().audio.clone())
+                    .or_else(|| self.config.audio.clone())
                     .unwrap_or_default();
                 let clamped = value.clamp(0.0, 1.0);
                 match id {
@@ -1331,7 +1336,7 @@ impl MusicDecide {
         // Config propagation
         if actions.audio_config_changed {
             if self.pending_audio_config.is_none() {
-                self.pending_audio_config = self.main.config().audio.clone();
+                self.pending_audio_config = self.config.audio.clone();
             }
             actions.audio_config_changed = false;
         }
@@ -1482,7 +1487,7 @@ impl MainState for MusicDecide {
         }
         if self.data.timer.is_timer_on(TIMER_FADEOUT) {
             if self.data.timer.now_time_for_id(TIMER_FADEOUT) > fadeout_time {
-                self.main.change_state(if self.cancel {
+                self.pending_state_change = Some(if self.cancel {
                     MainStateType::MusicSelect
                 } else {
                     MainStateType::Play
@@ -1493,7 +1498,26 @@ impl MainState for MusicDecide {
         }
     }
 
-    fn render_with_game_context(&mut self, _ctx: &mut GameContext) -> Option<StateTransition> {
+    fn render_with_game_context(&mut self, ctx: &mut GameContext) -> Option<StateTransition> {
+        // Drain outbox fields populated by render_skin/prepare from previous frame
+        for (sound, loop_sound) in self.pending_sounds.drain(..) {
+            ctx.play_sound(&sound, loop_sound);
+        }
+        for (path, volume, is_loop) in self.pending_audio_path_plays.drain(..) {
+            ctx.play_audio_path(&path, volume, is_loop);
+        }
+        for path in self.pending_audio_path_stops.drain(..) {
+            ctx.stop_audio_path(&path);
+        }
+        if let Some(audio) = self.pending_audio_config.take() {
+            ctx.update_audio_config(audio);
+        }
+
+        // Check for pending state change from skin callbacks
+        if let Some(state) = self.pending_state_change.take() {
+            return Some(StateTransition::ChangeTo(state));
+        }
+
         let nowtime = self.data.timer.now_time();
         // Skin timing values; fall back to 0 when no skin is loaded so the
         // decide screen still transitions to Play instead of stalling forever.
@@ -1588,7 +1612,7 @@ impl MainState for MusicDecide {
 
     fn load_skin(&mut self, skin_type: i32) {
         let skin_path = rubato_skin::skin_loader::skin_path_from_player_config(
-            self.main.player_config(),
+            self.resource.player_config(),
             skin_type,
         );
         let skin = {
@@ -1627,9 +1651,27 @@ mod tests {
     use super::*;
     use crate::core::main_state::SkinDrawable;
     use crate::core::sprite_batch_helper::SpriteBatch;
-    use crate::state::decide::{NullMainController, NullPlayerResource};
-    use rubato_types::main_controller_access::MainControllerAccess;
-    use std::sync::{Arc, Mutex};
+    use crate::state::decide::NullPlayerResource;
+
+    struct TestOutbox {
+        audio_plays: Vec<(String, f32, bool)>,
+        audio_stops: Vec<String>,
+        state_change: Option<MainStateType>,
+        audio_config: Option<rubato_types::audio_config::AudioConfig>,
+        sounds: Vec<(SoundType, bool)>,
+    }
+
+    impl TestOutbox {
+        fn new() -> Self {
+            Self {
+                audio_plays: Vec::new(),
+                audio_stops: Vec::new(),
+                state_change: None,
+                audio_config: None,
+                sounds: Vec::new(),
+            }
+        }
+    }
 
     static EMPTY_OFFSETS: std::sync::LazyLock<
         std::collections::HashMap<i32, rubato_types::skin_offset::SkinOffset>,
@@ -1778,88 +1820,9 @@ mod tests {
         fn swap_sprite_batch(&mut self, _batch: &mut SpriteBatch) {}
     }
 
-    struct RecordingMainController {
-        changed_states: Arc<Mutex<Vec<MainStateType>>>,
-        audio_configs: Arc<Mutex<Vec<rubato_types::audio_config::AudioConfig>>>,
-        config: rubato_types::config::Config,
-        player_config: rubato_types::player_config::PlayerConfig,
-    }
-
-    impl RecordingMainController {
-        fn new(changed_states: Arc<Mutex<Vec<MainStateType>>>) -> Self {
-            Self {
-                changed_states,
-                audio_configs: Arc::new(Mutex::new(Vec::new())),
-                config: rubato_types::config::Config::default(),
-                player_config: rubato_types::player_config::PlayerConfig::default(),
-            }
-        }
-
-        fn with_audio_recording(
-            changed_states: Arc<Mutex<Vec<MainStateType>>>,
-            audio_configs: Arc<Mutex<Vec<rubato_types::audio_config::AudioConfig>>>,
-            config: rubato_types::config::Config,
-        ) -> Self {
-            Self {
-                changed_states,
-                audio_configs,
-                config,
-                player_config: rubato_types::player_config::PlayerConfig::default(),
-            }
-        }
-    }
-
-    impl MainControllerAccess for RecordingMainController {
-        fn config(&self) -> &rubato_types::config::Config {
-            &self.config
-        }
-
-        fn player_config(&self) -> &rubato_types::player_config::PlayerConfig {
-            &self.player_config
-        }
-
-        fn change_state(&mut self, state: MainStateType) {
-            self.changed_states
-                .lock()
-                .expect("mutex poisoned")
-                .push(state);
-        }
-
-        fn save_config(&self) -> anyhow::Result<()> {
-            Ok(())
-        }
-
-        fn exit(&self) -> anyhow::Result<()> {
-            Ok(())
-        }
-
-        fn save_last_recording(&self, _reason: &str) {}
-
-        fn update_song(&mut self, _path: Option<&str>) {}
-
-        fn player_resource(
-            &self,
-        ) -> Option<&dyn rubato_types::player_resource_access::PlayerResourceAccess> {
-            None
-        }
-
-        fn player_resource_mut(
-            &mut self,
-        ) -> Option<&mut dyn rubato_types::player_resource_access::PlayerResourceAccess> {
-            None
-        }
-
-        fn update_audio_config(&self, audio: rubato_types::audio_config::AudioConfig) {
-            self.audio_configs
-                .lock()
-                .expect("mutex poisoned")
-                .push(audio);
-        }
-    }
-
     fn make_decide() -> MusicDecide {
         MusicDecide::new(
-            MainControllerRef::new(Box::new(NullMainController)),
+            rubato_types::config::Config::default(),
             Box::new(NullPlayerResource::new()),
             TimerManager::new(),
         )
@@ -2158,14 +2121,7 @@ mod tests {
 
     #[test]
     fn test_handle_skin_mouse_pressed_uses_decide_context() {
-        let changed_states = Arc::new(Mutex::new(Vec::new()));
-        let mut decide = MusicDecide::new(
-            MainControllerRef::new(Box::new(RecordingMainController::new(Arc::clone(
-                &changed_states,
-            )))),
-            Box::new(NullPlayerResource::new()),
-            TimerManager::new(),
-        );
+        let mut decide = make_decide();
         decide.data.skin = Some(Box::new(ChangeStateSkin {
             state: MainStateType::MusicSelect,
         }));
@@ -2173,8 +2129,8 @@ mod tests {
         <MusicDecide as MainState>::handle_skin_mouse_pressed(&mut decide, 0, 10, 10);
 
         assert_eq!(
-            *changed_states.lock().expect("mutex poisoned"),
-            vec![MainStateType::MusicSelect]
+            decide.pending_state_change,
+            Some(MainStateType::MusicSelect)
         );
     }
 
@@ -2391,15 +2347,21 @@ mod tests {
         // 150_000 ms = 2 minutes 30 seconds
         let mut resource = SongLengthResource::with_length_ms(150_000);
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(ctx.integer_value(312), 150_000, "ID 312: raw ms");
@@ -2410,16 +2372,22 @@ mod tests {
     #[test]
     fn decide_render_context_song_duration_no_songdata() {
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let mut resource = NullPlayerResource::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(ctx.integer_value(1163), i32::MIN);
@@ -2430,15 +2398,21 @@ mod tests {
     fn decide_render_context_song_data_ref_returns_songdata() {
         let mut resource = SongLengthResource::with_length_ms(100_000);
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert!(ctx.song_data_ref().is_some());
@@ -2449,15 +2423,21 @@ mod tests {
     fn decide_render_context_song_data_ref_none_when_no_song() {
         let mut resource = NullPlayerResource::new();
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert!(ctx.song_data_ref().is_none());
@@ -2468,15 +2448,21 @@ mod tests {
         let mut resource = SongLengthResource::with_length_ms(0);
         resource.song.chart.mode = 7;
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert!(ctx.current_play_config_ref().is_some());
@@ -2487,15 +2473,21 @@ mod tests {
         let mut resource = SongLengthResource::with_length_ms(0);
         resource.song.chart.mode = 999;
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert!(ctx.current_play_config_ref().is_none());
@@ -2505,15 +2497,21 @@ mod tests {
     fn decide_render_context_current_play_config_ref_none_when_no_songdata() {
         let mut resource = NullPlayerResource::new();
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert!(ctx.current_play_config_ref().is_none());
@@ -2524,15 +2522,21 @@ mod tests {
         let mut resource = SongLengthResource::with_length_ms(0);
         resource.song.favorite = rubato_types::song_data::FAVORITE_SONG;
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         // ID 89 (favorite_song) should now return 1 instead of -1
@@ -2550,15 +2554,21 @@ mod tests {
         resource.song.info = Some(info);
 
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         // ID 92 should return mainbpm from SongInformation
@@ -2574,15 +2584,21 @@ mod tests {
         // No SongInformation set -> should return i32::MIN, not maxbpm
 
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(ctx.integer_value(92), i32::MIN);
@@ -2593,15 +2609,21 @@ mod tests {
         // When songdata is absent, Java returns Integer.MIN_VALUE.
         let mut resource = NullPlayerResource::new();
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(ctx.integer_value(92), i32::MIN);
@@ -2613,15 +2635,21 @@ mod tests {
         // so skin renderers hide the value, matching select screen behavior.
         let mut resource = NullPlayerResource::new();
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(ctx.integer_value(90), i32::MIN);
@@ -2633,15 +2661,21 @@ mod tests {
         // so skin renderers hide the value, matching select screen behavior.
         let mut resource = NullPlayerResource::new();
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(ctx.integer_value(91), i32::MIN);
@@ -2652,15 +2686,21 @@ mod tests {
         let mut resource = SongLengthResource::with_length_ms(0);
         resource.song.chart.maxbpm = 200;
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(ctx.integer_value(90), 200);
@@ -2671,15 +2711,21 @@ mod tests {
         let mut resource = SongLengthResource::with_length_ms(0);
         resource.song.chart.minbpm = 120;
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(ctx.integer_value(91), 120);
@@ -2691,15 +2737,21 @@ mod tests {
         // negative minutes/seconds.
         let mut resource = SongLengthResource::with_length_ms(-120_000);
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(
@@ -2723,15 +2775,21 @@ mod tests {
         let mut resource = SongLengthResource::with_length_ms(0);
         resource.song.chart.feature = rubato_types::song_data::FEATURE_LONGNOTE;
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(
@@ -2746,15 +2804,21 @@ mod tests {
         let mut resource = SongLengthResource::with_length_ms(0);
         resource.song.chart.feature = rubato_types::song_data::FEATURE_CHARGENOTE;
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(
@@ -2769,15 +2833,21 @@ mod tests {
         let mut resource = SongLengthResource::with_length_ms(0);
         resource.song.chart.feature = rubato_types::song_data::FEATURE_HELLCHARGENOTE;
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(
@@ -2792,15 +2862,21 @@ mod tests {
         // No LN features -> falls through to config-based default
         let mut resource = SongLengthResource::with_length_ms(0);
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         // default_image_index_value uses player_config.play_settings.lnmode (default 0)
@@ -2818,15 +2894,21 @@ mod tests {
         let mut resource = SongLengthResource::with_length_ms(0);
         resource.song.chart.feature = rubato_types::song_data::FEATURE_UNDEFINEDLN;
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         let default_lnmode = ctx.player_config_ref().unwrap().play_settings.lnmode;
@@ -2841,15 +2923,21 @@ mod tests {
     fn decide_render_context_lnmode_308_no_songdata_falls_through() {
         let mut resource = NullPlayerResource::new();
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         // No songdata -> falls through to config-based default
@@ -2879,15 +2967,21 @@ mod tests {
         resource.score = Some(score);
 
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(
@@ -2902,15 +2996,21 @@ mod tests {
         // When no score data is available, 370 should still return -1.
         let mut resource = SongLengthResource::with_length_ms(0);
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(
@@ -2932,15 +3032,21 @@ mod tests {
         resource.score = Some(score);
 
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideMouseContext {
             timer: &mut timer,
-            main: &mut main,
+            config: &config,
             resource: &mut resource,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         let sd = ctx.score_data_ref();
@@ -2957,15 +3063,21 @@ mod tests {
         resource.song.metadata.title = "DecideTest".to_string();
 
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideMouseContext {
             timer: &mut timer,
-            main: &mut main,
+            config: &config,
             resource: &mut resource,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         let song = ctx.song_data_ref();
@@ -2982,15 +3094,21 @@ mod tests {
         resource.song.chart.mode = 7;
 
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideMouseContext {
             timer: &mut timer,
-            main: &mut main,
+            config: &config,
             resource: &mut resource,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert!(
@@ -3006,15 +3124,21 @@ mod tests {
         resource.song.chart.minbpm = 100;
 
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideMouseContext {
             timer: &mut timer,
-            main: &mut main,
+            config: &config,
             resource: &mut resource,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(
@@ -3038,15 +3162,21 @@ mod tests {
         resource.player_config.play_settings.lnmode = 99;
 
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideMouseContext {
             timer: &mut timer,
-            main: &mut main,
+            config: &config,
             resource: &mut resource,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(
@@ -3062,15 +3192,21 @@ mod tests {
         resource.song.metadata.title = "DecideTitle".to_string();
 
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideMouseContext {
             timer: &mut timer,
-            main: &mut main,
+            config: &config,
             resource: &mut resource,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(
@@ -3087,15 +3223,21 @@ mod tests {
         let mut resource = SongLengthResource::with_length_ms(0);
         resource.song.chart.level = 12;
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(
@@ -3109,15 +3251,21 @@ mod tests {
     fn decide_render_context_integer_value_chart_level_no_songdata() {
         let mut resource = NullPlayerResource::new();
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(
@@ -3133,239 +3281,209 @@ mod tests {
 
     #[test]
     fn decide_mouse_context_set_float_value_updates_system_volume() {
-        let changed_states = Arc::new(Mutex::new(Vec::new()));
-        let audio_configs = Arc::new(Mutex::new(Vec::new()));
         let mut config = rubato_types::config::Config::default();
         config.audio = Some(rubato_types::audio_config::AudioConfig::default());
-
         let mut timer = TimerManager::new();
-        let mut main =
-            MainControllerRef::new(Box::new(RecordingMainController::with_audio_recording(
-                Arc::clone(&changed_states),
-                Arc::clone(&audio_configs),
-                config,
-            )));
         let mut resource = NullPlayerResource::new();
+        let mut outbox = TestOutbox::new();
         {
             let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
             let mut ctx = DecideMouseContext {
                 timer: &mut timer,
-                main: &mut main,
+                config: &config,
                 resource: &mut resource,
                 score_data_property: &sdp,
                 offsets: &EMPTY_OFFSETS,
                 pending_events: Vec::new(),
+                pending_audio_path_plays: &mut outbox.audio_plays,
+                pending_audio_path_stops: &mut outbox.audio_stops,
+                pending_state_change: &mut outbox.state_change,
+                pending_audio_config: &mut outbox.audio_config,
+                pending_sounds: &mut outbox.sounds,
             };
             use rubato_types::skin_render_context::SkinRenderContext;
             ctx.set_float_value(17, 0.75);
         }
-        let configs = audio_configs.lock().expect("mutex poisoned");
-        assert_eq!(
-            configs.len(),
-            1,
-            "set_float_value(17) must call update_audio_config"
-        );
+        let audio = outbox
+            .audio_config
+            .expect("set_float_value(17) must produce audio config");
         assert!(
-            (configs[0].systemvolume - 0.75).abs() < f32::EPSILON,
+            (audio.systemvolume - 0.75).abs() < f32::EPSILON,
             "systemvolume should be 0.75, got {}",
-            configs[0].systemvolume
+            audio.systemvolume
         );
     }
 
     #[test]
     fn decide_mouse_context_set_float_value_updates_key_volume() {
-        let changed_states = Arc::new(Mutex::new(Vec::new()));
-        let audio_configs = Arc::new(Mutex::new(Vec::new()));
         let mut config = rubato_types::config::Config::default();
         config.audio = Some(rubato_types::audio_config::AudioConfig::default());
-
         let mut timer = TimerManager::new();
-        let mut main =
-            MainControllerRef::new(Box::new(RecordingMainController::with_audio_recording(
-                Arc::clone(&changed_states),
-                Arc::clone(&audio_configs),
-                config,
-            )));
         let mut resource = NullPlayerResource::new();
+        let mut outbox = TestOutbox::new();
         {
             let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
             let mut ctx = DecideMouseContext {
                 timer: &mut timer,
-                main: &mut main,
+                config: &config,
                 resource: &mut resource,
                 score_data_property: &sdp,
                 offsets: &EMPTY_OFFSETS,
                 pending_events: Vec::new(),
+                pending_audio_path_plays: &mut outbox.audio_plays,
+                pending_audio_path_stops: &mut outbox.audio_stops,
+                pending_state_change: &mut outbox.state_change,
+                pending_audio_config: &mut outbox.audio_config,
+                pending_sounds: &mut outbox.sounds,
             };
             use rubato_types::skin_render_context::SkinRenderContext;
             ctx.set_float_value(18, 0.5);
         }
-        let configs = audio_configs.lock().expect("mutex poisoned");
-        assert_eq!(
-            configs.len(),
-            1,
-            "set_float_value(18) must call update_audio_config"
-        );
+        let audio = outbox
+            .audio_config
+            .expect("set_float_value(18) must produce audio config");
         assert!(
-            (configs[0].keyvolume - 0.5).abs() < f32::EPSILON,
+            (audio.keyvolume - 0.5).abs() < f32::EPSILON,
             "keyvolume should be 0.5, got {}",
-            configs[0].keyvolume
+            audio.keyvolume
         );
     }
 
     #[test]
     fn decide_mouse_context_set_float_value_updates_bg_volume() {
-        let changed_states = Arc::new(Mutex::new(Vec::new()));
-        let audio_configs = Arc::new(Mutex::new(Vec::new()));
         let mut config = rubato_types::config::Config::default();
         config.audio = Some(rubato_types::audio_config::AudioConfig::default());
-
         let mut timer = TimerManager::new();
-        let mut main =
-            MainControllerRef::new(Box::new(RecordingMainController::with_audio_recording(
-                Arc::clone(&changed_states),
-                Arc::clone(&audio_configs),
-                config,
-            )));
         let mut resource = NullPlayerResource::new();
+        let mut outbox = TestOutbox::new();
         {
             let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
             let mut ctx = DecideMouseContext {
                 timer: &mut timer,
-                main: &mut main,
+                config: &config,
                 resource: &mut resource,
                 score_data_property: &sdp,
                 offsets: &EMPTY_OFFSETS,
                 pending_events: Vec::new(),
+                pending_audio_path_plays: &mut outbox.audio_plays,
+                pending_audio_path_stops: &mut outbox.audio_stops,
+                pending_state_change: &mut outbox.state_change,
+                pending_audio_config: &mut outbox.audio_config,
+                pending_sounds: &mut outbox.sounds,
             };
             use rubato_types::skin_render_context::SkinRenderContext;
             ctx.set_float_value(19, 0.25);
         }
-        let configs = audio_configs.lock().expect("mutex poisoned");
-        assert_eq!(
-            configs.len(),
-            1,
-            "set_float_value(19) must call update_audio_config"
-        );
+        let audio = outbox
+            .audio_config
+            .expect("set_float_value(19) must produce audio config");
         assert!(
-            (configs[0].bgvolume - 0.25).abs() < f32::EPSILON,
+            (audio.bgvolume - 0.25).abs() < f32::EPSILON,
             "bgvolume should be 0.25, got {}",
-            configs[0].bgvolume
+            audio.bgvolume
         );
     }
 
     #[test]
     fn decide_mouse_context_set_float_value_clamps_to_0_1() {
-        let changed_states = Arc::new(Mutex::new(Vec::new()));
-        let audio_configs = Arc::new(Mutex::new(Vec::new()));
         let mut config = rubato_types::config::Config::default();
         config.audio = Some(rubato_types::audio_config::AudioConfig::default());
-
         let mut timer = TimerManager::new();
-        let mut main =
-            MainControllerRef::new(Box::new(RecordingMainController::with_audio_recording(
-                Arc::clone(&changed_states),
-                Arc::clone(&audio_configs),
-                config,
-            )));
         let mut resource = NullPlayerResource::new();
+        let mut outbox = TestOutbox::new();
         {
             let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
             let mut ctx = DecideMouseContext {
                 timer: &mut timer,
-                main: &mut main,
+                config: &config,
                 resource: &mut resource,
                 score_data_property: &sdp,
                 offsets: &EMPTY_OFFSETS,
                 pending_events: Vec::new(),
+                pending_audio_path_plays: &mut outbox.audio_plays,
+                pending_audio_path_stops: &mut outbox.audio_stops,
+                pending_state_change: &mut outbox.state_change,
+                pending_audio_config: &mut outbox.audio_config,
+                pending_sounds: &mut outbox.sounds,
             };
             use rubato_types::skin_render_context::SkinRenderContext;
             ctx.set_float_value(17, 1.5); // over 1.0
         }
-        let configs = audio_configs.lock().expect("mutex poisoned");
-        assert_eq!(configs.len(), 1);
+        let audio = outbox
+            .audio_config
+            .expect("set_float_value(17, 1.5) must produce audio config");
         assert!(
-            (configs[0].systemvolume - 1.0).abs() < f32::EPSILON,
+            (audio.systemvolume - 1.0).abs() < f32::EPSILON,
             "systemvolume should be clamped to 1.0, got {}",
-            configs[0].systemvolume
+            audio.systemvolume
         );
     }
 
     #[test]
     fn decide_mouse_context_set_float_value_ignores_non_volume_ids() {
-        let changed_states = Arc::new(Mutex::new(Vec::new()));
-        let audio_configs = Arc::new(Mutex::new(Vec::new()));
         let mut config = rubato_types::config::Config::default();
         config.audio = Some(rubato_types::audio_config::AudioConfig::default());
-
         let mut timer = TimerManager::new();
-        let mut main =
-            MainControllerRef::new(Box::new(RecordingMainController::with_audio_recording(
-                Arc::clone(&changed_states),
-                Arc::clone(&audio_configs),
-                config,
-            )));
         let mut resource = NullPlayerResource::new();
+        let mut outbox = TestOutbox::new();
         {
             let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
             let mut ctx = DecideMouseContext {
                 timer: &mut timer,
-                main: &mut main,
+                config: &config,
                 resource: &mut resource,
                 score_data_property: &sdp,
                 offsets: &EMPTY_OFFSETS,
                 pending_events: Vec::new(),
+                pending_audio_path_plays: &mut outbox.audio_plays,
+                pending_audio_path_stops: &mut outbox.audio_stops,
+                pending_state_change: &mut outbox.state_change,
+                pending_audio_config: &mut outbox.audio_config,
+                pending_sounds: &mut outbox.sounds,
             };
             use rubato_types::skin_render_context::SkinRenderContext;
             ctx.set_float_value(99, 0.5); // not a volume ID
         }
-        let configs = audio_configs.lock().expect("mutex poisoned");
         assert!(
-            configs.is_empty(),
-            "set_float_value with non-volume ID should not call update_audio_config"
+            outbox.audio_config.is_none(),
+            "set_float_value with non-volume ID should not produce audio config"
         );
     }
 
     #[test]
     fn decide_mouse_context_notify_audio_config_changed_propagates() {
-        let changed_states = Arc::new(Mutex::new(Vec::new()));
-        let audio_configs = Arc::new(Mutex::new(Vec::new()));
         let mut config = rubato_types::config::Config::default();
         let mut audio = rubato_types::audio_config::AudioConfig::default();
         audio.systemvolume = 0.42;
         config.audio = Some(audio);
-
         let mut timer = TimerManager::new();
-        let mut main =
-            MainControllerRef::new(Box::new(RecordingMainController::with_audio_recording(
-                Arc::clone(&changed_states),
-                Arc::clone(&audio_configs),
-                config,
-            )));
         let mut resource = NullPlayerResource::new();
+        let mut outbox = TestOutbox::new();
         {
             let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
             let mut ctx = DecideMouseContext {
                 timer: &mut timer,
-                main: &mut main,
+                config: &config,
                 resource: &mut resource,
                 score_data_property: &sdp,
                 offsets: &EMPTY_OFFSETS,
                 pending_events: Vec::new(),
+                pending_audio_path_plays: &mut outbox.audio_plays,
+                pending_audio_path_stops: &mut outbox.audio_stops,
+                pending_state_change: &mut outbox.state_change,
+                pending_audio_config: &mut outbox.audio_config,
+                pending_sounds: &mut outbox.sounds,
             };
             use rubato_types::skin_render_context::SkinRenderContext;
             ctx.notify_audio_config_changed();
         }
-        let configs = audio_configs.lock().expect("mutex poisoned");
-        assert_eq!(
-            configs.len(),
-            1,
-            "notify_audio_config_changed must call update_audio_config"
-        );
+        let audio = outbox
+            .audio_config
+            .expect("notify_audio_config_changed must produce audio config");
         assert!(
-            (configs[0].systemvolume - 0.42).abs() < f32::EPSILON,
+            (audio.systemvolume - 0.42).abs() < f32::EPSILON,
             "propagated audio config should preserve systemvolume=0.42, got {}",
-            configs[0].systemvolume
+            audio.systemvolume
         );
     }
 
@@ -3373,16 +3491,22 @@ mod tests {
     fn decide_mouse_context_set_float_value_noop_without_audio_config() {
         // When config.audio is None, set_float_value should be a no-op
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let mut resource = NullPlayerResource::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let mut ctx = DecideMouseContext {
             timer: &mut timer,
-            main: &mut main,
+            config: &config,
             resource: &mut resource,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         // Should not panic
@@ -3393,16 +3517,22 @@ mod tests {
     fn decide_mouse_context_notify_audio_config_changed_noop_without_audio_config() {
         // When config.audio is None, notify_audio_config_changed should be a no-op
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let mut resource = NullPlayerResource::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let mut ctx = DecideMouseContext {
             timer: &mut timer,
-            main: &mut main,
+            config: &config,
             resource: &mut resource,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         // Should not panic
@@ -3418,15 +3548,21 @@ mod tests {
         // Regression: DecideRenderContext must delegate replay_option_data to resource.
         let mut resource = SongLengthResource::with_length_ms(100_000);
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert!(
@@ -3443,15 +3579,21 @@ mod tests {
         rd.randomoption = 3; // RANDOM option
         resource.replay_data = Some(rd);
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         let replay = ctx
@@ -3464,16 +3606,22 @@ mod tests {
     fn decide_mouse_context_replay_option_data_returns_none_without_replay() {
         // Regression: DecideMouseContext must delegate replay_option_data to resource.
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let mut resource = NullPlayerResource::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideMouseContext {
             timer: &mut timer,
-            main: &mut main,
+            config: &config,
             resource: &mut resource,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert!(
@@ -3490,15 +3638,21 @@ mod tests {
         rd.doubleoption = 2; // DP option
         resource.replay_data = Some(rd);
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideMouseContext {
             timer: &mut timer,
-            main: &mut main,
+            config: &config,
             resource: &mut resource,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         let replay = ctx
@@ -3539,15 +3693,21 @@ mod tests {
     fn decide_render_context_player_profile_stats() {
         let mut resource = make_player_data_resource();
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(ctx.integer_value(30), 100); // playcount
@@ -3566,15 +3726,21 @@ mod tests {
     fn decide_render_context_player_profile_stats_no_player_data() {
         let mut resource = SongLengthResource::with_length_ms(100_000);
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         for id in 30..=37 {
@@ -3595,15 +3761,21 @@ mod tests {
     fn decide_mouse_context_player_profile_stats() {
         let mut resource = make_player_data_resource();
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideMouseContext {
             timer: &mut timer,
-            main: &mut main,
+            config: &config,
             resource: &mut resource,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(ctx.integer_value(30), 100); // playcount
@@ -3630,15 +3802,21 @@ mod tests {
         resource.target_score = Some(target);
 
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         let target_data = ctx.target_score_data();
@@ -3658,15 +3836,21 @@ mod tests {
         resource.rival_score = Some(rival);
 
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         let rival_data = ctx.rival_score_data_ref();
@@ -3681,15 +3865,21 @@ mod tests {
     fn decide_render_context_target_and_rival_none_when_absent() {
         let mut resource = SongLengthResource::with_length_ms(100_000);
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert!(ctx.target_score_data().is_none());
@@ -3704,15 +3894,21 @@ mod tests {
         resource.target_score = Some(target);
 
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideMouseContext {
             timer: &mut timer,
-            main: &mut main,
+            config: &config,
             resource: &mut resource,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         let target_data = ctx.target_score_data();
@@ -3731,15 +3927,21 @@ mod tests {
         resource.rival_score = Some(rival);
 
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideMouseContext {
             timer: &mut timer,
-            main: &mut main,
+            config: &config,
             resource: &mut resource,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         let rival_data = ctx.rival_score_data_ref();
@@ -3766,14 +3968,20 @@ mod tests {
         sdp.update_score(Some(&score));
 
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         // exscore = epg*2 = 100
@@ -3799,14 +4007,20 @@ mod tests {
         sdp.update_score(Some(&score));
 
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         // ID 80 = PG total = epg+lpg = 15
@@ -3835,14 +4049,20 @@ mod tests {
         sdp.update_score(Some(&score));
 
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         // rate = 100/200 = 0.5, rate_int = 50, afterdot = 0
@@ -3867,15 +4087,21 @@ mod tests {
         resource.player_config.mode7.playconfig.hispeed = 2.5;
 
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         // ID 10 = NUMBER_HISPEED_LR2 = (hispeed * 100) as i32 = 250
@@ -3892,15 +4118,21 @@ mod tests {
         resource.player_config.judge_settings.judgetiming = 5;
 
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(ctx.integer_value(12), 5, "ID 12 should return judgetiming");
@@ -3917,24 +4149,22 @@ mod tests {
         let mut resource = SongLengthResource::with_length_ms(0);
 
         let mut timer = TimerManager::new();
-        let changed_states = Arc::new(Mutex::new(Vec::new()));
         let mut config = rubato_types::config::Config::default();
         config.render.bga = BgaMode::Off;
-        let audio_configs = Arc::new(Mutex::new(Vec::new()));
-        let mut main =
-            MainControllerRef::new(Box::new(RecordingMainController::with_audio_recording(
-                Arc::clone(&changed_states),
-                Arc::clone(&audio_configs),
-                config,
-            )));
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert!(
@@ -3953,15 +4183,21 @@ mod tests {
         resource.song.file.stagefile = "stage.png".to_string();
 
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert!(
@@ -3979,15 +4215,21 @@ mod tests {
         let mut resource = SongLengthResource::with_length_ms(0);
 
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         // No course data -> course mode is false
@@ -4013,14 +4255,20 @@ mod tests {
         sdp.update_score(Some(&score));
 
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let ctx = DecideMouseContext {
             timer: &mut timer,
-            main: &mut main,
+            config: &config,
             resource: &mut resource,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(
@@ -4035,25 +4283,23 @@ mod tests {
         use rubato_types::config::BgaMode;
         let mut resource = SongLengthResource::with_length_ms(0);
 
-        let changed_states = Arc::new(Mutex::new(Vec::new()));
         let mut config = rubato_types::config::Config::default();
         config.render.bga = BgaMode::Off;
-        let audio_configs = Arc::new(Mutex::new(Vec::new()));
         let mut timer = TimerManager::new();
-        let mut main =
-            MainControllerRef::new(Box::new(RecordingMainController::with_audio_recording(
-                Arc::clone(&changed_states),
-                Arc::clone(&audio_configs),
-                config,
-            )));
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideMouseContext {
             timer: &mut timer,
-            main: &mut main,
+            config: &config,
             resource: &mut resource,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert!(
@@ -4070,15 +4316,21 @@ mod tests {
         resource.player_config.judge_settings.judgetiming = 999;
 
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(
@@ -4091,16 +4343,22 @@ mod tests {
     #[test]
     fn decide_render_context_integer_value_400_no_songdata() {
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let mut resource = NullPlayerResource::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
             resource: &mut resource,
-            main: &mut main,
+            config: &config,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(
@@ -4118,15 +4376,21 @@ mod tests {
         resource.player_config.judge_settings.judgetiming = 888;
 
         let mut timer = TimerManager::new();
-        let mut main = MainControllerRef::new(Box::new(NullMainController));
+        let config = rubato_types::config::Config::default();
+        let mut outbox = TestOutbox::new();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideMouseContext {
             timer: &mut timer,
-            main: &mut main,
+            config: &config,
             resource: &mut resource,
             score_data_property: &sdp,
             offsets: &EMPTY_OFFSETS,
             pending_events: Vec::new(),
+            pending_audio_path_plays: &mut outbox.audio_plays,
+            pending_audio_path_stops: &mut outbox.audio_stops,
+            pending_state_change: &mut outbox.state_change,
+            pending_audio_config: &mut outbox.audio_config,
+            pending_sounds: &mut outbox.sounds,
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(

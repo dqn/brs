@@ -1,15 +1,18 @@
-// Phase 60c: Verify MainControllerRef no longer leaks memory.
+// Phase 60c: Verify MusicDecide can be constructed and dropped without leak.
 //
-// Previously input_processor() used Box::leak to return references.
-// InputSnapshot migration removed the input processor entirely,
-// so there is nothing to leak. This test validates construction is safe.
+// Previously tested MainControllerRef memory safety. After migration to
+// direct config fields, this test validates basic construction/drop safety.
 
-use rubato_game::state::decide::NullMainController;
-use rubato_game::state::decide::main_controller_ref::MainControllerRef;
+use rubato_game::state::decide::NullPlayerResource;
+use rubato_game::state::decide::music_decide::MusicDecide;
 
-/// MainControllerRef can be constructed and dropped without leak.
+/// MusicDecide can be constructed and dropped without leak.
 #[test]
 fn construction_and_drop_is_safe() {
-    let mc = MainControllerRef::new(Box::new(NullMainController));
-    drop(mc);
+    let decide = MusicDecide::new(
+        rubato_types::config::Config::default(),
+        Box::new(NullPlayerResource::new()),
+        rubato_game::core::timer_manager::TimerManager::new(),
+    );
+    drop(decide);
 }
