@@ -170,8 +170,10 @@ impl<'a> PomyuCharaLoader<'a> {
                         && (TIMER_PM_CHARA_1P_NEUTRAL.as_i32()..TIMER_MUSIC_END.as_i32())
                             .contains(&timer)
                     {
-                        self.pomyu
-                            .set_pm_chara_time(timer - TIMER_PM_CHARA_1P_NEUTRAL.as_i32(), cycle);
+                        let idx = (timer - TIMER_PM_CHARA_1P_NEUTRAL.as_i32()) as usize;
+                        if idx < self.pm_chara_time.len() && cycle >= 1 {
+                            self.pm_chara_time[idx] = cycle;
+                        }
                     }
 
                     // Check for hyphen interpolation flag

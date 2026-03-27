@@ -37,6 +37,12 @@ impl fmt::Display for JudgeAlgorithm {
     }
 }
 
+pub static DEFAULT_ALGORITHM: &[JudgeAlgorithm] = &[
+    JudgeAlgorithm::Combo,
+    JudgeAlgorithm::Duration,
+    JudgeAlgorithm::Lowest,
+];
+
 impl JudgeAlgorithm {
     pub fn name(&self) -> &str {
         match self {

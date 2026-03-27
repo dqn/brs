@@ -251,7 +251,7 @@ impl JsonSkinObjectLoader for JsonPlaySkinObjectLoader {
             for (i, anim) in note.dst.iter().enumerate() {
                 note_obj.inner.set_lane_region(
                     i,
-                    &rubato_play::skin::note::LaneRegion {
+                    &rubato_types::skin_note::LaneRegion {
                         x: anim.x as f32,
                         y: anim.y as f32,
                         width: anim.w as f32,

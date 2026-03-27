@@ -16,17 +16,8 @@ pub static MOV_EXTENSION: &[&str] = &[
     "mp4", "wmv", "m4v", "webm", "mpg", "mpeg", "m1v", "m2v", "avi",
 ];
 
-/// Renderer type hint for BGA drawing.
-/// Corresponds to SkinObjectRenderer.TYPE_* constants in Java.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum BgaRenderType {
-    /// Linear filtering (for static images and miss layer)
-    Linear,
-    /// FFmpeg shader (for movie frames)
-    Ffmpeg,
-    /// Layer blending (for static image layers)
-    Layer,
-}
+// Re-export shared BGA render type from rubato-types (canonical location).
+pub use rubato_types::bga_types::BgaRenderType;
 
 /// Trait for BGA sprite rendering, abstracting SkinObjectRenderer.
 /// Implemented by the skin rendering system to draw BGA textures.

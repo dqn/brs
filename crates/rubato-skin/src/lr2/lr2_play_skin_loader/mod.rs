@@ -1,3 +1,7 @@
+pub use play_skin_properties::PlaySkinProperties;
+
+mod play_skin_properties;
+
 use crate::lr2::lr2_skin_csv_loader::LR2SkinCSVLoaderState;
 use crate::objects::skin_hidden::SkinHidden;
 use crate::reexports::{Rectangle, Resolution, TextureRegion};
@@ -648,10 +652,10 @@ mod tests {
         state.process_play_command("DST_PM_CHARA_IMAGE", &parts);
     }
 
-    // ===== apply_to_play_skin =====
+    // ===== play_skin_properties =====
 
     #[test]
-    fn test_apply_to_play_skin_all_values() {
+    fn test_play_skin_properties_all_values() {
         let mut state = make_state();
         state.play_close = Some(500);
         state.play_playstart = Some(1000);
@@ -661,24 +665,22 @@ mod tests {
         state.play_judgetimer = Some(1);
         state.play_note_expansion_rate = Some([150, 200]);
 
-        let mut play_skin = rubato_play::play_skin::PlaySkin::new();
-        state.apply_to_play_skin(&mut play_skin);
-        assert_eq!(play_skin.close, 500);
-        assert_eq!(play_skin.playstart, 1000);
-        assert_eq!(play_skin.loadstart, 200);
-        assert_eq!(play_skin.loadend, 3000);
-        assert_eq!(play_skin.finish_margin, 2000);
-        assert_eq!(play_skin.judgetimer, 1);
-        assert_eq!(play_skin.note_expansion_rate, [150, 200]);
+        let props = state.play_skin_properties();
+        assert_eq!(props.close, Some(500));
+        assert_eq!(props.playstart, Some(1000));
+        assert_eq!(props.loadstart, Some(200));
+        assert_eq!(props.loadend, Some(3000));
+        assert_eq!(props.finish_margin, Some(2000));
+        assert_eq!(props.judgetimer, Some(1));
+        assert_eq!(props.note_expansion_rate, Some([150, 200]));
     }
 
     #[test]
-    fn test_apply_to_play_skin_none_values_preserved() {
+    fn test_play_skin_properties_none_values() {
         let state = make_state();
-        let mut play_skin = rubato_play::play_skin::PlaySkin::new();
-        let orig_close = play_skin.close;
-        state.apply_to_play_skin(&mut play_skin);
-        assert_eq!(play_skin.close, orig_close);
+        let props = state.play_skin_properties();
+        assert!(props.close.is_none());
+        assert!(props.playstart.is_none());
     }
 
     // ===== Unknown command delegation =====
@@ -788,21 +790,20 @@ mod tests {
     }
 
     #[test]
-    fn test_load_skin_applies_to_play_skin_with_computed_values() {
+    fn test_load_skin_properties_with_computed_values() {
         let csv_content = "#CLOSE,500\n#JUDGETIMER,2\n";
         let path = write_temp_csv("test_load_skin_apply.lr2skin", csv_content);
 
         let mut state = make_state();
         state.load_skin(&path, None).unwrap();
 
-        let mut play_skin = rubato_play::play_skin::PlaySkin::new();
-        state.apply_to_play_skin(&mut play_skin);
+        let props = state.play_skin_properties();
 
-        assert_eq!(play_skin.close, 500);
-        assert_eq!(play_skin.judgetimer, 2);
-        assert_eq!(play_skin.judgeregion, 1); // default
+        assert_eq!(props.close, Some(500));
+        assert_eq!(props.judgetimer, Some(2));
+        assert_eq!(props.judgeregion, Some(1)); // default
         // Lane region should be set (8 default rectangles)
-        assert!(play_skin.lane_region().is_some());
+        assert!(props.laneregion.is_some());
     }
 
     // ===== make_default_line / default line images =====

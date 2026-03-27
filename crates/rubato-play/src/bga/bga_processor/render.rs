@@ -3,7 +3,7 @@ use rubato_render::color::Rectangle;
 use rubato_render::texture::TextureRegion;
 
 use super::{BGAProcessor, BgaRenderType, BgaRenderer};
-use crate::skin::bga::StretchType;
+use crate::skin::bga::{StretchType, StretchTypeExt};
 
 impl BGAProcessor {
     /// Draw BGA content to the given renderer.

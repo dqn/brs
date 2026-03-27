@@ -43,14 +43,16 @@ pub struct PomyuCharaDestination {
 
 pub struct PomyuCharaLoader<'a> {
     images: &'a mut Vec<SkinImage>,
-    pub pomyu: rubato_play::pomyu_chara_processor::PomyuCharaProcessor,
+    /// PMS character animation cycle times.
+    /// Index: timer_id - TIMER_PM_CHARA_1P_NEUTRAL (900).
+    pub pm_chara_time: [i32; 8],
 }
 
 impl<'a> PomyuCharaLoader<'a> {
     pub fn new(images: &'a mut Vec<SkinImage>) -> Self {
         Self {
             images,
-            pomyu: rubato_play::pomyu_chara_processor::PomyuCharaProcessor::new(),
+            pm_chara_time: [1; 8],
         }
     }
 

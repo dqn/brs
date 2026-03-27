@@ -14,7 +14,7 @@ use crate::types::skin_object::{DestinationParams, SkinObjectData, SkinObjectRen
 /// judge image and combo number based on the current judge state.
 pub struct SkinJudgeObject {
     pub data: SkinObjectData,
-    pub inner: rubato_play::skin_judge::SkinJudge,
+    pub inner: rubato_types::skin_judge::SkinJudge,
     /// Judge images (7 types: PG, GR, GD, BD, PR, MS, PG+MAX)
     judge_images: [Option<SkinImage>; 7],
     /// Judge count numbers (7 types)
@@ -52,7 +52,7 @@ impl SkinJudgeObject {
         );
         Self {
             data,
-            inner: rubato_play::skin_judge::SkinJudge::new(player, shift),
+            inner: rubato_types::skin_judge::SkinJudge::new(player, shift),
             judge_images: Default::default(),
             judge_counts: Default::default(),
             now_judge_idx: None,

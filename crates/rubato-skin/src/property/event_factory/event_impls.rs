@@ -2,9 +2,8 @@ use super::super::event::Event;
 use crate::reexports::MainState;
 
 use rubato_core::bms_player_mode::BMSPlayerMode;
-use rubato_play::judge_algorithm::DEFAULT_ALGORITHM;
-use rubato_play::target_property::TargetProperty;
 use rubato_types::event_id::EventId;
+use rubato_types::judge_algorithm::DEFAULT_ALGORITHM;
 use rubato_types::main_state_type::MainStateType;
 use rubato_types::play_config;
 
@@ -520,7 +519,7 @@ impl Event for TargetEvent {
             return;
         };
         let targets = {
-            let targets = TargetProperty::targets();
+            let targets = rubato_types::target_list::targets();
             if targets.is_empty() {
                 config.select_settings.targetlist.clone()
             } else {

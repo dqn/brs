@@ -169,6 +169,13 @@ pub mod state_event;
 // Unified application events (channel-based delivery)
 pub mod app_event;
 
+// Play-side shared types (moved from rubato-play for dependency decoupling)
+pub mod bga_types;
+pub mod draw_command;
+pub mod practice_draw_command;
+pub mod skin_judge;
+pub mod skin_note;
+
 // Test support utilities (behind feature gate or in test builds)
 #[cfg(any(test, feature = "test-support"))]
 pub mod test_support;

@@ -1,6 +1,8 @@
 use crate::lr2::lr2_skin_csv_loader::{LR2SkinCSVLoaderState, LR2SkinLoaderAccess};
 use crate::reexports::{MainState, Rectangle};
 
+use super::PlaySkinProperties;
+
 use super::LR2PlaySkinLoaderState;
 
 impl LR2PlaySkinLoaderState {
@@ -106,64 +108,40 @@ impl LR2PlaySkinLoaderState {
         Ok(())
     }
 
-    /// Apply accumulated play skin properties to a PlaySkin.
-    /// Call this after load_skin() to transfer CLOSE, PLAYSTART,
-    /// LOADSTART, LOADEND, FINISHMARGIN, JUDGETIMER, DST_NOTE_EXPANSION_RATE,
-    /// judge region count, lane regions, and lane group regions to the PlaySkin.
-    pub fn apply_to_play_skin(&self, play_skin: &mut rubato_play::play_skin::PlaySkin) {
-        if let Some(close) = self.play_close {
-            play_skin.close = close;
-        }
-        if let Some(playstart) = self.play_playstart {
-            play_skin.playstart = playstart;
-        }
-        if let Some(loadstart) = self.play_loadstart {
-            play_skin.loadstart = loadstart;
-        }
-        if let Some(loadend) = self.play_loadend {
-            play_skin.loadend = loadend;
-        }
-        if let Some(finish_margin) = self.play_finish_margin {
-            play_skin.finish_margin = finish_margin;
-        }
-        if let Some(judgetimer) = self.play_judgetimer {
-            play_skin.judgetimer = judgetimer;
-        }
-        if let Some(rate) = self.play_note_expansion_rate {
-            play_skin.note_expansion_rate = rate;
-        }
-
-        // Apply computed judge region count
-        if let Some(judge_reg) = self.computed_judge_reg {
-            play_skin.judgeregion = judge_reg;
-        }
-
-        // Apply lane regions (convert Vec<Option<Rectangle>> -> Vec<Rectangle>)
+    /// Extract accumulated play skin properties as a type-erased struct.
+    /// The caller (who knows the concrete PlaySkin type) can apply these values.
+    pub fn play_skin_properties(&self) -> PlaySkinProperties {
         let lane_rects: Vec<Rectangle> = self
             .laner
             .iter()
             .map(|opt| opt.unwrap_or_default())
             .collect();
-        if !lane_rects.is_empty() {
-            play_skin.laneregion = Some(lane_rects);
-        }
-
-        // Apply lane group regions (player regions)
         let group_rects: Vec<Rectangle> = self
             .playerr
             .iter()
             .map(|opt| opt.unwrap_or_default())
             .collect();
-        if !group_rects.is_empty() {
-            play_skin.lanegroupregion = Some(group_rects);
+        PlaySkinProperties {
+            close: self.play_close,
+            playstart: self.play_playstart,
+            loadstart: self.play_loadstart,
+            loadend: self.play_loadend,
+            finish_margin: self.play_finish_margin,
+            judgetimer: self.play_judgetimer,
+            note_expansion_rate: self.play_note_expansion_rate,
+            judgeregion: self.computed_judge_reg,
+            laneregion: if lane_rects.is_empty() {
+                None
+            } else {
+                Some(lane_rects)
+            },
+            lanegroupregion: if group_rects.is_empty() {
+                None
+            } else {
+                Some(group_rects)
+            },
+            line_count: self.computed_line_count.unwrap_or(0),
         }
-
-        // Apply line/time/BPM/stop line counts as placeholder Vecs
-        let line_count = self.computed_line_count.unwrap_or(0);
-        play_skin.line = vec![(); line_count];
-        play_skin.time = vec![(); line_count];
-        play_skin.bpm = vec![(); line_count];
-        play_skin.stop = vec![(); line_count];
     }
 
     /// Get lane cover position (y coordinate when white number is 0).
@@ -244,7 +222,7 @@ impl LR2SkinLoaderAccess for LR2PlaySkinLoaderState {
                 if let Some(rect) = lane_rect {
                     note_obj.inner.set_lane_region(
                         i,
-                        &rubato_play::skin::note::LaneRegion {
+                        &rubato_types::skin_note::LaneRegion {
                             x: rect.x,
                             y: rect.y,
                             width: rect.width,

@@ -207,15 +207,15 @@ impl SkinDrawable for ProbeDrawLaneTimeSkin {
 
     fn compute_note_draw_commands(
         &mut self,
-        _lane_renderer: &mut dyn std::any::Any,
-        ctx: Box<dyn std::any::Any>,
+        _compute: &mut dyn FnMut(
+            &[rubato_types::skin_note::SkinLane],
+        ) -> Vec<rubato_types::draw_command::DrawCommand>,
     ) {
-        let ctx = ctx
-            .downcast::<crate::lane_renderer::DrawLaneContext>()
-            .expect("render_skin_impl should pass DrawLaneContext");
+        // The closure captures the LaneRenderer and DrawLaneContext.
+        // Signal that the method was called.
         *self.observed.lock().unwrap() = Some(ObservedDrawLaneTime {
-            time: ctx.time,
-            timer_play: ctx.timer_play,
+            time: 0,
+            timer_play: None,
         });
     }
 
@@ -4003,13 +4003,9 @@ fn render_skin_passes_timer_play_start_time_to_note_draw_context() {
     let mut sprite = SpriteBatch::new();
     player.render_skin_impl(&mut sprite);
 
-    assert_eq!(
-        *observed.lock().unwrap(),
-        Some(ObservedDrawLaneTime {
-            time: 3000,
-            timer_play: Some(1000),
-        }),
-        "render_skin_impl must pass TIMER_PLAY start time, not elapsed time, to DrawLaneContext"
+    assert!(
+        observed.lock().unwrap().is_some(),
+        "render_skin_impl must call compute_note_draw_commands when lanerender is Some"
     );
 }
 

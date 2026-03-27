@@ -1059,7 +1059,7 @@ fn test_skin_object_enum_two_phase_note() {
 /// check -> draw) does not skip the note object.
 #[test]
 fn test_draw_all_objects_includes_note_object() {
-    use rubato_play::lane_renderer::{DrawCommand, NoteImageType};
+    use rubato_types::draw_command::{DrawCommand, NoteImageType};
 
     let mut skin = make_test_skin();
 

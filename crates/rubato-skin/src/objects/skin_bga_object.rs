@@ -5,13 +5,8 @@ use std::sync::{Arc, Mutex};
 
 use rubato_types::sync_utils::lock_or_recover;
 
-use rubato_play::bga::bga_processor::{BGAProcessor, BgaRenderType, BgaRenderer};
-use rubato_play::practice_configuration::{PracticeColor, PracticeDrawCommand};
-use rubato_play::skin_bga::{
-    BGAEXPAND_FULL, BGAEXPAND_KEEP_ASPECT_RATIO, BGAEXPAND_OFF, StretchType,
-};
 use rubato_render::color::Color;
-use rubato_render::texture::TextureRegion;
+use rubato_types::practice_draw_command::{PracticeColor, PracticeDrawCommand};
 
 use crate::graphs::skin_note_distribution_graph::{
     NoteDistributionDrawParams, SkinNoteDistributionGraph, TYPE_EARLYLATE, TYPE_JUDGE, TYPE_NORMAL,
@@ -36,71 +31,7 @@ pub trait BgaDraw: Send {
 }
 
 // =========================================================================
-// BgaRenderer adapter: wraps SkinObjectRenderer for BGAProcessor.draw_bga()
-// =========================================================================
-
-/// Adapter that implements BgaRenderer (used by BGAProcessor.draw_bga) using SkinObjectRenderer.
-struct SkinObjectRendererAdapter<'a> {
-    sprite: &'a mut SkinObjectRenderer,
-}
-
-impl BgaRenderer for SkinObjectRendererAdapter<'_> {
-    fn set_color_rgba(&mut self, r: f32, g: f32, b: f32, a: f32) {
-        self.sprite.set_color_rgba(r, g, b, a);
-    }
-
-    fn set_blend(&mut self, blend: i32) {
-        self.sprite.blend = blend;
-    }
-
-    fn set_type(&mut self, render_type: BgaRenderType) {
-        let type_id = match render_type {
-            BgaRenderType::Linear => SkinObjectRenderer::TYPE_LINEAR,
-            BgaRenderType::Ffmpeg => SkinObjectRenderer::TYPE_FFMPEG,
-            BgaRenderType::Layer => SkinObjectRenderer::TYPE_LAYER,
-        };
-        self.sprite.obj_type = type_id;
-    }
-
-    fn draw(&mut self, image: &TextureRegion, x: f32, y: f32, w: f32, h: f32) {
-        self.sprite.draw(image, x, y, w, h);
-    }
-}
-
-/// Convert bga_expand config value to StretchType.
-fn bga_expand_to_stretch(bga_expand: i32) -> StretchType {
-    match bga_expand {
-        BGAEXPAND_FULL => StretchType::Stretch,
-        BGAEXPAND_KEEP_ASPECT_RATIO => StretchType::KeepAspectRatioFitInner,
-        BGAEXPAND_OFF => StretchType::KeepAspectRatioNoExpanding,
-        _ => StretchType::Stretch,
-    }
-}
-
-// =========================================================================
-// BgaDraw implementation for BGAProcessor
-// =========================================================================
-
-impl BgaDraw for BGAProcessor {
-    fn prepare_bga(&mut self, time_ms: i64) {
-        BGAProcessor::prepare_bga(self, time_ms);
-    }
-
-    fn draw_bga(&mut self, sprite: &mut SkinObjectRenderer, region: &Rectangle, bga_expand: i32) {
-        let stretch = bga_expand_to_stretch(bga_expand);
-        let color = {
-            let c = sprite.color();
-            (c.r, c.g, c.b, c.a)
-        };
-        let blend = sprite.blend();
-
-        let mut adapter = SkinObjectRendererAdapter { sprite };
-        BGAProcessor::draw_bga(self, &mut adapter, region, stretch, color, blend);
-    }
-}
-
-// =========================================================================
-// SkinBgaObject — BGA skin object for the rendering pipeline
+// SkinBgaObject -- BGA skin object for the rendering pipeline
 // =========================================================================
 
 /// BGA skin object for the rendering pipeline.
@@ -315,6 +246,7 @@ impl SkinBgaObject {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rubato_types::bga_types::{BGAEXPAND_FULL, BGAEXPAND_KEEP_ASPECT_RATIO, BGAEXPAND_OFF};
 
     // =========================================================================
     // Mock BgaDraw for testing
@@ -415,89 +347,8 @@ mod tests {
         bga.dispose(); // Should not panic
     }
 
-    // =========================================================================
-    // BgaDraw for BGAProcessor integration tests
-    // =========================================================================
-
-    #[test]
-    fn test_bga_processor_implements_bga_draw_prepare() {
-        let mut proc = BGAProcessor::new();
-        // BgaDraw::prepare_bga calls BGAProcessor::prepare_bga
-        BgaDraw::prepare_bga(&mut proc, -1);
-        // time should be -1 (blank screen)
-        assert_eq!(proc.current_bga_id(), -1);
-    }
-
-    #[test]
-    fn test_bga_processor_implements_bga_draw_draw() {
-        let mut proc = BGAProcessor::new();
-        proc.prepare_bga(1000); // set time to 1000ms
-
-        let mut sprite = SkinObjectRenderer::new();
-        let region = Rectangle::new(0.0, 0.0, 256.0, 256.0);
-
-        // Should not panic — draws blank since no BGA data
-        BgaDraw::draw_bga(&mut proc, &mut sprite, &region, BGAEXPAND_FULL);
-    }
-
-    #[test]
-    fn test_bga_expand_to_stretch_conversion() {
-        assert_eq!(bga_expand_to_stretch(BGAEXPAND_FULL), StretchType::Stretch);
-        assert_eq!(
-            bga_expand_to_stretch(BGAEXPAND_KEEP_ASPECT_RATIO),
-            StretchType::KeepAspectRatioFitInner
-        );
-        assert_eq!(
-            bga_expand_to_stretch(BGAEXPAND_OFF),
-            StretchType::KeepAspectRatioNoExpanding
-        );
-        assert_eq!(bga_expand_to_stretch(99), StretchType::Stretch);
-    }
-
-    #[test]
-    fn test_skin_bga_object_with_real_bga_processor() {
-        use bms_model::bms_model::BMSModel;
-
-        let model = BMSModel::new();
-        let proc = BGAProcessor::from_model(&model);
-        let shared = Arc::new(Mutex::new(proc));
-
-        let mut bga = SkinBgaObject::new(BGAEXPAND_FULL);
-        bga.set_bga_draw(shared.clone());
-        assert!(bga.has_bga_draw());
-
-        // Set up region
-        bga.data.region = Rectangle::new(0.0, 0.0, 640.0, 480.0);
-
-        let mut sprite = SkinObjectRenderer::new();
-        let state = crate::test_helpers::MockMainState::default();
-        // Should not panic -- no BGA data but draws blank
-        bga.draw(&mut sprite, &state);
-    }
-
-    #[test]
-    fn test_renderer_adapter_type_mapping() {
-        // Test that BgaRenderType maps to correct SkinObjectRenderer type constants
-        let mut sprite = SkinObjectRenderer::new();
-        let mut adapter = SkinObjectRendererAdapter {
-            sprite: &mut sprite,
-        };
-
-        BgaRenderer::set_type(&mut adapter, BgaRenderType::Linear);
-        assert_eq!(sprite.toast_type(), SkinObjectRenderer::TYPE_LINEAR);
-
-        let mut adapter2 = SkinObjectRendererAdapter {
-            sprite: &mut sprite,
-        };
-        BgaRenderer::set_type(&mut adapter2, BgaRenderType::Ffmpeg);
-        assert_eq!(sprite.toast_type(), SkinObjectRenderer::TYPE_FFMPEG);
-
-        let mut adapter3 = SkinObjectRendererAdapter {
-            sprite: &mut sprite,
-        };
-        BgaRenderer::set_type(&mut adapter3, BgaRenderType::Layer);
-        assert_eq!(sprite.toast_type(), SkinObjectRenderer::TYPE_LAYER);
-    }
+    // BGAProcessor integration tests and BgaRenderer adapter tests
+    // have been moved to rubato-play (the crate that owns BGAProcessor).
 
     #[test]
     fn test_practice_font_is_reused_across_draw_calls() {

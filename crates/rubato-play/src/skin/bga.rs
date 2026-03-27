@@ -16,28 +16,23 @@ pub struct SkinBGA {
     pub draw: bool,
 }
 
-/// BGA expand modes (from Config)
-pub const BGAEXPAND_FULL: i32 = 0;
-pub const BGAEXPAND_KEEP_ASPECT_RATIO: i32 = 1;
-pub const BGAEXPAND_OFF: i32 = 2;
+// Re-export shared BGA types from rubato-types (canonical location).
+pub use rubato_types::bga_types::{
+    BGAEXPAND_FULL, BGAEXPAND_KEEP_ASPECT_RATIO, BGAEXPAND_OFF, StretchType,
+};
 
-/// BGA stretch types for aspect-ratio correction.
-/// Subset of the full StretchType in beatoraja-skin, covering only the 3 modes
-/// used by BGA expand config.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum StretchType {
-    Stretch,
-    KeepAspectRatioFitInner,
-    KeepAspectRatioNoExpanding,
-}
-
-impl StretchType {
+/// Extension trait for StretchType rendering operations that depend on rubato-render types.
+pub trait StretchTypeExt {
     /// Modify the rectangle and image region to apply the stretch type.
     /// Translated from: Java StretchType.stretchRect(Rectangle, TextureRegion, TextureRegion)
-    pub fn stretch_rect(&self, rectangle: &mut Rectangle, image: &mut TextureRegion) {
+    fn stretch_rect(&self, rectangle: &mut Rectangle, image: &mut TextureRegion);
+}
+
+impl StretchTypeExt for StretchType {
+    fn stretch_rect(&self, rectangle: &mut Rectangle, image: &mut TextureRegion) {
         match self {
             StretchType::Stretch => {
-                // No modification — stretch to fill
+                // No modification -- stretch to fill
             }
             StretchType::KeepAspectRatioFitInner => {
                 let img_w = image.region_width as f32;
@@ -46,13 +41,11 @@ impl StretchType {
                     let scale_x = rectangle.width / img_w;
                     let scale_y = rectangle.height / img_h;
                     if scale_x <= scale_y {
-                        // Fit width, adjust height
                         let new_h = img_h * scale_x;
                         let cy = rectangle.y + rectangle.height * 0.5;
                         rectangle.height = new_h;
                         rectangle.y = cy - new_h * 0.5;
                     } else {
-                        // Fit height, adjust width
                         let new_w = img_w * scale_y;
                         let cx = rectangle.x + rectangle.width * 0.5;
                         rectangle.width = new_w;

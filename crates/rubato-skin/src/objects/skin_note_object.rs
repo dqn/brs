@@ -2,7 +2,7 @@
 // Wraps rubato_play::SkinNote with SkinObjectData for the skin pipeline.
 // Translated from: SkinNote.java
 
-use rubato_play::lane_renderer::{DrawCommand, NoteImageType};
+use rubato_types::draw_command::{DrawCommand, NoteImageType};
 
 use crate::reexports::{BitmapFont, Color, MainState};
 use crate::types::skin_object::{DestinationParams, SkinObjectData, SkinObjectRenderer};
@@ -17,7 +17,7 @@ use crate::types::skin_object::{DestinationParams, SkinObjectData, SkinObjectRen
 /// `set_draw_commands()` with the result of `LaneRenderer.draw_lane()`.
 pub struct SkinNoteObject {
     pub data: SkinObjectData,
-    pub inner: rubato_play::skin_note::SkinNote,
+    pub inner: rubato_types::skin_note::SkinNote,
     /// Draw commands from the last LaneRenderer.draw_lane() call.
     /// Set by the caller before draw() is invoked.
     pub draw_commands: Vec<DrawCommand>,
@@ -77,7 +77,7 @@ impl SkinNoteObject {
         );
         Self {
             data,
-            inner: rubato_play::skin_note::SkinNote::new(lane_count),
+            inner: rubato_types::skin_note::SkinNote::new(lane_count),
             draw_commands: Vec::new(),
             note_images: vec![None; lane_count],
             mine_images: vec![None; lane_count],
@@ -258,7 +258,7 @@ impl SkinNoteObject {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rubato_play::lane_renderer::{DrawCommand, NoteImageType};
+    use rubato_types::draw_command::{DrawCommand, NoteImageType};
 
     #[test]
     fn test_new_skin_note_object() {

@@ -189,7 +189,9 @@ impl BMSPlayer {
                 all_timelines,
                 forced_cn_endings: false,
             };
-            skin.compute_note_draw_commands(lr, Box::new(draw_ctx));
+            skin.compute_note_draw_commands(&mut |lanes| {
+                lr.draw_lane(&draw_ctx, lanes, &[]).commands
+            });
         }
 
         {

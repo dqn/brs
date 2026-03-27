@@ -185,13 +185,13 @@ fn draw_note_with_texture_produces_draw_call() {
     let mut note = SkinNoteObject::new(8);
     note.note_images[0] = Some(make_test_texture());
 
-    note.draw_commands = vec![rubato_play::lane_renderer::DrawCommand::DrawNote {
+    note.draw_commands = vec![rubato_types::draw_command::DrawCommand::DrawNote {
         lane: 0,
         x: 10.0,
         y: 20.0,
         w: 40.0,
         h: 5.0,
-        image_type: rubato_play::lane_renderer::NoteImageType::Normal,
+        image_type: rubato_types::draw_command::NoteImageType::Normal,
     }];
 
     let mut sprite = SkinObjectRenderer::new();
@@ -215,13 +215,13 @@ fn draw_note_without_texture_produces_no_vertices() {
     let mut note = SkinNoteObject::new(8);
     // note_images[0] is None (no texture wired)
 
-    note.draw_commands = vec![rubato_play::lane_renderer::DrawCommand::DrawNote {
+    note.draw_commands = vec![rubato_types::draw_command::DrawCommand::DrawNote {
         lane: 0,
         x: 10.0,
         y: 20.0,
         w: 40.0,
         h: 5.0,
-        image_type: rubato_play::lane_renderer::NoteImageType::Normal,
+        image_type: rubato_types::draw_command::NoteImageType::Normal,
     }];
 
     let mut sprite = SkinObjectRenderer::new();
@@ -318,8 +318,8 @@ fn compute_note_draw_commands_produces_commands() {
         forced_cn_endings: false,
     };
 
-    // 5. Call compute_note_draw_commands via SkinDrawable trait
-    skin.compute_note_draw_commands(&mut lr, Box::new(draw_ctx));
+    // 5. Call compute_note_draw_commands via SkinDrawable trait (closure-based API)
+    skin.compute_note_draw_commands(&mut |lanes| lr.draw_lane(&draw_ctx, lanes, &[]).commands);
 
     // 6. Verify draw_commands is non-empty
     let note = find_note_object(&skin).expect("SkinNoteObject must still be in skin");
