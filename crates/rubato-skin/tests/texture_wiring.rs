@@ -10,7 +10,6 @@ use rubato_skin::lr2::lr2_skin_csv_loader::LR2SkinLoaderAccess;
 use rubato_skin::reexports::{Rectangle, Resolution, TextureRegion};
 use rubato_skin::skin::Skin;
 use rubato_skin::skin_note_object::SkinNoteObject;
-use rubato_skin::types::skin::SkinObject;
 use rubato_skin::types::skin_header::SkinHeader;
 
 fn make_test_texture() -> TextureRegion {
@@ -92,13 +91,9 @@ fn make_skin() -> Skin {
 }
 
 fn find_note_object(skin: &Skin) -> Option<&SkinNoteObject> {
-    skin.objects().iter().find_map(|obj| {
-        if let SkinObject::Note(note) = obj {
-            Some(note)
-        } else {
-            None
-        }
-    })
+    skin.objects()
+        .iter()
+        .find_map(|obj| obj.as_any().downcast_ref::<SkinNoteObject>())
 }
 
 // ===========================================================================
@@ -195,7 +190,7 @@ fn draw_note_with_texture_produces_draw_call() {
     }];
 
     let mut sprite = SkinObjectRenderer::new();
-    note.draw(&mut sprite);
+    note.draw_impl(&mut sprite);
 
     // The sprite batch should have received a draw call
     assert!(
@@ -225,7 +220,7 @@ fn draw_note_without_texture_produces_no_vertices() {
     }];
 
     let mut sprite = SkinObjectRenderer::new();
-    note.draw(&mut sprite);
+    note.draw_impl(&mut sprite);
 
     // Without a texture, no sprite should be submitted
     assert!(

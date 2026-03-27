@@ -272,22 +272,22 @@ fn min_interval_fires_after_interval() {
 
 #[test]
 fn skin_object_type_names() {
-    use rubato_skin::skin::SkinObject;
     use rubato_skin::skin_image::SkinImage;
+    use rubato_skin::types::skin_node::SkinNode;
 
-    let obj = SkinObject::Image(SkinImage::new_with_image_id(0));
+    let obj = SkinImage::new_with_image_id(0);
     assert_eq!(obj.type_name(), "Image");
 }
 
 // ===========================================================================
-// SkinObject is_slider
+// SkinNode is_slider
 // ===========================================================================
 
 #[test]
 fn skin_object_is_slider() {
-    use rubato_skin::skin::SkinObject;
     use rubato_skin::skin_image::SkinImage;
+    use rubato_skin::types::skin_node::SkinNode;
 
-    let img = SkinObject::Image(SkinImage::new_with_image_id(0));
+    let img = SkinImage::new_with_image_id(0);
     assert!(!img.is_slider());
 }

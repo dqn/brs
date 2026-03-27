@@ -5,7 +5,7 @@ use std::collections::HashMap;
 
 use crate::reexports::{MainState, Texture, TextureRegion};
 use crate::text::skin_text::SkinTextData;
-use crate::types::skin_object::{DrawImageAtParams, SkinObjectRenderer};
+use crate::types::skin_object::{DrawImageAtParams, SkinObjectData, SkinObjectRenderer};
 
 pub struct SkinTextImage {
     pub text_data: SkinTextData,
@@ -88,7 +88,7 @@ impl SkinTextImage {
         self.text_data.prepare(time, state);
     }
 
-    pub fn draw(&mut self, sprite: &mut SkinObjectRenderer) {
+    pub fn draw_impl(&mut self, sprite: &mut SkinObjectRenderer) {
         if self.text_data.should_update_text() {
             let current = self.text_data.current_text().unwrap_or("").to_string();
             self.set_text(current);
@@ -145,6 +145,36 @@ impl SkinTextImage {
 
     pub fn dispose(&mut self) {
         self.source.dispose();
+    }
+}
+
+impl crate::types::skin_node::SkinNode for SkinTextImage {
+    fn data(&self) -> &SkinObjectData {
+        &self.text_data.data
+    }
+    fn data_mut(&mut self) -> &mut SkinObjectData {
+        &mut self.text_data.data
+    }
+    fn prepare(&mut self, time: i64, state: &dyn MainState) {
+        SkinTextImage::prepare(self, time, state)
+    }
+    fn draw(&mut self, sprite: &mut SkinObjectRenderer, _state: &dyn MainState) {
+        self.draw_impl(sprite)
+    }
+    fn dispose(&mut self) {
+        SkinTextImage::dispose(self)
+    }
+    fn type_name(&self) -> &'static str {
+        "Text"
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+    fn into_any_box(self: Box<Self>) -> Box<dyn std::any::Any> {
+        self
     }
 }
 

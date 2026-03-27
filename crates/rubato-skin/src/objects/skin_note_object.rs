@@ -105,7 +105,7 @@ impl SkinNoteObject {
     /// BPM lines, and text drawing are represented as commands but require
     /// additional skin resources (line images, fonts) that are resolved by
     /// the caller or deferred.
-    pub fn draw(&mut self, sprite: &mut SkinObjectRenderer) {
+    pub fn draw_impl(&mut self, sprite: &mut SkinObjectRenderer) {
         #[cfg(debug_assertions)]
         if self.draw_commands.is_empty() {
             log::warn!(
@@ -255,6 +255,36 @@ impl SkinNoteObject {
     }
 }
 
+impl crate::types::skin_node::SkinNode for SkinNoteObject {
+    fn data(&self) -> &SkinObjectData {
+        &self.data
+    }
+    fn data_mut(&mut self) -> &mut SkinObjectData {
+        &mut self.data
+    }
+    fn prepare(&mut self, time: i64, state: &dyn MainState) {
+        SkinNoteObject::prepare(self, time, state)
+    }
+    fn draw(&mut self, sprite: &mut SkinObjectRenderer, _state: &dyn MainState) {
+        self.draw_impl(sprite)
+    }
+    fn dispose(&mut self) {
+        SkinNoteObject::dispose(self)
+    }
+    fn type_name(&self) -> &'static str {
+        "SkinNote"
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+    fn into_any_box(self: Box<Self>) -> Box<dyn std::any::Any> {
+        self
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -321,7 +351,7 @@ mod tests {
             a: 0.8,
         }];
         let mut sprite = SkinObjectRenderer::new();
-        note.draw(&mut sprite);
+        note.draw_impl(&mut sprite);
         let c = sprite.color();
         assert!((c.r - 0.5).abs() < f32::EPSILON);
         assert!((c.g - 0.6).abs() < f32::EPSILON);
@@ -334,7 +364,7 @@ mod tests {
         let mut note = SkinNoteObject::new(7);
         note.draw_commands = vec![DrawCommand::SetBlend(3)];
         let mut sprite = SkinObjectRenderer::new();
-        note.draw(&mut sprite);
+        note.draw_impl(&mut sprite);
         assert_eq!(sprite.blend(), 3);
     }
 
@@ -343,7 +373,7 @@ mod tests {
         let mut note = SkinNoteObject::new(7);
         note.draw_commands = vec![DrawCommand::SetType(5)];
         let mut sprite = SkinObjectRenderer::new();
-        note.draw(&mut sprite);
+        note.draw_impl(&mut sprite);
         assert_eq!(sprite.toast_type(), 5);
     }
 
@@ -360,7 +390,7 @@ mod tests {
         }];
         let mut sprite = SkinObjectRenderer::new();
         // Should not panic even though we use a placeholder texture
-        note.draw(&mut sprite);
+        note.draw_impl(&mut sprite);
     }
 
     #[test]
@@ -375,7 +405,7 @@ mod tests {
             image_index: 0,
         }];
         let mut sprite = SkinObjectRenderer::new();
-        note.draw(&mut sprite);
+        note.draw_impl(&mut sprite);
     }
 
     #[test]
@@ -384,14 +414,14 @@ mod tests {
         note.draw_commands = vec![DrawCommand::DrawSectionLine { y_offset: 100 }];
         let mut sprite = SkinObjectRenderer::new();
         // Should not panic, currently a no-op
-        note.draw(&mut sprite);
+        note.draw_impl(&mut sprite);
     }
 
     #[test]
     fn test_draw_empty_commands_is_noop() {
         let mut note = SkinNoteObject::new(7);
         let mut sprite = SkinObjectRenderer::new();
-        note.draw(&mut sprite);
+        note.draw_impl(&mut sprite);
     }
 
     #[test]
@@ -429,7 +459,7 @@ mod tests {
             },
         ];
         let mut sprite = SkinObjectRenderer::new();
-        note.draw(&mut sprite);
+        note.draw_impl(&mut sprite);
         // After all commands, color should be green
         let c = sprite.color();
         assert!((c.r - 0.0).abs() < f32::EPSILON);

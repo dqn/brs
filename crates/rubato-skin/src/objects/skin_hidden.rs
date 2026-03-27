@@ -111,7 +111,7 @@ impl SkinHidden {
         self.image_index = self.get_image_index(self.original_images.len(), time, state);
     }
 
-    pub fn draw(&mut self, sprite: &mut SkinObjectRenderer) {
+    pub fn draw_impl(&mut self, sprite: &mut SkinObjectRenderer) {
         let region = &self.data.region;
         let dl = self.disapear_line_added_lift;
 
@@ -160,6 +160,33 @@ impl SkinHidden {
                 );
             }
         }
+    }
+}
+
+impl crate::types::skin_node::SkinNode for SkinHidden {
+    fn data(&self) -> &SkinObjectData {
+        &self.data
+    }
+    fn data_mut(&mut self) -> &mut SkinObjectData {
+        &mut self.data
+    }
+    fn prepare(&mut self, time: i64, state: &dyn MainState) {
+        SkinHidden::prepare(self, time, state)
+    }
+    fn draw(&mut self, sprite: &mut SkinObjectRenderer, _state: &dyn MainState) {
+        self.draw_impl(sprite)
+    }
+    fn type_name(&self) -> &'static str {
+        "SkinHidden"
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+    fn into_any_box(self: Box<Self>) -> Box<dyn std::any::Any> {
+        self
     }
 }
 
@@ -232,7 +259,7 @@ mod tests {
 
         // Trigger the trimming path
         let mut renderer = SkinObjectRenderer::new();
-        hidden.draw(&mut renderer);
+        hidden.draw_impl(&mut renderer);
 
         // After trimming, region_height should be 50 and v2 should be 0.5
         assert_eq!(hidden.trimmed_images[0].region_height, 50);
@@ -265,7 +292,7 @@ mod tests {
         hidden.data.region = Rectangle::new(0.0, 0.0, 100.0, 100.0);
 
         let mut renderer = SkinObjectRenderer::new();
-        hidden.draw(&mut renderer);
+        hidden.draw_impl(&mut renderer);
 
         let new_height = hidden.trimmed_images[0].region_height;
         // new_height = (200 * 50/100) = 100
@@ -300,7 +327,7 @@ mod tests {
 
         let mut renderer = SkinObjectRenderer::new();
         // Should not panic
-        hidden.draw(&mut renderer);
+        hidden.draw_impl(&mut renderer);
     }
 
     /// Regression: trimmed region_height must use round() (Java Math.round) not
@@ -327,7 +354,7 @@ mod tests {
         hidden.data.region = Rectangle::new(0.0, 0.0, 100.0, 300.0);
 
         let mut renderer = SkinObjectRenderer::new();
-        hidden.draw(&mut renderer);
+        hidden.draw_impl(&mut renderer);
 
         assert_eq!(
             hidden.trimmed_images[0].region_height, 67,

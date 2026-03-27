@@ -7,7 +7,7 @@ use crate::json::json_skin_loader::{
 use crate::json::json_skin_object_loader::{source_image, utilities::resolve_wildcard_path};
 use crate::objects::skin_image::SkinImage;
 use crate::reexports::TextureRegion;
-use crate::types::skin::SkinObject;
+use crate::types::skin_node::SkinNode;
 
 /// Loads a texture from the source map, resolving the source ID path.
 /// Applies filemap substitution to the resolved path, matching the behavior of
@@ -81,7 +81,7 @@ pub(super) fn resolve_image_set(
     skin_path: &Path,
     usecim: bool,
     filemap: &HashMap<String, String>,
-) -> Option<SkinObject> {
+) -> Option<Box<dyn SkinNode>> {
     if entries.is_empty() {
         return None;
     }
@@ -98,7 +98,7 @@ pub(super) fn resolve_image_set(
     if images.is_empty() {
         return None;
     }
-    Some(SkinObject::Image(SkinImage::new_with_int_timer_ref_id(
+    Some(Box::new(SkinImage::new_with_int_timer_ref_id(
         images, 0, 0, ref_id,
     )))
 }

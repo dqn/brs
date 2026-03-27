@@ -100,12 +100,12 @@ mod tests {
     use crate::skin::Skin;
     use crate::skin_header::SkinHeader;
     use crate::skin_property::{BUTTON_SKIN_CUSTOMIZE1, BUTTON_SKIN_CUSTOMIZE10};
-    use crate::types::skin::SkinObject;
+    use crate::types::skin_node::SkinNode;
 
-    fn make_image_with_clickevent(event_id: i32) -> SkinObject {
+    fn make_image_with_clickevent(event_id: i32) -> Box<dyn SkinNode> {
         let mut img = SkinImage::new_empty();
         img.data.set_clickevent_by_id(event_id);
-        SkinObject::Image(img)
+        Box::new(img)
     }
 
     fn make_loader() -> LR2SkinSelectSkinLoaderState {

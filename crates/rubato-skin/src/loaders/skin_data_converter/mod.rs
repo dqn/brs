@@ -35,7 +35,7 @@ pub(crate) fn convert_runtime_object(
     scale_x: f32,
     scale_y: f32,
     filemap: &HashMap<String, String>,
-) -> Option<crate::types::skin::SkinObject> {
+) -> Option<Box<dyn crate::types::skin_node::SkinNode>> {
     convert_skin_object(
         object_type,
         source_map,
@@ -248,9 +248,9 @@ pub fn convert_skin_data(
 
         // Use pre-built resolved_note if available (from play skin loader)
         let skin_obj = if let Some(resolved) = obj_data.resolved_note.take() {
-            Some(crate::types::skin::SkinObject::Note(resolved))
+            Some(Box::new(resolved) as Box<dyn crate::types::skin_node::SkinNode>)
         } else if let Some(resolved) = obj_data.resolved_judge.take() {
-            Some(crate::types::skin::SkinObject::Judge(resolved))
+            Some(Box::new(resolved) as Box<dyn crate::types::skin_node::SkinNode>)
         } else {
             convert_runtime_object(
                 &obj_data.object_type,
@@ -270,7 +270,7 @@ pub fn convert_skin_data(
             }
 
             // Set click event from object type
-            set_click_event_from_type(&mut obj, &obj_data.object_type);
+            set_click_event_from_type(&mut *obj, &obj_data.object_type);
 
             // Add the object to the skin
             skin.add(obj);

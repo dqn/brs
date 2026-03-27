@@ -10,12 +10,12 @@ use crate::objects::skin_number::{NumberDisplayConfig, SkinNumber};
 use crate::objects::skin_slider::SkinSlider;
 use crate::reexports::{MainState, Resolution, Texture, TextureRegion};
 use crate::safe_div_f32;
-use crate::skin::SkinObject;
 use crate::skin_gauge::SkinGauge;
 use crate::skin_image::SkinImage;
 use crate::skin_object::DestinationParams;
 use crate::skin_text_font::SkinTextFont;
 use crate::skin_text_image::{SkinTextImage, SkinTextImageSource};
+use crate::types::skin_node::SkinNode;
 
 use super::{ImageListEntry, LR2SkinCSVLoaderState};
 
@@ -335,7 +335,7 @@ impl LR2SkinCSVLoaderState {
             "SRC_IMAGE" => {
                 // Finalize previous image
                 if let Some(img) = self.image.take() {
-                    self.collected_objects.push(SkinObject::Image(img));
+                    self.collected_objects.push(Box::new(img));
                 }
                 let gr: i32 = str_parts
                     .get(2)
@@ -420,7 +420,7 @@ impl LR2SkinCSVLoaderState {
             "SRC_IMAGESET" => {
                 // Finalize previous image
                 if let Some(img) = self.image.take() {
-                    self.collected_objects.push(SkinObject::Image(img));
+                    self.collected_objects.push(Box::new(img));
                 }
                 let values = Self::parse_int(str_parts);
                 // Cap count: negative wraps to huge usize; values[5+i] is OOB for i>=17.
@@ -449,7 +449,7 @@ impl LR2SkinCSVLoaderState {
                 // #SRC_NUMBER,(NULL),gr,x,y,w,h,div_x,div_y,cycle,timer,num,align,keta,zeropadding
                 // Finalize previous number
                 if let Some(n) = self.num.take() {
-                    self.collected_objects.push(SkinObject::Number(n));
+                    self.collected_objects.push(Box::new(n));
                 }
                 let values = Self::parse_int(str_parts);
                 let divx = if values[7] > 0 { values[7] } else { 1 }.min(256);
@@ -569,14 +569,14 @@ impl LR2SkinCSVLoaderState {
                 }
                 let values = Self::parse_int(str_parts);
                 let font_index = values[2] as usize;
-                let text_obj: SkinObject = if font_index < self.fontlist.len()
+                let text_obj: Box<dyn SkinNode> = if font_index < self.fontlist.len()
                     && self.fontlist[font_index].is_some()
                 {
                     let source = self.fontlist[font_index].clone().unwrap();
                     let mut t = SkinTextImage::new_with_id(source, values[3]);
                     t.text_data.align = values[4];
                     t.text_data.editable = values[5] != 0;
-                    SkinObject::TextImage(t)
+                    Box::new(t)
                 } else {
                     // Java parity: fallback font path is CWD-relative (not skin-file-relative).
                     // Requires the process to be launched from the game root directory.
@@ -585,7 +585,7 @@ impl LR2SkinCSVLoaderState {
                         crate::property::string_property_factory::string_property_by_id(values[3]);
                     t.text_data.align = values[4];
                     t.text_data.editable = values[5] != 0;
-                    SkinObject::TextFont(t)
+                    Box::new(t)
                 };
                 self.text = Some(text_obj);
             }
@@ -625,7 +625,7 @@ impl LR2SkinCSVLoaderState {
                 // #SRC_SLIDER,(NULL),gr,x,y,w,h,div_x,div_y,cycle,timer,angle,range,type,disable
                 // Finalize previous slider
                 if let Some(s) = self.slider.take() {
-                    self.collected_objects.push(SkinObject::Slider(s));
+                    self.collected_objects.push(Box::new(s));
                 }
                 let values = Self::parse_int(str_parts);
                 if let Some(images) = self.source_image(&values) {
@@ -649,7 +649,7 @@ impl LR2SkinCSVLoaderState {
                 // #SRC_SLIDER_REFNUMBER,(NULL),gr,x,y,w,h,div_x,div_y,cycle,timer,muki,range,type,disable,min_value,max_value
                 // Finalize previous slider
                 if let Some(s) = self.slider.take() {
-                    self.collected_objects.push(SkinObject::Slider(s));
+                    self.collected_objects.push(Box::new(s));
                 }
                 let values = Self::parse_int(str_parts);
                 if let Some(images) = self.source_image(&values) {
@@ -713,7 +713,7 @@ impl LR2SkinCSVLoaderState {
                 // #SRC_BARGRAPH,(NULL),gr,x,y,w,h,div_x,div_y,cycle,timer,type,muki
                 // Finalize previous bar
                 if let Some(b) = self.bar.take() {
-                    self.collected_objects.push(SkinObject::Graph(b));
+                    self.collected_objects.push(Box::new(b));
                 }
                 let values = Self::parse_int(str_parts);
                 let gr = values[2];
@@ -737,7 +737,7 @@ impl LR2SkinCSVLoaderState {
                 // #SRC_BARGRAPH_REFNUMBER,(NULL),gr,x,y,w,h,div_x,div_y,cycle,timer,type,muki,min_value,max_value
                 // Finalize previous bar
                 if let Some(b) = self.bar.take() {
-                    self.collected_objects.push(SkinObject::Graph(b));
+                    self.collected_objects.push(Box::new(b));
                 }
                 let values = Self::parse_int(str_parts);
                 let gr = values[2];
@@ -796,7 +796,7 @@ impl LR2SkinCSVLoaderState {
             "SRC_BUTTON" => {
                 // Finalize previous button
                 if let Some(btn) = self.button.take() {
-                    self.collected_objects.push(SkinObject::Image(btn));
+                    self.collected_objects.push(Box::new(btn));
                 }
                 let gr: usize = str_parts
                     .get(2)
@@ -894,7 +894,7 @@ impl LR2SkinCSVLoaderState {
             "SRC_ONMOUSE" => {
                 // Finalize previous onmouse
                 if let Some(om) = self.onmouse.take() {
-                    self.collected_objects.push(SkinObject::Image(om));
+                    self.collected_objects.push(Box::new(om));
                 }
                 let gr: usize = str_parts
                     .get(2)
@@ -953,7 +953,7 @@ impl LR2SkinCSVLoaderState {
             "SRC_GROOVEGAUGE" | "SRC_GROOVEGAUGE_EX" => {
                 // Finalize previous gauger
                 if let Some(g) = self.gauger.take() {
-                    self.collected_objects.push(SkinObject::Gauge(g));
+                    self.collected_objects.push(Box::new(g));
                 }
                 let values = Self::parse_int(str_parts);
                 let gr = values[2] as usize;
@@ -1200,28 +1200,28 @@ impl LR2SkinCSVLoaderState {
     /// Call this after CSV parsing completes.
     pub fn finalize_active_objects(&mut self) {
         if let Some(img) = self.image.take() {
-            self.collected_objects.push(SkinObject::Image(img));
+            self.collected_objects.push(Box::new(img));
         }
         if let Some(n) = self.num.take() {
-            self.collected_objects.push(SkinObject::Number(n));
+            self.collected_objects.push(Box::new(n));
         }
         if let Some(t) = self.text.take() {
             self.collected_objects.push(t);
         }
         if let Some(s) = self.slider.take() {
-            self.collected_objects.push(SkinObject::Slider(s));
+            self.collected_objects.push(Box::new(s));
         }
         if let Some(b) = self.bar.take() {
-            self.collected_objects.push(SkinObject::Graph(b));
+            self.collected_objects.push(Box::new(b));
         }
         if let Some(btn) = self.button.take() {
-            self.collected_objects.push(SkinObject::Image(btn));
+            self.collected_objects.push(Box::new(btn));
         }
         if let Some(om) = self.onmouse.take() {
-            self.collected_objects.push(SkinObject::Image(om));
+            self.collected_objects.push(Box::new(om));
         }
         if let Some(g) = self.gauger.take() {
-            self.collected_objects.push(SkinObject::Gauge(g));
+            self.collected_objects.push(Box::new(g));
         }
     }
 

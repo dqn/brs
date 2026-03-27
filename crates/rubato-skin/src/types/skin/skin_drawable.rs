@@ -671,15 +671,16 @@ impl rubato_render::skin_drawable::SkinDrawable for Skin {
             &[rubato_types::skin_note::SkinLane],
         ) -> Vec<rubato_types::draw_command::DrawCommand>,
     ) {
+        use crate::objects::skin_note_object::SkinNoteObject;
         for obj in &mut self.objects {
-            if let SkinObject::Note(note) = obj {
+            if let Some(note) = obj.as_any_mut().downcast_mut::<SkinNoteObject>() {
                 let lanes = note.inner.lanes();
                 note.draw_commands = compute(lanes);
                 return;
             }
         }
         log::warn!(
-            "compute_note_draw_commands: no SkinObject::Note found in {} objects",
+            "compute_note_draw_commands: no SkinNoteObject found in {} objects",
             self.objects.len()
         );
     }

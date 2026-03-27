@@ -329,7 +329,7 @@ impl SkinImage {
         }
     }
 
-    pub fn draw(&mut self, sprite: &mut SkinObjectRenderer) {
+    pub fn draw_impl(&mut self, sprite: &mut SkinObjectRenderer) {
         if let Some(ref current_image) = self.current_image {
             if self.is_movie {
                 // SAFETY: self.data outlives _guard (both are stack-local in this method).
@@ -410,7 +410,7 @@ impl SkinImage {
     ) {
         self.prepare_with_offset(time, state, offset_x, offset_y);
         if self.data.draw {
-            self.draw(sprite);
+            self.draw_impl(sprite);
         }
     }
 
@@ -425,7 +425,7 @@ impl SkinImage {
     ) {
         self.prepare_with_value(time, state, value, offset_x, offset_y);
         if self.data.draw {
-            self.draw(sprite);
+            self.draw_impl(sprite);
         }
     }
 
@@ -449,6 +449,39 @@ impl SkinImage {
             s.dispose();
         }
         self.data.set_disposed();
+    }
+}
+
+impl crate::types::skin_node::SkinNode for SkinImage {
+    fn data(&self) -> &SkinObjectData {
+        &self.data
+    }
+    fn data_mut(&mut self) -> &mut SkinObjectData {
+        &mut self.data
+    }
+    fn validate(&mut self) -> bool {
+        SkinImage::validate(self)
+    }
+    fn prepare(&mut self, time: i64, state: &dyn MainState) {
+        SkinImage::prepare(self, time, state)
+    }
+    fn draw(&mut self, sprite: &mut SkinObjectRenderer, _state: &dyn MainState) {
+        self.draw_impl(sprite)
+    }
+    fn dispose(&mut self) {
+        SkinImage::dispose(self)
+    }
+    fn type_name(&self) -> &'static str {
+        "Image"
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+    fn into_any_box(self: Box<Self>) -> Box<dyn std::any::Any> {
+        self
     }
 }
 
@@ -509,7 +542,7 @@ mod tests {
         assert!(img.data.draw);
 
         let mut renderer = SkinObjectRenderer::new();
-        img.draw(&mut renderer);
+        img.draw_impl(&mut renderer);
 
         // Should have generated 6 vertices (one quad)
         assert_eq!(renderer.sprite.vertices().len(), 6);
@@ -559,7 +592,7 @@ mod tests {
         img.data.color = Color::new(1.0, 1.0, 1.0, 1.0);
 
         let mut renderer = SkinObjectRenderer::new();
-        img.draw(&mut renderer);
+        img.draw_impl(&mut renderer);
 
         // After draw, imageType should be restored to its original value (TYPE_FFMPEG for movies).
         // The guard temporarily sets TYPE_FFMPEG during draw and restores the original on drop.
@@ -599,7 +632,7 @@ mod tests {
         assert_eq!(img.data.color.a, 1.0);
 
         let mut renderer = SkinObjectRenderer::new();
-        img.draw(&mut renderer);
+        img.draw_impl(&mut renderer);
 
         // All vertices should have white color
         for v in renderer.sprite.vertices() {
@@ -631,7 +664,7 @@ mod tests {
         assert_eq!(img.data.color.a, 0.0);
 
         let mut renderer = SkinObjectRenderer::new();
-        img.draw(&mut renderer);
+        img.draw_impl(&mut renderer);
 
         // No vertices should be generated since alpha is 0
         assert!(renderer.sprite.vertices().is_empty());
@@ -744,7 +777,7 @@ mod tests {
         img.prepare(0, &state);
 
         let mut renderer = SkinObjectRenderer::new();
-        img.draw(&mut renderer);
+        img.draw_impl(&mut renderer);
 
         // Verify the quad spans the correct region
         let verts = renderer.sprite.vertices();

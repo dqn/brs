@@ -8,7 +8,8 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use rubato_skin::skin::{Skin, SkinObject};
+use rubato_skin::skin::Skin;
+use rubato_skin::types::skin_node::SkinNode;
 
 // ---------------------------------------------------------------------------
 // Snapshot types
@@ -66,7 +67,7 @@ pub struct DstSnapshot {
 // Conversion
 // ---------------------------------------------------------------------------
 
-fn object_snapshot(obj: &SkinObject) -> ObjectSnapshot {
+fn object_snapshot(obj: &dyn SkinNode) -> ObjectSnapshot {
     let data = obj.data();
     let first_dst = data.dst.first().map(|d| DstSnapshot {
         time: d.time,
@@ -95,7 +96,8 @@ pub fn snapshot_from_skin(skin: &Skin) -> SkinSnapshot {
             .or_insert(0) += 1;
     }
 
-    let object_snapshots: Vec<ObjectSnapshot> = objects.iter().map(object_snapshot).collect();
+    let object_snapshots: Vec<ObjectSnapshot> =
+        objects.iter().map(|o| object_snapshot(&**o)).collect();
 
     SkinSnapshot {
         name: skin.header.name().unwrap_or_default().to_string(),
@@ -159,8 +161,8 @@ mod tests {
     #[test]
     fn test_snapshot_with_image() {
         let mut skin = Skin::new(SkinHeader::default());
-        skin.add(SkinObject::Image(SkinImage::new_with_image_id(0)));
-        skin.add(SkinObject::Image(SkinImage::new_with_image_id(1)));
+        skin.add(Box::new(SkinImage::new_with_image_id(0)));
+        skin.add(Box::new(SkinImage::new_with_image_id(1)));
 
         let snap = snapshot_from_skin(&skin);
         assert_eq!(snap.object_count, 2);

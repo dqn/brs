@@ -25,7 +25,7 @@ fn source_resolution(skin: &SkinData) -> Resolution {
 }
 
 fn apply_runtime_skin_object_data(
-    obj: &mut crate::skin::SkinObject,
+    obj: &mut dyn crate::types::skin_node::SkinNode,
     obj_data: &SkinObjectData,
     src: &Resolution,
     dst: &Resolution,
@@ -62,19 +62,26 @@ fn apply_runtime_skin_object_data(
             && draw_id != 0
             && let Some(draw_prop) = boolean_property_factory::boolean_property(draw_id)
         {
-            obj.set_destination_with_timer_draw(&params, timer_prop, draw_prop);
+            obj.data_mut()
+                .set_destination_with_timer_draw(&params, timer_prop, draw_prop);
             continue;
         }
 
         if !dst_data.op.is_empty() {
-            obj.set_destination_with_timer_ops(&params, timer_prop, &dst_data.op);
+            obj.data_mut()
+                .set_destination_with_timer_and_ops(&params, timer_prop, &dst_data.op);
         } else {
-            obj.set_destination(&params, timer_prop, &[0, 0, 0], &[]);
+            obj.data_mut().set_destination_with_timer_ops_and_offsets(
+                &params,
+                timer_prop,
+                &[0, 0, 0],
+                &[],
+            );
         }
     }
 
     if let Some(mouse_rect) = &obj_data.mouse_rect {
-        obj.set_mouse_rect(
+        obj.data_mut().set_mouse_rect(
             mouse_rect.x as f32 * dw,
             mouse_rect.y as f32 * dh,
             mouse_rect.w as f32 * dw,
@@ -134,7 +141,7 @@ fn resolve_judge_child_skin_object(
     sk: &json_skin::Skin,
     dst: &json_skin::Destination,
     p: &Path,
-) -> Option<crate::skin::SkinObject> {
+) -> Option<Box<dyn crate::types::skin_node::SkinNode>> {
     let dst_id = dst.id.as_deref()?;
     prime_named_object_texture(loader, sk, dst_id, p);
     let mut obj_data = json_skin_object_loader::load_base_skin_object(loader, skin, sk, dst, p)?;
@@ -153,7 +160,7 @@ fn resolve_judge_child_skin_object(
         scale_y,
         &loader.filemap,
     )?;
-    apply_runtime_skin_object_data(&mut obj, &obj_data, &src, &loader.dstr);
+    apply_runtime_skin_object_data(&mut *obj, &obj_data, &src, &loader.dstr);
     Some(obj)
 }
 
@@ -168,16 +175,22 @@ fn build_resolved_judge(
 
     for (idx, image_dst) in judge.images.iter().enumerate().take(7) {
         match resolve_judge_child_skin_object(loader, skin, sk, image_dst, p) {
-            Some(crate::skin::SkinObject::Image(image)) => {
-                judge_obj.inner.set_judge(idx);
-                judge_obj.set_judge_image(idx, image);
-            }
-            Some(other) => {
-                log::warn!(
-                    "judge image child {:?} resolved to unexpected object type {}",
-                    image_dst.id,
-                    other.type_name()
-                );
+            Some(obj) => {
+                match obj
+                    .into_any_box()
+                    .downcast::<crate::skin_image::SkinImage>()
+                {
+                    Ok(image) => {
+                        judge_obj.inner.set_judge(idx);
+                        judge_obj.set_judge_image(idx, *image);
+                    }
+                    Err(_) => {
+                        log::warn!(
+                            "judge image child {:?} resolved to unexpected object type",
+                            image_dst.id,
+                        );
+                    }
+                }
             }
             None => {
                 log::warn!("failed to resolve judge image child {:?}", image_dst.id);
@@ -187,16 +200,22 @@ fn build_resolved_judge(
 
     for (idx, number_dst) in judge.numbers.iter().enumerate().take(7) {
         match resolve_judge_child_skin_object(loader, skin, sk, number_dst, p) {
-            Some(crate::skin::SkinObject::Number(number)) => {
-                judge_obj.inner.set_judge_count(idx);
-                judge_obj.set_judge_count(idx, number);
-            }
-            Some(other) => {
-                log::warn!(
-                    "judge number child {:?} resolved to unexpected object type {}",
-                    number_dst.id,
-                    other.type_name()
-                );
+            Some(obj) => {
+                match obj
+                    .into_any_box()
+                    .downcast::<crate::skin_number::SkinNumber>()
+                {
+                    Ok(number) => {
+                        judge_obj.inner.set_judge_count(idx);
+                        judge_obj.set_judge_count(idx, *number);
+                    }
+                    Err(_) => {
+                        log::warn!(
+                            "judge number child {:?} resolved to unexpected object type",
+                            number_dst.id,
+                        );
+                    }
+                }
             }
             None => {
                 log::warn!("failed to resolve judge number child {:?}", number_dst.id);
@@ -413,8 +432,8 @@ mod tests {
     use crate::json::json_skin_object_loader::JsonSkinObjectLoader;
     use crate::loaders::skin_data_converter::convert_skin_data;
     use crate::reexports::Resolution;
+    use crate::skin_judge_object::SkinJudgeObject;
     use crate::skin_type::SkinType;
-    use crate::types::skin::SkinObject;
     use std::path::PathBuf;
 
     const MINIMAL_JUDGE_SKIN_JSON: &str = r#"{
@@ -595,10 +614,7 @@ mod tests {
         let judge = runtime_skin
             .objects()
             .iter()
-            .find_map(|obj| match obj {
-                SkinObject::Judge(judge) => Some(judge),
-                _ => None,
-            })
+            .find_map(|obj| obj.as_any().downcast_ref::<SkinJudgeObject>())
             .expect("converted skin should contain a judge object");
         assert!(
             judge.judge_images()[0].is_some(),

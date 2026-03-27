@@ -5,10 +5,10 @@ use crate::lr2::lr2_skin_loader::LR2SkinLoaderState;
 use crate::objects::skin_number::SkinNumber;
 use crate::objects::skin_slider::SkinSlider;
 use crate::reexports::{Resolution, Texture, TextureRegion};
-use crate::skin::SkinObject;
 use crate::skin_gauge::SkinGauge;
 use crate::skin_image::SkinImage;
 use crate::skin_text_image::SkinTextImageSource;
+use crate::types::skin_node::SkinNode;
 
 /// LR2 CSV skin loader base
 ///
@@ -62,14 +62,14 @@ pub struct LR2SkinCSVLoaderState {
     // Active skin objects (built by SRC, destination set by DST)
     pub image: Option<SkinImage>,
     pub num: Option<SkinNumber>,
-    pub text: Option<SkinObject>,
+    pub text: Option<Box<dyn SkinNode>>,
     pub slider: Option<SkinSlider>,
     pub bar: Option<SkinGraph>,
     pub button: Option<SkinImage>,
     pub onmouse: Option<SkinImage>,
     pub gauger: Option<SkinGauge>,
     /// Collected skin objects to add to Skin after parsing
-    pub collected_objects: Vec<SkinObject>,
+    pub collected_objects: Vec<Box<dyn SkinNode>>,
 }
 
 mod command_parser;
@@ -271,7 +271,6 @@ SCENETIME,9999\n\
     #[test]
     fn test_apply_to_skin_preserves_option_gated_object_through_prepare() {
         use crate::objects::skin_image::SkinImage;
-        use crate::skin::SkinObject;
         use crate::skin_object::DestinationParams;
         use rubato_render::skin_drawable::SkinDrawable;
 
@@ -280,7 +279,7 @@ SCENETIME,9999\n\
         state.base.op.insert(31, 0);
 
         let mut skin = crate::skin::Skin::new(crate::skin_header::SkinHeader::new());
-        skin.add(SkinObject::Image(SkinImage::new_with_image_id(111)));
+        skin.add(Box::new(SkinImage::new_with_image_id(111)));
         skin.set_destination(
             0,
             &DestinationParams {

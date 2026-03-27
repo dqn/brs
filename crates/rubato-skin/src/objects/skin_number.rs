@@ -339,7 +339,7 @@ impl SkinNumber {
         };
     }
 
-    pub fn draw(&mut self, sprite: &mut SkinObjectRenderer) {
+    pub fn draw_impl(&mut self, sprite: &mut SkinObjectRenderer) {
         for (j, current_img) in self.current_images.iter().enumerate() {
             if let Some(img) = current_img {
                 let region = self.data.region;
@@ -389,7 +389,7 @@ impl SkinNumber {
     ) {
         self.prepare_with_value(time, state, value, offset_x, offset_y);
         if self.data.draw {
-            self.draw(sprite);
+            self.draw_impl(sprite);
         }
     }
 
@@ -407,6 +407,36 @@ impl SkinNumber {
             m.dispose();
         }
         self.data.set_disposed();
+    }
+}
+
+impl crate::types::skin_node::SkinNode for SkinNumber {
+    fn data(&self) -> &SkinObjectData {
+        &self.data
+    }
+    fn data_mut(&mut self) -> &mut SkinObjectData {
+        &mut self.data
+    }
+    fn prepare(&mut self, time: i64, state: &dyn MainState) {
+        SkinNumber::prepare(self, time, state)
+    }
+    fn draw(&mut self, sprite: &mut SkinObjectRenderer, _state: &dyn MainState) {
+        self.draw_impl(sprite)
+    }
+    fn dispose(&mut self) {
+        SkinNumber::dispose(self)
+    }
+    fn type_name(&self) -> &'static str {
+        "Number"
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+    fn into_any_box(self: Box<Self>) -> Box<dyn std::any::Any> {
+        self
     }
 }
 
@@ -493,7 +523,7 @@ mod tests {
         assert!(num.data.draw);
 
         let mut renderer = SkinObjectRenderer::new();
-        num.draw(&mut renderer);
+        num.draw_impl(&mut renderer);
 
         // 1 digit = 1 quad = 6 vertices
         assert_eq!(renderer.sprite.vertices().len(), 6);
@@ -522,7 +552,7 @@ mod tests {
         assert!(num.data.draw);
 
         let mut renderer = SkinObjectRenderer::new();
-        num.draw(&mut renderer);
+        num.draw_impl(&mut renderer);
 
         // 3 digits = 3 quads = 18 vertices
         assert_eq!(renderer.sprite.vertices().len(), 18);
@@ -566,7 +596,7 @@ mod tests {
         assert_eq!(num.shift, 48.0);
 
         let mut renderer = SkinObjectRenderer::new();
-        num.draw(&mut renderer);
+        num.draw_impl(&mut renderer);
 
         // Only 1 digit drawn (index 2, ones place)
         assert_eq!(renderer.sprite.vertices().len(), 6);
@@ -602,7 +632,7 @@ mod tests {
         assert_eq!(num.shift, 24.0);
 
         let mut renderer = SkinObjectRenderer::new();
-        num.draw(&mut renderer);
+        num.draw_impl(&mut renderer);
 
         // Only 1 digit drawn
         assert_eq!(renderer.sprite.vertices().len(), 6);
@@ -636,7 +666,7 @@ mod tests {
         assert_eq!(num.shift, 0.0);
 
         let mut renderer = SkinObjectRenderer::new();
-        num.draw(&mut renderer);
+        num.draw_impl(&mut renderer);
 
         // Only 1 digit drawn (at position j=2)
         assert_eq!(renderer.sprite.vertices().len(), 6);
@@ -667,7 +697,7 @@ mod tests {
         num.prepare_with_value(0, &state, 5, 0.0, 0.0);
 
         let mut renderer = SkinObjectRenderer::new();
-        num.draw(&mut renderer);
+        num.draw_impl(&mut renderer);
 
         // All 3 digits drawn: 0, 0, 5
         assert_eq!(renderer.sprite.vertices().len(), 18);
@@ -715,7 +745,7 @@ mod tests {
         num.prepare_with_value(0, &state, 42, 0.0, 0.0);
 
         let mut renderer = SkinObjectRenderer::new();
-        num.draw(&mut renderer);
+        num.draw_impl(&mut renderer);
 
         assert_eq!(renderer.sprite.vertices().len(), 12); // 2 digits
 
@@ -879,7 +909,7 @@ mod tests {
         assert!(num.data.draw);
 
         let mut renderer = SkinObjectRenderer::new();
-        num.draw(&mut renderer);
+        num.draw_impl(&mut renderer);
         // Should render 10 digits without panic
         assert_eq!(renderer.sprite.vertices().len(), 60);
     }
@@ -942,7 +972,7 @@ mod tests {
         );
 
         let mut renderer = SkinObjectRenderer::new();
-        num.draw(&mut renderer);
+        num.draw_impl(&mut renderer);
         assert_eq!(renderer.sprite.vertices().len(), 18);
     }
 
@@ -979,7 +1009,7 @@ mod tests {
         // which is wrong for positive values.
         // Verify: 3 digits rendered (all slots filled with either digit or blank).
         let mut renderer = SkinObjectRenderer::new();
-        num.draw(&mut renderer);
+        num.draw_impl(&mut renderer);
         assert_eq!(
             renderer.sprite.vertices().len(),
             18, // 3 quads (blank, blank, digit-5)
@@ -1016,7 +1046,7 @@ mod tests {
 
         // Should not panic; leading digits become None (shifted out).
         let mut renderer = SkinObjectRenderer::new();
-        num.draw(&mut renderer);
+        num.draw_impl(&mut renderer);
         // Only 1 digit rendered (value=5, keta=3, zeropadding=0 -> 2 leading nulls)
         assert_eq!(
             renderer.sprite.vertices().len(),

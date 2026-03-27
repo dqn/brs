@@ -165,8 +165,6 @@ impl LR2SkinLoaderAccess for LR2PlaySkinLoaderState {
     }
 
     fn assemble_objects(&mut self, skin: &mut crate::skin::Skin) {
-        use crate::skin::SkinObject;
-
         // Transfer generic objects (SRC_IMAGE, SRC_BUTTON, SRC_ONMOUSE, SRC_GROOVEGAUGE)
         // accumulated by the base CSV parser into the skin.
         for obj in self.csv.collected_objects.drain(..) {
@@ -176,7 +174,7 @@ impl LR2SkinLoaderAccess for LR2PlaySkinLoaderState {
         // 1. Add SkinJudgeObject instances (already created during SRC_NOWJUDGE parsing)
         for judge_opt in &mut self.judge_objects {
             if let Some(judge) = judge_opt.take() {
-                skin.add(SkinObject::Judge(judge));
+                skin.add(Box::new(judge));
             }
         }
 
@@ -210,7 +208,7 @@ impl LR2SkinLoaderAccess for LR2PlaySkinLoaderState {
 
         // 3. Add judgeline SkinImage (already created during SRC_JUDGELINE parsing)
         if let Some(judgeline) = self.judgeline.take() {
-            skin.add(SkinObject::Image(judgeline));
+            skin.add(Box::new(judgeline));
         }
 
         // 4. Create SkinNoteObject from accumulated note source data
@@ -275,12 +273,12 @@ impl LR2SkinLoaderAccess for LR2PlaySkinLoaderState {
                     }
                 }
             }
-            skin.add(SkinObject::Note(note_obj));
+            skin.add(Box::new(note_obj));
         }
 
         // 5a. Add SkinHidden (lane cover) object if created during SRC_HIDDEN/SRC_LIFT parsing
         if let Some(hidden) = self.hidden.take() {
-            skin.add(SkinObject::Hidden(hidden));
+            skin.add(Box::new(hidden));
         }
 
         // 5. Create SkinBgaObject if BGA was requested
@@ -289,15 +287,15 @@ impl LR2SkinLoaderAccess for LR2PlaySkinLoaderState {
             if let Some(bga_data) = self.bga_data.take() {
                 bga_obj.data = bga_data;
             }
-            skin.add(SkinObject::Bga(bga_obj));
+            skin.add(Box::new(bga_obj));
         }
 
         // 6. Add graph objects
         if let Some(obj) = self.noteobj.take() {
-            skin.add(SkinObject::NoteDistributionGraph(obj));
+            skin.add(Box::new(obj));
         }
         if let Some(obj) = self.bpmgraphobj.take() {
-            skin.add(SkinObject::BpmGraph(obj));
+            skin.add(Box::new(obj));
         }
 
         // 7. Apply play-specific timing to skin

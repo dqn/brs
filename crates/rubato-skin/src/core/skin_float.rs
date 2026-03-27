@@ -328,7 +328,7 @@ impl SkinFloat {
 
     /// Draw the float number.
     /// Corresponds to Java SkinFloat.draw(SkinObjectRenderer sprite)
-    pub fn draw(&self, sprite: &mut SkinObjectRenderer) {
+    pub fn draw_impl(&self, sprite: &mut SkinObjectRenderer) {
         for (j, current_img) in self.current_images.iter().enumerate() {
             if let Some(img) = current_img {
                 if let Some(ref offsets) = self.offsets {
@@ -382,7 +382,7 @@ impl SkinFloat {
     ) {
         self.prepare_with_value(time, state, value, offset_x, offset_y);
         if self.data.draw {
-            self.draw(sprite);
+            self.draw_impl(sprite);
         }
     }
 
@@ -399,6 +399,36 @@ impl SkinFloat {
             mimage.dispose();
         }
         self.mimage = None;
+    }
+}
+
+impl crate::types::skin_node::SkinNode for SkinFloat {
+    fn data(&self) -> &SkinObjectData {
+        &self.data
+    }
+    fn data_mut(&mut self) -> &mut SkinObjectData {
+        &mut self.data
+    }
+    fn prepare(&mut self, time: i64, state: &dyn MainState) {
+        SkinFloat::prepare(self, time, state)
+    }
+    fn draw(&mut self, sprite: &mut SkinObjectRenderer, _state: &dyn MainState) {
+        self.draw_impl(sprite)
+    }
+    fn dispose(&mut self) {
+        SkinFloat::dispose(self)
+    }
+    fn type_name(&self) -> &'static str {
+        "Float"
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+    fn into_any_box(self: Box<Self>) -> Box<dyn std::any::Any> {
+        self
     }
 }
 

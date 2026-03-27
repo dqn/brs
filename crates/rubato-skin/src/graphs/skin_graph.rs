@@ -185,7 +185,7 @@ impl SkinGraph {
         };
     }
 
-    pub fn draw(&mut self, sprite: &mut SkinObjectRenderer) {
+    pub fn draw_impl(&mut self, sprite: &mut SkinObjectRenderer) {
         if let Some(ref current_image) = self.current_image {
             if self.direction == 1 {
                 // Java: current.setRegion(currentImage, 0, h - h*value, w, h*value)
@@ -239,5 +239,38 @@ impl SkinGraph {
     pub fn dispose(&mut self) {
         self.source.dispose();
         self.data.set_disposed();
+    }
+}
+
+impl crate::types::skin_node::SkinNode for SkinGraph {
+    fn data(&self) -> &SkinObjectData {
+        &self.data
+    }
+    fn data_mut(&mut self) -> &mut SkinObjectData {
+        &mut self.data
+    }
+    fn validate(&mut self) -> bool {
+        SkinGraph::validate(self)
+    }
+    fn prepare(&mut self, time: i64, state: &dyn MainState) {
+        SkinGraph::prepare(self, time, state)
+    }
+    fn draw(&mut self, sprite: &mut SkinObjectRenderer, _state: &dyn MainState) {
+        self.draw_impl(sprite)
+    }
+    fn dispose(&mut self) {
+        SkinGraph::dispose(self)
+    }
+    fn type_name(&self) -> &'static str {
+        "Graph"
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+    fn into_any_box(self: Box<Self>) -> Box<dyn std::any::Any> {
+        self
     }
 }

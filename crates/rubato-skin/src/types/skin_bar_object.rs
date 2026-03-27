@@ -45,7 +45,7 @@ impl SkinBarObject {
         self.data.prepare(time, state);
     }
 
-    pub fn draw(&mut self, _sprite: &mut SkinObjectRenderer) {
+    pub fn draw_impl(&mut self, _sprite: &mut SkinObjectRenderer) {
         // Intentionally empty: actual bar rendering is delegated to
         // BarRenderer in rubato-select, which owns the bar layout logic
         // and calls SkinObjectData methods directly on each bar element.
@@ -53,6 +53,36 @@ impl SkinBarObject {
 
     pub fn dispose(&mut self) {
         self.data.set_disposed();
+    }
+}
+
+impl crate::types::skin_node::SkinNode for SkinBarObject {
+    fn data(&self) -> &SkinObjectData {
+        &self.data
+    }
+    fn data_mut(&mut self) -> &mut SkinObjectData {
+        &mut self.data
+    }
+    fn prepare(&mut self, time: i64, state: &dyn MainState) {
+        SkinBarObject::prepare(self, time, state)
+    }
+    fn draw(&mut self, sprite: &mut SkinObjectRenderer, _state: &dyn MainState) {
+        self.draw_impl(sprite)
+    }
+    fn dispose(&mut self) {
+        SkinBarObject::dispose(self)
+    }
+    fn type_name(&self) -> &'static str {
+        "SkinBar"
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+    fn into_any_box(self: Box<Self>) -> Box<dyn std::any::Any> {
+        self
     }
 }
 
@@ -82,7 +112,7 @@ mod tests {
 
         // Phase 2: draw — reads pre-computed state (stub does nothing but verifies signature)
         let mut renderer = SkinObjectRenderer::new();
-        bar.draw(&mut renderer);
+        bar.draw_impl(&mut renderer);
     }
 
     #[test]

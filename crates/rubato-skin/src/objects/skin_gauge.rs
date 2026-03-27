@@ -220,7 +220,7 @@ impl SkinGauge {
         }
     }
 
-    pub fn draw(&mut self, sprite: &mut SkinObjectRenderer) {
+    pub fn draw_impl(&mut self, sprite: &mut SkinObjectRenderer) {
         if self.images.is_empty() || self.parts <= 0 || self.max <= 0.0 {
             return;
         }
@@ -323,6 +323,33 @@ impl SkinGauge {
             }
             _ => {}
         }
+    }
+}
+
+impl crate::types::skin_node::SkinNode for SkinGauge {
+    fn data(&self) -> &SkinObjectData {
+        &self.data
+    }
+    fn data_mut(&mut self) -> &mut SkinObjectData {
+        &mut self.data
+    }
+    fn prepare(&mut self, time: i64, state: &dyn MainState) {
+        SkinGauge::prepare(self, time, state)
+    }
+    fn draw(&mut self, sprite: &mut SkinObjectRenderer, _state: &dyn MainState) {
+        self.draw_impl(sprite)
+    }
+    fn type_name(&self) -> &'static str {
+        "SkinGauge"
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+    fn into_any_box(self: Box<Self>) -> Box<dyn std::any::Any> {
+        self
     }
 }
 
@@ -598,7 +625,7 @@ mod tests {
         // images is empty by default (not populated via prepare)
         let mut renderer = SkinObjectRenderer::new();
         // Should not panic -- just returns early
-        gauge.draw(&mut renderer);
+        gauge.draw_impl(&mut renderer);
     }
 
     #[test]
@@ -608,7 +635,7 @@ mod tests {
         gauge.images = vec![TextureRegion::new(); 6]; // populate images
         let mut renderer = SkinObjectRenderer::new();
         // Should not panic -- parts <= 0 triggers early return
-        gauge.draw(&mut renderer);
+        gauge.draw_impl(&mut renderer);
     }
 
     #[test]
@@ -617,7 +644,7 @@ mod tests {
         let mut gauge = SkinGauge::new(images, 0, 0, -1, ANIMATION_RANDOM, 4, 33);
         gauge.images = vec![TextureRegion::new(); 6];
         let mut renderer = SkinObjectRenderer::new();
-        gauge.draw(&mut renderer);
+        gauge.draw_impl(&mut renderer);
     }
 
     // --- draw() integration with internal state ---
@@ -636,7 +663,7 @@ mod tests {
         gauge.animation = 1;
         gauge.data.region = crate::reexports::Rectangle::new(0.0, 0.0, 100.0, 20.0);
         let mut renderer = SkinObjectRenderer::new();
-        gauge.draw(&mut renderer);
+        gauge.draw_impl(&mut renderer);
     }
 
     #[test]
@@ -649,7 +676,7 @@ mod tests {
         gauge.border = 80.0;
         gauge.data.region = crate::reexports::Rectangle::new(0.0, 0.0, 100.0, 20.0);
         let mut renderer = SkinObjectRenderer::new();
-        gauge.draw(&mut renderer);
+        gauge.draw_impl(&mut renderer);
     }
 
     #[test]
@@ -663,7 +690,7 @@ mod tests {
         gauge.gauge_type = 0;
         gauge.data.region = crate::reexports::Rectangle::new(0.0, 0.0, 100.0, 20.0);
         let mut renderer = SkinObjectRenderer::new();
-        gauge.draw(&mut renderer);
+        gauge.draw_impl(&mut renderer);
     }
 
     #[test]
@@ -678,7 +705,7 @@ mod tests {
         gauge.animation = 2;
         gauge.data.region = crate::reexports::Rectangle::new(0.0, 0.0, 100.0, 20.0);
         let mut renderer = SkinObjectRenderer::new();
-        gauge.draw(&mut renderer);
+        gauge.draw_impl(&mut renderer);
     }
 
     #[test]
@@ -693,7 +720,7 @@ mod tests {
         gauge.animation = 1;
         gauge.data.region = crate::reexports::Rectangle::new(0.0, 0.0, 100.0, 20.0);
         let mut renderer = SkinObjectRenderer::new();
-        gauge.draw(&mut renderer);
+        gauge.draw_impl(&mut renderer);
     }
 
     #[test]
@@ -710,7 +737,7 @@ mod tests {
         gauge.animation = 0;
         gauge.data.region = crate::reexports::Rectangle::new(0.0, 0.0, 100.0, 20.0);
         let mut renderer = SkinObjectRenderer::new();
-        gauge.draw(&mut renderer);
+        gauge.draw_impl(&mut renderer);
     }
 
     #[test]
@@ -723,7 +750,7 @@ mod tests {
         gauge.data.region = crate::reexports::Rectangle::new(0.0, 0.0, 100.0, 20.0);
         let mut renderer = SkinObjectRenderer::new();
         // Should not panic, just does nothing for unknown animation type
-        gauge.draw(&mut renderer);
+        gauge.draw_impl(&mut renderer);
     }
 
     #[test]
@@ -739,7 +766,7 @@ mod tests {
         gauge.data.region = crate::reexports::Rectangle::new(0.0, 0.0, 100.0, 20.0);
         let mut renderer = SkinObjectRenderer::new();
         // Some segments will compute img_idx >= 3, those should be skipped
-        gauge.draw(&mut renderer);
+        gauge.draw_impl(&mut renderer);
     }
 
     // --- border_val computation test ---
@@ -792,7 +819,7 @@ mod tests {
         gauge.gauge_type = 0;
         gauge.data.region = crate::reexports::Rectangle::new(0.0, 0.0, 100.0, 20.0);
         let mut renderer = SkinObjectRenderer::new();
-        gauge.draw(&mut renderer);
+        gauge.draw_impl(&mut renderer);
     }
 
     // --- Default values test ---
@@ -1271,7 +1298,7 @@ mod tests {
         gauge.duration = 100;
         gauge.data.region = crate::reexports::Rectangle::new(0.0, 0.0, 100.0, 20.0);
         let mut renderer = SkinObjectRenderer::new();
-        gauge.draw(&mut renderer);
+        gauge.draw_impl(&mut renderer);
         // Test completes without panic; glow path exercised for tip segment (i==5).
         // The glow image index is ex_gauge + 4 + border_offset = 0 + 4 + 1 = 5 (valid).
     }
@@ -1640,7 +1667,7 @@ mod tests {
         gauge.data.region = crate::reexports::Rectangle::new(0.0, 0.0, 100.0, 20.0);
         let mut renderer = SkinObjectRenderer::new();
         // Should not panic or produce NaN -- early return
-        gauge.draw(&mut renderer);
+        gauge.draw_impl(&mut renderer);
     }
 
     #[test]
@@ -1652,7 +1679,7 @@ mod tests {
         gauge.max = -1.0; // negative max
         gauge.data.region = crate::reexports::Rectangle::new(0.0, 0.0, 100.0, 20.0);
         let mut renderer = SkinObjectRenderer::new();
-        gauge.draw(&mut renderer);
+        gauge.draw_impl(&mut renderer);
     }
 
     // --- Regression: Result screen should use gauge transition history, not live value ---
