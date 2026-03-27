@@ -5,8 +5,8 @@
 // - ManualPerfect: all PG, gauge qualified (normal notes only, 0ms offset)
 // - ManualAllMiss: all PR/MS, max_combo=0, gauge not qualified
 
-use bms_model::judge_note::{JUDGE_MS, JUDGE_PG, JUDGE_PR};
-use bms_model::mode::Mode;
+use bms::model::judge_note::{JUDGE_MS, JUDGE_PG, JUDGE_PR};
+use bms::model::mode::Mode;
 use golden_master::e2e_helpers::*;
 use rubato_types::groove_gauge::{ASSISTEASY, EASY, EXHARD, HARD, HAZARD, NORMAL};
 

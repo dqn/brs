@@ -1,4 +1,4 @@
-use bms_model::bms_model::BMSModel;
+use bms::model::bms_model::BMSModel;
 
 use crate::pattern::pattern_modifier::{AssistLevel, PatternModifier, PatternModifierBase};
 
@@ -126,8 +126,8 @@ impl PatternModifier for ScrollSpeedModifier {
 mod tests {
     use super::*;
     use crate::pattern::pattern_modifier::{PatternModifier, make_test_model};
-    use bms_model::mode::Mode as BmsMode;
-    use bms_model::time_line::TimeLine;
+    use bms::model::mode::Mode as BmsMode;
+    use bms::model::time_line::TimeLine;
 
     // -- Mode enum --
 

@@ -1,8 +1,8 @@
 // BMSPlayerRule
 
-use bms_model::bms_model::BMSModel;
-use bms_model::bms_model::{JudgeRankType, TotalType};
-use bms_model::mode::Mode;
+use bms::model::bms_model::BMSModel;
+use bms::model::bms_model::{JudgeRankType, TotalType};
+use bms::model::mode::Mode;
 
 /// BMS player rule (LR2 or Beatoraja)
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

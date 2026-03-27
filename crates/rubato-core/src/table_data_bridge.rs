@@ -4,11 +4,11 @@
 //! Converts BmsTableElement / DifficultyTableElement → SongData,
 //! and DifficultyTable → TableData.
 
-use bms_model::mode::Mode;
-use bms_table::bms_table_element::BmsTableElement;
-use bms_table::course::{Course, Trophy};
-use bms_table::difficulty_table::DifficultyTable;
-use bms_table::difficulty_table_element::DifficultyTableElement;
+use bms::model::mode::Mode;
+use bms::table::bms_table_element::BmsTableElement;
+use bms::table::course::{Course, Trophy};
+use bms::table::difficulty_table::DifficultyTable;
+use bms::table::difficulty_table_element::DifficultyTableElement;
 
 use crate::table_data::{TableData, TableFolder};
 use rubato_types::SongData;

@@ -2,10 +2,10 @@ pub(crate) use crate::bms_player_rule::BMSPlayerRule;
 pub(crate) use crate::judge::algorithm::JudgeAlgorithm;
 pub(crate) use crate::judge::property::{JudgeProperty, MissCondition, NoteType};
 pub(crate) use crate::lane_property::LaneProperty;
-pub(crate) use bms_model::bms_model::{BMSModel, LNTYPE_HELLCHARGENOTE, LNTYPE_LONGNOTE, LnType};
-pub(crate) use bms_model::judge_note::{JUDGE_PR, JudgeNote};
-pub(crate) use bms_model::mode::Mode;
-pub(crate) use bms_model::note::{
+pub(crate) use bms::model::bms_model::{BMSModel, LNTYPE_HELLCHARGENOTE, LNTYPE_LONGNOTE, LnType};
+pub(crate) use bms::model::judge_note::{JUDGE_PR, JudgeNote};
+pub(crate) use bms::model::mode::Mode;
+pub(crate) use bms::model::note::{
     TYPE_CHARGENOTE, TYPE_HELLCHARGENOTE, TYPE_LONGNOTE, TYPE_UNDEFINED,
 };
 pub(crate) use rubato_core::score_data::ScoreData;

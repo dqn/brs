@@ -1,5 +1,5 @@
 use super::*;
-use bms_model::bms_model::BMSModel;
+use bms::model::bms_model::BMSModel;
 
 /// Helper: create a default LaneRenderer from a minimal BMSModel.
 fn make_lanerender() -> LaneRenderer {

@@ -3,8 +3,8 @@
 // Tests that autoplay key logs can be recorded, serialized to JSON,
 // loaded back, and replayed to produce identical scores.
 
-use bms_model::judge_note::{JUDGE_MS, JUDGE_PG, JUDGE_PR};
-use bms_model::mode::Mode;
+use bms::model::judge_note::{JUDGE_MS, JUDGE_PG, JUDGE_PR};
+use bms::model::mode::Mode;
 use golden_master::e2e_helpers::*;
 use rubato_types::KeyInputLog as ReplayKeyInputLog;
 use rubato_types::groove_gauge::{EXHARD, HARD, NORMAL};
@@ -15,7 +15,7 @@ use rubato_types::replay_data::ReplayData;
 /// Generates a KeyInputLog from the BMS note data as if the player hit
 /// every note perfectly (offset 0).
 fn record_autoplay_keylog(
-    model: &bms_model::bms_model::BMSModel,
+    model: &bms::model::bms_model::BMSModel,
 ) -> Vec<rubato_input::key_input_log::KeyInputLog> {
     let jn = model.build_judge_notes();
     let mode = model.mode().unwrap_or(&Mode::BEAT_7K);

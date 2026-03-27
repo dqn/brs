@@ -35,7 +35,7 @@ pub enum MainControllerCommand {
     LoadNewProfile(Box<crate::player_config::PlayerConfig>),
     /// Update the PlayConfig for a specific play mode.
     /// Used by MiscSettingMenu to write back UI changes to MainController's PlayerConfig.
-    UpdatePlayConfig(bms_model::mode::Mode, Box<crate::play_config::PlayConfig>),
+    UpdatePlayConfig(bms::model::mode::Mode, Box<crate::play_config::PlayConfig>),
     /// Update the audio config on MainController.
     /// Used by select screen volume sliders to propagate changes from the cloned config.
     UpdateAudioConfig(crate::audio_config::AudioConfig),

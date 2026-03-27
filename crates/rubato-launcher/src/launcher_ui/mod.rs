@@ -7,7 +7,7 @@ pub(crate) mod tabs;
 #[allow(clippy::field_reassign_with_default)]
 mod tests;
 
-use bms_model::mode::Mode;
+use bms::model::mode::Mode;
 use rubato_core::config::Config;
 use rubato_core::player_config::PlayerConfig;
 

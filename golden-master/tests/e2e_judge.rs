@@ -8,8 +8,8 @@
 //   the first frame. We prime the JudgeManager with update(-1) to work around this.
 // - LN notes are split into start+end pairs via build_judge_notes() for JudgeManager.
 
-use bms_model::judge_note::{JUDGE_BD, JUDGE_GD, JUDGE_GR, JUDGE_MS, JUDGE_PG, JUDGE_PR};
-use bms_model::mode::Mode;
+use bms::model::judge_note::{JUDGE_BD, JUDGE_GD, JUDGE_GR, JUDGE_MS, JUDGE_PG, JUDGE_PR};
+use bms::model::mode::Mode;
 use golden_master::e2e_helpers::*;
 use rubato_types::groove_gauge::{ASSISTEASY, EASY, EXHARD, HARD, HAZARD, NORMAL};
 

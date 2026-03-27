@@ -1,7 +1,7 @@
 use super::*;
-use bms_model::judge_note::{JUDGE_PG, build_judge_notes};
-use bms_model::note::Note;
-use bms_model::time_line::TimeLine;
+use bms::model::judge_note::{JUDGE_PG, build_judge_notes};
+use bms::model::note::Note;
+use bms::model::time_line::TimeLine;
 use rubato_types::course_data::CourseDataConstraint;
 use rubato_types::player_config::PlayerConfig;
 
@@ -971,7 +971,7 @@ fn multi_bad_filter_with_minus_one_dmtime() {
             end_time_us: 0,
             lane: 0,
             wav: 1,
-            kind: bms_model::judge_note::JudgeNoteKind::Normal,
+            kind: bms::model::judge_note::JudgeNoteKind::Normal,
             ln_type: 0,
             damage: 0.0,
             pair_index: None,
@@ -981,7 +981,7 @@ fn multi_bad_filter_with_minus_one_dmtime() {
             end_time_us: 0,
             lane: 1,
             wav: 1,
-            kind: bms_model::judge_note::JudgeNoteKind::Normal,
+            kind: bms::model::judge_note::JudgeNoteKind::Normal,
             ln_type: 0,
             damage: 0.0,
             pair_index: None,
@@ -2802,7 +2802,7 @@ fn laser_color_mfast_zero_is_slow_not_fast() {
 /// Lane 7 is the scratch lane in BEAT_7K mode.
 /// The CN start is placed at `start_us` and the CN end at `end_us`.
 fn make_model_with_scratch_cn_pair(start_us: i64, end_us: i64) -> BMSModel {
-    use bms_model::note::TYPE_CHARGENOTE;
+    use bms::model::note::TYPE_CHARGENOTE;
 
     let mut model = BMSModel::new();
     model.set_mode(Mode::BEAT_7K);

@@ -148,8 +148,8 @@ mod tests {
 
     fn make_groove_gauge() -> GrooveGauge {
         use crate::groove_gauge::create_groove_gauge;
-        use bms_model::bms_model::BMSModel;
-        use bms_model::mode::Mode;
+        use bms::model::bms_model::BMSModel;
+        use bms::model::mode::Mode;
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
         create_groove_gauge(&model, 2, 0, None).unwrap()
@@ -212,8 +212,8 @@ mod tests {
     #[test]
     fn test_flickering_animation_with_gauge() {
         use crate::groove_gauge::create_groove_gauge;
-        use bms_model::bms_model::BMSModel;
-        use bms_model::mode::Mode;
+        use bms::model::bms_model::BMSModel;
+        use bms::model::mode::Mode;
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
         let gauge = create_groove_gauge(&model, 2, 0, None).unwrap();

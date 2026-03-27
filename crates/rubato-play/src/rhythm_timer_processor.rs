@@ -1,4 +1,4 @@
-use bms_model::bms_model::BMSModel;
+use bms::model::bms_model::BMSModel;
 
 /// Parameters for updating the rhythm timer.
 pub struct RhythmUpdateParams {
@@ -191,7 +191,7 @@ mod tests {
     /// timelines.len() without the bounds check.
     #[test]
     fn quarter_note_prev_index_does_not_overflow() {
-        use bms_model::time_line::TimeLine;
+        use bms::model::time_line::TimeLine;
 
         let mut model = BMSModel::default();
         // Create two section-line timelines at section 0.0 and 1.0

@@ -1,8 +1,8 @@
 // SkinNoteDistributionGraph.java -> skin_note_distribution_graph.rs
 // Mechanical line-by-line translation.
 
-use bms_model::bms_model::BMSModel;
-use bms_model::mode::Mode;
+use bms::model::bms_model::BMSModel;
+use bms::model::mode::Mode;
 
 use crate::reexports::{
     BlitRect, Color, MainState, Pixmap, PixmapFormat, Rectangle, SongData, Texture, TextureRegion,
@@ -382,7 +382,7 @@ impl SkinNoteDistributionGraph {
         // #LNMODE is explicitly set to 1 (LN)
         // or #LNMODE is undefined and getLntype (which reflects playconfig) is LN (0)
         let ignore_ln_end = model.lnmode == 1
-            || (model.lnmode == 0 && model.lntype() == bms_model::bms_model::LNTYPE_LONGNOTE);
+            || (model.lnmode == 0 && model.lntype() == bms::model::bms_model::LNTYPE_LONGNOTE);
 
         let tls = &model.timelines;
         for tl in tls {

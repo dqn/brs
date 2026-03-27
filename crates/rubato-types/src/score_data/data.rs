@@ -8,7 +8,7 @@ use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
 use serde::{Deserialize, Serialize};
 
-use bms_model::mode::Mode;
+use bms::model::mode::Mode;
 
 use crate::clear_type::ClearType;
 use crate::validatable::Validatable;

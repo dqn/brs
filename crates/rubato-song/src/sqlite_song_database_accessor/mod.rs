@@ -4,10 +4,10 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use bms_model::bms_decoder::BMSDecoder;
-use bms_model::bms_model::{BMSModel, LNTYPE_LONGNOTE};
-use bms_model::bmson_decoder::BMSONDecoder;
-use bms_model::osu_decoder::OSUDecoder;
+use bms::model::bms_decoder::BMSDecoder;
+use bms::model::bms_model::{BMSModel, LNTYPE_LONGNOTE};
+use bms::model::bmson_decoder::BMSONDecoder;
+use bms::model::osu_decoder::OSUDecoder;
 use rayon::prelude::*;
 use rubato_core::validatable::remove_invalid_elements_vec;
 use rubato_db::sqlite_database_accessor::{Column, SQLiteDatabaseAccessor, Table};

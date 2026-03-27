@@ -2,11 +2,11 @@ use std::path::{Path, PathBuf};
 
 use criterion::{BatchSize, BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 
-use bms_model::bms_decoder::BMSDecoder;
-use bms_model::bms_model::BMSModel;
-use bms_model::mode::Mode;
-use bms_model::note::Note;
-use bms_model::time_line::TimeLine;
+use bms::model::bms_decoder::BMSDecoder;
+use bms::model::bms_model::BMSModel;
+use bms::model::mode::Mode;
+use bms::model::note::Note;
+use bms::model::time_line::TimeLine;
 use rubato_core::pattern::lane_shuffle_modifier::{
     LaneMirrorShuffleModifier, LaneRandomShuffleModifier, LaneRotateShuffleModifier,
 };

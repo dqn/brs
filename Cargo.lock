@@ -578,7 +578,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "bms-model"
+name = "bms"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -586,23 +586,11 @@ dependencies = [
  "encoding_rs",
  "log",
  "md-5",
- "serde",
- "serde_json",
- "sha2",
- "tempfile",
-]
-
-[[package]]
-name = "bms-table"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "encoding_rs",
- "log",
  "regex",
  "reqwest",
  "serde",
  "serde_json",
+ "sha2",
  "tempfile",
  "url",
 ]
@@ -1940,7 +1928,7 @@ name = "golden-master"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bms-model",
+ "bms",
  "image",
  "rubato-audio",
  "rubato-core",
@@ -4120,7 +4108,7 @@ name = "rubato-audio"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bms-model",
+ "bms",
  "ebur128",
  "kira",
  "lewton",
@@ -4171,8 +4159,7 @@ dependencies = [
  "aes",
  "anyhow",
  "base64",
- "bms-model",
- "bms-table",
+ "bms",
  "chrono",
  "criterion",
  "ecb",
@@ -4198,7 +4185,7 @@ name = "rubato-db"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bms-model",
+ "bms",
  "chrono",
  "log",
  "rubato-types",
@@ -4213,7 +4200,7 @@ name = "rubato-e2e"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bms-model",
+ "bms",
  "rubato-audio",
  "rubato-core",
  "rubato-input",
@@ -4230,7 +4217,7 @@ dependencies = [
  "anyhow",
  "arboard",
  "base64",
- "bms-model",
+ "bms",
  "chrono",
  "futures-util",
  "image",
@@ -4255,7 +4242,7 @@ name = "rubato-input"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bms-model",
+ "bms",
  "gilrs",
  "log",
  "midir",
@@ -4269,7 +4256,7 @@ name = "rubato-ir"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bms-model",
+ "bms",
  "chrono",
  "encoding_rs",
  "lazy_static",
@@ -4293,7 +4280,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "arboard",
- "bms-model",
+ "bms",
  "cpal",
  "eframe",
  "egui",
@@ -4326,7 +4313,7 @@ name = "rubato-play"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bms-model",
+ "bms",
  "chrono",
  "ffmpeg-next",
  "log",
@@ -4365,7 +4352,7 @@ name = "rubato-skin"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bms-model",
+ "bms",
  "chrono",
  "criterion",
  "encoding_rs",
@@ -4400,7 +4387,7 @@ name = "rubato-song"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bms-model",
+ "bms",
  "encoding_rs",
  "flate2",
  "log",
@@ -4426,7 +4413,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "arboard",
- "bms-model",
+ "bms",
  "chrono",
  "egui",
  "image",
@@ -4464,7 +4451,7 @@ dependencies = [
  "aes",
  "anyhow",
  "base64",
- "bms-model",
+ "bms",
  "cbc",
  "chrono",
  "flate2",

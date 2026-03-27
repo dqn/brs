@@ -1,4 +1,4 @@
-use bms_model::mode::Mode;
+use bms::model::mode::Mode;
 use rubato_play::bms_player_rule::BMSPlayerRule;
 
 use rubato_types::sync_utils::lock_or_recover;

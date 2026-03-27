@@ -1,5 +1,5 @@
-use bms_model::bms_model::BMSModel;
-use bms_model::note::Note;
+use bms::model::bms_model::BMSModel;
+use bms::model::note::Note;
 
 use crate::pattern::pattern_modifier::{AssistLevel, PatternModifier, PatternModifierBase};
 
@@ -117,8 +117,8 @@ impl PatternModifier for ExtraNoteModifier {
 mod tests {
     use super::*;
     use crate::pattern::pattern_modifier::make_test_model;
-    use bms_model::mode::Mode;
-    use bms_model::time_line::TimeLine;
+    use bms::model::mode::Mode;
+    use bms::model::time_line::TimeLine;
 
     #[test]
     fn extra_note_modifier_creation() {
@@ -220,10 +220,10 @@ mod tests {
     fn extra_note_modifier_no_mode_no_panic() {
         // When model has no mode (mode_key == 0), modify must not panic
         // from modulo-by-zero in `% mode_key as usize`.
-        let mut model = bms_model::bms_model::BMSModel::new();
+        let mut model = bms::model::bms_model::BMSModel::new();
         // model.mode() returns None -> mode_key = 0
         let mut tl = TimeLine::new(0.0, 0, 0);
-        tl.add_back_ground_note(bms_model::note::Note::new_normal(1));
+        tl.add_back_ground_note(bms::model::note::Note::new_normal(1));
         model.timelines = vec![tl];
 
         let mut modifier = ExtraNoteModifier::new(0, 1, false);

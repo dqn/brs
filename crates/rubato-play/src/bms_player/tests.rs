@@ -1,6 +1,6 @@
 use super::*;
-use bms_model::bms_model::BMSModel;
-use bms_model::mode::Mode;
+use bms::model::bms_model::BMSModel;
+use bms::model::mode::Mode;
 use rubato_core::config::Config;
 use rubato_core::main_state::MainState;
 use rubato_core::main_state::SkinDrawable;
@@ -26,7 +26,7 @@ fn make_model_with_time(last_note_time: i32) -> BMSModel {
     model.judgerank = 100;
     // Add a timeline at the given time to set last_note_time
     let mut timelines = Vec::new();
-    let tl = bms_model::time_line::TimeLine::new(130.0, last_note_time as i64 * 1000, 8);
+    let tl = bms::model::time_line::TimeLine::new(130.0, last_note_time as i64 * 1000, 8);
     timelines.push(tl);
     model.timelines = timelines;
     model
@@ -518,8 +518,8 @@ fn make_model_with_timed_notes(notes_spec: &[(i32, i64)]) -> BMSModel {
 
     let mut timelines = Vec::new();
     for (i, &(state, playtime)) in notes_spec.iter().enumerate() {
-        let mut tl = bms_model::time_line::TimeLine::new(i as f64, (i as i64) * 1_000_000, 8);
-        let mut note = bms_model::note::Note::new_normal(1);
+        let mut tl = bms::model::time_line::TimeLine::new(i as f64, (i as i64) * 1_000_000, 8);
+        let mut note = bms::model::note::Note::new_normal(1);
         note.set_state(state);
         note.set_micro_play_time(playtime);
         tl.set_note(0, Some(note));
@@ -591,23 +591,23 @@ fn create_score_data_timing_stats_filters_ln_end_notes() {
     model.judgerank = 100;
     // Default lntype is LNTYPE_LONGNOTE (0)
 
-    let mut tl = bms_model::time_line::TimeLine::new(0.0, 0, 8);
+    let mut tl = bms::model::time_line::TimeLine::new(0.0, 0, 8);
 
     // Normal note: state=1, playtime=1000 → included
-    let mut normal = bms_model::note::Note::new_normal(1);
+    let mut normal = bms::model::note::Note::new_normal(1);
     normal.set_state(1);
     normal.set_micro_play_time(1000);
     tl.set_note(0, Some(normal));
 
     // LN end note with TYPE_UNDEFINED (default) + lntype=LNTYPE_LONGNOTE → excluded
-    let mut ln_end = bms_model::note::Note::new_long(1);
+    let mut ln_end = bms::model::note::Note::new_long(1);
     ln_end.set_end(true);
     ln_end.set_state(1);
     ln_end.set_micro_play_time(5000);
     tl.set_note(1, Some(ln_end));
 
     // LN start note (not end): state=2, playtime=2000 → included
-    let mut ln_start = bms_model::note::Note::new_long(1);
+    let mut ln_start = bms::model::note::Note::new_long(1);
     ln_start.set_state(2);
     ln_start.set_micro_play_time(2000);
     tl.set_note(2, Some(ln_start));
@@ -983,7 +983,7 @@ fn build_pattern_modifiers_scroll_mode() {
     let mut model = BMSModel::new();
     model.set_mode(Mode::BEAT_7K);
     model.judgerank = 100;
-    let tl = bms_model::time_line::TimeLine::new(130.0, 0, 8);
+    let tl = bms::model::time_line::TimeLine::new(130.0, 0, 8);
     model.timelines = vec![tl];
 
     let mut player = BMSPlayer::new(model);
@@ -1153,8 +1153,8 @@ fn build_pattern_modifiers_assist_accumulates_light() {
     model.set_mode(Mode::BEAT_7K);
     model.judgerank = 100;
     // Add timelines with a mine note to trigger assist
-    let mut tl = bms_model::time_line::TimeLine::new(130.0, 0, 8);
-    tl.set_note(0, Some(bms_model::note::Note::new_mine(-1, 10.0)));
+    let mut tl = bms::model::time_line::TimeLine::new(130.0, 0, 8);
+    tl.set_note(0, Some(bms::model::note::Note::new_mine(-1, 10.0)));
     model.timelines = vec![tl];
 
     let mut player = BMSPlayer::new(model);
@@ -1284,7 +1284,7 @@ fn build_pattern_modifiers_lane_shuffle_pattern_saved() {
     let mut model = BMSModel::new();
     model.set_mode(Mode::BEAT_14K); // DP mode
     model.judgerank = 100;
-    let tl = bms_model::time_line::TimeLine::new(130.0, 0, 16);
+    let tl = bms::model::time_line::TimeLine::new(130.0, 0, 16);
     model.timelines = vec![tl];
     let mut player = BMSPlayer::new(model);
 
@@ -1564,9 +1564,9 @@ fn handle_random_syntax_replay_mode_uses_replay_rand() {
     let mut model = BMSModel::new();
     model.set_mode(Mode::BEAT_7K);
     model.judgerank = 100;
-    model.info = Some(bms_model::chart_information::ChartInformation::new(
+    model.info = Some(bms::model::chart_information::ChartInformation::new(
         None,
-        bms_model::bms_model::LnType::LongNote,
+        bms::model::bms_model::LnType::LongNote,
         Some(vec![1, 3, 2]),
     )); // Model has random branches
     let mut player = BMSPlayer::new(model);
@@ -1586,9 +1586,9 @@ fn handle_random_syntax_resource_seed_set_uses_resource_rand() {
     let mut model = BMSModel::new();
     model.set_mode(Mode::BEAT_7K);
     model.judgerank = 100;
-    model.info = Some(bms_model::chart_information::ChartInformation::new(
+    model.info = Some(bms::model::chart_information::ChartInformation::new(
         None,
-        bms_model::bms_model::LnType::LongNote,
+        bms::model::bms_model::LnType::LongNote,
         Some(vec![1, 3, 2]),
     ));
     let mut player = BMSPlayer::new(model);
@@ -1606,9 +1606,9 @@ fn handle_random_syntax_normal_play_stores_model_random() {
     let mut model = BMSModel::new();
     model.set_mode(Mode::BEAT_7K);
     model.judgerank = 100;
-    model.info = Some(bms_model::chart_information::ChartInformation::new(
+    model.info = Some(bms::model::chart_information::ChartInformation::new(
         None,
-        bms_model::bms_model::LnType::LongNote,
+        bms::model::bms_model::LnType::LongNote,
         Some(vec![4, 5, 6]),
     ));
     let mut player = BMSPlayer::new(model);
@@ -1624,9 +1624,9 @@ fn handle_random_syntax_replay_empty_rand_stores_model_random() {
     let mut model = BMSModel::new();
     model.set_mode(Mode::BEAT_7K);
     model.judgerank = 100;
-    model.info = Some(bms_model::chart_information::ChartInformation::new(
+    model.info = Some(bms::model::chart_information::ChartInformation::new(
         None,
-        bms_model::bms_model::LnType::LongNote,
+        bms::model::bms_model::LnType::LongNote,
         Some(vec![1, 2]),
     ));
     let mut player = BMSPlayer::new(model);
@@ -1649,7 +1649,7 @@ fn make_model_uniform_bpm() -> BMSModel {
     model.bpm = 150.0;
     model.judgerank = 100;
     // Single timeline at the same BPM → min == max
-    let mut tl = bms_model::time_line::TimeLine::new(0.0, 0, 8);
+    let mut tl = bms::model::time_line::TimeLine::new(0.0, 0, 8);
     tl.bpm = 150.0;
     model.timelines = vec![tl];
     model
@@ -1662,9 +1662,9 @@ fn make_model_variable_bpm() -> BMSModel {
     model.bpm = 120.0;
     model.judgerank = 100;
     // Two timelines with different BPMs → min != max
-    let mut tl1 = bms_model::time_line::TimeLine::new(0.0, 0, 8);
+    let mut tl1 = bms::model::time_line::TimeLine::new(0.0, 0, 8);
     tl1.bpm = 120.0;
-    let mut tl2 = bms_model::time_line::TimeLine::new(1.0, 1_000_000, 8);
+    let mut tl2 = bms::model::time_line::TimeLine::new(1.0, 1_000_000, 8);
     tl2.bpm = 180.0;
     model.timelines = vec![tl1, tl2];
     model
@@ -2188,11 +2188,11 @@ fn freq_trainer_scales_chart_timing() {
     model.set_mode(Mode::BEAT_7K);
     model.judgerank = 100;
     model.bpm = 120.0;
-    let mut tl = bms_model::time_line::TimeLine::new(0.0, 0, 8);
+    let mut tl = bms::model::time_line::TimeLine::new(0.0, 0, 8);
     tl.bpm = 120.0;
-    let mut tl2 = bms_model::time_line::TimeLine::new(1.0, 1_000_000, 8);
+    let mut tl2 = bms::model::time_line::TimeLine::new(1.0, 1_000_000, 8);
     tl2.bpm = 120.0;
-    tl2.set_note(0, Some(bms_model::note::Note::new_normal(1)));
+    tl2.set_note(0, Some(bms::model::note::Note::new_normal(1)));
     model.timelines = vec![tl, tl2];
     let original_bpm = model.bpm;
 
@@ -3312,13 +3312,13 @@ impl rubato_audio::audio_driver::AudioDriver for NoteTrackingAudioDriver {
     }
     fn stop_path(&mut self, _path: &str) {}
     fn dispose_path(&mut self, _path: &str) {}
-    fn set_model(&mut self, _model: &bms_model::bms_model::BMSModel) {}
+    fn set_model(&mut self, _model: &bms::model::bms_model::BMSModel) {}
     fn set_additional_key_sound(&mut self, _judge: i32, _fast: bool, _path: Option<&str>) {}
     fn abort(&mut self) {}
     fn get_progress(&self) -> f32 {
         1.0
     }
-    fn play_note(&mut self, n: &bms_model::note::Note, volume: f32, _pitch: i32) {
+    fn play_note(&mut self, n: &bms::model::note::Note, volume: f32, _pitch: i32) {
         self.state
             .lock()
             .unwrap()
@@ -3326,12 +3326,12 @@ impl rubato_audio::audio_driver::AudioDriver for NoteTrackingAudioDriver {
             .push((n.wav(), volume));
     }
     fn play_judge(&mut self, _judge: i32, _fast: bool) {}
-    fn stop_note(&mut self, n: Option<&bms_model::note::Note>) {
+    fn stop_note(&mut self, n: Option<&bms::model::note::Note>) {
         if n.is_none() {
             self.state.lock().unwrap().stop_all_count += 1;
         }
     }
-    fn set_volume_note(&mut self, _n: &bms_model::note::Note, _volume: f32) {}
+    fn set_volume_note(&mut self, _n: &bms::model::note::Note, _volume: f32) {}
     fn set_global_pitch(&mut self, pitch: f32) {
         self.global_pitch = pitch;
     }
@@ -3344,8 +3344,8 @@ impl rubato_audio::audio_driver::AudioDriver for NoteTrackingAudioDriver {
 
 #[test]
 fn sync_audio_drains_pending_bg_notes() {
-    use bms_model::note::Note;
-    use bms_model::time_line::TimeLine;
+    use bms::model::note::Note;
+    use bms::model::time_line::TimeLine;
     use rubato_audio::audio_system::AudioSystem;
 
     // Build a model with a BG note at time 0
@@ -3436,7 +3436,7 @@ fn sync_audio_does_not_stop_notes_when_flag_not_set() {
 
 #[test]
 fn sync_audio_drains_pending_keysound_plays() {
-    use bms_model::note::Note;
+    use bms::model::note::Note;
     use rubato_audio::audio_system::AudioSystem;
 
     let model = make_model();
@@ -4800,8 +4800,8 @@ fn make_model_with_notes_at_times(times_us: &[i64]) -> BMSModel {
 
     let mut timelines = Vec::new();
     for (i, &time_us) in times_us.iter().enumerate() {
-        let mut tl = bms_model::time_line::TimeLine::new(i as f64, time_us, 8);
-        tl.set_note(0, Some(bms_model::note::Note::new_normal(1)));
+        let mut tl = bms::model::time_line::TimeLine::new(i as f64, time_us, 8);
+        tl.set_note(0, Some(bms::model::note::Note::new_normal(1)));
         timelines.push(tl);
     }
     model.timelines = timelines;
@@ -5021,17 +5021,17 @@ fn judge_note_to_model_finds_correct_timeline_with_duplicate_timestamps() {
 
     // Create three timelines all at the same micro_time (1_000_000).
     // Only the third one (index 2) has a note on lane 0.
-    let mut tl0 = bms_model::time_line::TimeLine::new(0.0, 1_000_000, 8);
+    let mut tl0 = bms::model::time_line::TimeLine::new(0.0, 1_000_000, 8);
     // tl0: barline only, no notes
     tl0.section_line = true;
 
-    let mut tl1 = bms_model::time_line::TimeLine::new(0.0, 1_000_000, 8);
+    let mut tl1 = bms::model::time_line::TimeLine::new(0.0, 1_000_000, 8);
     // tl1: note on lane 3 only (different lane)
-    tl1.set_note(3, Some(bms_model::note::Note::new_normal(1)));
+    tl1.set_note(3, Some(bms::model::note::Note::new_normal(1)));
 
-    let mut tl2 = bms_model::time_line::TimeLine::new(0.0, 1_000_000, 8);
+    let mut tl2 = bms::model::time_line::TimeLine::new(0.0, 1_000_000, 8);
     // tl2: note on lane 0 (this is the one we want)
-    tl2.set_note(0, Some(bms_model::note::Note::new_normal(1)));
+    tl2.set_note(0, Some(bms::model::note::Note::new_normal(1)));
 
     model.timelines = vec![tl0, tl1, tl2];
 
@@ -5880,24 +5880,24 @@ fn create_score_data_cn_end_included_in_timing_stats() {
     model.set_mode(Mode::BEAT_7K);
     model.judgerank = 100;
 
-    let mut tl = bms_model::time_line::TimeLine::new(0.0, 0, 8);
+    let mut tl = bms::model::time_line::TimeLine::new(0.0, 0, 8);
 
     // Normal note: state=1, playtime=1000 -> included
-    let mut normal = bms_model::note::Note::new_normal(1);
+    let mut normal = bms::model::note::Note::new_normal(1);
     normal.set_state(1);
     normal.set_micro_play_time(1000);
     tl.set_note(0, Some(normal));
 
     // LN end with TYPE_CHARGENOTE -> included (CN ends are judged)
-    let mut ln_end = bms_model::note::Note::new_long(1);
+    let mut ln_end = bms::model::note::Note::new_long(1);
     ln_end.set_end(true);
-    ln_end.set_long_note_type(bms_model::note::TYPE_CHARGENOTE);
+    ln_end.set_long_note_type(bms::model::note::TYPE_CHARGENOTE);
     ln_end.set_state(1);
     ln_end.set_micro_play_time(5000);
     tl.set_note(1, Some(ln_end));
 
     // LN start (not end): state=2, playtime=2000 -> included
-    let mut ln_start = bms_model::note::Note::new_long(1);
+    let mut ln_start = bms::model::note::Note::new_long(1);
     ln_start.set_state(2);
     ln_start.set_micro_play_time(2000);
     tl.set_note(2, Some(ln_start));
@@ -5925,18 +5925,18 @@ fn create_score_data_ln_end_included_in_hcn_mode() {
     model.judgerank = 100;
     model.lnmode = 2; // HCN mode
 
-    let mut tl = bms_model::time_line::TimeLine::new(0.0, 0, 8);
+    let mut tl = bms::model::time_line::TimeLine::new(0.0, 0, 8);
 
     // Normal note: state=1, playtime=1000 -> included
-    let mut normal = bms_model::note::Note::new_normal(1);
+    let mut normal = bms::model::note::Note::new_normal(1);
     normal.set_state(1);
     normal.set_micro_play_time(1000);
     tl.set_note(0, Some(normal));
 
     // LN end in HCN mode: state=1, playtime=3000 -> INCLUDED (HCN ends are judged)
-    let mut ln_end = bms_model::note::Note::new_long(1);
+    let mut ln_end = bms::model::note::Note::new_long(1);
     ln_end.set_end(true);
-    ln_end.set_long_note_type(bms_model::note::TYPE_HELLCHARGENOTE);
+    ln_end.set_long_note_type(bms::model::note::TYPE_HELLCHARGENOTE);
     ln_end.set_state(1);
     ln_end.set_micro_play_time(3000);
     tl.set_note(1, Some(ln_end));
@@ -5964,21 +5964,21 @@ fn create_score_data_ln_end_excluded_in_default_ln_mode() {
     model.judgerank = 100;
     // lnmode defaults to 0, lntype defaults to LNTYPE_LONGNOTE
 
-    let mut tl = bms_model::time_line::TimeLine::new(0.0, 0, 8);
+    let mut tl = bms::model::time_line::TimeLine::new(0.0, 0, 8);
 
-    let mut normal = bms_model::note::Note::new_normal(1);
+    let mut normal = bms::model::note::Note::new_normal(1);
     normal.set_state(1);
     normal.set_micro_play_time(1000);
     tl.set_note(0, Some(normal));
 
     // LN end with TYPE_UNDEFINED + lntype=LNTYPE_LONGNOTE -> excluded
-    let mut ln_end = bms_model::note::Note::new_long(1);
+    let mut ln_end = bms::model::note::Note::new_long(1);
     ln_end.set_end(true);
     ln_end.set_state(1);
     ln_end.set_micro_play_time(5000);
     tl.set_note(1, Some(ln_end));
 
-    let mut ln_start = bms_model::note::Note::new_long(1);
+    let mut ln_start = bms::model::note::Note::new_long(1);
     ln_start.set_state(2);
     ln_start.set_micro_play_time(2000);
     tl.set_note(2, Some(ln_start));
@@ -6178,12 +6178,12 @@ fn prepare_pattern_pipeline_applies_non_modifier_assist() {
     model.set_mode(Mode::BEAT_7K);
     model.judgerank = 100;
     // Set different min/max BPM to trigger BPM guide assist
-    let mut tl1 = bms_model::time_line::TimeLine::new(0.0, 0, 8);
+    let mut tl1 = bms::model::time_line::TimeLine::new(0.0, 0, 8);
     tl1.bpm = 120.0;
-    tl1.set_note(0, Some(bms_model::note::Note::new_normal(1)));
-    let mut tl2 = bms_model::time_line::TimeLine::new(1.0, 1000000, 8);
+    tl1.set_note(0, Some(bms::model::note::Note::new_normal(1)));
+    let mut tl2 = bms::model::time_line::TimeLine::new(1.0, 1000000, 8);
     tl2.bpm = 180.0;
-    tl2.set_note(0, Some(bms_model::note::Note::new_normal(2)));
+    tl2.set_note(0, Some(bms::model::note::Note::new_normal(2)));
     model.timelines = vec![tl1, tl2];
 
     let mut player = BMSPlayer::new(model);

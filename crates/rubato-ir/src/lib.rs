@@ -1,7 +1,7 @@
 //! Internet Ranking (IR) client for LR2IR score submission and ranking data.
 
 // Re-exports
-pub use bms_model::bms_decoder::convert_hex_string;
+pub use bms::model::bms_decoder::convert_hex_string;
 pub use rubato_core::pattern::lr2_random::LR2Random;
 pub use rubato_core::pattern::random::Random;
 pub use rubato_song::song_data::SongData;

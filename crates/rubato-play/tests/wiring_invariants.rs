@@ -6,10 +6,10 @@
 // - Bug #4: input() key-release branch must still fire during manual play
 // - Bug #5: SkinGauge.prepare() never read gauge value from MainState
 
-use bms_model::bms_model::BMSModel;
-use bms_model::mode::Mode;
-use bms_model::note::Note;
-use bms_model::time_line::TimeLine;
+use bms::model::bms_model::BMSModel;
+use bms::model::mode::Mode;
+use bms::model::note::Note;
+use bms::model::time_line::TimeLine;
 use rubato_core::timer_manager::TimerManager;
 use rubato_play::bms_player_rule::BMSPlayerRule;
 use rubato_play::groove_gauge::create_groove_gauge;

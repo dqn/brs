@@ -760,7 +760,7 @@ pub fn judge_area(resource: &PlayerResource) -> Option<Vec<Vec<i32>>> {
     let mode = model
         .mode()
         .copied()
-        .unwrap_or(bms_model::mode::Mode::BEAT_7K);
+        .unwrap_or(bms::model::mode::Mode::BEAT_7K);
     let rule = rubato_play::bms_player_rule::BMSPlayerRule::for_mode(&mode);
 
     let judgerank = model.judgerank;
@@ -1286,7 +1286,7 @@ mod tests {
     fn make_resource_with_gauge(gauge_value: f32) -> PlayerResource {
         use rubato_types::gauge_property::GaugeProperty;
 
-        let model = bms_model::bms_model::BMSModel::new();
+        let model = bms::model::bms_model::BMSModel::new();
         let mut gg = rubato_types::groove_gauge::GrooveGauge::new(
             &model,
             rubato_types::groove_gauge::NORMAL,

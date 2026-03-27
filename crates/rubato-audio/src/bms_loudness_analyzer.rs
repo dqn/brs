@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use bms_model::bms_model::BMSModel;
+use bms::model::bms_model::BMSModel;
 
 use crate::bms_renderer::BMSRenderer;
 

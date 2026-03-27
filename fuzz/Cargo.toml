@@ -12,7 +12,7 @@ libfuzzer-sys = "0.4"
 arbitrary = { version = "1", features = ["derive"] }
 
 # Internal crates to fuzz
-bms-model = { path = "../crates/bms-model" }
+bms = { path = "../crates/bms" }
 rubato-audio = { path = "../crates/rubato-audio" }
 rubato-skin = { path = "../crates/rubato-skin" }
 serde_json = "1"

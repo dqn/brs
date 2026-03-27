@@ -1,8 +1,8 @@
 use crate::song_information::SongInformation;
 use crate::validatable::Validatable;
-use bms_model::bms_decoder::convert_hex_string;
-use bms_model::bms_model::BMSModel;
-use bms_model::note;
+use bms::model::bms_decoder::convert_hex_string;
+use bms::model::bms_model::BMSModel;
+use bms::model::note;
 use sha2::{Digest, Sha256};
 
 pub const FEATURE_UNDEFINEDLN: i32 = 1;

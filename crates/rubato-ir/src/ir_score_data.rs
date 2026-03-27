@@ -155,7 +155,7 @@ impl IRScoreData {
 #[allow(clippy::field_reassign_with_default)]
 mod tests {
     use super::*;
-    use bms_model::mode::Mode;
+    use bms::model::mode::Mode;
 
     #[test]
     fn new_from_default_score_data() {

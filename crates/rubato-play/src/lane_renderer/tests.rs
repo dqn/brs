@@ -1,7 +1,7 @@
 use super::*;
-use bms_model::bms_model::BMSModel;
-use bms_model::note::Note;
-use bms_model::time_line::TimeLine;
+use bms::model::bms_model::BMSModel;
+use bms::model::note::Note;
+use bms::model::time_line::TimeLine;
 use rubato_types::play_config::{
     FIX_HISPEED_MAINBPM, FIX_HISPEED_MAXBPM, FIX_HISPEED_MINBPM, FIX_HISPEED_OFF,
     FIX_HISPEED_STARTBPM, PlayConfig,
@@ -1396,14 +1396,14 @@ fn long_note_body_height_never_negative() {
     let model = make_model_with_timelines(vec![tl0], 120.0);
     let renderer = LaneRenderer::new(&model);
 
-    let all_tls: &[bms_model::time_line::TimeLine] = &[];
+    let all_tls: &[bms::model::time_line::TimeLine] = &[];
     let ctx = default_ctx(all_tls);
 
     // Build one LN start note for each of the three LN types
     let ln_types = [
-        bms_model::note::TYPE_LONGNOTE,
-        bms_model::note::TYPE_CHARGENOTE,
-        bms_model::note::TYPE_HELLCHARGENOTE,
+        bms::model::note::TYPE_LONGNOTE,
+        bms::model::note::TYPE_CHARGENOTE,
+        bms::model::note::TYPE_HELLCHARGENOTE,
     ];
 
     for &ln_type in &ln_types {
@@ -1617,7 +1617,7 @@ fn long_note_body_height_continuous_near_judge_line() {
     let model = make_model_with_timelines(vec![tl0], 120.0);
     let renderer = LaneRenderer::new(&model);
 
-    let all_tls: &[bms_model::time_line::TimeLine] = &[];
+    let all_tls: &[bms::model::time_line::TimeLine] = &[];
     let ctx = default_ctx(all_tls);
 
     // Simulate the new continuous formula output when the start note is
@@ -1632,9 +1632,9 @@ fn long_note_body_height_continuous_near_judge_line() {
     );
 
     let ln_types = [
-        bms_model::note::TYPE_LONGNOTE,
-        bms_model::note::TYPE_CHARGENOTE,
-        bms_model::note::TYPE_HELLCHARGENOTE,
+        bms::model::note::TYPE_LONGNOTE,
+        bms::model::note::TYPE_CHARGENOTE,
+        bms::model::note::TYPE_HELLCHARGENOTE,
     ];
 
     for &ln_type in &ln_types {

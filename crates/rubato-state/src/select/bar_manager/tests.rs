@@ -1669,7 +1669,7 @@ impl rubato_types::song_information_db::SongInformationDb for MockSongInfoDb {
     fn start_update(&self) -> anyhow::Result<()> {
         Ok(())
     }
-    fn update(&self, _model: &::bms_model::bms_model::BMSModel) {}
+    fn update(&self, _model: &::bms::model::bms_model::BMSModel) {}
     fn end_update(&self) {}
 }
 

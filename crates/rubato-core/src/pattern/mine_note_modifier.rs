@@ -1,5 +1,5 @@
-use bms_model::bms_model::BMSModel;
-use bms_model::note::Note;
+use bms::model::bms_model::BMSModel;
+use bms::model::note::Note;
 
 use crate::pattern::pattern_modifier::{AssistLevel, PatternModifier, PatternModifierBase};
 
@@ -161,7 +161,7 @@ impl PatternModifier for MineNoteModifier {
 mod tests {
     use super::*;
     use crate::pattern::pattern_modifier::{PatternModifier, make_test_model};
-    use bms_model::time_line::TimeLine;
+    use bms::model::time_line::TimeLine;
 
     // -- Mode enum (mine_note_modifier::Mode) --
 
@@ -223,7 +223,7 @@ mod tests {
 
     #[test]
     fn remove_mode_removes_mine_notes() {
-        let mode = bms_model::mode::Mode::BEAT_7K;
+        let mode = bms::model::mode::Mode::BEAT_7K;
         let mut tl = TimeLine::new(0.0, 0, 8);
         tl.set_note(0, Some(Note::new_mine(-1, 10.0)));
         tl.set_note(1, Some(Note::new_normal(20)));
@@ -244,7 +244,7 @@ mod tests {
 
     #[test]
     fn remove_mode_no_mines_keeps_none_assist() {
-        let mode = bms_model::mode::Mode::BEAT_7K;
+        let mode = bms::model::mode::Mode::BEAT_7K;
         let mut tl = TimeLine::new(0.0, 0, 8);
         tl.set_note(0, Some(Note::new_normal(10)));
 
@@ -261,7 +261,7 @@ mod tests {
 
     #[test]
     fn add_blank_mode_fills_empty_lanes_with_mines() {
-        let mode = bms_model::mode::Mode::BEAT_7K;
+        let mode = bms::model::mode::Mode::BEAT_7K;
         let mut tl = TimeLine::new(0.0, 0, 8);
         // Only lane 0 has a note
         tl.set_note(0, Some(Note::new_normal(10)));
@@ -290,7 +290,7 @@ mod tests {
 
     #[test]
     fn add_near_mode_adds_mines_adjacent_to_notes() {
-        let mode = bms_model::mode::Mode::BEAT_7K;
+        let mode = bms::model::mode::Mode::BEAT_7K;
         let mut tl = TimeLine::new(0.0, 0, 8);
         // Place note in lane 3 (middle)
         tl.set_note(3, Some(Note::new_normal(10)));

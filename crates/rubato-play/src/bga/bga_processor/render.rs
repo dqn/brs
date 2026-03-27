@@ -1,4 +1,4 @@
-use bms_model::layer::Sequence;
+use bms::model::layer::Sequence;
 use rubato_render::color::Rectangle;
 use rubato_render::texture::TextureRegion;
 

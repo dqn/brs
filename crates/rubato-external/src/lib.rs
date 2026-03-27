@@ -39,7 +39,7 @@ pub mod webhook_handler;
 // Type re-exports
 // ============================================================
 
-pub use bms_model::mode::Mode;
+pub use bms::model::mode::Mode;
 pub use rubato_core::config::Config;
 pub use rubato_core::player_config::PlayerConfig;
 pub use rubato_core::replay_data::ReplayData;

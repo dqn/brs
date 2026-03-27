@@ -10,7 +10,7 @@
 // but random_pattern() on a manually-constructed modifier with player=1 calls
 // get_random_pattern_impl directly, triggering the OOB.
 
-use bms_model::mode::Mode;
+use bms::model::mode::Mode;
 use rubato_core::pattern::lane_shuffle_modifier::LaneMirrorShuffleModifier;
 
 /// Constructing a LaneMirrorShuffleModifier with player=1 for a single-player

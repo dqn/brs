@@ -6,13 +6,13 @@
 
 use std::path::Path;
 
-use bms_model::bms_decoder::BMSDecoder;
-use bms_model::bms_model::{BMSModel, LNTYPE_LONGNOTE};
-use bms_model::chart_information::ChartInformation;
-use bms_model::judge_note::{
+use bms::model::bms_decoder::BMSDecoder;
+use bms::model::bms_model::{BMSModel, LNTYPE_LONGNOTE};
+use bms::model::chart_information::ChartInformation;
+use bms::model::judge_note::{
     JUDGE_BD, JUDGE_GD, JUDGE_GR, JUDGE_MS, JUDGE_PG, JUDGE_PR, JudgeNote,
 };
-use bms_model::mode::Mode;
+use bms::model::mode::Mode;
 use rubato_core::score_data::ScoreData;
 use rubato_input::key_input_log::KeyInputLog;
 use rubato_play::bms_player_rule::BMSPlayerRule;

@@ -3,8 +3,8 @@ use std::sync::{Arc, Condvar, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
-use bms_model::bms_model::BMSModel;
-use bms_model::note::Note;
+use bms::model::bms_model::BMSModel;
+use bms::model::note::Note;
 use rubato_types::sync_utils::lock_or_recover;
 
 /// A BG note that needs to be played by the audio driver.
@@ -272,7 +272,7 @@ impl Drop for KeySoundProcessor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bms_model::time_line::TimeLine;
+    use bms::model::time_line::TimeLine;
 
     fn make_model_with_bg_notes(times: &[(i64, Vec<i32>)]) -> BMSModel {
         let mut model = BMSModel::new();

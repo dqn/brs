@@ -1,4 +1,4 @@
-use bms_model::bms_model::BMSModel;
+use bms::model::bms_model::BMSModel;
 
 use crate::pattern::pattern_modifier::{
     AssistLevel, PatternModifier, PatternModifierBase, move_to_background,
@@ -70,9 +70,9 @@ impl PatternModifier for PracticeModifier {
 mod tests {
     use super::*;
     use crate::pattern::pattern_modifier::{PatternModifier, make_test_model};
-    use bms_model::mode::Mode;
-    use bms_model::note::Note;
-    use bms_model::time_line::TimeLine;
+    use bms::model::mode::Mode;
+    use bms::model::note::Note;
+    use bms::model::time_line::TimeLine;
 
     // -- Construction --
 

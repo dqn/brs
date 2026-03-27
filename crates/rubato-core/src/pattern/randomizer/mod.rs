@@ -4,9 +4,9 @@ use crate::pattern::java_random::JavaRandom;
 use crate::pattern::pattern_modifier::AssistLevel;
 use crate::pattern::random::Random;
 use crate::player_config::PlayerConfig;
-use bms_model::mode::Mode;
-use bms_model::note::Note;
-use bms_model::time_line::TimeLine;
+use bms::model::mode::Mode;
+use bms::model::note::Note;
+use bms::model::time_line::TimeLine;
 
 pub struct RandomizerBase {
     pub mode: Option<Mode>,

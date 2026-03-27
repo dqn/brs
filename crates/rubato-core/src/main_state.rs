@@ -23,7 +23,7 @@ pub use rubato_types::main_state_type::MainStateType;
 pub struct StateCreateEffects {
     /// If Some, call `input.set_play_config()` with this mode's play config.
     /// Used for PLAY and PRACTICE modes.
-    pub play_config_mode: Option<bms_model::mode::Mode>,
+    pub play_config_mode: Option<bms::model::mode::Mode>,
     /// If true, call `input.set_enable(false)` for AUTOPLAY/REPLAY.
     pub disable_input: bool,
     /// If true, guide SE should be loaded into the audio driver.
@@ -326,7 +326,7 @@ pub trait MainState {
     /// In Rust, BMSPlayer owns a clone, so save_config() must push changes back via this outbox.
     fn take_pending_play_config_update(
         &mut self,
-    ) -> Option<(bms_model::mode::Mode, rubato_types::play_config::PlayConfig)> {
+    ) -> Option<(bms::model::mode::Mode, rubato_types::play_config::PlayConfig)> {
         None
     }
 
@@ -382,7 +382,7 @@ pub trait MainState {
     /// this method to keep the clone in sync.
     fn receive_updated_play_config(
         &mut self,
-        _mode: bms_model::mode::Mode,
+        _mode: bms::model::mode::Mode,
         _play_config: rubato_types::play_config::PlayConfig,
     ) {
         // Default no-op — only BMSPlayer uses this.
@@ -390,7 +390,7 @@ pub trait MainState {
 
     /// Receive a reloaded BMS model from resource after reload_bms_file().
     /// Used by practice mode to get a fresh model without a full state change.
-    fn receive_reloaded_model(&mut self, _model: bms_model::bms_model::BMSModel) {
+    fn receive_reloaded_model(&mut self, _model: bms::model::bms_model::BMSModel) {
         // Default no-op — only BMSPlayer uses this for practice mode restart.
     }
 
@@ -417,7 +417,7 @@ pub trait MainState {
     ///
     /// Used by MainController to call audio.set_model() during state transition
     /// so keysounds are loaded before playback begins.
-    fn bms_model(&self) -> Option<&bms_model::bms_model::BMSModel> {
+    fn bms_model(&self) -> Option<&bms::model::bms_model::BMSModel> {
         None
     }
 

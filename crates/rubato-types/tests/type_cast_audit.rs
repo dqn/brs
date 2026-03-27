@@ -10,7 +10,7 @@ use rubato_types::replay_data::ReplayData;
 use rubato_types::score_data::ScoreData;
 use rubato_types::validatable::Validatable;
 
-use bms_model::mode::Mode;
+use bms::model::mode::Mode;
 
 // ---------------------------------------------------------------------------
 // Test 1: replay_shrink_keycode_roundtrip (1-2a)

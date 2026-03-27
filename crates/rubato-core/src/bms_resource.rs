@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 use std::thread;
 
-use bms_model::bms_model::BMSModel;
+use bms::model::bms_model::BMSModel;
 use rubato_render::pixmap::Pixmap;
 use rubato_render::texture::Texture;
 

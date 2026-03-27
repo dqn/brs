@@ -2,11 +2,11 @@
 
 use std::path::Path;
 
-use bms_model::bms_decoder::BMSDecoder;
-use bms_model::bms_model::{BMSModel, LNTYPE_LONGNOTE};
-use bms_model::bmson_decoder::BMSONDecoder;
-use bms_model::chart_information::ChartInformation;
-use bms_model::time_line::TimeLine;
+use bms::model::bms_decoder::BMSDecoder;
+use bms::model::bms_model::{BMSModel, LNTYPE_LONGNOTE};
+use bms::model::bmson_decoder::BMSONDecoder;
+use bms::model::chart_information::ChartInformation;
+use bms::model::time_line::TimeLine;
 use golden_master::autoplay_fixtures::{AutoplayFixture, AutoplayLogEntry, AutoplayTestCase};
 use rubato_input::key_input_log::KeyInputLog;
 

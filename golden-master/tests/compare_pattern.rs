@@ -4,8 +4,8 @@
 
 use std::path::Path;
 
-use bms_model::bms_model::BMSModel;
-use bms_model::mode::Mode;
+use bms::model::bms_model::BMSModel;
+use bms::model::mode::Mode;
 use golden_master::pattern_fixtures::LaneShuffleFixture;
 use rubato_core::pattern::lane_shuffle_modifier::{
     LaneCrossShuffleModifier, LaneMirrorShuffleModifier, LaneRandomShuffleModifier,

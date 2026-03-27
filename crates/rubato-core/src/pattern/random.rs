@@ -1,4 +1,4 @@
-use bms_model::mode::Mode;
+use bms::model::mode::Mode;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RandomUnit {

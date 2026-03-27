@@ -55,7 +55,7 @@ pub struct LR2SkinCSVLoaderState {
     /// Current INCLUDE recursion depth (0 = top-level file)
     pub include_depth: u32,
     /// Mode from skin type (used for POPN_9K gauge defaults, etc.)
-    pub mode: Option<bms_model::mode::Mode>,
+    pub mode: Option<bms::model::mode::Mode>,
     pub line: Option<String>,
     pub imagesetarray: Vec<Vec<TextureRegion>>,
 

@@ -1,7 +1,7 @@
 use crate::gauge_property::GaugeProperty;
 use crate::judge::property::{JudgeProperty, JudgePropertyType};
-use bms_model::bms_model::{BMSModel, JudgeRankType, TotalType};
-use bms_model::mode::Mode;
+use bms::model::bms_model::{BMSModel, JudgeRankType, TotalType};
+use bms::model::mode::Mode;
 
 /// Player rule
 #[derive(Clone, Debug)]

@@ -4,7 +4,7 @@ pub use rubato_types::score_data_property::ScoreDataProperty;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bms_model::mode::Mode;
+    use bms::model::mode::Mode;
     use rubato_types::score_data::ScoreData;
 
     #[test]

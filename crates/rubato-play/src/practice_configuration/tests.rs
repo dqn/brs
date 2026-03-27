@@ -1,6 +1,6 @@
 use super::constants::{DPRANDOM, GAUGE, GRAPHTYPESTR, RANDOM};
 use super::*;
-use bms_model::time_line::TimeLine;
+use bms::model::time_line::TimeLine;
 
 fn make_test_model(mode: &Mode, times: &[i32]) -> BMSModel {
     let mut model = BMSModel::new();

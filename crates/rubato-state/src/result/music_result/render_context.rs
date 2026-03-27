@@ -83,13 +83,13 @@ impl rubato_types::skin_render_context::SkinRenderContext for ResultRenderContex
             .resource
             .songdata()
             .and_then(|song| match song.chart.mode {
-                5 => Some(bms_model::mode::Mode::BEAT_5K),
-                7 => Some(bms_model::mode::Mode::BEAT_7K),
-                9 => Some(bms_model::mode::Mode::POPN_9K),
-                10 => Some(bms_model::mode::Mode::BEAT_10K),
-                14 => Some(bms_model::mode::Mode::BEAT_14K),
-                25 => Some(bms_model::mode::Mode::KEYBOARD_24K),
-                50 => Some(bms_model::mode::Mode::KEYBOARD_24K_DOUBLE),
+                5 => Some(bms::model::mode::Mode::BEAT_5K),
+                7 => Some(bms::model::mode::Mode::BEAT_7K),
+                9 => Some(bms::model::mode::Mode::POPN_9K),
+                10 => Some(bms::model::mode::Mode::BEAT_10K),
+                14 => Some(bms::model::mode::Mode::BEAT_14K),
+                25 => Some(bms::model::mode::Mode::KEYBOARD_24K),
+                50 => Some(bms::model::mode::Mode::KEYBOARD_24K_DOUBLE),
                 _ => None,
             })?;
         Some(
@@ -439,13 +439,13 @@ impl rubato_types::skin_render_context::SkinRenderContext for ResultMouseContext
             .resource
             .songdata()
             .and_then(|song| match song.chart.mode {
-                5 => Some(bms_model::mode::Mode::BEAT_5K),
-                7 => Some(bms_model::mode::Mode::BEAT_7K),
-                9 => Some(bms_model::mode::Mode::POPN_9K),
-                10 => Some(bms_model::mode::Mode::BEAT_10K),
-                14 => Some(bms_model::mode::Mode::BEAT_14K),
-                25 => Some(bms_model::mode::Mode::KEYBOARD_24K),
-                50 => Some(bms_model::mode::Mode::KEYBOARD_24K_DOUBLE),
+                5 => Some(bms::model::mode::Mode::BEAT_5K),
+                7 => Some(bms::model::mode::Mode::BEAT_7K),
+                9 => Some(bms::model::mode::Mode::POPN_9K),
+                10 => Some(bms::model::mode::Mode::BEAT_10K),
+                14 => Some(bms::model::mode::Mode::BEAT_14K),
+                25 => Some(bms::model::mode::Mode::KEYBOARD_24K),
+                50 => Some(bms::model::mode::Mode::KEYBOARD_24K_DOUBLE),
                 _ => None,
             })?;
         Some(

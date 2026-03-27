@@ -3,8 +3,8 @@
 // Tests the complete data flow through multiple crates:
 // bms-model → bms-rule (judge) → beatoraja-types (replay) → re-simulation
 
-use bms_model::judge_note::{JUDGE_GR, JUDGE_PG};
-use bms_model::mode::Mode;
+use bms::model::judge_note::{JUDGE_GR, JUDGE_PG};
+use bms::model::mode::Mode;
 use golden_master::e2e_helpers::*;
 use rubato_types::KeyInputLog as ReplayKeyInputLog;
 use rubato_types::groove_gauge::{ASSISTEASY, EASY, EXHARD, HARD, NORMAL};

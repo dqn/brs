@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::atomic::{AtomicI32, Ordering};
 
-use bms_model::note::Note;
+use bms::model::note::Note;
 
 use crate::pcm::PCM;
 

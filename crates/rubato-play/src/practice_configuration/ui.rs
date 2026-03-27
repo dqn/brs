@@ -1,7 +1,7 @@
 use super::constants::{DPRANDOM, GAUGE, GRAPHTYPESTR, RANDOM};
 use super::{PracticeColor, PracticeConfiguration, PracticeDrawCommand};
 use crate::gauge_property::GaugeProperty;
-use bms_model::mode::Mode;
+use bms::model::mode::Mode;
 
 impl PracticeConfiguration {
     pub fn element_text(&self, index: usize) -> String {

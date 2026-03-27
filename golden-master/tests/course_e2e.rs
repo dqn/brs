@@ -4,7 +4,7 @@
 // by simulating multiple songs in sequence with gauge state carried over
 // between songs (using run_course_simulation / run_course_simulation_manual).
 
-use bms_model::judge_note::JUDGE_PG;
+use bms::model::judge_note::JUDGE_PG;
 use golden_master::e2e_helpers::*;
 use rubato_types::groove_gauge::{CLASS, EXCLASS, EXHARD, EXHARDCLASS, HARD, NORMAL};
 

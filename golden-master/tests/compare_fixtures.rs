@@ -2,10 +2,10 @@
 
 use std::path::{Path, PathBuf};
 
-use bms_model::bms_decoder::BMSDecoder;
-use bms_model::bms_model::LNTYPE_LONGNOTE;
-use bms_model::bmson_decoder::BMSONDecoder;
-use bms_model::chart_information::ChartInformation;
+use bms::model::bms_decoder::BMSDecoder;
+use bms::model::bms_model::LNTYPE_LONGNOTE;
+use bms::model::bmson_decoder::BMSONDecoder;
+use bms::model::chart_information::ChartInformation;
 use golden_master::{
     assert_bmson_model_matches_fixture, assert_model_matches_fixture, load_fixture,
 };

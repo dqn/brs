@@ -1,8 +1,8 @@
 use crate::player_config::PlayerConfig;
-use bms_model::bms_model::BMSModel;
-use bms_model::mode::Mode;
-use bms_model::note::Note;
-use bms_model::time_line::TimeLine;
+use bms::model::bms_model::BMSModel;
+use bms::model::mode::Mode;
+use bms::model::note::Note;
+use bms::model::time_line::TimeLine;
 
 use crate::pattern::lane_shuffle_modifier::*;
 use crate::pattern::note_shuffle_modifier::NoteShuffleModifier;
@@ -248,8 +248,8 @@ pub fn move_to_background(tls: &mut [TimeLine], tl_index: usize, lane: i32) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bms_model::note::Note;
-    use bms_model::time_line::TimeLine;
+    use bms::model::note::Note;
+    use bms::model::time_line::TimeLine;
 
     // -- AssistLevel --
 

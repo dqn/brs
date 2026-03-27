@@ -95,13 +95,13 @@ pub(super) fn determine_random_mode(
 }
 
 /// Check if any course BMS model uses double-play mode (player count == 2).
-pub(super) fn is_double_play(models: &[bms_model::bms_model::BMSModel]) -> bool {
+pub(super) fn is_double_play(models: &[bms::model::bms_model::BMSModel]) -> bool {
     models
         .iter()
         .any(|m| m.mode().map(|mode| mode.player()).unwrap_or(1) == 2)
 }
 
 /// Sum total notes across all course BMS models.
-pub(super) fn aggregate_total_notes(models: &[bms_model::bms_model::BMSModel]) -> i32 {
+pub(super) fn aggregate_total_notes(models: &[bms::model::bms_model::BMSModel]) -> i32 {
     models.iter().map(|m| m.total_notes()).sum()
 }

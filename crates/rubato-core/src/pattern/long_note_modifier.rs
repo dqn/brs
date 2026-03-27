@@ -1,5 +1,5 @@
-use bms_model::bms_model::BMSModel;
-use bms_model::note::{Note, TYPE_CHARGENOTE, TYPE_HELLCHARGENOTE, TYPE_LONGNOTE, TYPE_UNDEFINED};
+use bms::model::bms_model::BMSModel;
+use bms::model::note::{Note, TYPE_CHARGENOTE, TYPE_HELLCHARGENOTE, TYPE_LONGNOTE, TYPE_UNDEFINED};
 
 use crate::pattern::pattern_modifier::{AssistLevel, PatternModifier, PatternModifierBase};
 
@@ -172,9 +172,9 @@ impl PatternModifier for LongNoteModifier {
 mod tests {
     use super::*;
     use crate::pattern::pattern_modifier::{PatternModifier, make_test_model};
-    use bms_model::mode::Mode as BmsMode;
-    use bms_model::note::{Note, TYPE_CHARGENOTE, TYPE_HELLCHARGENOTE, TYPE_LONGNOTE};
-    use bms_model::time_line::TimeLine;
+    use bms::model::mode::Mode as BmsMode;
+    use bms::model::note::{Note, TYPE_CHARGENOTE, TYPE_HELLCHARGENOTE, TYPE_LONGNOTE};
+    use bms::model::time_line::TimeLine;
 
     // -- Mode::from_index boundary tests --
 

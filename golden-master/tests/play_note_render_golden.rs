@@ -7,9 +7,9 @@
 /// - Long notes produce DrawLongNote commands with correct body/cap positions
 /// - Section lines are emitted at correct y offsets
 /// - DrawCommand output is stable (golden fixture regression)
-use bms_model::bms_model::{BMSModel, LNTYPE_LONGNOTE};
-use bms_model::note::Note;
-use bms_model::time_line::TimeLine;
+use bms::model::bms_model::{BMSModel, LNTYPE_LONGNOTE};
+use bms::model::note::Note;
+use bms::model::time_line::TimeLine;
 use rubato_play::lane_renderer::{
     DrawCommand, DrawLaneContext, LaneRenderer, NoteImageType, TimelinesRef,
 };

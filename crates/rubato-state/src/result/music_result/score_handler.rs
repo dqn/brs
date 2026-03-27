@@ -62,7 +62,7 @@ impl MusicResult {
                     // Check if this is not an end LN in LN mode
                     let is_end_ln = (model.lnmode == 1
                         || (model.lnmode == 0
-                            && model.lntype() == bms_model::bms_model::LNTYPE_LONGNOTE))
+                            && model.lntype() == bms::model::bms_model::LNTYPE_LONGNOTE))
                         && note.is_long()
                         && note.is_end();
                     if !is_end_ln {
@@ -420,12 +420,12 @@ mod tests {
     }
 
     /// Create a BMSModel with `n` normal notes and total = 300.0.
-    fn make_model_with_notes(n: usize) -> bms_model::bms_model::BMSModel {
-        use bms_model::mode::Mode;
-        use bms_model::note::Note;
-        use bms_model::time_line::TimeLine;
+    fn make_model_with_notes(n: usize) -> bms::model::bms_model::BMSModel {
+        use bms::model::mode::Mode;
+        use bms::model::note::Note;
+        use bms::model::time_line::TimeLine;
 
-        let mut model = bms_model::bms_model::BMSModel::new();
+        let mut model = bms::model::bms_model::BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
         model.total = 300.0;
         let mut timelines = Vec::with_capacity(n);
@@ -441,7 +441,7 @@ mod tests {
     /// Build a MusicResult wired for accumulate_course_score testing.
     fn make_course_result(
         resource_access: CourseScoreResourceAccess,
-        course_models: Vec<bms_model::bms_model::BMSModel>,
+        course_models: Vec<bms::model::bms_model::BMSModel>,
     ) -> MusicResult {
         let config = resource_access.config.clone();
         let main = MainController::new(Box::new(TestMainControllerAccess::new(config)));

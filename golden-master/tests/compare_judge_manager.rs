@@ -12,10 +12,10 @@
 
 use std::path::Path;
 
-use bms_model::bms_decoder::BMSDecoder;
-use bms_model::bms_model::{BMSModel, LNTYPE_LONGNOTE};
-use bms_model::chart_information::ChartInformation;
-use bms_model::mode::Mode;
+use bms::model::bms_decoder::BMSDecoder;
+use bms::model::bms_model::{BMSModel, LNTYPE_LONGNOTE};
+use bms::model::chart_information::ChartInformation;
+use bms::model::mode::Mode;
 use golden_master::judge_fixtures::{JudgeFixtures, JudgeTestCase};
 use rubato_core::score_data::ScoreData;
 use rubato_play::bms_player_rule::BMSPlayerRule;

@@ -1,5 +1,5 @@
 use crate::lane_renderer::LaneRenderer;
-use bms_model::mode::Mode;
+use bms::model::mode::Mode;
 use rubato_core::bms_player_mode::Mode as AutoplayMode;
 
 mod types;

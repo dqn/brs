@@ -1,4 +1,4 @@
-use bms_model::bms_model::BMSModel;
+use bms::model::bms_model::BMSModel;
 
 use crate::song_data::SongData;
 use crate::song_information::SongInformation;

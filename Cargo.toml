@@ -1,7 +1,6 @@
 [workspace]
 members = [
-    "crates/bms-model",
-    "crates/bms-table",
+    "crates/bms",
     "crates/rubato-input",
     "crates/rubato-audio",
     "crates/rubato-db",
@@ -29,8 +28,7 @@ edition = "2024"
 
 [workspace.dependencies]
 # Internal crates
-bms-model = { path = "crates/bms-model" }
-bms-table = { path = "crates/bms-table" }
+bms = { path = "crates/bms" }
 rubato-input = { path = "crates/rubato-input" }
 rubato-audio = { path = "crates/rubato-audio" }
 rubato-db = { path = "crates/rubato-db" }

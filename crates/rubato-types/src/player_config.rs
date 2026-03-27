@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use bms_model::mode::Mode;
+use bms::model::mode::Mode;
 
 use crate::bar_sorter::BarSorter;
 use crate::config::Config;

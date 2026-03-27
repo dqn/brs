@@ -5,9 +5,9 @@
 
 use std::path::Path;
 
-use bms_model::bms_decoder::BMSDecoder;
-use bms_model::bms_model::BMSModel;
-use bms_model::mode::Mode;
+use bms::model::bms_decoder::BMSDecoder;
+use bms::model::bms_model::BMSModel;
+use bms::model::mode::Mode;
 
 use rubato_core::pattern::lane_shuffle_modifier::LaneMirrorShuffleModifier;
 use rubato_core::pattern::pattern_modifier::{IdentityModifier, PatternModifier};
