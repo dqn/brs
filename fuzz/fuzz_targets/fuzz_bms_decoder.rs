@@ -2,7 +2,7 @@
 
 use libfuzzer_sys::fuzz_target;
 
-use bms_model::bms_decoder::BMSDecoder;
+use bms::model::bms_decoder::BMSDecoder;
 
 fuzz_target!(|data: &[u8]| {
     // Feed arbitrary bytes to the BMS decoder.

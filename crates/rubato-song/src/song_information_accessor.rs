@@ -1,6 +1,6 @@
 use std::sync::Mutex;
 
-use bms_model::bms_model::BMSModel;
+use bms::model::bms_model::BMSModel;
 use rubato_core::validatable::remove_invalid_elements_vec;
 use rubato_db::sqlite_database_accessor::{Column, SQLiteDatabaseAccessor, Table};
 use rubato_types::song_information_db::SongInformationDb;

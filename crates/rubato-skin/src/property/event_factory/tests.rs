@@ -449,7 +449,7 @@ fn test_mode_cycle_forward() {
     event.exec(&mut state, 1, 0);
     assert_eq!(
         state.player_config.mode,
-        Some(bms_model::mode::Mode::BEAT_7K)
+        Some(bms::model::mode::Mode::BEAT_7K)
     );
     assert!(state.bar_updated);
     assert!(state.option_change_played);
@@ -463,7 +463,7 @@ fn test_mode_cycle_backward() {
     event.exec(&mut state, -1, 0);
     assert_eq!(
         state.player_config.mode,
-        Some(bms_model::mode::Mode::KEYBOARD_24K_DOUBLE)
+        Some(bms::model::mode::Mode::KEYBOARD_24K_DOUBLE)
     );
 }
 

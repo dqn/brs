@@ -119,7 +119,7 @@ impl MainState for BMSPlayer {
 
     fn take_pending_play_config_update(
         &mut self,
-    ) -> Option<(bms_model::mode::Mode, rubato_types::play_config::PlayConfig)> {
+    ) -> Option<(bms::model::mode::Mode, rubato_types::play_config::PlayConfig)> {
         self.pending.pending_play_config_update.take()
     }
 
@@ -133,7 +133,7 @@ impl MainState for BMSPlayer {
 
     fn receive_updated_play_config(
         &mut self,
-        mode: bms_model::mode::Mode,
+        mode: bms::model::mode::Mode,
         play_config: rubato_types::play_config::PlayConfig,
     ) {
         // Only merge modmenu-managed fields to avoid overwriting live fields
@@ -161,7 +161,7 @@ impl MainState for BMSPlayer {
         self.bga_progress = lock_or_recover(&self.bga).progress();
     }
 
-    fn receive_reloaded_model(&mut self, model: bms_model::bms_model::BMSModel) {
+    fn receive_reloaded_model(&mut self, model: bms::model::bms_model::BMSModel) {
         // Rebuild song_data from the new model so metadata, chart info, and
         // lnmode_override stay in sync with the reloaded BMS file.
         let contains_txt = self
@@ -183,7 +183,7 @@ impl MainState for BMSPlayer {
         self.song_data = Some(sd);
     }
 
-    fn bms_model(&self) -> Option<&bms_model::bms_model::BMSModel> {
+    fn bms_model(&self) -> Option<&bms::model::bms_model::BMSModel> {
         Some(&self.model)
     }
 
@@ -1316,7 +1316,7 @@ impl BMSPlayer {
     /// Used during initial create() and practice mode restarts so that the judge
     /// system always references the current (possibly re-modified) model data.
     pub(super) fn rebuild_judge_system(&mut self, mode: &Mode) {
-        self.judge_notes = bms_model::judge_note::build_judge_notes(&self.model);
+        self.judge_notes = bms::model::judge_note::build_judge_notes(&self.model);
         let rule = BMSPlayerRule::for_mode(mode);
 
         // Compute judge window rates from player config, applying course constraints
@@ -1457,7 +1457,7 @@ impl BMSPlayer {
     /// note on the given `lane`. Falls back to `idx` if no matching timeline
     /// is found (best-effort, preserves previous behavior).
     fn find_timeline_with_note_on_lane(
-        timelines: &[bms_model::time_line::TimeLine],
+        timelines: &[bms::model::time_line::TimeLine],
         idx: usize,
         target_time: i64,
         lane: i32,

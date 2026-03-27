@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use bms_model::mode::Mode;
+use bms::model::mode::Mode;
 
 use crate::SongData;
 

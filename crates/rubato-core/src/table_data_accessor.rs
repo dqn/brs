@@ -177,8 +177,8 @@ impl TableDataAccessor {
     }
 
     fn read_from_url(&self, url: &str) -> Option<TableData> {
-        let mut dtp = bms_table::difficulty_table_parser::DifficultyTableParser::new();
-        let mut dt = bms_table::difficulty_table::DifficultyTable::new();
+        let mut dtp = bms::table::difficulty_table_parser::DifficultyTableParser::new();
+        let mut dt = bms::table::difficulty_table::DifficultyTable::new();
         if url.ends_with(".json") {
             dt.table.head_url = url.to_string();
         } else {
@@ -234,8 +234,8 @@ impl TableAccessor for DifficultyTableAccessor {
     }
 
     fn read(&self) -> Option<TableData> {
-        let mut dtp = bms_table::difficulty_table_parser::DifficultyTableParser::new();
-        let mut dt = bms_table::difficulty_table::DifficultyTable::new();
+        let mut dtp = bms::table::difficulty_table_parser::DifficultyTableParser::new();
+        let mut dt = bms::table::difficulty_table::DifficultyTable::new();
         if self.url.ends_with(".json") {
             dt.table.head_url = self.url.clone();
         } else {

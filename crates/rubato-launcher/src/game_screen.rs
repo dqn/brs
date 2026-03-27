@@ -328,8 +328,8 @@ impl MainState for GameScreen {
 
     fn take_pending_play_config_update(
         &mut self,
-    ) -> Option<(bms_model::mode::Mode, rubato_types::play_config::PlayConfig)> {
-        delegate!(mut self, take_pending_play_config_update() -> Option<(bms_model::mode::Mode, rubato_types::play_config::PlayConfig)>)
+    ) -> Option<(bms::model::mode::Mode, rubato_types::play_config::PlayConfig)> {
+        delegate!(mut self, take_pending_play_config_update() -> Option<(bms::model::mode::Mode, rubato_types::play_config::PlayConfig)>)
     }
 
     fn take_pending_player_config_update(
@@ -356,13 +356,13 @@ impl MainState for GameScreen {
 
     fn receive_updated_play_config(
         &mut self,
-        mode: bms_model::mode::Mode,
+        mode: bms::model::mode::Mode,
         play_config: rubato_types::play_config::PlayConfig,
     ) {
         delegate!(mut self, receive_updated_play_config(mode, play_config))
     }
 
-    fn receive_reloaded_model(&mut self, model: bms_model::bms_model::BMSModel) {
+    fn receive_reloaded_model(&mut self, model: bms::model::bms_model::BMSModel) {
         delegate!(mut self, receive_reloaded_model(model))
     }
 
@@ -374,8 +374,8 @@ impl MainState for GameScreen {
         delegate!(mut self, take_player_resource_box() -> Option<Box<dyn std::any::Any + Send>>)
     }
 
-    fn bms_model(&self) -> Option<&bms_model::bms_model::BMSModel> {
-        delegate!(self, bms_model() -> Option<&bms_model::bms_model::BMSModel>)
+    fn bms_model(&self) -> Option<&bms::model::bms_model::BMSModel> {
+        delegate!(self, bms_model() -> Option<&bms::model::bms_model::BMSModel>)
     }
 
     fn as_any(&self) -> Option<&dyn std::any::Any> {

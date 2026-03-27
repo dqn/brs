@@ -4,8 +4,8 @@ pub use rubato_types::groove_gauge::*;
 
 use crate::bms_player_rule::BMSPlayerRule;
 use crate::gauge_property::GaugeProperty;
-use bms_model::bms_model::BMSModel;
-use bms_model::mode::Mode;
+use bms::model::bms_model::BMSModel;
+use bms::model::mode::Mode;
 
 /// Factory function for creating a GrooveGauge with automatic gauge property selection.
 /// This depends on BMSPlayerRule which cannot be moved to beatoraja-types.

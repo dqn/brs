@@ -108,15 +108,15 @@ impl Event for ReplayEvent {
 // ============================================================
 
 /// Mode filter array (same as MusicSelector.MODE in Java)
-static MODE_FILTER: [Option<bms_model::mode::Mode>; 8] = [
+static MODE_FILTER: [Option<bms::model::mode::Mode>; 8] = [
     None,
-    Some(bms_model::mode::Mode::BEAT_7K),
-    Some(bms_model::mode::Mode::BEAT_14K),
-    Some(bms_model::mode::Mode::POPN_9K),
-    Some(bms_model::mode::Mode::BEAT_5K),
-    Some(bms_model::mode::Mode::BEAT_10K),
-    Some(bms_model::mode::Mode::KEYBOARD_24K),
-    Some(bms_model::mode::Mode::KEYBOARD_24K_DOUBLE),
+    Some(bms::model::mode::Mode::BEAT_7K),
+    Some(bms::model::mode::Mode::BEAT_14K),
+    Some(bms::model::mode::Mode::POPN_9K),
+    Some(bms::model::mode::Mode::BEAT_5K),
+    Some(bms::model::mode::Mode::BEAT_10K),
+    Some(bms::model::mode::Mode::KEYBOARD_24K),
+    Some(bms::model::mode::Mode::KEYBOARD_24K_DOUBLE),
 ];
 
 pub(super) struct ModeEvent;

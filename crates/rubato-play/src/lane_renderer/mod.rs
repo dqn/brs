@@ -1,6 +1,6 @@
-use bms_model::bms_model::{BMSModel, LNTYPE_CHARGENOTE, LNTYPE_HELLCHARGENOTE, LNTYPE_LONGNOTE};
-use bms_model::note::{Note, TYPE_CHARGENOTE, TYPE_HELLCHARGENOTE, TYPE_LONGNOTE, TYPE_UNDEFINED};
-use bms_model::time_line::TimeLine;
+use bms::model::bms_model::{BMSModel, LNTYPE_CHARGENOTE, LNTYPE_HELLCHARGENOTE, LNTYPE_LONGNOTE};
+use bms::model::note::{Note, TYPE_CHARGENOTE, TYPE_HELLCHARGENOTE, TYPE_LONGNOTE, TYPE_UNDEFINED};
+use bms::model::time_line::TimeLine;
 use rubato_types::play_config::{
     FIX_HISPEED_MAINBPM, FIX_HISPEED_MAXBPM, FIX_HISPEED_MINBPM, FIX_HISPEED_OFF,
     FIX_HISPEED_STARTBPM, HISPEED_MAX, HISPEED_MIN, PlayConfig,
@@ -95,7 +95,7 @@ pub struct DrawLaneContext {
     /// Whether to show judge area
     pub show_judgearea: bool,
     /// LN type from model
-    pub lntype: bms_model::bms_model::LnType,
+    pub lntype: bms::model::bms_model::LnType,
     /// Judge time regions per lane (5 judge levels, [start, end])
     pub judge_time_regions: Vec<Vec<[i64; 2]>>,
     /// Processing long note per lane (timeline Vec index of the LN end note, if actively pressing).

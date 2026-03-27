@@ -1,6 +1,6 @@
 use crate::clear_type::ClearType;
 use crate::gauge_property::{GaugeElementProperty, GaugeProperty};
-use bms_model::bms_model::BMSModel;
+use bms::model::bms_model::BMSModel;
 
 pub const ASSISTEASY: i32 = 0;
 pub const EASY: i32 = 1;
@@ -324,9 +324,9 @@ impl GrooveGauge {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bms_model::mode::Mode;
-    use bms_model::note::Note;
-    use bms_model::time_line::TimeLine;
+    use bms::model::mode::Mode;
+    use bms::model::note::Note;
+    use bms::model::time_line::TimeLine;
 
     fn make_model() -> BMSModel {
         let mut model = BMSModel::new();
@@ -936,7 +936,7 @@ mod tests {
 mod prop_tests {
     use super::*;
     use crate::gauge_property::GaugeElementProperty;
-    use bms_model::bms_model::BMSModel;
+    use bms::model::bms_model::BMSModel;
     use proptest::prelude::*;
 
     fn make_model() -> BMSModel {

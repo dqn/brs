@@ -9,7 +9,7 @@ pub use midi_config::*;
 pub use mouse_scratch_config::*;
 
 use crate::bm_keys::BMKeys;
-use bms_model::mode::Mode;
+use bms::model::mode::Mode;
 
 use crate::play_config::PlayConfig;
 

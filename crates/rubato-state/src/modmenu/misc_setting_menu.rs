@@ -1,4 +1,4 @@
-use bms_model::mode::Mode;
+use bms::model::mode::Mode;
 
 use super::imgui_notify::{ImGuiNotify, NOTIFICATION_POSITIONS};
 use super::{Config, PlayConfig, PlayerConfig, read_all_player_id};

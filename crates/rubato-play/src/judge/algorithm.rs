@@ -1,7 +1,7 @@
 use std::fmt;
 use std::str::FromStr;
 
-use bms_model::note::Note;
+use bms::model::note::Note;
 
 /// Judge algorithm
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

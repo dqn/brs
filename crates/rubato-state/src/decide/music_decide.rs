@@ -94,13 +94,13 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideRenderContex
             .resource
             .songdata()
             .and_then(|song| match song.chart.mode {
-                5 => Some(bms_model::mode::Mode::BEAT_5K),
-                7 => Some(bms_model::mode::Mode::BEAT_7K),
-                9 => Some(bms_model::mode::Mode::POPN_9K),
-                10 => Some(bms_model::mode::Mode::BEAT_10K),
-                14 => Some(bms_model::mode::Mode::BEAT_14K),
-                25 => Some(bms_model::mode::Mode::KEYBOARD_24K),
-                50 => Some(bms_model::mode::Mode::KEYBOARD_24K_DOUBLE),
+                5 => Some(bms::model::mode::Mode::BEAT_5K),
+                7 => Some(bms::model::mode::Mode::BEAT_7K),
+                9 => Some(bms::model::mode::Mode::POPN_9K),
+                10 => Some(bms::model::mode::Mode::BEAT_10K),
+                14 => Some(bms::model::mode::Mode::BEAT_14K),
+                25 => Some(bms::model::mode::Mode::KEYBOARD_24K),
+                50 => Some(bms::model::mode::Mode::KEYBOARD_24K_DOUBLE),
                 _ => None,
             })?;
         Some(
@@ -712,13 +712,13 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideMouseContext
             .resource
             .songdata()
             .and_then(|song| match song.chart.mode {
-                5 => Some(bms_model::mode::Mode::BEAT_5K),
-                7 => Some(bms_model::mode::Mode::BEAT_7K),
-                9 => Some(bms_model::mode::Mode::POPN_9K),
-                10 => Some(bms_model::mode::Mode::BEAT_10K),
-                14 => Some(bms_model::mode::Mode::BEAT_14K),
-                25 => Some(bms_model::mode::Mode::KEYBOARD_24K),
-                50 => Some(bms_model::mode::Mode::KEYBOARD_24K_DOUBLE),
+                5 => Some(bms::model::mode::Mode::BEAT_5K),
+                7 => Some(bms::model::mode::Mode::BEAT_7K),
+                9 => Some(bms::model::mode::Mode::POPN_9K),
+                10 => Some(bms::model::mode::Mode::BEAT_10K),
+                14 => Some(bms::model::mode::Mode::BEAT_14K),
+                25 => Some(bms::model::mode::Mode::KEYBOARD_24K),
+                50 => Some(bms::model::mode::Mode::KEYBOARD_24K_DOUBLE),
                 _ => None,
             })?;
         Some(
@@ -1241,13 +1241,13 @@ impl MusicDecide {
             .resource
             .songdata()
             .and_then(|song| match song.chart.mode {
-                5 => Some(bms_model::mode::Mode::BEAT_5K),
-                7 => Some(bms_model::mode::Mode::BEAT_7K),
-                9 => Some(bms_model::mode::Mode::POPN_9K),
-                10 => Some(bms_model::mode::Mode::BEAT_10K),
-                14 => Some(bms_model::mode::Mode::BEAT_14K),
-                25 => Some(bms_model::mode::Mode::KEYBOARD_24K),
-                50 => Some(bms_model::mode::Mode::KEYBOARD_24K_DOUBLE),
+                5 => Some(bms::model::mode::Mode::BEAT_5K),
+                7 => Some(bms::model::mode::Mode::BEAT_7K),
+                9 => Some(bms::model::mode::Mode::POPN_9K),
+                10 => Some(bms::model::mode::Mode::BEAT_10K),
+                14 => Some(bms::model::mode::Mode::BEAT_14K),
+                25 => Some(bms::model::mode::Mode::KEYBOARD_24K),
+                50 => Some(bms::model::mode::Mode::KEYBOARD_24K_DOUBLE),
                 _ => None,
             })
             .map(|mode| {
@@ -3547,7 +3547,7 @@ mod tests {
     #[test]
     fn decide_render_context_integer_value_exscore_71() {
         let mut resource = SongLengthResource::with_length_ms(0);
-        let mut score = rubato_core::score_data::ScoreData::new(bms_model::mode::Mode::BEAT_7K);
+        let mut score = rubato_core::score_data::ScoreData::new(bms::model::mode::Mode::BEAT_7K);
         score.judge_counts.epg = 50;
         score.notes = 100;
         resource.score = Some(score.clone());
@@ -3577,7 +3577,7 @@ mod tests {
     #[test]
     fn decide_render_context_integer_value_judge_counts_80_84() {
         let mut resource = SongLengthResource::with_length_ms(0);
-        let mut score = rubato_core::score_data::ScoreData::new(bms_model::mode::Mode::BEAT_7K);
+        let mut score = rubato_core::score_data::ScoreData::new(bms::model::mode::Mode::BEAT_7K);
         score.judge_counts.epg = 10;
         score.judge_counts.lpg = 5;
         score.judge_counts.egr = 3;
@@ -3616,7 +3616,7 @@ mod tests {
     #[test]
     fn decide_render_context_integer_value_score_rate_102_103() {
         let mut resource = SongLengthResource::with_length_ms(0);
-        let mut score = rubato_core::score_data::ScoreData::new(bms_model::mode::Mode::BEAT_7K);
+        let mut score = rubato_core::score_data::ScoreData::new(bms::model::mode::Mode::BEAT_7K);
         score.judge_counts.epg = 50;
         score.notes = 100;
         resource.score = Some(score.clone());
@@ -3794,7 +3794,7 @@ mod tests {
     #[test]
     fn decide_mouse_context_integer_value_exscore_71() {
         let mut resource = SongLengthResource::with_length_ms(0);
-        let mut score = rubato_core::score_data::ScoreData::new(bms_model::mode::Mode::BEAT_7K);
+        let mut score = rubato_core::score_data::ScoreData::new(bms::model::mode::Mode::BEAT_7K);
         score.judge_counts.epg = 50;
         score.notes = 100;
         resource.score = Some(score.clone());

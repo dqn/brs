@@ -4,7 +4,7 @@ pub use rubato_types::player_config::*;
 #[allow(clippy::field_reassign_with_default)]
 mod tests {
     use super::*;
-    use bms_model::mode::Mode;
+    use bms::model::mode::Mode;
 
     #[test]
     fn test_player_config_default_construction() {

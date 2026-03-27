@@ -7,7 +7,7 @@ pub(crate) use std::thread::JoinHandle;
 pub(crate) use egui;
 pub(crate) use log::{info, warn};
 
-pub(crate) use bms_model::mode::Mode;
+pub(crate) use bms::model::mode::Mode;
 pub(crate) use rubato_core::config::Config;
 pub(crate) use rubato_core::player_config::PlayerConfig;
 pub(crate) use rubato_song::md_processor::http_download_processor::DOWNLOAD_SOURCES;

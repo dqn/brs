@@ -35,7 +35,7 @@ pub struct ScoreHandoff {
     /// so the model always has current state/play_time values. In Rust, these are
     /// synced explicitly and the updated model is passed through the handoff so that
     /// the result screen can read note states for timing distribution computation.
-    pub updated_model: Option<bms_model::bms_model::BMSModel>,
+    pub updated_model: Option<bms::model::bms_model::BMSModel>,
     /// Recent judge timing offsets (milliseconds), 100-element circular buffer.
     /// Transferred so the result screen's SkinTimingVisualizer and SkinHitErrorVisualizer
     /// can display the scrolling judge offset visualization.

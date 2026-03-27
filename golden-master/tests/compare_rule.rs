@@ -5,10 +5,10 @@
 
 use std::path::Path;
 
-use bms_model::bms_model::BMSModel;
-use bms_model::mode::Mode;
-use bms_model::note::Note;
-use bms_model::time_line::TimeLine;
+use bms::model::bms_model::BMSModel;
+use bms::model::mode::Mode;
+use bms::model::note::Note;
+use bms::model::time_line::TimeLine;
 use golden_master::rule_fixtures::{
     GaugePropertyFixture, GaugeSequenceFixture, JudgeWindowFixture,
 };

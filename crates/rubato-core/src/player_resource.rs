@@ -1,10 +1,10 @@
 use std::any::Any;
 use std::path::{Path, PathBuf};
 
-use bms_model::bms_model::BMSModel;
-use bms_model::bms_model_utils::set_start_note_time;
-use bms_model::chart_decoder;
-use bms_model::chart_information::ChartInformation;
+use bms::model::bms_model::BMSModel;
+use bms::model::bms_model_utils::set_start_note_time;
+use bms::model::chart_decoder;
+use bms::model::chart_information::ChartInformation;
 use rubato_types::player_resource_access::{
     ConfigAccess, CourseAccess, GaugeAccess, MediaAccess, PlayerResourceAccess, PlayerStateAccess,
     ReplayAccess, ScoreAccess, SessionMutation, SongAccess,
@@ -33,7 +33,7 @@ pub struct PlayerResource {
     /// Current song data
     songdata: Option<SongData>,
     /// Original BMS mode (before chart-option conversion, e.g. 7key->9key)
-    orgmode: Option<bms_model::mode::Mode>,
+    orgmode: Option<bms::model::mode::Mode>,
     /// Player data
     pub playerdata: PlayerData,
     /// Config reference
@@ -265,7 +265,7 @@ impl PlayerResource {
         let mut decoder = chart_decoder::decoder(path)?;
         let info = ChartInformation::new(
             Some(path.to_path_buf()),
-            bms_model::bms_model::LnType::from_i32(lnmode),
+            bms::model::bms_model::LnType::from_i32(lnmode),
             selected_randoms,
         );
         let mut model = decoder.decode(info)?;
@@ -550,11 +550,11 @@ impl PlayerResource {
         self.chart_option = Some(chart_option);
     }
 
-    pub fn original_mode(&self) -> Option<bms_model::mode::Mode> {
+    pub fn original_mode(&self) -> Option<bms::model::mode::Mode> {
         self.orgmode
     }
 
-    pub fn set_original_mode(&mut self, orgmode: bms_model::mode::Mode) {
+    pub fn set_original_mode(&mut self, orgmode: bms::model::mode::Mode) {
         self.orgmode = Some(orgmode);
     }
 
@@ -911,7 +911,7 @@ impl MediaAccess for PlayerResource {
         PlayerResource::reverse_lookup_levels(self)
     }
 
-    fn bms_model(&self) -> Option<&bms_model::bms_model::BMSModel> {
+    fn bms_model(&self) -> Option<&bms::model::bms_model::BMSModel> {
         PlayerResource::bms_model(self)
     }
 

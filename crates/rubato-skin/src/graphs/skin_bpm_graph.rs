@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 
-use bms_model::bms_model::BMSModel;
+use bms::model::bms_model::BMSModel;
 
 use crate::reexports::{
     Color, MainState, Pixmap, PixmapFormat, SongData, SongInformation, Texture, TextureRegion,

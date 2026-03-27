@@ -13,10 +13,10 @@ pub(crate) use crate::lane_renderer::{LaneGroupRegion, LaneRenderer};
 pub(crate) use crate::play_skin::PlaySkin;
 pub(crate) use crate::practice_configuration::PracticeConfiguration;
 pub(crate) use crate::rhythm_timer_processor::RhythmTimerProcessor;
-pub(crate) use bms_model::bms_model::{BMSModel, LNTYPE_LONGNOTE};
-pub(crate) use bms_model::bms_model_utils;
-pub(crate) use bms_model::mode::Mode;
-pub(crate) use bms_model::note::{Note, TYPE_LONGNOTE, TYPE_UNDEFINED};
+pub(crate) use bms::model::bms_model::{BMSModel, LNTYPE_LONGNOTE};
+pub(crate) use bms::model::bms_model_utils;
+pub(crate) use bms::model::mode::Mode;
+pub(crate) use bms::model::note::{Note, TYPE_LONGNOTE, TYPE_UNDEFINED};
 pub(crate) use rubato_core::bms_player_mode::BMSPlayerMode;
 pub(crate) use rubato_core::main_state::{MainState, MainStateData, MainStateType};
 pub(crate) use rubato_core::pattern::autoplay_modifier::AutoplayModifier;
@@ -367,7 +367,7 @@ pub struct BMSPlayer {
     lanerender: Option<LaneRenderer>,
     lane_property: Option<LaneProperty>,
     judge: JudgeManager,
-    judge_notes: Vec<bms_model::judge_note::JudgeNote>,
+    judge_notes: Vec<bms::model::judge_note::JudgeNote>,
     bga: Arc<Mutex<BGAProcessor>>,
     gauge: Option<GrooveGauge>,
     playtime: i64,

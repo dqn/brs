@@ -6,9 +6,9 @@
 //   - Uses #[ignore] with a BUG comment for silent wrong results
 //   - Is a green test documenting edge-case behavior
 
-use bms_model::bms_model::BMSModel;
-use bms_model::mode::Mode;
-use bms_model::time_line::TimeLine;
+use bms::model::bms_model::BMSModel;
+use bms::model::mode::Mode;
+use bms::model::time_line::TimeLine;
 use rubato_core::pattern::lane_shuffle_modifier::LaneCrossShuffleModifier;
 
 // ---------------------------------------------------------------------------

@@ -6,11 +6,11 @@
 // 2. JudgeManager initializes and tracks state through from_config
 // 3. Autoplay log generation produces correct key events for a model
 
-use bms_model::bms_model::BMSModel;
-use bms_model::judge_note::{JUDGE_PG, JudgeNoteKind};
-use bms_model::mode::Mode;
-use bms_model::note::Note;
-use bms_model::time_line::TimeLine;
+use bms::model::bms_model::BMSModel;
+use bms::model::judge_note::{JUDGE_PG, JudgeNoteKind};
+use bms::model::mode::Mode;
+use bms::model::note::Note;
+use bms::model::time_line::TimeLine;
 use rubato_input::key_input_log::KeyInputLog;
 use rubato_play::bms_player_rule::BMSPlayerRule;
 use rubato_play::groove_gauge::create_groove_gauge;

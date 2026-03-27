@@ -8,12 +8,12 @@
 
 use std::path::Path;
 
-use bms_model::bms_decoder::BMSDecoder;
-use bms_model::bms_model::{
+use bms::model::bms_decoder::BMSDecoder;
+use bms::model::bms_model::{
     BMSModel, LNTYPE_CHARGENOTE, LNTYPE_HELLCHARGENOTE, LNTYPE_LONGNOTE, LnType,
 };
-use bms_model::chart_information::ChartInformation;
-use bms_model::judge_note::JudgeNote;
+use bms::model::chart_information::ChartInformation;
+use bms::model::judge_note::JudgeNote;
 use golden_master::e2e_helpers::*;
 use rubato_core::pattern::lane_shuffle_modifier::LaneRandomShuffleModifier;
 use rubato_core::pattern::pattern_modifier::PatternModifier;

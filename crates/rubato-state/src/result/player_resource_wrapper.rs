@@ -14,8 +14,8 @@ use rubato_core::bms_player_mode::Mode as BMSPlayerModeType;
 /// post-next_course data; the local `bms_model` must not be relied on after course advancement.
 pub struct PlayerResource {
     inner: Box<dyn PlayerResourceAccess>,
-    pub bms_model: bms_model::bms_model::BMSModel,
-    pub course_bms_models: Option<Vec<bms_model::bms_model::BMSModel>>,
+    pub bms_model: bms::model::bms_model::BMSModel,
+    pub course_bms_models: Option<Vec<bms::model::bms_model::BMSModel>>,
     play_mode: BMSPlayerMode,
     pub ranking_data: Option<RankingData>,
 }
@@ -24,7 +24,7 @@ impl PlayerResource {
     pub fn new(inner: Box<dyn PlayerResourceAccess>, play_mode: BMSPlayerMode) -> Self {
         Self {
             inner,
-            bms_model: bms_model::bms_model::BMSModel::default(),
+            bms_model: bms::model::bms_model::BMSModel::default(),
             course_bms_models: None,
             play_mode,
             ranking_data: None,
@@ -183,7 +183,7 @@ impl PlayerResource {
 
     // ---- Crate-local methods (not on trait -- types cause circular deps) ----
 
-    pub fn bms_model(&self) -> &bms_model::bms_model::BMSModel {
+    pub fn bms_model(&self) -> &bms::model::bms_model::BMSModel {
         // Verify local field and inner trait agree when both are available.
         debug_assert!(
             self.inner
@@ -198,7 +198,7 @@ impl PlayerResource {
         &self.bms_model
     }
 
-    pub fn course_bms_models(&self) -> Option<&[bms_model::bms_model::BMSModel]> {
+    pub fn course_bms_models(&self) -> Option<&[bms::model::bms_model::BMSModel]> {
         self.course_bms_models.as_deref()
     }
 
@@ -234,7 +234,7 @@ impl Default for PlayerResource {
     fn default() -> Self {
         Self {
             inner: Box::new(NullPlayerResource::new()),
-            bms_model: bms_model::bms_model::BMSModel::default(),
+            bms_model: bms::model::bms_model::BMSModel::default(),
             course_bms_models: None,
             play_mode: BMSPlayerMode::new(BMSPlayerModeType::Play),
             ranking_data: None,

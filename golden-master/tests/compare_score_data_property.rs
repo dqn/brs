@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use bms_model::mode::Mode;
+use bms::model::mode::Mode;
 use golden_master::score_data_property_fixtures::{
     ScoreDataPropertyFixture, ScoreDataPropertyTestCase,
 };

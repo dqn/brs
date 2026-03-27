@@ -56,7 +56,7 @@ pub struct LR2PlaySkinLoaderState {
     pub csv: LR2SkinCSVLoaderState,
 
     pub skin_type: crate::skin_type::SkinType,
-    pub mode: Option<bms_model::mode::Mode>,
+    pub mode: Option<bms::model::mode::Mode>,
 
     pub note: Vec<Option<SkinSourceData>>,
     pub lnstart: Vec<Option<SkinSourceData>>,
@@ -723,7 +723,7 @@ mod tests {
         // Regression: DST_NOTE divides by playerr.len() without .max(1) guard.
         // With empty playerr this would divide by zero.
         let mut state = make_state();
-        state.mode = Some(bms_model::mode::Mode::BEAT_7K);
+        state.mode = Some(bms::model::mode::Mode::BEAT_7K);
         // Initialize laner with 8 keys (matching BEAT_7K) but leave playerr empty
         state.laner = vec![None; 8];
         state.scale = vec![0.0; 8];

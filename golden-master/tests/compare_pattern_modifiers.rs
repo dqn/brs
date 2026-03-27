@@ -4,9 +4,9 @@
 
 use std::path::Path;
 
-use bms_model::bms_decoder::BMSDecoder;
-use bms_model::bms_model::BMSModel;
-use bms_model::note::{Note, TYPE_CHARGENOTE, TYPE_HELLCHARGENOTE, TYPE_LONGNOTE};
+use bms::model::bms_decoder::BMSDecoder;
+use bms::model::bms_model::BMSModel;
+use bms::model::note::{Note, TYPE_CHARGENOTE, TYPE_HELLCHARGENOTE, TYPE_LONGNOTE};
 use golden_master::pattern_modifier_detail_fixtures::{
     ModifierNote, PatternModifierDetailFixture, PatternModifierTestCase,
 };

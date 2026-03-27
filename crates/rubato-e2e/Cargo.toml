@@ -12,7 +12,7 @@ rubato-input = { workspace = true }
 rubato-render = { workspace = true }
 rubato-play = { workspace = true }
 rubato-launcher = { workspace = true }
-bms-model = { workspace = true }
+bms = { workspace = true }
 
 # Error handling
 anyhow = { workspace = true }

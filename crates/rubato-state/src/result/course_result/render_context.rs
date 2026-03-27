@@ -12,16 +12,16 @@ fn course_current_play_config_ref(
     resource: &PlayerResource,
 ) -> Option<&rubato_types::play_config::PlayConfig> {
     let course = resource.course_data()?;
-    let mut current_mode: Option<bms_model::mode::Mode> = None;
+    let mut current_mode: Option<bms::model::mode::Mode> = None;
     for song in &course.hash {
         let song_mode = match song.chart.mode {
-            5 => Some(bms_model::mode::Mode::BEAT_5K),
-            7 => Some(bms_model::mode::Mode::BEAT_7K),
-            9 => Some(bms_model::mode::Mode::POPN_9K),
-            10 => Some(bms_model::mode::Mode::BEAT_10K),
-            14 => Some(bms_model::mode::Mode::BEAT_14K),
-            25 => Some(bms_model::mode::Mode::KEYBOARD_24K),
-            50 => Some(bms_model::mode::Mode::KEYBOARD_24K_DOUBLE),
+            5 => Some(bms::model::mode::Mode::BEAT_5K),
+            7 => Some(bms::model::mode::Mode::BEAT_7K),
+            9 => Some(bms::model::mode::Mode::POPN_9K),
+            10 => Some(bms::model::mode::Mode::BEAT_10K),
+            14 => Some(bms::model::mode::Mode::BEAT_14K),
+            25 => Some(bms::model::mode::Mode::KEYBOARD_24K),
+            50 => Some(bms::model::mode::Mode::KEYBOARD_24K_DOUBLE),
             _ => None,
         };
         let song_mode = match song_mode {
@@ -36,7 +36,7 @@ fn course_current_play_config_ref(
             current_mode = Some(song_mode);
         }
     }
-    let resolved_mode = current_mode.unwrap_or(bms_model::mode::Mode::BEAT_7K);
+    let resolved_mode = current_mode.unwrap_or(bms::model::mode::Mode::BEAT_7K);
     Some(
         &resource
             .player_config()

@@ -13,8 +13,8 @@ const TIMELINE_LOOKUP_TOLERANCE_US: i64 = 1000;
 /// note at the same time and lane as the JudgeNote.
 fn judge_note_idx_to_timeline_idx(
     note_idx: usize,
-    judge_notes: &[bms_model::judge_note::JudgeNote],
-    timelines: &[bms_model::time_line::TimeLine],
+    judge_notes: &[bms::model::judge_note::JudgeNote],
+    timelines: &[bms::model::time_line::TimeLine],
 ) -> Option<usize> {
     let jn = judge_notes.get(note_idx)?;
     // Binary search by micro_time (timelines are sorted), then scan nearby
@@ -231,9 +231,9 @@ impl BMSPlayer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bms_model::judge_note::{JudgeNote, JudgeNoteKind};
-    use bms_model::note::Note;
-    use bms_model::time_line::TimeLine;
+    use bms::model::judge_note::{JudgeNote, JudgeNoteKind};
+    use bms::model::note::Note;
+    use bms::model::time_line::TimeLine;
 
     fn make_judge_note(time_us: i64, lane: usize) -> JudgeNote {
         JudgeNote {

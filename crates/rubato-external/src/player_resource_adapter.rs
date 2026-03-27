@@ -1,6 +1,6 @@
 // PlayerResource wrapper delegating to Box<dyn PlayerResourceAccess>.
 
-use bms_model::mode::Mode;
+use bms::model::mode::Mode;
 use rubato_core::config::Config;
 use rubato_core::replay_data::ReplayData;
 use rubato_song::song_data::SongData;

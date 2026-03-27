@@ -1,0 +1,24 @@
+[package]
+name = "bms"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+serde = { workspace = true }
+serde_json.workspace = true
+md-5.workspace = true
+sha2.workspace = true
+encoding_rs.workspace = true
+log.workspace = true
+reqwest.workspace = true
+regex.workspace = true
+url.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+criterion.workspace = true
+
+[[bench]]
+name = "decode_bench"
+harness = false

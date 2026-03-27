@@ -1,6 +1,6 @@
 // Translates: bms.player.beatoraja.launcher.InputConfigurationView
 
-use bms_model::mode::Mode;
+use bms::model::mode::Mode;
 use egui;
 
 use rubato_core::play_mode_config::{ANALOG_SCRATCH_VER_1, ANALOG_SCRATCH_VER_2, PlayModeConfig};

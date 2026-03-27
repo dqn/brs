@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use crate::validatable::Validatable;
-use bms_model::bms_model::{BMSModel, LNTYPE_LONGNOTE};
-use bms_model::bms_model_utils::{
+use bms::model::bms_model::{BMSModel, LNTYPE_LONGNOTE};
+use bms::model::bms_model_utils::{
     TOTALNOTES_KEY, TOTALNOTES_LONG_KEY, TOTALNOTES_LONG_SCRATCH, TOTALNOTES_SCRATCH,
     total_notes_with_type,
 };
@@ -476,14 +476,14 @@ impl Validatable for SongInformation {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bms_model::mode::Mode;
-    use bms_model::note::Note;
-    use bms_model::time_line::TimeLine;
+    use bms::model::mode::Mode;
+    use bms::model::note::Note;
+    use bms::model::time_line::TimeLine;
 
     /// Build a minimal BMSModel with notes at specified microsecond times.
     /// Each time gets one normal note on lane 0.
-    fn model_with_notes(total: f64, times_us: &[i64]) -> bms_model::bms_model::BMSModel {
-        let mut model = bms_model::bms_model::BMSModel::new();
+    fn model_with_notes(total: f64, times_us: &[i64]) -> bms::model::bms_model::BMSModel {
+        let mut model = bms::model::bms_model::BMSModel::new();
         model.total = total;
         model.bpm = 120.0;
         let mode = Mode::BEAT_7K; // key() = 8
@@ -517,7 +517,7 @@ mod tests {
 
     #[test]
     fn enddensity_empty_model_returns_zero() {
-        let model = bms_model::bms_model::BMSModel::new();
+        let model = bms::model::bms_model::BMSModel::new();
         let info = SongInformation::from_model(&model);
         assert_eq!(info.enddensity, 0.0);
     }

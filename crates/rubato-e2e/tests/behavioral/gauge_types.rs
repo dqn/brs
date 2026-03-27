@@ -4,8 +4,8 @@
 //! Uses `create_groove_gauge` factory (rubato-play) which selects gauge properties
 //! based on BMSPlayerRule for the model's mode. For BEAT_7K this uses LR2 gauge tables.
 
-use bms_model::bms_model::BMSModel;
-use bms_model::mode::Mode;
+use bms::model::bms_model::BMSModel;
+use bms::model::mode::Mode;
 use rubato_play::groove_gauge::{
     ASSISTEASY, EASY, EXHARD, GrooveGauge, HARD, HAZARD, NORMAL, create_groove_gauge,
 };

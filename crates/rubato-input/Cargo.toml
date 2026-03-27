@@ -8,7 +8,7 @@ anyhow.workspace = true
 log.workspace = true
 midir.workspace = true
 gilrs.workspace = true
-bms-model.workspace = true
+bms.workspace = true
 rubato-types.workspace = true
 
 [dev-dependencies]

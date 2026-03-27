@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use bms_model::bms_model::BMSModel;
+use bms::model::bms_model::BMSModel;
 
 use rubato_types::course_data::CourseDataConstraint;
 use rubato_types::replay_data::ReplayData;

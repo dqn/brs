@@ -7,9 +7,9 @@
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
-use bms_model::bms_decoder::BMSDecoder;
-use bms_model::bms_model::BMSModel;
-use bms_model::note::Note;
+use bms::model::bms_decoder::BMSDecoder;
+use bms::model::bms_model::BMSModel;
+use bms::model::note::Note;
 use rubato_core::pattern::lane_shuffle_modifier::LaneMirrorShuffleModifier;
 use rubato_core::pattern::note_shuffle_modifier::NoteShuffleModifier;
 use rubato_core::pattern::pattern_modifier::PatternModifier;

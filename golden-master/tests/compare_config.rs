@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use bms_model::mode::Mode;
+use bms::model::mode::Mode;
 use rubato_types::audio_config::{DriverType, FrequencyType};
 use rubato_types::config::{Config, DisplayMode, SongPreview};
 use rubato_types::player_config::PlayerConfig;

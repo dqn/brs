@@ -96,7 +96,7 @@ pub use rubato_core::system_sound_manager::SoundType;
 pub use rubato_types::imgui_notify::ImGuiNotify;
 
 // bms.model.Mode
-pub use ::bms_model::mode as bms_model;
+pub use ::bms::model::mode as bms_model;
 
 // PlayerInformation
 pub use rubato_core::player_information::PlayerInformation;

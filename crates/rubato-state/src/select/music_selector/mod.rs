@@ -30,7 +30,7 @@ pub(crate) use super::*;
 /// Receiver for a background BMS model parse: (requested path, parsed model + margin).
 type PendingNoteGraphRx = (
     std::path::PathBuf,
-    std::sync::mpsc::Receiver<Option<(::bms_model::bms_model::BMSModel, i64)>>,
+    std::sync::mpsc::Receiver<Option<(::bms::model::bms_model::BMSModel, i64)>>,
 );
 
 fn delegated_event_type_from_id(event_id: i32) -> Option<EventType> {

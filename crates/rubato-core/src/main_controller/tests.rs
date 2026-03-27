@@ -1044,8 +1044,8 @@ fn test_update_state_references_does_not_panic() {
 
 // --- Audio driver wiring tests (Phase 24c) ---
 
-use bms_model::bms_model::BMSModel;
-use bms_model::note::Note;
+use bms::model::bms_model::BMSModel;
+use bms::model::note::Note;
 use rubato_audio::audio_driver::AudioDriver;
 use rubato_audio::audio_system::AudioSystem;
 use rubato_audio::recording_audio_driver::RecordingAudioDriver;
@@ -1308,7 +1308,7 @@ impl AudioDriver for EventTrackingAudioDriver {
             .expect("mutex poisoned")
             .push(path.to_string());
     }
-    fn set_model(&mut self, model: &bms_model::bms_model::BMSModel) {
+    fn set_model(&mut self, model: &bms::model::bms_model::BMSModel) {
         self.inner.set_model(model);
     }
     fn set_additional_key_sound(&mut self, judge: i32, fast: bool, path: Option<&str>) {
@@ -1323,16 +1323,16 @@ impl AudioDriver for EventTrackingAudioDriver {
     fn preload_path(&mut self, path: &str) {
         self.inner.preload_path(path);
     }
-    fn play_note(&mut self, n: &bms_model::note::Note, volume: f32, pitch: i32) {
+    fn play_note(&mut self, n: &bms::model::note::Note, volume: f32, pitch: i32) {
         self.inner.play_note(n, volume, pitch);
     }
     fn play_judge(&mut self, judge: i32, fast: bool) {
         self.inner.play_judge(judge, fast);
     }
-    fn stop_note(&mut self, n: Option<&bms_model::note::Note>) {
+    fn stop_note(&mut self, n: Option<&bms::model::note::Note>) {
         self.inner.stop_note(n);
     }
-    fn set_volume_note(&mut self, n: &bms_model::note::Note, volume: f32) {
+    fn set_volume_note(&mut self, n: &bms::model::note::Note, volume: f32) {
         self.inner.set_volume_note(n, volume);
     }
     fn set_global_pitch(&mut self, pitch: f32) {
@@ -2143,12 +2143,12 @@ fn test_handoff_update_course_score_not_restored_when_already_false() {
 /// Test state that captures play config updates via shared Arc for external inspection.
 struct PlayConfigReceiverState {
     state_data: MainStateData,
-    received: Arc<Mutex<Vec<(bms_model::mode::Mode, rubato_types::play_config::PlayConfig)>>>,
+    received: Arc<Mutex<Vec<(bms::model::mode::Mode, rubato_types::play_config::PlayConfig)>>>,
 }
 
 impl PlayConfigReceiverState {
     fn new(
-        received: Arc<Mutex<Vec<(bms_model::mode::Mode, rubato_types::play_config::PlayConfig)>>>,
+        received: Arc<Mutex<Vec<(bms::model::mode::Mode, rubato_types::play_config::PlayConfig)>>>,
     ) -> Self {
         Self {
             state_data: MainStateData::new(TimerManager::new()),
@@ -2175,7 +2175,7 @@ impl MainState for PlayConfigReceiverState {
 
     fn receive_updated_play_config(
         &mut self,
-        mode: bms_model::mode::Mode,
+        mode: bms::model::mode::Mode,
         play_config: rubato_types::play_config::PlayConfig,
     ) {
         self.received.lock().unwrap().push((mode, play_config));
@@ -2192,7 +2192,7 @@ fn update_play_config_command_forwards_to_current_state() {
     let live_hispeed = 7.0;
     mc.ctx
         .player
-        .play_config(bms_model::mode::Mode::BEAT_7K)
+        .play_config(bms::model::mode::Mode::BEAT_7K)
         .playconfig
         .hispeed = live_hispeed;
 
@@ -2205,7 +2205,7 @@ fn update_play_config_command_forwards_to_current_state() {
     pc.enablelanecover = true;
     mc.command_queue.push(
         rubato_types::main_controller_access::MainControllerCommand::UpdatePlayConfig(
-            bms_model::mode::Mode::BEAT_7K,
+            bms::model::mode::Mode::BEAT_7K,
             Box::new(pc),
         ),
     );
@@ -2216,7 +2216,7 @@ fn update_play_config_command_forwards_to_current_state() {
     let mc_pc = &mc
         .ctx
         .player
-        .play_config_ref(bms_model::mode::Mode::BEAT_7K)
+        .play_config_ref(bms::model::mode::Mode::BEAT_7K)
         .playconfig;
     assert!(
         (mc_pc.hispeed - live_hispeed).abs() < f32::EPSILON,
@@ -2232,7 +2232,7 @@ fn update_play_config_command_forwards_to_current_state() {
     // Verify the current state received the forwarded config (raw, unmerged)
     let updates = received.lock().unwrap();
     assert_eq!(updates.len(), 1, "state should receive exactly one update");
-    assert_eq!(updates[0].0, bms_model::mode::Mode::BEAT_7K);
+    assert_eq!(updates[0].0, bms::model::mode::Mode::BEAT_7K);
     assert!(updates[0].1.enablelift, "forwarded enablelift should match");
 }
 
@@ -2397,10 +2397,10 @@ fn test_handoff_updated_model_propagates_to_resource() {
     {
         let res = mc.resource.as_mut().unwrap();
         let mut model = BMSModel::new();
-        model.set_mode(bms_model::mode::Mode::BEAT_7K);
+        model.set_mode(bms::model::mode::Mode::BEAT_7K);
         model.judgerank = 100;
-        let mut tl = bms_model::time_line::TimeLine::new(0.0, 1_000_000, 8);
-        tl.set_note(0, Some(bms_model::note::Note::new_normal(1)));
+        let mut tl = bms::model::time_line::TimeLine::new(0.0, 1_000_000, 8);
+        tl.set_note(0, Some(bms::model::note::Note::new_normal(1)));
         model.timelines = vec![tl];
         let sd = rubato_types::song_data::SongData::new_from_model(model, false);
         res.set_songdata(sd);
@@ -2415,10 +2415,10 @@ fn test_handoff_updated_model_propagates_to_resource() {
 
     // Create a handoff with an updated model where note has state=1
     let mut updated_model = BMSModel::new();
-    updated_model.set_mode(bms_model::mode::Mode::BEAT_7K);
+    updated_model.set_mode(bms::model::mode::Mode::BEAT_7K);
     updated_model.judgerank = 100;
-    let mut tl = bms_model::time_line::TimeLine::new(0.0, 1_000_000, 8);
-    let mut note = bms_model::note::Note::new_normal(1);
+    let mut tl = bms::model::time_line::TimeLine::new(0.0, 1_000_000, 8);
+    let mut note = bms::model::note::Note::new_normal(1);
     note.set_state(1);
     note.set_micro_play_time(500);
     tl.set_note(0, Some(note));

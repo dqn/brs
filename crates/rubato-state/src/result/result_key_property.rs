@@ -1,7 +1,7 @@
 // ResultKeyProperty.java -> result_key_property.rs
 // Mechanical line-by-line translation.
 
-use bms_model::mode::Mode;
+use bms::model::mode::Mode;
 
 /// Result key assignment for each key
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

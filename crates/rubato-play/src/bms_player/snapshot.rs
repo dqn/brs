@@ -43,7 +43,7 @@ impl BMSPlayer {
             .model
             .mode()
             .cloned()
-            .unwrap_or(bms_model::mode::Mode::BEAT_7K);
+            .unwrap_or(bms::model::mode::Mode::BEAT_7K);
         s.play_config = Some(Box::new(
             self.player_config.play_config_ref(mode).playconfig.clone(),
         ));
@@ -108,7 +108,7 @@ impl BMSPlayer {
             self.model
                 .mode()
                 .copied()
-                .unwrap_or(bms_model::mode::Mode::BEAT_7K)
+                .unwrap_or(bms::model::mode::Mode::BEAT_7K)
                 != org
         });
 

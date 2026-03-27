@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use bms_model::bms_model::BMSModel;
-use bms_model::note::Note;
+use bms::model::bms_model::BMSModel;
+use bms::model::note::Note;
 use log::{info, trace, warn};
 
 use crate::audio_driver;

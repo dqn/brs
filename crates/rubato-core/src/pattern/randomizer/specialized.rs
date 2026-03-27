@@ -2,9 +2,9 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use bms_model::mode::Mode;
-use bms_model::note::Note;
-use bms_model::time_line::TimeLine;
+use bms::model::mode::Mode;
+use bms::model::note::Note;
+use bms::model::time_line::TimeLine;
 
 use super::{RandomizerBase, TimeBasedRandomizerState};
 use crate::pattern::java_random::JavaRandom;

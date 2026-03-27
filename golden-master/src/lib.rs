@@ -23,9 +23,9 @@ use std::path::Path;
 use anyhow::{Context, Result};
 use serde::Deserialize;
 
-use bms_model::bms_model::BMSModel;
-use bms_model::mode::Mode;
-use bms_model::note::Note;
+use bms::model::bms_model::BMSModel;
+use bms::model::mode::Mode;
+use bms::model::note::Note;
 
 /// Java fixture root structure
 #[derive(Debug, Deserialize)]
@@ -155,9 +155,9 @@ fn flatten_notes(model: &BMSModel) -> Vec<FlatNote> {
                 let note_type_str = match note {
                     Note::Normal(_) => "Normal".to_string(),
                     Note::Long { note_type, .. } => match *note_type {
-                        bms_model::note::TYPE_LONGNOTE => "LongNote".to_string(),
-                        bms_model::note::TYPE_CHARGENOTE => "ChargeNote".to_string(),
-                        bms_model::note::TYPE_HELLCHARGENOTE => "HellChargeNote".to_string(),
+                        bms::model::note::TYPE_LONGNOTE => "LongNote".to_string(),
+                        bms::model::note::TYPE_CHARGENOTE => "ChargeNote".to_string(),
+                        bms::model::note::TYPE_HELLCHARGENOTE => "HellChargeNote".to_string(),
                         _ => "LongNoteUndefined".to_string(),
                     },
                     Note::Mine { .. } => "Mine".to_string(),
@@ -203,7 +203,7 @@ fn flatten_notes(model: &BMSModel) -> Vec<FlatNote> {
 /// Find the end time and wav of the paired LN-end note for a LN-start note.
 /// Scans forward from the start timeline index on the same lane.
 fn find_ln_end_time(
-    timelines: &[bms_model::time_line::TimeLine],
+    timelines: &[bms::model::time_line::TimeLine],
     start_tl_idx: usize,
     lane: i32,
 ) -> (i64, i32) {

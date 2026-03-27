@@ -2,9 +2,9 @@ use std::collections::HashSet;
 
 use crate::pattern::java_random::JavaRandom;
 use crate::pattern::pattern_modifier::{AssistLevel, PatternModifier, PatternModifierBase};
-use bms_model::bms_model::BMSModel;
-use bms_model::mode::Mode;
-use bms_model::note::Note;
+use bms::model::bms_model::BMSModel;
+use bms::model::mode::Mode;
+use bms::model::note::Note;
 
 use super::{get_random_pattern_impl, lane_shuffle_modify};
 

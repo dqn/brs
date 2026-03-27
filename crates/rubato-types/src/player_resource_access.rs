@@ -1,7 +1,7 @@
 use std::any::Any;
 use std::path::{Path, PathBuf};
 
-use bms_model::bms_model::BMSModel;
+use bms::model::bms_model::BMSModel;
 
 use crate::config::Config;
 use crate::course_data::{CourseData, CourseDataConstraint};

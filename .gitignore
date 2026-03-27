@@ -2,7 +2,7 @@
 target/
 .beads/
 /.agent
-bms/
+/bms/
 .worktrees/
 .claude/**
 .claude/

@@ -245,16 +245,16 @@ fn draw_note_without_texture_produces_no_vertices() {
 /// actually render anything.
 #[test]
 fn compute_note_draw_commands_produces_commands() {
-    use bms_model::bms_model::BMSModel;
-    use bms_model::note::Note;
-    use bms_model::time_line::TimeLine;
+    use bms::model::bms_model::BMSModel;
+    use bms::model::note::Note;
+    use bms::model::time_line::TimeLine;
     use rubato_core::main_state::SkinDrawable;
     use rubato_play::lane_renderer::{DrawLaneContext, LaneRenderer};
 
     // 1. Create a model with one note
     let mut model = BMSModel::new();
     model.bpm = 120.0;
-    let mode = bms_model::mode::Mode::BEAT_7K;
+    let mode = bms::model::mode::Mode::BEAT_7K;
     model.set_mode(mode);
     let mut tl = TimeLine::new(0.0, 1_000_000, mode.key() as i32);
     tl.bpm = 120.0;
@@ -307,7 +307,7 @@ fn compute_note_draw_commands_produces_commands() {
         mark_processednote: false,
         show_hiddennote: false,
         show_judgearea: false,
-        lntype: bms_model::bms_model::LnType::ChargeNote,
+        lntype: bms::model::bms_model::LnType::ChargeNote,
         judge_time_regions: vec![vec![[0, 0]; 5]; 8],
         processing_long_notes: vec![None; 8],
         passing_long_notes: vec![None; 8],

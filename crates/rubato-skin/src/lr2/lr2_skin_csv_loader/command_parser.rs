@@ -976,7 +976,7 @@ impl LR2SkinCSVLoaderState {
                     let anim_range;
                     let duration;
                     if values[13] == 0 {
-                        let is_popn = self.mode == Some(bms_model::mode::Mode::POPN_9K);
+                        let is_popn = self.mode == Some(bms::model::mode::Mode::POPN_9K);
                         parts = if is_popn { 24 } else { 50 };
                         anim_type = 0;
                         anim_range = if is_popn { 0 } else { 3 };

@@ -3,8 +3,8 @@ mod render;
 #[cfg(test)]
 mod tests;
 
-use bms_model::bms_model::BMSModel;
-use bms_model::layer::{EventType, Layer};
+use bms::model::bms_model::BMSModel;
+use bms::model::layer::{EventType, Layer};
 use rubato_render::color::Rectangle;
 use rubato_render::texture::{Texture, TextureRegion};
 

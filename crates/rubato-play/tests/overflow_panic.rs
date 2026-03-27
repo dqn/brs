@@ -6,8 +6,8 @@
 //   - Uses #[ignore] with a BUG comment for silent wrong results
 //   - Is a green test documenting edge-case behavior
 
-use bms_model::bms_model::BMSModel;
-use bms_model::mode::Mode;
+use bms::model::bms_model::BMSModel;
+use bms::model::mode::Mode;
 use rubato_types::clear_type::ClearType;
 use rubato_types::gauge_property::{GaugeElementProperty, GaugeProperty};
 use rubato_types::groove_gauge::{Gauge, GrooveGauge, HARD, NORMAL};
@@ -23,7 +23,7 @@ use rubato_types::groove_gauge::{Gauge, GrooveGauge, HARD, NORMAL};
 fn rhythm_timer_freq_zero_no_panic() {
     use rubato_play::rhythm_timer_processor::{RhythmTimerProcessor, RhythmUpdateParams};
 
-    use bms_model::time_line::TimeLine;
+    use bms::model::time_line::TimeLine;
     let mut tl = TimeLine::new(0.0, 0, 8);
     tl.section_line = true;
     let mut model2 = BMSModel::new();

@@ -609,7 +609,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayMouseContext<'
                         .model
                         .mode()
                         .cloned()
-                        .unwrap_or(bms_model::mode::Mode::BEAT_7K),
+                        .unwrap_or(bms::model::mode::Mode::BEAT_7K),
                 )
                 .playconfig,
         )
@@ -677,7 +677,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayMouseContext<'
                 .model
                 .mode()
                 .copied()
-                .unwrap_or(bms_model::mode::Mode::BEAT_7K)
+                .unwrap_or(bms::model::mode::Mode::BEAT_7K)
                 != org
         })
     }
@@ -1693,7 +1693,7 @@ mod tests {
     #[test]
     fn is_gauge_max_returns_true_when_gauge_at_max() {
         let model = {
-            let mut m = bms_model::bms_model::BMSModel::new();
+            let mut m = bms::model::bms_model::BMSModel::new();
             m.total = 300.0;
             m
         };
@@ -1720,7 +1720,7 @@ mod tests {
     #[test]
     fn is_gauge_max_returns_false_when_gauge_not_at_max() {
         let model = {
-            let mut m = bms_model::bms_model::BMSModel::new();
+            let mut m = bms::model::bms_model::BMSModel::new();
             m.total = 300.0;
             m
         };
@@ -2025,7 +2025,7 @@ mod tests {
     fn play_mouse_context_config_ref_returns_some() {
         let timer = Box::leak(Box::new(TimerManager::new()));
         let player = Box::leak(Box::new(BMSPlayer::new(
-            bms_model::bms_model::BMSModel::new(),
+            bms::model::bms_model::BMSModel::new(),
         )));
         let ctx = PlayMouseContext { timer, player };
         assert!(
@@ -2038,7 +2038,7 @@ mod tests {
     fn play_mouse_context_config_ref_reads_bga_mode() {
         let timer = Box::leak(Box::new(TimerManager::new()));
         let player = Box::leak(Box::new(BMSPlayer::new(
-            bms_model::bms_model::BMSModel::new(),
+            bms::model::bms_model::BMSModel::new(),
         )));
         // BGA mode default is 0 (ON); image_index_value(72) reads it
         let ctx = PlayMouseContext { timer, player };
@@ -2057,7 +2057,7 @@ mod tests {
     fn play_mouse_context_score_data_property_returns_live_data() {
         let timer = Box::leak(Box::new(TimerManager::new()));
         let player = Box::leak(Box::new(BMSPlayer::new(
-            bms_model::bms_model::BMSModel::new(),
+            bms::model::bms_model::BMSModel::new(),
         )));
         player.main_state_data.score.nowrate = 0.75;
         player.main_state_data.score.nowscore = 1234;
@@ -2078,7 +2078,7 @@ mod tests {
     fn play_mouse_context_gauge_border_max_returns_some_with_gauge() {
         let timer = Box::leak(Box::new(TimerManager::new()));
         let player = Box::leak(Box::new(BMSPlayer::new({
-            let mut m = bms_model::bms_model::BMSModel::new();
+            let mut m = bms::model::bms_model::BMSModel::new();
             m.total = 300.0;
             m
         })));
@@ -2105,7 +2105,7 @@ mod tests {
     fn play_mouse_context_gauge_border_max_returns_none_without_gauge() {
         let timer = Box::leak(Box::new(TimerManager::new()));
         let player = Box::leak(Box::new(BMSPlayer::new(
-            bms_model::bms_model::BMSModel::new(),
+            bms::model::bms_model::BMSModel::new(),
         )));
         let ctx = PlayMouseContext { timer, player };
         assert!(
@@ -2118,7 +2118,7 @@ mod tests {
     fn play_mouse_context_gauge_min_returns_value_with_gauge() {
         let timer = Box::leak(Box::new(TimerManager::new()));
         let player = Box::leak(Box::new(BMSPlayer::new({
-            let mut m = bms_model::bms_model::BMSModel::new();
+            let mut m = bms::model::bms_model::BMSModel::new();
             m.total = 300.0;
             m
         })));
@@ -2140,7 +2140,7 @@ mod tests {
     fn play_mouse_context_gauge_element_borders_non_empty_with_gauge() {
         let timer = Box::leak(Box::new(TimerManager::new()));
         let player = Box::leak(Box::new(BMSPlayer::new({
-            let mut m = bms_model::bms_model::BMSModel::new();
+            let mut m = bms::model::bms_model::BMSModel::new();
             m.total = 300.0;
             m
         })));
@@ -2161,7 +2161,7 @@ mod tests {
     fn play_mouse_context_gauge_element_borders_empty_without_gauge() {
         let timer = Box::leak(Box::new(TimerManager::new()));
         let player = Box::leak(Box::new(BMSPlayer::new(
-            bms_model::bms_model::BMSModel::new(),
+            bms::model::bms_model::BMSModel::new(),
         )));
         let ctx = PlayMouseContext { timer, player };
         assert!(
@@ -2174,7 +2174,7 @@ mod tests {
     fn play_mouse_context_is_gauge_max_delegates() {
         let timer = Box::leak(Box::new(TimerManager::new()));
         let player = Box::leak(Box::new(BMSPlayer::new({
-            let mut m = bms_model::bms_model::BMSModel::new();
+            let mut m = bms::model::bms_model::BMSModel::new();
             m.total = 300.0;
             m
         })));
@@ -2195,7 +2195,7 @@ mod tests {
     fn play_mouse_context_is_gauge_max_true_when_maxed() {
         let timer = Box::leak(Box::new(TimerManager::new()));
         let player = Box::leak(Box::new(BMSPlayer::new({
-            let mut m = bms_model::bms_model::BMSModel::new();
+            let mut m = bms::model::bms_model::BMSModel::new();
             m.total = 300.0;
             m
         })));
@@ -2217,7 +2217,7 @@ mod tests {
     fn play_mouse_context_is_mode_changed_false_by_default() {
         let timer = Box::leak(Box::new(TimerManager::new()));
         let player = Box::leak(Box::new(BMSPlayer::new(
-            bms_model::bms_model::BMSModel::new(),
+            bms::model::bms_model::BMSModel::new(),
         )));
         let ctx = PlayMouseContext { timer, player };
         assert!(
@@ -2230,7 +2230,7 @@ mod tests {
     fn play_mouse_context_lane_shuffle_pattern_delegates() {
         let timer = Box::leak(Box::new(TimerManager::new()));
         let player = Box::leak(Box::new(BMSPlayer::new(
-            bms_model::bms_model::BMSModel::new(),
+            bms::model::bms_model::BMSModel::new(),
         )));
         player.score.playinfo.lane_shuffle_pattern = Some(vec![vec![2, 0, 1, 3, 4, 5, 6, 7, 8, 9]]);
         let ctx = PlayMouseContext { timer, player };
@@ -2248,7 +2248,7 @@ mod tests {
     fn play_mouse_context_lane_shuffle_pattern_none_returns_minus_one() {
         let timer = Box::leak(Box::new(TimerManager::new()));
         let player = Box::leak(Box::new(BMSPlayer::new(
-            bms_model::bms_model::BMSModel::new(),
+            bms::model::bms_model::BMSModel::new(),
         )));
         let ctx = PlayMouseContext { timer, player };
         assert_eq!(
@@ -2266,7 +2266,7 @@ mod tests {
     fn play_mouse_set_float_value_system_volume() {
         let timer = Box::leak(Box::new(TimerManager::new()));
         let player = Box::leak(Box::new(BMSPlayer::new(
-            bms_model::bms_model::BMSModel::new(),
+            bms::model::bms_model::BMSModel::new(),
         )));
         player.system_volume = 0.5;
         let mut ctx = PlayMouseContext { timer, player };
@@ -2281,7 +2281,7 @@ mod tests {
     fn play_mouse_set_float_value_key_volume() {
         let timer = Box::leak(Box::new(TimerManager::new()));
         let player = Box::leak(Box::new(BMSPlayer::new(
-            bms_model::bms_model::BMSModel::new(),
+            bms::model::bms_model::BMSModel::new(),
         )));
         player.key_volume = 0.5;
         let mut ctx = PlayMouseContext { timer, player };
@@ -2296,7 +2296,7 @@ mod tests {
     fn play_mouse_set_float_value_bg_volume() {
         let timer = Box::leak(Box::new(TimerManager::new()));
         let player = Box::leak(Box::new(BMSPlayer::new(
-            bms_model::bms_model::BMSModel::new(),
+            bms::model::bms_model::BMSModel::new(),
         )));
         player.bg_volume = 0.5;
         let mut ctx = PlayMouseContext { timer, player };
@@ -2311,7 +2311,7 @@ mod tests {
     fn play_mouse_set_float_value_clamps_volume() {
         let timer = Box::leak(Box::new(TimerManager::new()));
         let player = Box::leak(Box::new(BMSPlayer::new(
-            bms_model::bms_model::BMSModel::new(),
+            bms::model::bms_model::BMSModel::new(),
         )));
         let mut ctx = PlayMouseContext { timer, player };
         // Over 1.0 should clamp to 1.0
@@ -2355,7 +2355,7 @@ mod tests {
     fn play_mouse_context_is_media_load_finished_true() {
         let timer = Box::leak(Box::new(TimerManager::new()));
         let player = Box::leak(Box::new(BMSPlayer::new(
-            bms_model::bms_model::BMSModel::new(),
+            bms::model::bms_model::BMSModel::new(),
         )));
         player.media_load_finished = true;
         let ctx = PlayMouseContext { timer, player };
@@ -2369,7 +2369,7 @@ mod tests {
     fn play_mouse_context_is_media_load_finished_false() {
         let timer = Box::leak(Box::new(TimerManager::new()));
         let player = Box::leak(Box::new(BMSPlayer::new(
-            bms_model::bms_model::BMSModel::new(),
+            bms::model::bms_model::BMSModel::new(),
         )));
         let ctx = PlayMouseContext { timer, player };
         assert!(
@@ -2405,7 +2405,7 @@ mod tests {
     fn play_mouse_context_is_practice_mode_true() {
         let timer = Box::leak(Box::new(TimerManager::new()));
         let player = Box::leak(Box::new(BMSPlayer::new(
-            bms_model::bms_model::BMSModel::new(),
+            bms::model::bms_model::BMSModel::new(),
         )));
         player.play_mode = BMSPlayerMode::new(rubato_core::bms_player_mode::Mode::Practice);
         let ctx = PlayMouseContext { timer, player };
@@ -2419,7 +2419,7 @@ mod tests {
     fn play_mouse_context_is_practice_mode_false() {
         let timer = Box::leak(Box::new(TimerManager::new()));
         let player = Box::leak(Box::new(BMSPlayer::new(
-            bms_model::bms_model::BMSModel::new(),
+            bms::model::bms_model::BMSModel::new(),
         )));
         let ctx = PlayMouseContext { timer, player };
         assert!(
@@ -2432,7 +2432,7 @@ mod tests {
     fn play_mouse_set_float_value_unknown_id_no_op() {
         let timer = Box::leak(Box::new(TimerManager::new()));
         let player = Box::leak(Box::new(BMSPlayer::new(
-            bms_model::bms_model::BMSModel::new(),
+            bms::model::bms_model::BMSModel::new(),
         )));
         player.system_volume = 0.5;
         player.key_volume = 0.5;
@@ -2479,7 +2479,7 @@ mod tests {
     fn play_mouse_context_float_value_falls_through_to_default() {
         let timer = Box::leak(Box::new(TimerManager::new()));
         let player = Box::leak(Box::new(BMSPlayer::new(
-            bms_model::bms_model::BMSModel::new(),
+            bms::model::bms_model::BMSModel::new(),
         )));
         let mut song_data = rubato_types::song_data::SongData::default();
         song_data.info = Some(rubato_types::song_information::SongInformation {
@@ -2503,7 +2503,7 @@ mod tests {
     /// Helper: create a GrooveGauge with NORMAL type and set gauge value.
     fn make_gauge_with_value(value: f32) -> rubato_types::groove_gauge::GrooveGauge {
         let model = {
-            let mut m = bms_model::bms_model::BMSModel::new();
+            let mut m = bms::model::bms_model::BMSModel::new();
             m.total = 300.0;
             m
         };
@@ -2625,7 +2625,7 @@ mod tests {
     fn play_mouse_context_gauge_range_50_59_true() {
         let timer = Box::leak(Box::new(TimerManager::new()));
         let player = Box::leak(Box::new(BMSPlayer::new({
-            let mut m = bms_model::bms_model::BMSModel::new();
+            let mut m = bms::model::bms_model::BMSModel::new();
             m.total = 300.0;
             m
         })));
@@ -2647,7 +2647,7 @@ mod tests {
     fn play_mouse_context_border_or_more_true_when_qualified() {
         let timer = Box::leak(Box::new(TimerManager::new()));
         let player = Box::leak(Box::new(BMSPlayer::new({
-            let mut m = bms_model::bms_model::BMSModel::new();
+            let mut m = bms::model::bms_model::BMSModel::new();
             m.total = 300.0;
             m
         })));
@@ -2669,7 +2669,7 @@ mod tests {
     fn play_mouse_context_gauge_range_false_without_gauge() {
         let timer = Box::leak(Box::new(TimerManager::new()));
         let player = Box::leak(Box::new(BMSPlayer::new(
-            bms_model::bms_model::BMSModel::new(),
+            bms::model::bms_model::BMSModel::new(),
         )));
         let ctx = PlayMouseContext { timer, player };
         assert!(
@@ -2813,7 +2813,7 @@ mod tests {
         // Same overflow regression test for PlayMouseContext
         let timer = Box::leak(Box::new(TimerManager::new()));
         let player = Box::leak(Box::new(BMSPlayer::new(
-            bms_model::bms_model::BMSModel::new(),
+            bms::model::bms_model::BMSModel::new(),
         )));
         player.playtime = 2_400_000; // 40 min
         timer.set_now_micro_time(3_400_000_000);
@@ -2836,7 +2836,7 @@ mod tests {
         // Same overflow regression test for PlayMouseContext remaining time
         let timer = Box::leak(Box::new(TimerManager::new()));
         let player = Box::leak(Box::new(BMSPlayer::new(
-            bms_model::bms_model::BMSModel::new(),
+            bms::model::bms_model::BMSModel::new(),
         )));
         player.playtime = 3_600_000; // 60 min
         // elapsed = (2_200_000_000 - 1_000_000_000) / 1000 = 1_200_000 ms
@@ -3010,7 +3010,7 @@ mod tests {
     #[test]
     fn border_or_more_false_when_gauge_below_border() {
         let model = {
-            let mut m = bms_model::bms_model::BMSModel::new();
+            let mut m = bms::model::bms_model::BMSModel::new();
             m.total = 300.0;
             m
         };
@@ -3028,7 +3028,7 @@ mod tests {
     #[test]
     fn border_or_more_true_when_gauge_at_border() {
         let model = {
-            let mut m = bms_model::bms_model::BMSModel::new();
+            let mut m = bms::model::bms_model::BMSModel::new();
             m.total = 300.0;
             m
         };

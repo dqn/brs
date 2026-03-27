@@ -10,8 +10,8 @@ pub use constants::{PracticeColor, PracticeDrawCommand};
 use crate::bms_player_rule::BMSPlayerRule;
 use crate::gauge_property::GaugeProperty;
 use crate::groove_gauge::{GrooveGauge, create_groove_gauge};
-use bms_model::bms_model::BMSModel;
-use bms_model::mode::Mode;
+use bms::model::bms_model::BMSModel;
+use bms::model::mode::Mode;
 use serde::{Deserialize, Serialize};
 
 /// Practice mode settings

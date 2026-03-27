@@ -2,9 +2,9 @@
 //!
 //! Translated from: bms.player.beatoraja.input.KeyInputLog
 
-use bms_model::bms_model::BMSModel;
-use bms_model::mode::Mode;
-use bms_model::note::Note;
+use bms::model::bms_model::BMSModel;
+use bms::model::mode::Mode;
+use bms::model::note::Note;
 
 /// Key input log
 #[derive(Clone, Debug)]
@@ -85,7 +85,7 @@ impl KeyInputLog {
                     if note.is_long() {
                         if note.is_end() {
                             keylog.push(KeyInputLog::with_data(i, lane, false));
-                            if model.lntype() != bms_model::bms_model::LnType::LongNote
+                            if model.lntype() != bms::model::bms_model::LnType::LongNote
                                 && sc.contains(&lane)
                             {
                                 // BSS handling
@@ -123,9 +123,9 @@ impl KeyInputLog {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bms_model::mode::Mode;
-    use bms_model::note::Note;
-    use bms_model::time_line::TimeLine;
+    use bms::model::mode::Mode;
+    use bms::model::note::Note;
+    use bms::model::time_line::TimeLine;
 
     // --- KeyInputLog::new ---
 

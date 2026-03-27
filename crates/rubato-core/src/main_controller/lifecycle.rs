@@ -230,7 +230,7 @@ impl MainController {
         let mut pending_reload = false;
         let mut pending_change: Option<MainStateType> = None;
         let mut pending_play_config: Option<(
-            bms_model::mode::Mode,
+            bms::model::mode::Mode,
             rubato_types::play_config::PlayConfig,
         )> = None;
 

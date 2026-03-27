@@ -13,7 +13,7 @@
 //! corrupt or hand-crafted ScoreData), the quotient can exceed i32::MAX and the
 //! cast wraps to a negative value.
 
-use bms_model::mode::Mode;
+use bms::model::mode::Mode;
 use rubato_core::score_data::ScoreData;
 use rubato_core::score_data_property::ScoreDataProperty;
 

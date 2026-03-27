@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
-use bms_model::bms_model::BMSModel;
-use bms_model::note::Note;
+use bms::model::bms_model::BMSModel;
+use bms::model::note::Note;
 
 /// Audio driver interface for playing various audio sources.
 ///

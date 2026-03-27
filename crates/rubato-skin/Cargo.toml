@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-bms-model.workspace = true
+bms.workspace = true
 rubato-types.workspace = true
 rubato-skin-model.workspace = true
 rubato-audio.workspace = true

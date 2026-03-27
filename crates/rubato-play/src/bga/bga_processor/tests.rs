@@ -1,7 +1,7 @@
 use super::*;
 use crate::skin::bga::StretchType;
-use bms_model::layer::{Event, Layer, Sequence};
-use bms_model::time_line::TimeLine;
+use bms::model::layer::{Event, Layer, Sequence};
+use bms::model::time_line::TimeLine;
 
 /// Helper: create a BMSModel with BGA timelines from (time_us, bga, layer) tuples.
 /// bga/layer values are set directly (including -2 for stop).

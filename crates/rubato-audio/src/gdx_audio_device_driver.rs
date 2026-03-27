@@ -16,8 +16,8 @@ use kira::sound::PlaybackState;
 use kira::sound::static_sound::{StaticSoundData, StaticSoundHandle};
 use kira::{AudioManager, AudioManagerSettings, DefaultBackend, PlaybackRate, Tween};
 
-use bms_model::bms_model::BMSModel;
-use bms_model::note::Note;
+use bms::model::bms_model::BMSModel;
+use bms::model::note::Note;
 
 use crate::abstract_audio_driver::SliceWav;
 use crate::audio_driver::AudioDriver;

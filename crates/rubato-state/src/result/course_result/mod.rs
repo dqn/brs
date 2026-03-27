@@ -828,16 +828,16 @@ impl CourseResult {
 
         // Play config (resolve consistent mode across course songs)
         s.play_config = self.resource.course_data().and_then(|course| {
-            let mut current_mode: Option<bms_model::mode::Mode> = None;
+            let mut current_mode: Option<bms::model::mode::Mode> = None;
             for song in &course.hash {
                 let song_mode = match song.chart.mode {
-                    5 => Some(bms_model::mode::Mode::BEAT_5K),
-                    7 => Some(bms_model::mode::Mode::BEAT_7K),
-                    9 => Some(bms_model::mode::Mode::POPN_9K),
-                    10 => Some(bms_model::mode::Mode::BEAT_10K),
-                    14 => Some(bms_model::mode::Mode::BEAT_14K),
-                    25 => Some(bms_model::mode::Mode::KEYBOARD_24K),
-                    50 => Some(bms_model::mode::Mode::KEYBOARD_24K_DOUBLE),
+                    5 => Some(bms::model::mode::Mode::BEAT_5K),
+                    7 => Some(bms::model::mode::Mode::BEAT_7K),
+                    9 => Some(bms::model::mode::Mode::POPN_9K),
+                    10 => Some(bms::model::mode::Mode::BEAT_10K),
+                    14 => Some(bms::model::mode::Mode::BEAT_14K),
+                    25 => Some(bms::model::mode::Mode::KEYBOARD_24K),
+                    50 => Some(bms::model::mode::Mode::KEYBOARD_24K_DOUBLE),
                     _ => None,
                 };
                 let song_mode = match song_mode {
@@ -852,7 +852,7 @@ impl CourseResult {
                     current_mode = Some(song_mode);
                 }
             }
-            let resolved_mode = current_mode.unwrap_or(bms_model::mode::Mode::BEAT_7K);
+            let resolved_mode = current_mode.unwrap_or(bms::model::mode::Mode::BEAT_7K);
             Some(Box::new(
                 self.resource
                     .player_config()
@@ -1399,7 +1399,7 @@ mod tests {
             Box::new(MockPlayerResourceForIR::new_with_course_score()),
             crate::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
         );
-        resource.course_bms_models = Some(vec![bms_model::bms_model::BMSModel::default()]);
+        resource.course_bms_models = Some(vec![bms::model::bms_model::BMSModel::default()]);
         resource
             .course_replay_mut()
             .push(rubato_core::replay_data::ReplayData::default());
@@ -2035,53 +2035,53 @@ mod tests {
 
     #[test]
     fn test_is_double_play_empty_models() {
-        let models: Vec<bms_model::bms_model::BMSModel> = vec![];
+        let models: Vec<bms::model::bms_model::BMSModel> = vec![];
         assert!(!is_double_play(&models));
     }
 
     #[test]
     fn test_is_double_play_single_player_model() {
         // Mode::BEAT_7K has player() == 1
-        let mut model = bms_model::bms_model::BMSModel::default();
-        model.set_mode(bms_model::mode::Mode::BEAT_7K);
+        let mut model = bms::model::bms_model::BMSModel::default();
+        model.set_mode(bms::model::mode::Mode::BEAT_7K);
         assert!(!is_double_play(&[model]));
     }
 
     #[test]
     fn test_is_double_play_double_player_model() {
         // Mode::BEAT_14K has player() == 2
-        let mut model = bms_model::bms_model::BMSModel::default();
-        model.set_mode(bms_model::mode::Mode::BEAT_14K);
+        let mut model = bms::model::bms_model::BMSModel::default();
+        model.set_mode(bms::model::mode::Mode::BEAT_14K);
         assert!(is_double_play(&[model]));
     }
 
     #[test]
     fn test_is_double_play_mixed_models() {
         // One single, one double -> dp = true (OR logic)
-        let mut m1 = bms_model::bms_model::BMSModel::default();
-        m1.set_mode(bms_model::mode::Mode::BEAT_7K);
-        let mut m2 = bms_model::bms_model::BMSModel::default();
-        m2.set_mode(bms_model::mode::Mode::BEAT_14K);
+        let mut m1 = bms::model::bms_model::BMSModel::default();
+        m1.set_mode(bms::model::mode::Mode::BEAT_7K);
+        let mut m2 = bms::model::bms_model::BMSModel::default();
+        m2.set_mode(bms::model::mode::Mode::BEAT_14K);
         assert!(is_double_play(&[m1, m2]));
     }
 
     #[test]
     fn test_is_double_play_no_mode_set() {
         // Model with no mode -> mode() returns None, unwrap_or(1) == 1, not dp
-        let model = bms_model::bms_model::BMSModel::default();
+        let model = bms::model::bms_model::BMSModel::default();
         assert!(!is_double_play(&[model]));
     }
 
     #[test]
     fn test_aggregate_total_notes_empty() {
-        let models: Vec<bms_model::bms_model::BMSModel> = vec![];
+        let models: Vec<bms::model::bms_model::BMSModel> = vec![];
         assert_eq!(aggregate_total_notes(&models), 0);
     }
 
     #[test]
     fn test_aggregate_total_notes_single_model() {
         // BMSModel::default() has 0 total notes
-        let model = bms_model::bms_model::BMSModel::default();
+        let model = bms::model::bms_model::BMSModel::default();
         assert_eq!(aggregate_total_notes(&[model]), 0);
     }
 
@@ -2424,11 +2424,11 @@ mod tests {
         // and cast ((negative + 500) / 500) as usize, which wraps to a huge value,
         // causing OOM or panic. The fix uses last_note_milli_time().max(0) with a
         // reasonable upper bound.
-        use bms_model::mode::Mode;
-        use bms_model::note::Note;
-        use bms_model::time_line::TimeLine;
+        use bms::model::mode::Mode;
+        use bms::model::note::Note;
+        use bms::model::time_line::TimeLine;
 
-        let mut model = bms_model::bms_model::BMSModel::new();
+        let mut model = bms::model::bms_model::BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
 
         // Create a timeline at ~3 billion milliseconds (exceeds i32::MAX = 2,147,483,647).
@@ -2458,11 +2458,11 @@ mod tests {
     #[test]
     fn test_gauge_fill_slots_normal_last_note_time() {
         // Verify normal case still works correctly with the fix
-        use bms_model::mode::Mode;
-        use bms_model::note::Note;
-        use bms_model::time_line::TimeLine;
+        use bms::model::mode::Mode;
+        use bms::model::note::Note;
+        use bms::model::time_line::TimeLine;
 
-        let mut model = bms_model::bms_model::BMSModel::new();
+        let mut model = bms::model::bms_model::BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
 
         // 120 seconds = 120_000 ms. time is in microseconds: 120_000 * 1000 = 120_000_000
@@ -2481,7 +2481,7 @@ mod tests {
     #[test]
     fn test_gauge_fill_slots_zero_last_note_time() {
         // Empty model with no notes should produce 0 slots (no division issues)
-        let model = bms_model::bms_model::BMSModel::new();
+        let model = bms::model::bms_model::BMSModel::new();
 
         let last_note_milli_time = model.last_note_milli_time().max(0);
         let slots = ((last_note_milli_time + 500) / 500).min(100_000) as usize;
@@ -2506,7 +2506,7 @@ mod tests {
         let mut resource =
             PlayerResource::new(Box::new(mock), crate::result::BMSPlayerMode::new(mode));
         // Provide course models so write_score_data_course has data
-        resource.course_bms_models = Some(vec![bms_model::bms_model::BMSModel::default()]);
+        resource.course_bms_models = Some(vec![bms::model::bms_model::BMSModel::default()]);
         CourseResult::new(
             main,
             resource,
@@ -2697,7 +2697,7 @@ mod tests {
             Box::new(MockPlayerResourceForIR::new_with_course_score()),
             crate::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
         );
-        resource.course_bms_models = Some(vec![bms_model::bms_model::BMSModel::default()]);
+        resource.course_bms_models = Some(vec![bms::model::bms_model::BMSModel::default()]);
         let mut cr = CourseResult::new(
             main,
             resource,

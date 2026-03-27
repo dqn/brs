@@ -5,7 +5,7 @@ edition.workspace = true
 
 [dependencies]
 # Internal crates
-bms-model = { workspace = true }
+bms = { workspace = true }
 rubato-types = { workspace = true }
 
 # Error handling

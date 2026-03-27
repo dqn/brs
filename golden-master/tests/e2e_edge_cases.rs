@@ -8,7 +8,7 @@
 // - Extended channels (LNTYPE 2, invisible, mine combinations)
 // - BMSON BPM-crossing long notes
 
-use bms_model::judge_note::JUDGE_PG;
+use bms::model::judge_note::JUDGE_PG;
 use golden_master::e2e_helpers::*;
 use rubato_types::groove_gauge::NORMAL;
 
@@ -74,9 +74,9 @@ fn autoplay_channel_extended() {
 
 #[test]
 fn autoplay_bmson_bpm_ln_cross() {
-    use bms_model::bms_model::LNTYPE_LONGNOTE;
-    use bms_model::bmson_decoder::BMSONDecoder;
-    use bms_model::chart_information::ChartInformation;
+    use bms::model::bms_model::LNTYPE_LONGNOTE;
+    use bms::model::bmson_decoder::BMSONDecoder;
+    use bms::model::chart_information::ChartInformation;
 
     let path = golden_master::e2e_helpers::test_bms_dir().join("bmson_bpm_ln_cross.bmson");
     let info = ChartInformation::new(Some(path), LNTYPE_LONGNOTE, None);

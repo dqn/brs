@@ -3,8 +3,8 @@
 //! Each variant wraps one of the audio driver implementations. Method calls
 //! are delegated via `match` instead of dynamic dispatch.
 
-use bms_model::bms_model::BMSModel;
-use bms_model::note::Note;
+use bms::model::bms_model::BMSModel;
+use bms::model::note::Note;
 
 use crate::audio_driver::AudioDriver;
 use crate::gdx_audio_device_driver::GdxAudioDeviceDriver;

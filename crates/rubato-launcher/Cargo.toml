@@ -19,7 +19,7 @@ rubato-play = { workspace = true }
 rubato-external = { workspace = true }
 rubato-state = { workspace = true }
 rubato-types = { workspace = true }
-bms-model = { workspace = true }
+bms = { workspace = true }
 rubato-render = { workspace = true }
 rubato-song = { workspace = true }
 arboard = { workspace = true }

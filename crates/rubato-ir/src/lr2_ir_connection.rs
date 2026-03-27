@@ -5,7 +5,7 @@ use std::sync::{Mutex, MutexGuard, OnceLock};
 use log::error;
 use serde::Deserialize;
 
-use bms_model::mode::Mode;
+use bms::model::mode::Mode;
 use rubato_core::score_data::ScoreData;
 
 use crate::ir_chart_data::IRChartData;
