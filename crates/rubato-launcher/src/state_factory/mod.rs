@@ -9,7 +9,6 @@ pub(crate) mod shared_selector;
 
 use std::sync::{Arc, Mutex};
 
-use rubato_audio::audio_system::AudioSystem;
 use rubato_core::config_pkg::key_configuration::KeyConfiguration;
 use rubato_core::config_pkg::skin_configuration::SkinConfiguration;
 use rubato_core::main_controller::{MainController, StateCreateResult, StateCreator};
@@ -31,8 +30,8 @@ use rubato_types::main_controller_access::MainControllerAccess as _;
 use rubato_types::player_resource_access::MediaAccess as _;
 use rubato_types::score_data::ScoreData;
 
+use queued_access::QueuedControllerAccess;
 pub use queued_access::new_state_main_controller_access;
-use queued_access::{QueuedAudioDriver, QueuedControllerAccess};
 use shared_selector::SharedMusicSelectorState;
 
 use crate::game_screen::GameScreen;
@@ -184,16 +183,12 @@ impl LauncherStateFactory {
                 // Java: decide = new MusicDecide(this);
                 match controller.take_player_resource() {
                     Some(resource) => {
-                        let command_queue = controller.controller_command_queue();
                         let mc_access = QueuedControllerAccess::from_controller(
                             controller,
-                            command_queue.clone(),
+                            controller.controller_command_queue(),
                         );
                         let decide = MusicDecide::new(
-                            DecideMainControllerRef::with_audio(
-                                Box::new(mc_access),
-                                AudioSystem::Boxed(Box::new(QueuedAudioDriver::new(command_queue))),
-                            ),
+                            DecideMainControllerRef::new(Box::new(mc_access)),
                             Box::new(resource),
                             TimerManager::new(),
                         );
@@ -433,9 +428,10 @@ impl LauncherStateFactory {
                     }
                 };
                 let ir_statuses = extract_ir_statuses(controller);
-                let command_queue = controller.controller_command_queue();
-                let mc_access =
-                    QueuedControllerAccess::from_controller(controller, command_queue.clone());
+                let mc_access = QueuedControllerAccess::from_controller(
+                    controller,
+                    controller.controller_command_queue(),
+                );
                 let pm = core_res.play_mode().cloned().unwrap_or_else(|| {
                     log::warn!("PlayerResource missing play_mode for Result state");
                     BMSPlayerMode::new(BMSPlayerModeType::Play)
@@ -451,11 +447,7 @@ impl LauncherStateFactory {
                 rr.course_bms_models = cm;
                 rr.ranking_data = ranking;
                 let result = MusicResult::new(
-                    ResultMainController::with_audio_and_ir(
-                        Box::new(mc_access),
-                        AudioSystem::Boxed(Box::new(QueuedAudioDriver::new(command_queue))),
-                        ir_statuses,
-                    ),
+                    ResultMainController::with_ir_statuses(Box::new(mc_access), ir_statuses),
                     rr,
                     TimerManager::new(),
                 );
@@ -476,9 +468,10 @@ impl LauncherStateFactory {
                     }
                 };
                 let ir_statuses = extract_ir_statuses(controller);
-                let command_queue = controller.controller_command_queue();
-                let mc_access =
-                    QueuedControllerAccess::from_controller(controller, command_queue.clone());
+                let mc_access = QueuedControllerAccess::from_controller(
+                    controller,
+                    controller.controller_command_queue(),
+                );
                 let pm = core_res.play_mode().cloned().unwrap_or_else(|| {
                     log::warn!("PlayerResource missing play_mode for CourseResult state");
                     BMSPlayerMode::new(BMSPlayerModeType::Play)
@@ -494,11 +487,7 @@ impl LauncherStateFactory {
                 rr.course_bms_models = cm;
                 rr.ranking_data = ranking;
                 let course_result = CourseResult::new(
-                    ResultMainController::with_audio_and_ir(
-                        Box::new(mc_access),
-                        AudioSystem::Boxed(Box::new(QueuedAudioDriver::new(command_queue))),
-                        ir_statuses,
-                    ),
+                    ResultMainController::with_ir_statuses(Box::new(mc_access), ir_statuses),
                     rr,
                     TimerManager::new(),
                 );
@@ -530,6 +519,7 @@ impl LauncherStateFactory {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rubato_audio::audio_system::AudioSystem;
     use rubato_core::score_database_accessor::ScoreDatabaseAccessor;
     use rubato_core::sprite_batch_helper::SpriteBatchHelper;
     use rubato_song::song_information_accessor::SongInformationAccessor;

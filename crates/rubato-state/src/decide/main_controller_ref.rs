@@ -1,14 +1,11 @@
-use rubato_audio::audio_system::AudioSystem;
 use rubato_core::system_sound_manager::SoundType;
 use rubato_input::bms_player_input_processor::BMSPlayerInputProcessor;
 
 /// Wrapper for MainController reference.
 /// Delegates trait methods (change_state) to `Box<dyn MainControllerAccess>`.
 /// Stores BMSPlayerInputProcessor locally (type not available on MainControllerAccess trait).
-/// AudioSystem is stored directly (Phase 41c) -- not on MainControllerAccess trait.
 pub struct MainControllerRef {
     inner: Box<dyn rubato_types::main_controller_access::MainControllerAccess>,
-    audio: Option<AudioSystem>,
     input_processor: BMSPlayerInputProcessor,
 }
 
@@ -18,20 +15,6 @@ impl MainControllerRef {
         let input_processor = BMSPlayerInputProcessor::new_without_midi(config);
         Self {
             inner,
-            audio: None,
-            input_processor,
-        }
-    }
-
-    pub fn with_audio(
-        inner: Box<dyn rubato_types::main_controller_access::MainControllerAccess>,
-        audio: AudioSystem,
-    ) -> Self {
-        let config = inner.config();
-        let input_processor = BMSPlayerInputProcessor::new_without_midi(config);
-        Self {
-            inner,
-            audio: Some(audio),
             input_processor,
         }
     }
@@ -60,10 +43,6 @@ impl MainControllerRef {
         input.sync_runtime_state_from(&self.input_processor);
     }
 
-    pub fn audio_processor_mut(&mut self) -> Option<&mut AudioSystem> {
-        self.audio.as_mut()
-    }
-
     pub fn play_sound(&mut self, sound: &SoundType, loop_sound: bool) {
         self.inner.play_sound(sound, loop_sound);
     }
@@ -88,46 +67,14 @@ impl MainControllerRef {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rubato_audio::recording_audio_driver::RecordingAudioDriver;
     use rubato_types::main_controller_access::NullMainController;
 
     #[test]
-    fn test_main_controller_ref_new_has_no_audio() {
-        let mut mc = MainControllerRef::new(Box::new(NullMainController));
-        assert!(mc.audio_processor_mut().is_none());
-    }
-
-    #[test]
-    fn test_main_controller_ref_with_audio_has_audio() {
-        let mut mc = MainControllerRef::with_audio(
-            Box::new(NullMainController),
-            AudioSystem::Recording(RecordingAudioDriver::new()),
+    fn test_main_controller_ref_new() {
+        let mc = MainControllerRef::new(Box::new(NullMainController));
+        assert_eq!(
+            mc.config().display.window_width,
+            rubato_types::config::Config::default().display.window_width,
         );
-        assert!(mc.audio_processor_mut().is_some());
-    }
-
-    #[test]
-    fn test_main_controller_ref_audio_set_global_pitch() {
-        let mut mc = MainControllerRef::with_audio(
-            Box::new(NullMainController),
-            AudioSystem::Recording(RecordingAudioDriver::new()),
-        );
-        if let Some(audio) = mc.audio_processor_mut() {
-            audio.set_global_pitch(1.0);
-            assert_eq!(audio.get_global_pitch(), 1.0);
-        } else {
-            panic!("expected audio processor to be present");
-        }
-    }
-
-    #[test]
-    fn test_main_controller_ref_audio_stop_note() {
-        let mut mc = MainControllerRef::with_audio(
-            Box::new(NullMainController),
-            AudioSystem::Recording(RecordingAudioDriver::new()),
-        );
-        if let Some(audio) = mc.audio_processor_mut() {
-            audio.stop_note(None);
-        }
     }
 }

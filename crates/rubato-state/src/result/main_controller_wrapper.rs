@@ -1,4 +1,3 @@
-use rubato_audio::audio_system::AudioSystem;
 use rubato_core::play_data_accessor::PlayDataAccessor;
 use rubato_input::bms_player_input_processor::BMSPlayerInputProcessor;
 use rubato_types::config::Config;
@@ -18,7 +17,6 @@ use rubato_types::sync_utils::lock_or_recover;
 /// RankingDataCache.
 pub struct MainController {
     inner: Box<dyn MainControllerAccess>,
-    audio: Option<AudioSystem>,
     ir_statuses: Vec<IRStatus>,
     ir_send_statuses: std::sync::Arc<std::sync::Mutex<Vec<IRSendStatusMain>>>,
     pub input_processor: BMSPlayerInputProcessor,
@@ -37,26 +35,6 @@ impl MainController {
             .unwrap_or_else(|| Box::new(rubato_ir::ranking_data_cache::RankingDataCache::new()));
         Self {
             inner,
-            audio: None,
-            ir_statuses: Vec::new(),
-            ir_send_statuses: crate::result::ir_resend::shared_ir_statuses(),
-            input_processor,
-            play_data_accessor,
-            ranking_data_cache,
-        }
-    }
-
-    pub fn with_audio(inner: Box<dyn MainControllerAccess>, audio: AudioSystem) -> Self {
-        let config = inner.config();
-        let input_processor = BMSPlayerInputProcessor::new_without_midi(config);
-        let play_data_accessor = PlayDataAccessor::new(config);
-        let ranking_data_cache = inner
-            .ranking_data_cache()
-            .map(|cache| cache.clone_box())
-            .unwrap_or_else(|| Box::new(rubato_ir::ranking_data_cache::RankingDataCache::new()));
-        Self {
-            inner,
-            audio: Some(audio),
             ir_statuses: Vec::new(),
             ir_send_statuses: crate::result::ir_resend::shared_ir_statuses(),
             input_processor,
@@ -78,30 +56,6 @@ impl MainController {
             .unwrap_or_else(|| Box::new(rubato_ir::ranking_data_cache::RankingDataCache::new()));
         Self {
             inner,
-            audio: None,
-            ir_statuses,
-            ir_send_statuses: crate::result::ir_resend::shared_ir_statuses(),
-            input_processor,
-            play_data_accessor,
-            ranking_data_cache,
-        }
-    }
-
-    pub fn with_audio_and_ir(
-        inner: Box<dyn MainControllerAccess>,
-        audio: AudioSystem,
-        ir_statuses: Vec<IRStatus>,
-    ) -> Self {
-        let config = inner.config();
-        let input_processor = BMSPlayerInputProcessor::new_without_midi(config);
-        let play_data_accessor = PlayDataAccessor::new(config);
-        let ranking_data_cache = inner
-            .ranking_data_cache()
-            .map(|cache| cache.clone_box())
-            .unwrap_or_else(|| Box::new(rubato_ir::ranking_data_cache::RankingDataCache::new()));
-        Self {
-            inner,
-            audio: Some(audio),
             ir_statuses,
             ir_send_statuses: crate::result::ir_resend::shared_ir_statuses(),
             input_processor,
@@ -186,10 +140,6 @@ impl MainController {
         &self.play_data_accessor
     }
 
-    pub fn audio_processor_mut(&mut self) -> Option<&mut AudioSystem> {
-        self.audio.as_mut()
-    }
-
     pub fn ranking_data_cache(
         &self,
     ) -> &dyn rubato_types::ranking_data_cache_access::RankingDataCacheAccess {
@@ -206,52 +156,10 @@ impl MainController {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rubato_audio::recording_audio_driver::RecordingAudioDriver;
     use rubato_ir::ranking_data::RankingData;
     use rubato_types::main_controller_access::NullMainController;
     use rubato_types::player_resource_access::PlayerResourceAccess;
     use rubato_types::song_data::SongData;
-
-    #[test]
-    fn test_main_controller_new_has_no_audio() {
-        let mut mc = MainController::new(Box::new(NullMainController));
-        assert!(mc.audio_processor_mut().is_none());
-    }
-
-    #[test]
-    fn test_main_controller_with_audio_has_audio() {
-        let mut mc = MainController::with_audio(
-            Box::new(NullMainController),
-            AudioSystem::Recording(RecordingAudioDriver::new()),
-        );
-        assert!(mc.audio_processor_mut().is_some());
-    }
-
-    #[test]
-    fn test_main_controller_audio_stop_note() {
-        let mut mc = MainController::with_audio(
-            Box::new(NullMainController),
-            AudioSystem::Recording(RecordingAudioDriver::new()),
-        );
-        if let Some(audio) = mc.audio_processor_mut() {
-            audio.stop_note(None);
-        }
-        // Verify the call went through (cannot inspect mock after borrow, but no panic = pass)
-    }
-
-    #[test]
-    fn test_main_controller_audio_set_global_pitch() {
-        let mut mc = MainController::with_audio(
-            Box::new(NullMainController),
-            AudioSystem::Recording(RecordingAudioDriver::new()),
-        );
-        if let Some(audio) = mc.audio_processor_mut() {
-            audio.set_global_pitch(1.5);
-            assert_eq!(audio.get_global_pitch(), 1.5);
-        } else {
-            panic!("expected audio processor to be present");
-        }
-    }
 
     struct CacheBackedMainControllerAccess {
         config: Config,
@@ -339,7 +247,7 @@ mod tests {
     }
 
     #[test]
-    fn test_with_audio_and_ir_has_both_audio_and_ir_statuses() {
+    fn test_with_ir_statuses_carries_ir_statuses() {
         use rubato_ir::ir_player_data::IRPlayerData;
         use std::sync::Arc;
 
@@ -411,33 +319,20 @@ mod tests {
             IRPlayerData::new("id1".into(), "Player1".into(), "Rank1".into()),
         )];
 
-        let mut mc = MainController::with_audio_and_ir(
-            Box::new(NullMainController),
-            AudioSystem::Recording(RecordingAudioDriver::new()),
-            ir_statuses,
-        );
+        let mc = MainController::with_ir_statuses(Box::new(NullMainController), ir_statuses);
 
-        assert!(
-            mc.audio_processor_mut().is_some(),
-            "with_audio_and_ir should provide audio"
-        );
         assert_eq!(
             mc.ir_status().len(),
             1,
-            "with_audio_and_ir should carry IR statuses"
+            "with_ir_statuses should carry IR statuses"
         );
         assert_eq!(mc.ir_status()[0].player.id, "id1");
     }
 
     #[test]
-    fn test_with_audio_and_ir_empty_ir_still_has_audio() {
-        let mut mc = MainController::with_audio_and_ir(
-            Box::new(NullMainController),
-            AudioSystem::Recording(RecordingAudioDriver::new()),
-            Vec::new(),
-        );
+    fn test_with_ir_statuses_empty_ir() {
+        let mc = MainController::with_ir_statuses(Box::new(NullMainController), Vec::new());
 
-        assert!(mc.audio_processor_mut().is_some());
         assert!(mc.ir_status().is_empty());
     }
 }

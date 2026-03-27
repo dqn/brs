@@ -304,6 +304,14 @@ pub trait MainState {
         None
     }
 
+    /// Take pending stop-all-notes flag.
+    ///
+    /// MusicResult and CourseResult set this during fadeout to stop keysound playback.
+    /// MainController consumes it via `ctx.stop_all_notes()`.
+    fn take_pending_stop_all_notes(&mut self) -> bool {
+        false
+    }
+
     /// Take pending audio config update to propagate volume changes to the audio driver.
     ///
     /// BMSPlayer overrides this to return audio config set by PlayMouseContext

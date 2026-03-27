@@ -1,12 +1,7 @@
-// Queued proxy implementations for MainControllerAccess and AudioDriver.
+// Queued proxy implementations for MainControllerAccess.
 // These proxies enqueue commands for later execution by MainController,
 // allowing screen states to issue side effects without direct controller access.
 
-use std::any::Any;
-use std::collections::HashSet;
-use std::sync::Arc;
-
-use rubato_audio::audio_driver::AudioDriver;
 use rubato_core::main_controller::MainController;
 use rubato_core::play_data_accessor::PlayDataAccessor;
 use rubato_core::system_sound_manager::SystemSoundManager;
@@ -22,6 +17,9 @@ use rubato_types::player_resource_access::PlayerResourceAccess;
 use rubato_types::score_data::ScoreData;
 use rubato_types::song_information_db::SongInformationDb;
 use rubato_types::sound_type::SoundType;
+use std::any::Any;
+use std::collections::HashSet;
+use std::sync::Arc;
 
 pub(super) struct QueuedControllerAccess {
     config: rubato_core::config::Config,
@@ -324,50 +322,4 @@ pub fn new_state_main_controller_access(
         controller,
         controller.controller_command_queue(),
     ))
-}
-
-pub(super) struct QueuedAudioDriver {
-    commands: MainControllerCommandQueue,
-    global_pitch: f32,
-}
-
-impl QueuedAudioDriver {
-    pub(super) fn new(commands: MainControllerCommandQueue) -> Self {
-        Self {
-            commands,
-            global_pitch: 1.0,
-        }
-    }
-}
-
-impl AudioDriver for QueuedAudioDriver {
-    fn play_path(&mut self, _path: &str, _volume: f32, _loop_play: bool) {}
-    fn set_volume_path(&mut self, _path: &str, _volume: f32) {}
-    fn is_playing_path(&self, _path: &str) -> bool {
-        false
-    }
-    fn stop_path(&mut self, _path: &str) {}
-    fn dispose_path(&mut self, _path: &str) {}
-    fn set_model(&mut self, _model: &bms_model::bms_model::BMSModel) {}
-    fn set_additional_key_sound(&mut self, _judge: i32, _fast: bool, _path: Option<&str>) {}
-    fn abort(&mut self) {}
-    fn get_progress(&self) -> f32 {
-        1.0
-    }
-    fn play_note(&mut self, _n: &bms_model::note::Note, _volume: f32, _pitch: i32) {}
-    fn play_judge(&mut self, _judge: i32, _fast: bool) {}
-    fn stop_note(&mut self, _n: Option<&bms_model::note::Note>) {
-        self.commands.push(MainControllerCommand::StopAllNotes);
-    }
-    fn set_volume_note(&mut self, _n: &bms_model::note::Note, _volume: f32) {}
-    fn set_global_pitch(&mut self, pitch: f32) {
-        self.global_pitch = pitch;
-        self.commands
-            .push(MainControllerCommand::SetGlobalPitch(pitch));
-    }
-    fn get_global_pitch(&self) -> f32 {
-        self.global_pitch
-    }
-    fn dispose_old(&mut self) {}
-    fn dispose(&mut self) {}
 }

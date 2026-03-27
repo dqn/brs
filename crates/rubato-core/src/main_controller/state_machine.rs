@@ -395,16 +395,6 @@ impl MainController {
                 MainControllerCommand::StartIpfsDownload(song) => {
                     let _ = <Self as MainControllerAccess>::start_ipfs_download(self, &song);
                 }
-                MainControllerCommand::SetGlobalPitch(pitch) => {
-                    if let Some(ref mut audio) = self.ctx.audio {
-                        audio.set_global_pitch(pitch);
-                    }
-                }
-                MainControllerCommand::StopAllNotes => {
-                    if let Some(ref mut audio) = self.ctx.audio {
-                        audio.stop_note(None);
-                    }
-                }
                 MainControllerCommand::PlayAudioPath(path, volume, loop_play) => {
                     if let Some(ref mut audio) = self.ctx.audio {
                         audio.play_path(&path, volume, loop_play);

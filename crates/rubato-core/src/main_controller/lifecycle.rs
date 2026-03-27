@@ -241,6 +241,7 @@ impl MainController {
         let mut pending_audio_path_plays: Vec<(String, f32, bool)> = Vec::new();
         let mut pending_audio_path_stops: Vec<String> = Vec::new();
         let mut pending_player_config: Option<rubato_types::player_config::PlayerConfig> = None;
+        let mut pending_stop_all_notes = false;
 
         if let Some(ref mut current) = self.current {
             pending_sounds = current.drain_pending_sounds();
@@ -256,6 +257,7 @@ impl MainController {
             pending_audio_config = current.take_pending_audio_config();
             pending_audio_path_plays = current.drain_pending_audio_path_plays();
             pending_audio_path_stops = current.drain_pending_audio_path_stops();
+            pending_stop_all_notes = current.take_pending_stop_all_notes();
             pending_change = current.take_pending_state_change();
         }
 
@@ -314,6 +316,11 @@ impl MainController {
                     audio.stop_path(&path);
                 }
             }
+        }
+
+        // Apply stop-all-notes (result screen fadeout)
+        if pending_stop_all_notes {
+            self.ctx.stop_all_notes();
         }
 
         // Apply global pitch

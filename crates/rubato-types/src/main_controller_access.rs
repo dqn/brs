@@ -28,8 +28,6 @@ pub enum MainControllerCommand {
     ShuffleSounds,
     UpdateTable(Box<dyn crate::table_update_source::TableUpdateSource>),
     StartIpfsDownload(Box<crate::song_data::SongData>),
-    SetGlobalPitch(f32),
-    StopAllNotes,
     PlayAudioPath(String, f32, bool),
     SetAudioPathVolume(String, f32),
     StopAudioPath(String),

@@ -66,6 +66,8 @@ pub struct MusicResult {
     pending_audio_path_stops: Vec<String>,
     /// Outbox: pending audio config update.
     pending_audio_config: Option<rubato_types::audio_config::AudioConfig>,
+    /// Outbox: pending stop-all-notes request (fadeout).
+    pending_stop_all_notes: bool,
 }
 
 impl MusicResult {
@@ -85,6 +87,7 @@ impl MusicResult {
             pending_audio_path_plays: Vec::new(),
             pending_audio_path_stops: Vec::new(),
             pending_audio_config: None,
+            pending_stop_all_notes: false,
         }
     }
 
@@ -367,9 +370,7 @@ impl MusicResult {
             let fadeout_time = self.main_data.timer.now_time_for_id(TIMER_FADEOUT);
             let skin_fadeout = self.skin.as_ref().map(|s| s.fadeout() as i64).unwrap_or(0);
             if fadeout_time > skin_fadeout {
-                if let Some(audio) = self.main.audio_processor_mut() {
-                    audio.stop_note(None);
-                }
+                self.pending_stop_all_notes = true;
                 {
                     let input = self.main.input_processor();
                     input.reset_all_key_changed_time();
@@ -1245,6 +1246,10 @@ impl MainState for MusicResult {
 
     fn take_pending_audio_config(&mut self) -> Option<rubato_types::audio_config::AudioConfig> {
         self.pending_audio_config.take()
+    }
+
+    fn take_pending_stop_all_notes(&mut self) -> bool {
+        std::mem::take(&mut self.pending_stop_all_notes)
     }
 }
 
