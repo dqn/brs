@@ -320,8 +320,9 @@ impl MainController {
     /// Java: StreamController holds a reference to the same MusicSelector used by SelectState.
     pub fn shared_music_selector(
         &self,
-    ) -> Option<&std::sync::Arc<std::sync::Mutex<crate::state::select::music_selector::MusicSelector>>>
-    {
+    ) -> Option<
+        &std::sync::Arc<std::sync::Mutex<crate::state::select::music_selector::MusicSelector>>,
+    > {
         self.shared_music_selector.as_ref()
     }
 

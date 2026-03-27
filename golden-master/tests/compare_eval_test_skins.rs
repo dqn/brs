@@ -11,10 +11,10 @@ use golden_master::state_provider::StaticStateProvider;
 
 use rubato_skin::reexports::TextureRegion;
 use rubato_skin::skin::Skin;
-use rubato_skin::types::skin_node::SkinNode;
 use rubato_skin::skin_header::SkinHeader;
 use rubato_skin::skin_image::SkinImage;
 use rubato_skin::skin_object::DestinationParams;
+use rubato_skin::types::skin_node::SkinNode;
 
 // ---------------------------------------------------------------------------
 // Helpers

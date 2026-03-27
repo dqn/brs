@@ -1493,10 +1493,7 @@ impl MainState for MusicDecide {
         }
     }
 
-    fn render_with_game_context(
-        &mut self,
-        _ctx: &mut GameContext,
-    ) -> Option<StateTransition> {
+    fn render_with_game_context(&mut self, _ctx: &mut GameContext) -> Option<StateTransition> {
         let nowtime = self.data.timer.now_time();
         // Skin timing values; fall back to 0 when no skin is loaded so the
         // decide screen still transitions to Play instead of stalling forever.
@@ -1622,7 +1619,6 @@ impl MainState for MusicDecide {
         let old = std::mem::replace(&mut self.resource, null);
         Some(old.into_any_send())
     }
-
 }
 
 #[cfg(test)]
@@ -2060,10 +2056,7 @@ mod tests {
         decide.cancel = false;
         decide.data.timer.set_timer_on(TIMER_FADEOUT);
         let result = decide.render_with_game_context(&mut ctx);
-        assert_eq!(
-            result,
-            Some(StateTransition::ChangeTo(MainStateType::Play))
-        );
+        assert_eq!(result, Some(StateTransition::ChangeTo(MainStateType::Play)));
     }
 
     // ============================================================

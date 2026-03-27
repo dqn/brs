@@ -8,8 +8,8 @@ use rubato_types::play_mode_config::{
     ControllerConfig, KeyboardConfig, MidiConfig, MidiInput, MouseScratchConfig,
 };
 
-use crate::core::main_controller::MainController;
 use crate::core::app_context::GameContext;
+use crate::core::main_controller::MainController;
 use crate::core::main_state::{MainState, MainStateData, MainStateType, StateTransition};
 use crate::core::timer_manager::TimerManager;
 

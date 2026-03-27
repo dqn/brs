@@ -3,8 +3,8 @@
 
 use log::info;
 
-use crate::core::clear_type::ClearType;
 use crate::core::app_context::GameContext;
+use crate::core::clear_type::ClearType;
 use crate::core::main_state::{MainState, MainStateData, MainStateType, StateTransition};
 use crate::core::score_data::ScoreData;
 use crate::core::system_sound_manager::SoundType;
@@ -1078,10 +1078,7 @@ impl MainState for MusicResult {
         self.do_render();
     }
 
-    fn render_with_game_context(
-        &mut self,
-        ctx: &mut GameContext,
-    ) -> Option<StateTransition> {
+    fn render_with_game_context(&mut self, ctx: &mut GameContext) -> Option<StateTransition> {
         // Poll for async IR results (non-blocking)
         self.poll_ir_results();
 
@@ -1418,7 +1415,6 @@ impl MainState for MusicResult {
     fn take_player_resource_box(&mut self) -> Option<Box<dyn std::any::Any + Send>> {
         self.resource.take_inner().map(|b| b.into_any_send())
     }
-
 }
 
 impl Default for MusicResult {

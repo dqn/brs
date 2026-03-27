@@ -1146,10 +1146,7 @@ impl crate::core::main_state::MainState for CourseResult {
         self.do_render();
     }
 
-    fn render_with_game_context(
-        &mut self,
-        ctx: &mut GameContext,
-    ) -> Option<StateTransition> {
+    fn render_with_game_context(&mut self, ctx: &mut GameContext) -> Option<StateTransition> {
         // Poll for async IR results (non-blocking)
         self.poll_ir_results();
 
@@ -1422,7 +1419,6 @@ impl crate::core::main_state::MainState for CourseResult {
     fn dispose(&mut self) {
         self.dispose();
     }
-
 }
 
 // Tests for CourseResult
