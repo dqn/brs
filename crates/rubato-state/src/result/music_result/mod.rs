@@ -1222,6 +1222,7 @@ impl Default for MusicResult {
 mod tests {
     use super::*;
     use crate::result::abstract_result::{STATE_IR_FINISHED, STATE_IR_PROCESSING, STATE_OFFLINE};
+    use crate::result::music_result::render_context::{ResultMouseContext, ResultRenderContext};
     use crate::result::test_helpers::{
         ExecuteEventSkin, PlayerConfigMutatingSkin, TestMainControllerAccess, make_test_config,
     };
