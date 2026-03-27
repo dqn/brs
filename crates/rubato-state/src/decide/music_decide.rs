@@ -15,6 +15,8 @@ use super::{ControlKeys, NullPlayerResource, PlayerResourceAccess};
 
 /// Render context adapter for decide screen skin rendering.
 /// Provides config access through SkinRenderContext.
+/// Production code uses PropertySnapshot; this adapter is retained for tests.
+#[cfg_attr(not(test), allow(dead_code))]
 struct DecideRenderContext<'a> {
     timer: &'a mut TimerManager,
     resource: &'a mut dyn PlayerResourceAccess,
@@ -1523,16 +1525,14 @@ impl MainState for MusicDecide {
             skin_type,
         );
         let skin = {
-            let mut ctx = DecideRenderContext {
-                timer: &mut self.data.timer,
-                resource: &mut *self.resource,
-                main: &mut self.main,
-                score_data_property: &self.cached_score_data_property,
-                offsets: &self.data.offsets,
-                pending_events: Vec::new(),
-            };
+            let mut snapshot = self.build_snapshot(&self.data.timer);
+            let registry = std::collections::HashMap::new();
+            let mut state =
+                rubato_skin::snapshot_main_state::SnapshotMainState::new(&mut snapshot, &registry);
             skin_path.as_deref().and_then(|path| {
-                rubato_skin::skin_loader::load_skin_from_path_with_state(&mut ctx, skin_type, path)
+                rubato_skin::skin_loader::load_skin_from_path_with_state(
+                    &mut state, skin_type, path,
+                )
             })
         };
         self.data.skin =

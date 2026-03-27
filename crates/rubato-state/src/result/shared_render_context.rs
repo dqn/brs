@@ -1,6 +1,9 @@
 // Shared render context helpers for music_result and course_result.
 // Both result screens share identical logic for most SkinRenderContext methods;
 // only state_type, current_play_config_ref, and string_value differ.
+// Production code now uses PropertySnapshot; these helpers are retained for
+// build_snapshot() and test code.
+#![allow(dead_code)]
 
 use rubato_core::clear_type::ClearType;
 use rubato_core::score_data::ScoreData;

@@ -27,10 +27,9 @@ use rubato_types::property_snapshot::PropertySnapshot;
 use rubato_types::skin_action_queue::SkinActionQueue;
 use rubato_types::timer_id::TimerId;
 
+#[cfg(test)]
 mod render_context;
 mod score_handler;
-
-use render_context::*;
 
 /// IR send result for async processing.
 type MusicIrResult = (
@@ -1170,17 +1169,16 @@ impl MainState for MusicResult {
             .and_then(|skin| skin.path.clone())
             .or_else(|| rubato_types::skin_config::SkinConfig::default_for_id(skin_type).path);
         // Take timer out to avoid borrowing self.main_data and its fields simultaneously
-        let mut timer = std::mem::take(&mut self.main_data.timer);
+        let timer = std::mem::take(&mut self.main_data.timer);
         let loaded = {
-            let mut ctx = ResultRenderContext {
-                timer: &mut timer,
-                data: &self.data,
-                resource: &self.resource,
-                main: &mut self.main,
-                offsets: &self.main_data.offsets,
-            };
+            let mut snapshot = self.build_snapshot(&timer);
+            let registry = std::collections::HashMap::new();
+            let mut state =
+                rubato_skin::snapshot_main_state::SnapshotMainState::new(&mut snapshot, &registry);
             skin_path.as_deref().and_then(|path| {
-                rubato_skin::skin_loader::load_skin_from_path_with_state(&mut ctx, skin_type, path)
+                rubato_skin::skin_loader::load_skin_from_path_with_state(
+                    &mut state, skin_type, path,
+                )
             })
         };
         self.main_data.timer = timer;

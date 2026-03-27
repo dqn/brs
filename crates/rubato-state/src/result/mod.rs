@@ -70,15 +70,11 @@ pub mod course_result_skin {
 /// Parameters:
 /// - `$result_type`: the struct implementing MainState (e.g. `MusicResult`)
 /// - `$state_variant`: the MainStateType variant (e.g. `Result` or `CourseResult`)
-/// - `$render_ctx`: the render context struct (e.g. `ResultRenderContext`)
-/// - `$mouse_ctx`: the mouse context struct (e.g. `ResultMouseContext`)
 #[allow(unused_macros)]
 macro_rules! impl_result_main_state {
     (
         $result_type:ty,
-        $state_variant:ident,
-        $render_ctx:ident,
-        $mouse_ctx:ident
+        $state_variant:ident
     ) => {
         fn state_type(&self) -> Option<rubato_core::main_state::MainStateType> {
             Some(rubato_core::main_state::MainStateType::$state_variant)
@@ -234,19 +230,17 @@ macro_rules! impl_result_main_state {
                 .and_then(|skin| skin.as_ref())
                 .and_then(|skin| skin.path.clone())
                 .or_else(|| rubato_types::skin_config::SkinConfig::default_for_id(skin_type).path);
-            // Take timer out to avoid borrowing self.main_data and its fields simultaneously
             let mut timer = std::mem::take(&mut self.main_data.timer);
             let loaded = {
-                let mut ctx = $render_ctx {
-                    timer: &mut timer,
-                    data: &self.data,
-                    resource: &self.resource,
-                    main: &mut self.main,
-                    offsets: &self.main_data.offsets,
-                };
+                let mut snapshot = self.build_snapshot(&timer);
+                let registry = std::collections::HashMap::new();
+                let mut state = rubato_skin::snapshot_main_state::SnapshotMainState::new(
+                    &mut snapshot,
+                    &registry,
+                );
                 skin_path.as_deref().and_then(|path| {
                     rubato_skin::skin_loader::load_skin_from_path_with_state(
-                        &mut ctx, skin_type, path,
+                        &mut state, skin_type, path,
                     )
                 })
             };

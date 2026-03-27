@@ -30,6 +30,7 @@ use rubato_types::timer_id::TimerId;
 
 use super::shared_render_context;
 
+#[cfg(test)]
 mod render_context;
 mod score_handler;
 
@@ -42,6 +43,8 @@ type IrSendResult = (
     i32,
 );
 
+// render_context types are used only in tests
+#[cfg(test)]
 use render_context::*;
 use score_handler::*;
 
@@ -1273,17 +1276,16 @@ impl rubato_core::main_state::MainState for CourseResult {
             .and_then(|skin| skin.path.clone())
             .or_else(|| rubato_types::skin_config::SkinConfig::default_for_id(skin_type).path);
         // Take timer out to avoid borrowing self.main_data and its fields simultaneously
-        let mut timer = std::mem::take(&mut self.main_data.timer);
+        let timer = std::mem::take(&mut self.main_data.timer);
         let loaded = {
-            let mut ctx = CourseResultRenderContext {
-                timer: &mut timer,
-                data: &self.data,
-                resource: &self.resource,
-                main: &mut self.main,
-                offsets: &self.main_data.offsets,
-            };
+            let mut snapshot = self.build_snapshot(&timer);
+            let registry = std::collections::HashMap::new();
+            let mut state =
+                rubato_skin::snapshot_main_state::SnapshotMainState::new(&mut snapshot, &registry);
             skin_path.as_deref().and_then(|path| {
-                rubato_skin::skin_loader::load_skin_from_path_with_state(&mut ctx, skin_type, path)
+                rubato_skin::skin_loader::load_skin_from_path_with_state(
+                    &mut state, skin_type, path,
+                )
             })
         };
         self.main_data.timer = timer;

@@ -43,14 +43,16 @@ impl MainState for MusicSelector {
     fn load_skin(&mut self, skin_type: i32) {
         let skin_path =
             rubato_skin::skin_loader::skin_path_from_player_config(&self.config, skin_type);
-        let mut timer = std::mem::take(&mut self.main_state_data.timer);
+        let timer = std::mem::take(&mut self.main_state_data.timer);
         let skin_result = {
-            let mut ctx = SelectSkinContext {
-                timer: &mut timer,
-                selector: self,
-            };
+            let mut snapshot = self.build_snapshot(&timer);
+            let registry = std::collections::HashMap::new();
+            let mut state =
+                rubato_skin::snapshot_main_state::SnapshotMainState::new(&mut snapshot, &registry);
             skin_path.as_deref().and_then(|path| {
-                rubato_skin::skin_loader::load_skin_from_path_with_state(&mut ctx, skin_type, path)
+                rubato_skin::skin_loader::load_skin_from_path_with_state(
+                    &mut state, skin_type, path,
+                )
             })
         };
         self.main_state_data.timer = timer;

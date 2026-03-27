@@ -69,7 +69,8 @@ fn play_config_mode_from_song(song: &SongData) -> Option<bms_model::Mode> {
 }
 
 /// Rich skin context for music select rendering and mouse interaction.
-/// This keeps skin-side events wired to the real selector instead of a timer-only stub.
+/// Production code uses PropertySnapshot; retained for load_skin compatibility and tests.
+#[allow(dead_code)] // Production code uses PropertySnapshot; retained for tests
 struct SelectSkinContext<'a> {
     timer: &'a mut TimerManager,
     selector: &'a mut MusicSelector,
@@ -96,6 +97,7 @@ impl rubato_types::timer_access::TimerAccess for SelectSkinContext<'_> {
     }
 }
 
+#[allow(dead_code)] // Production uses PropertySnapshot; retained for tests
 impl SelectSkinContext<'_> {
     fn selected_bar(&self) -> Option<&Bar> {
         self.selector.manager.selected()
