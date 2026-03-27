@@ -653,6 +653,70 @@ impl PlayerResource {
         self.recent_judges_index = index;
         self.recent_judges = judges;
     }
+
+    /// Apply a score handoff from BMSPlayer to this resource.
+    ///
+    /// Encapsulates the logic that was previously in lifecycle.rs outbox drain.
+    /// The `input` parameter is needed to append the keylog to replay data.
+    pub fn apply_score_handoff(
+        &mut self,
+        handoff: rubato_types::score_handoff::ScoreHandoff,
+        input: &Option<rubato_input::bms_player_input_processor::BMSPlayerInputProcessor>,
+    ) {
+        if let Some(score) = handoff.score_data {
+            self.set_score_data(score);
+        }
+        self.combo = handoff.combo;
+        self.maxcombo = handoff.maxcombo;
+        self.set_gauge(handoff.gauge);
+        if let Some(gg) = handoff.groove_gauge {
+            self.set_groove_gauge(gg);
+        }
+        self.assist = handoff.assist;
+        // Java: resource.setUpdateScore(assist == 0)
+        self.update_score = handoff.assist == 0;
+        // Java: resource.setUpdateCourseScore(resource.isUpdateCourseScore() && assist == 0)
+        self.update_course_score = self.update_course_score && (handoff.assist == 0);
+        self.freq_on = handoff.freq_on;
+        self.force_no_ir_send = handoff.force_no_ir_send;
+
+        // Apply replay data with key input log from the input processor.
+        if let Some(mut rd) = handoff.replay_data {
+            Self::append_keylog_to_replay(input, &mut rd);
+            self.set_replay_data(rd);
+        }
+
+        // Update the model with judge states synced from JudgeManager.
+        if let Some(updated_model) = handoff.updated_model
+            && let Some(sd) = self.songdata_mut()
+        {
+            sd.set_bms_model(updated_model);
+        }
+
+        // Transfer recent judge offsets for result screen visualizers.
+        self.set_recent_judges(handoff.recent_judges_index, handoff.recent_judges);
+    }
+
+    /// Append recorded key input log from BMSPlayerInputProcessor to replay data.
+    ///
+    /// Both the normal score handoff path and the quick retry path need this
+    /// so that saved replays contain actual key events instead of being empty.
+    pub fn append_keylog_to_replay(
+        input: &Option<rubato_input::bms_player_input_processor::BMSPlayerInputProcessor>,
+        replay: &mut ReplayData,
+    ) {
+        if let Some(input) = input {
+            replay.keylog = input
+                .key_input_log()
+                .iter()
+                .map(|k| rubato_types::KeyInputLog {
+                    time: k.time(),
+                    keycode: k.keycode(),
+                    pressed: k.is_pressed(),
+                })
+                .collect();
+        }
+    }
 }
 
 impl ConfigAccess for PlayerResource {
@@ -939,7 +1003,6 @@ impl MediaAccess for PlayerResource {
             res.set_stagefile(pixmap);
         }
     }
-
 }
 
 impl PlayerResourceAccess for PlayerResource {

@@ -1959,7 +1959,7 @@ fn test_transition_to_play_calls_audio_set_model() {
 
 // --- ScoreHandoff transfer tests ---
 
-/// A test state that produces a ScoreHandoff on the first render() call.
+/// A test state that applies a ScoreHandoff to ctx.resource during render_with_game_context.
 struct HandoffTestState {
     state_data: MainStateData,
     handoff: Option<rubato_types::score_handoff::ScoreHandoff>,
@@ -1991,12 +1991,14 @@ impl MainState for HandoffTestState {
 
     fn render(&mut self) {}
 
-    fn take_score_handoff(&mut self) -> Option<rubato_types::score_handoff::ScoreHandoff> {
-        self.handoff.take()
-    }
-
-    fn render_with_game_context(&mut self, _ctx: &mut GameContext) -> Option<StateTransition> {
+    fn render_with_game_context(&mut self, ctx: &mut GameContext) -> Option<StateTransition> {
         self.render();
+        // Apply handoff directly to ctx.resource (mirrors BMSPlayer pattern)
+        if let Some(handoff) = self.handoff.take() {
+            if let Some(ref mut resource) = ctx.resource {
+                resource.apply_score_handoff(handoff, &ctx.input);
+            }
+        }
         Some(StateTransition::Continue)
     }
 

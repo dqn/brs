@@ -495,6 +495,7 @@ impl LauncherStateFactory {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::main_state::StateTransition;
     use crate::core::score_database_accessor::ScoreDatabaseAccessor;
     use crate::core::sprite_batch_helper::SpriteBatchHelper;
     use crate::song::song_information_accessor::SongInformationAccessor;
@@ -560,6 +561,28 @@ mod tests {
     }
 
     use rubato_audio::recording_audio_driver::RecordingAudioDriver;
+
+    fn make_empty_game_context() -> crate::core::app_context::GameContext {
+        crate::core::app_context::GameContext {
+            config: Config::default(),
+            player: PlayerConfig::default(),
+            audio: None,
+            sound: None,
+            loudness_analyzer: None,
+            timer: crate::core::timer_manager::TimerManager::new(),
+            input: None,
+            input_poll_quit: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            db: Default::default(),
+            offset: Vec::new(),
+            showfps: false,
+            debug: false,
+            integration: Default::default(),
+            lifecycle: Default::default(),
+            exit_requested: std::sync::atomic::AtomicBool::new(false),
+            resource: None,
+            transition: None,
+        }
+    }
 
     struct ChangeStateSkin;
 
@@ -1098,9 +1121,12 @@ mod tests {
 
         <SharedMusicSelectorState as MainState>::handle_skin_mouse_pressed(&mut shared, 0, 32, 48);
 
+        // Mouse press sets pending_state_change; render_with_game_context drains it
+        let mut ctx = make_empty_game_context();
+        let result = shared.render_with_game_context(&mut ctx);
         assert_eq!(
-            shared.take_pending_state_change(),
-            Some(MainStateType::Config)
+            result,
+            Some(StateTransition::ChangeTo(MainStateType::Config))
         );
     }
 
@@ -1112,9 +1138,12 @@ mod tests {
 
         <SharedMusicSelectorState as MainState>::handle_skin_mouse_dragged(&mut shared, 0, 32, 48);
 
+        // Mouse drag sets pending_state_change; render_with_game_context drains it
+        let mut ctx = make_empty_game_context();
+        let result = shared.render_with_game_context(&mut ctx);
         assert_eq!(
-            shared.take_pending_state_change(),
-            Some(MainStateType::SkinConfig)
+            result,
+            Some(StateTransition::ChangeTo(MainStateType::SkinConfig))
         );
     }
 

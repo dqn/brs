@@ -248,37 +248,13 @@ impl MainController {
 
         // FPS display (Phase 22+: requires system font)
 
-        // --- Outbox consumption: poll pending operations from current state ---
-        // Most audio outbox fields are now drained directly by states in their
-        // render_with_game_context methods. Only resource-manipulation fields
-        // (score handoff, BMS reload, quick retry, config updates) remain here.
-        // Order: score handoff -> config -> quick retry -> reload -> state change (last, destroys current)
-        let mut pending_handoff: Option<rubato_types::score_handoff::ScoreHandoff> = None;
-        let mut pending_reload = false;
+        // --- Process state transition from render_with_game_context ---
+        // All outbox fields (score handoff, play config, quick retry, reload BMS,
+        // player config) are now drained directly by states in their
+        // render_with_game_context methods. Only the transition result needs
+        // processing here.
         let mut pending_change: Option<MainStateType> = None;
-        let mut pending_play_config: Option<(
-            bms::model::mode::Mode,
-            rubato_types::play_config::PlayConfig,
-        )> = None;
 
-        let mut pending_replay_seed_reset = false;
-        let mut pending_quick_retry_score: Option<rubato_types::score_data::ScoreData> = None;
-        let mut pending_quick_retry_replay: Option<rubato_types::replay_data::ReplayData> = None;
-        let mut pending_player_config: Option<rubato_types::player_config::PlayerConfig> = None;
-
-        if let Some(ref mut current) = self.current {
-            pending_handoff = current.take_score_handoff();
-            pending_reload = current.take_pending_reload_bms();
-            pending_replay_seed_reset = current.take_pending_replay_seed_reset();
-            pending_quick_retry_score = current.take_pending_quick_retry_score();
-            pending_quick_retry_replay = current.take_pending_quick_retry_replay();
-            pending_play_config = current.take_pending_play_config_update();
-            pending_player_config = current.take_pending_player_config_update();
-            pending_change = current.take_pending_state_change();
-        }
-
-        // Merge transition from render_with_game_context (if set).
-        // This takes priority over the legacy outbox pending_change.
         if let Some(transition) = self.ctx.transition.take() {
             match transition {
                 StateTransition::ChangeTo(state_type) => {
@@ -292,125 +268,7 @@ impl MainController {
             }
         }
 
-        // Capture handoff summary for observability event before values are consumed.
-        let handoff_summary = pending_handoff.as_ref().map(|h| {
-            let exscore = h.score_data.as_ref().map_or(0, |s| s.exscore());
-            let max_combo = h.maxcombo;
-            let gauge = h.groove_gauge.as_ref().map_or(0.0, |g| g.value() as f64);
-            (exscore, max_combo, gauge)
-        });
-
-        // Apply score handoff to PlayerResource.
-        // ORDERING INVARIANT: The handoff must be applied BEFORE the state change
-        // at the end of this function. BMSPlayer::render() populates replay_data
-        // via build_replay_data() WITHOUT the keylog (it only has pattern/seed info).
-        // This section appends the keylog from BMSPlayerInputProcessor below.
-        // If the state change ran first, the input processor would be destroyed
-        // and the keylog would be lost.
-        if let Some(handoff) = pending_handoff
-            && let Some(ref mut resource) = self.resource
-        {
-            if let Some(score) = handoff.score_data {
-                resource.set_score_data(score);
-            }
-            resource.combo = handoff.combo;
-            resource.maxcombo = handoff.maxcombo;
-            resource.set_gauge(handoff.gauge);
-            if let Some(gg) = handoff.groove_gauge {
-                resource.set_groove_gauge(gg);
-            }
-            resource.assist = handoff.assist;
-            // Java: resource.setUpdateScore(assist == 0)
-            resource.update_score = handoff.assist == 0;
-            // Java: resource.setUpdateCourseScore(resource.isUpdateCourseScore() && assist == 0)
-            // Course scores must also be gated by assist status to prevent
-            // assisted plays from saving course records.
-            resource.update_course_score = resource.update_course_score && (handoff.assist == 0);
-            resource.freq_on = handoff.freq_on;
-            resource.force_no_ir_send = handoff.force_no_ir_send;
-
-            // Apply replay data with key input log from the input processor.
-            // BMSPlayer builds pattern info (random options, seeds, gauge type, etc.)
-            // and MainController appends the recorded key input log from BMSPlayerInputProcessor.
-            if let Some(mut rd) = handoff.replay_data {
-                Self::append_keylog_to_replay(&self.ctx.input, &mut rd);
-                resource.set_replay_data(rd);
-            }
-
-            // Update the model on PlayerResource with judge states synced from
-            // JudgeManager. In Java, JudgeManager modifies Note objects in-place
-            // via shared references; in Rust, the updated model is passed through
-            // the handoff so the result screen reads correct state/play_time values
-            // for timing distribution computation.
-            if let Some(updated_model) = handoff.updated_model
-                && let Some(sd) = resource.songdata_mut()
-            {
-                sd.set_bms_model(updated_model);
-            }
-
-            // Transfer recent judge offsets for result screen visualizers.
-            resource.set_recent_judges(handoff.recent_judges_index, handoff.recent_judges);
-        }
-
-        // Emit ScoreHandoffApplied event if a handoff was processed.
-        if let Some((exscore, max_combo, gauge)) = handoff_summary {
-            self.emit_state_event(rubato_types::state_event::StateEvent::ScoreHandoffApplied {
-                exscore,
-                max_combo,
-                gauge,
-            });
-        }
-
-        // Apply play config update to MainController's PlayerConfig.
-        // BMSPlayer owns a clone; save_config() writes to that clone and pushes
-        // the updated PlayConfig back here so periodic_config_save() persists it.
-        // Full replacement is intentional: BMSPlayer's save_config() writes back
-        // authoritative live values (hispeed, lanecover, etc.). The modmenu path
-        // uses apply_modmenu_fields() to avoid overwriting live-mutated fields.
-        if let Some((mode, play_config)) = pending_play_config {
-            self.ctx.player.play_config(mode).playconfig = play_config;
-        }
-
-        // Apply full PlayerConfig update from MusicSelector.
-        // MusicSelector owns a clone of PlayerConfig; skin events modify it locally.
-        // This outbox pushes the entire config back so periodic_config_save() persists changes.
-        if let Some(player_config) = pending_player_config {
-            self.ctx.player = player_config;
-        }
-
-        // Quick retry: reset replay seed (START/assist) or save score+replay (SELECT).
-        // Applied before BMS reload so the next play gets the correct seed state.
-        if let Some(ref mut resource) = self.resource {
-            if pending_replay_seed_reset && let Some(rd) = resource.replay_data_mut() {
-                rd.randomoptionseed = -1;
-            }
-            if let Some(score) = pending_quick_retry_score {
-                resource.set_score_data(score);
-            }
-            if let Some(mut replay) = pending_quick_retry_replay {
-                Self::append_keylog_to_replay(&self.ctx.input, &mut replay);
-                resource.set_replay_data(replay);
-            }
-        }
-
-        // Reload BMS file (before state change so new Play state gets fresh model)
-        if pending_reload {
-            if let Some(ref mut resource) = self.resource {
-                resource.reload_bms_file();
-            }
-            // If no state change follows (practice mode restart), push the fresh model
-            // back to the current state so it can apply modifiers on a clean copy.
-            if pending_change.is_none() {
-                let fresh_model = self.resource.as_ref().and_then(|r| r.bms_model().cloned());
-                if let Some(model) = fresh_model
-                    && let Some(ref mut current) = self.current
-                {
-                    current.receive_reloaded_model(model);
-                }
-            }
-        }
-
-        // State change (last - destroys current state)
+        // State change (destroys current state)
         let has_state_change = pending_change.is_some();
         if let Some(state_type) = pending_change {
             self.change_state(state_type);
@@ -717,26 +575,5 @@ impl MainController {
     /// The main event loop should poll this and initiate shutdown when true.
     pub fn is_exit_requested(&self) -> bool {
         self.ctx.exit_requested.load(Ordering::Acquire)
-    }
-
-    /// Append recorded key input log from BMSPlayerInputProcessor to replay data.
-    ///
-    /// Both the normal score handoff path and the quick retry path need this
-    /// so that saved replays contain actual key events instead of being empty.
-    fn append_keylog_to_replay(
-        input: &Option<BMSPlayerInputProcessor>,
-        replay: &mut rubato_types::replay_data::ReplayData,
-    ) {
-        if let Some(input) = input {
-            replay.keylog = input
-                .key_input_log()
-                .iter()
-                .map(|k| rubato_types::KeyInputLog {
-                    time: k.time(),
-                    keycode: k.keycode(),
-                    pressed: k.is_pressed(),
-                })
-                .collect();
-        }
     }
 }

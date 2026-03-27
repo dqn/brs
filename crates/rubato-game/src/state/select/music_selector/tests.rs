@@ -3125,18 +3125,18 @@ fn refresh_cached_score_data_property_no_rival_zeroes_rival_fields() {
 // ============================================================
 
 #[test]
-fn take_pending_player_config_update_returns_none_when_clean() {
-    let mut selector = MusicSelector::new();
+fn player_config_not_dirty_when_clean() {
+    let selector = MusicSelector::new();
     assert!(
-        selector.take_pending_player_config_update().is_none(),
-        "should return None when no config change occurred"
+        !selector.pending_player_config_dirty,
+        "dirty flag should be false when no config change occurred"
     );
 }
 
 #[test]
-fn play_option_change_sets_dirty_and_take_returns_config() {
+fn play_option_change_sets_dirty_flag() {
     let mut selector = MusicSelector::new();
-    // Modify a config field to verify the returned clone reflects the change
+    // Modify a config field to verify render_with_game_context will clone the change
     selector.config.judge_settings.judgetiming = 42;
 
     // Trigger play_option_change which sets the dirty flag
@@ -3146,33 +3146,55 @@ fn play_option_change_sets_dirty_and_take_returns_config() {
         selector.pending_player_config_dirty,
         "dirty flag should be set after play_option_change"
     );
-
-    let config = selector.take_pending_player_config_update();
-    assert!(
-        config.is_some(),
-        "should return Some after play_option_change"
-    );
-    assert_eq!(
-        config.unwrap().judge_settings.judgetiming,
-        42,
-        "returned config should reflect the modified value"
-    );
-    assert!(
-        !selector.pending_player_config_dirty,
-        "dirty flag should be cleared after take"
-    );
 }
 
 #[test]
-fn take_pending_player_config_update_returns_none_on_second_call() {
+fn render_with_game_context_drains_player_config_update() {
     let mut selector = MusicSelector::new();
+    selector.config.judge_settings.judgetiming = 42;
     selector.play_option_change();
 
-    // First take returns Some
-    assert!(selector.take_pending_player_config_update().is_some());
-    // Second take returns None (dirty flag was cleared)
     assert!(
-        selector.take_pending_player_config_update().is_none(),
-        "second call should return None after dirty flag was cleared"
+        selector.pending_player_config_dirty,
+        "dirty flag should be set after play_option_change"
+    );
+
+    // Drain via render_with_game_context
+    let mut ctx = crate::core::app_context::GameContext {
+        config: crate::core::config::Config::default(),
+        player: crate::core::player_config::PlayerConfig::default(),
+        audio: None,
+        sound: None,
+        loudness_analyzer: None,
+        timer: crate::core::timer_manager::TimerManager::new(),
+        input: None,
+        input_poll_quit: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        db: Default::default(),
+        offset: Vec::new(),
+        showfps: false,
+        debug: false,
+        integration: Default::default(),
+        lifecycle: Default::default(),
+        exit_requested: std::sync::atomic::AtomicBool::new(false),
+        resource: None,
+        transition: None,
+    };
+
+    use crate::core::main_state::MainState;
+    let result = selector.render_with_game_context(&mut ctx);
+    assert_eq!(
+        result,
+        Some(crate::core::main_state::StateTransition::Continue)
+    );
+
+    // After render_with_game_context, dirty flag should be cleared
+    assert!(
+        !selector.pending_player_config_dirty,
+        "dirty flag should be cleared after render_with_game_context"
+    );
+    // And ctx.player should reflect the modified value
+    assert_eq!(
+        ctx.player.judge_settings.judgetiming, 42,
+        "ctx.player should have the updated config after render_with_game_context"
     );
 }

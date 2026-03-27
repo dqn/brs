@@ -4455,28 +4455,50 @@ fn save_config_no_pending_update_when_no_lane_renderer() {
 }
 
 #[test]
-fn take_pending_play_config_update_via_main_state_trait() {
+fn play_config_update_drained_via_render_with_game_context() {
     let model = make_model();
     let mut player = BMSPlayer::new(model);
     player.lanerender = Some(LaneRenderer::new(&player.model));
 
     player.save_config();
 
-    // Access through the MainState trait method
-    let state: &mut dyn MainState = &mut player;
-    let update = state.take_pending_play_config_update();
+    // Verify that the pending update is populated
     assert!(
-        update.is_some(),
-        "take_pending_play_config_update should return the pending update"
+        player.pending.pending_play_config_update.is_some(),
+        "save_config should populate pending_play_config_update"
     );
-    let (mode, _pc) = update.unwrap();
-    assert_eq!(mode, Mode::BEAT_7K);
 
-    // Second call should return None (consumed)
-    let update2 = state.take_pending_play_config_update();
+    // Drain via render_with_game_context
+    let mut ctx = crate::core::app_context::GameContext {
+        config: crate::core::config::Config::default(),
+        player: crate::core::player_config::PlayerConfig::default(),
+        audio: None,
+        sound: None,
+        loudness_analyzer: None,
+        timer: crate::core::timer_manager::TimerManager::new(),
+        input: None,
+        input_poll_quit: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        db: Default::default(),
+        offset: Vec::new(),
+        showfps: false,
+        debug: false,
+        integration: Default::default(),
+        lifecycle: Default::default(),
+        exit_requested: std::sync::atomic::AtomicBool::new(false),
+        resource: None,
+        transition: None,
+    };
+
+    let result = player.render_with_game_context(&mut ctx);
+    assert_eq!(
+        result,
+        Some(crate::core::main_state::StateTransition::Continue)
+    );
+
+    // After render_with_game_context, the pending update should be consumed
     assert!(
-        update2.is_none(),
-        "take_pending_play_config_update should return None after consumption"
+        player.pending.pending_play_config_update.is_none(),
+        "pending_play_config_update should be consumed after render_with_game_context"
     );
 }
 

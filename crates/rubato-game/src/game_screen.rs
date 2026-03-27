@@ -180,10 +180,7 @@ impl MainState for GameScreen {
         delegate!(mut self, input_with_ctx(ctx))
     }
 
-    fn render_with_game_context(
-        &mut self,
-        ctx: &mut GameContext,
-    ) -> Option<StateTransition> {
+    fn render_with_game_context(&mut self, ctx: &mut GameContext) -> Option<StateTransition> {
         delegate!(mut self, render_with_game_context(ctx) -> Option<StateTransition>)
     }
 
@@ -299,47 +296,8 @@ impl MainState for GameScreen {
         delegate!(self, get_offset_value(id) -> Option<()>)
     }
 
-    fn take_pending_state_change(&mut self) -> Option<MainStateType> {
-        delegate!(mut self, take_pending_state_change() -> Option<MainStateType>)
-    }
-
-    fn take_score_handoff(&mut self) -> Option<rubato_types::score_handoff::ScoreHandoff> {
-        delegate!(mut self, take_score_handoff() -> Option<rubato_types::score_handoff::ScoreHandoff>)
-    }
-
     fn take_state_create_effects(&mut self) -> Option<StateCreateEffects> {
         delegate!(mut self, take_state_create_effects() -> Option<StateCreateEffects>)
-    }
-
-    fn take_pending_reload_bms(&mut self) -> bool {
-        delegate!(mut self, take_pending_reload_bms() -> bool)
-    }
-
-    fn take_pending_replay_seed_reset(&mut self) -> bool {
-        delegate!(mut self, take_pending_replay_seed_reset() -> bool)
-    }
-
-    fn take_pending_quick_retry_score(&mut self) -> Option<rubato_types::score_data::ScoreData> {
-        delegate!(mut self, take_pending_quick_retry_score() -> Option<rubato_types::score_data::ScoreData>)
-    }
-
-    fn take_pending_quick_retry_replay(&mut self) -> Option<rubato_types::replay_data::ReplayData> {
-        delegate!(mut self, take_pending_quick_retry_replay() -> Option<rubato_types::replay_data::ReplayData>)
-    }
-
-    fn take_pending_play_config_update(
-        &mut self,
-    ) -> Option<(
-        bms::model::mode::Mode,
-        rubato_types::play_config::PlayConfig,
-    )> {
-        delegate!(mut self, take_pending_play_config_update() -> Option<(bms::model::mode::Mode, rubato_types::play_config::PlayConfig)>)
-    }
-
-    fn take_pending_player_config_update(
-        &mut self,
-    ) -> Option<rubato_types::player_config::PlayerConfig> {
-        delegate!(mut self, take_pending_player_config_update() -> Option<rubato_types::player_config::PlayerConfig>)
     }
 
     fn notify_media_load_finished(&mut self) {
@@ -364,9 +322,8 @@ impl MainState for GameScreen {
 
     fn take_bga_cache(
         &mut self,
-    ) -> Option<
-        std::sync::Arc<std::sync::Mutex<crate::play::bga::bga_processor::BGAProcessor>>,
-    > {
+    ) -> Option<std::sync::Arc<std::sync::Mutex<crate::play::bga::bga_processor::BGAProcessor>>>
+    {
         delegate!(mut self, take_bga_cache() -> Option<std::sync::Arc<std::sync::Mutex<crate::play::bga::bga_processor::BGAProcessor>>>)
     }
 

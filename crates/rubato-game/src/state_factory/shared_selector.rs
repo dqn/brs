@@ -144,16 +144,6 @@ impl MainState for SharedMusicSelectorState {
         self.with_selector(|selector| selector.input_with_game_context(ctx))
     }
 
-    fn take_pending_state_change(&mut self) -> Option<MainStateType> {
-        self.with_selector(|selector| selector.take_pending_state_change())
-    }
-
-    fn take_pending_player_config_update(
-        &mut self,
-    ) -> Option<rubato_types::player_config::PlayerConfig> {
-        self.with_selector(|selector| selector.take_pending_player_config_update())
-    }
-
     fn take_player_resource_box(&mut self) -> Option<Box<dyn std::any::Any + Send>> {
         self.with_selector(|selector| selector.take_player_resource_box())
     }

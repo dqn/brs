@@ -9,7 +9,6 @@ pub(crate) use rubato_types::imgui_notify::ImGuiNotify;
 pub(crate) use rubato_types::main_controller_access::MainControllerAccess;
 pub(crate) use rubato_types::main_state_access::MainStateAccess;
 pub(crate) use rubato_types::player_resource_access::PlayerResourceAccess;
-pub(crate) use rubato_types::player_resource_access::{ReplayAccess, SongAccess};
 pub(crate) use rubato_types::ranking_data_cache_access::RankingDataCacheAccess;
 pub(crate) use rubato_types::screen_type::ScreenType;
 pub(crate) use rubato_types::song_database_accessor::SongDatabaseAccessor as SongDatabaseAccessorTrait;
@@ -86,7 +85,8 @@ pub struct IRStatus {
     /// IR rival provider (trait bridge for core→ir rival/score operations)
     pub rival_provider: Option<Box<dyn rubato_types::ir_rival_provider::IRRivalProvider>>,
     /// IR connection. Java: IRStatus.connection
-    pub connection: Option<std::sync::Arc<dyn crate::ir::ir_connection::IRConnection + Send + Sync>>,
+    pub connection:
+        Option<std::sync::Arc<dyn crate::ir::ir_connection::IRConnection + Send + Sync>>,
     /// IR player data. Java: IRStatus.player
     pub player_data: Option<crate::ir::ir_player_data::IRPlayerData>,
 }
@@ -229,8 +229,9 @@ pub struct MainController {
     /// Shared music selector.
     /// Java shares the same MusicSelector between StreamController and MusicSelect state.
     /// The launcher stores this so the StateCreator can reuse it instead of creating a new one.
-    shared_music_selector:
-        Option<std::sync::Arc<std::sync::Mutex<crate::state::select::music_selector::MusicSelector>>>,
+    shared_music_selector: Option<
+        std::sync::Arc<std::sync::Mutex<crate::state::select::music_selector::MusicSelector>>,
+    >,
 
     /// Callback for updating cross-state references (modmenu wiring).
     /// Set by the launcher to wire SkinMenu/SongManagerMenu.

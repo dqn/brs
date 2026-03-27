@@ -183,21 +183,6 @@ impl MainState for MusicSelector {
         }
     }
 
-    fn take_pending_state_change(&mut self) -> Option<MainStateType> {
-        self.pending_state_change.take()
-    }
-
-    fn take_pending_player_config_update(
-        &mut self,
-    ) -> Option<rubato_types::player_config::PlayerConfig> {
-        if self.pending_player_config_dirty {
-            self.pending_player_config_dirty = false;
-            Some(self.config.clone())
-        } else {
-            None
-        }
-    }
-
     fn take_player_resource_box(&mut self) -> Option<Box<dyn std::any::Any + Send>> {
         let should_handoff = self.player_resource.as_ref().is_some_and(|resource| {
             resource.bms_model().is_some()
@@ -1167,7 +1152,6 @@ impl MainState for MusicSelector {
         self.render();
 
         // Drain sound/audio outbox fields directly into GameContext.
-        // Player config update remains in the outbox for lifecycle.rs to drain.
 
         // Audio config MUST be applied before sounds so that sounds use the
         // updated volume, not the stale one.
@@ -1192,9 +1176,17 @@ impl MainState for MusicSelector {
             ctx.stop_audio_path(&path);
         }
 
+        // Player config update - push full config back to ctx.player
+        if self.pending_player_config_dirty {
+            self.pending_player_config_dirty = false;
+            ctx.player = self.config.clone();
+        }
+
         // State transition
         if let Some(state_type) = self.pending_state_change.take() {
-            Some(crate::core::main_state::StateTransition::ChangeTo(state_type))
+            Some(crate::core::main_state::StateTransition::ChangeTo(
+                state_type,
+            ))
         } else {
             Some(crate::core::main_state::StateTransition::Continue)
         }

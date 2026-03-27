@@ -281,72 +281,10 @@ pub trait MainState {
         None
     }
 
-    // --- Outbox pattern methods ---
-    // BMSPlayer overrides these to expose pending operations.
-    // MainController polls them after each render() frame.
-
-    /// Take pending state change request (e.g., Play -> Result).
-    fn take_pending_state_change(&mut self) -> Option<MainStateType> {
-        None
-    }
-
-    /// Take pending score handoff data for PlayerResource.
-    fn take_score_handoff(&mut self) -> Option<rubato_types::score_handoff::ScoreHandoff> {
-        None
-    }
-
     /// Take side effects produced by create() for the controller to apply.
     ///
     /// BMSPlayer overrides this to return input mode actions and guide SE flags.
     fn take_state_create_effects(&mut self) -> Option<StateCreateEffects> {
-        None
-    }
-
-    /// Take pending BMS file reload request (for quick retry).
-    fn take_pending_reload_bms(&mut self) -> bool {
-        false
-    }
-
-    /// Take pending replay seed reset flag (quick retry START/assist).
-    /// When true, MainController should set `resource.replay.randomoptionseed = -1`.
-    fn take_pending_replay_seed_reset(&mut self) -> bool {
-        false
-    }
-
-    /// Take pending score data from quick retry (SELECT key).
-    /// When Some, MainController should set `resource.score_data` to the value.
-    fn take_pending_quick_retry_score(&mut self) -> Option<rubato_types::score_data::ScoreData> {
-        None
-    }
-
-    /// Take pending replay data from quick retry (SELECT key).
-    /// When Some, MainController should set `resource.replay_data` to the value,
-    /// preserving the current session's lane_shuffle_pattern and randomoptionseed.
-    fn take_pending_quick_retry_replay(&mut self) -> Option<rubato_types::replay_data::ReplayData> {
-        None
-    }
-
-    /// Take pending play config update to push back to MainController's PlayerConfig.
-    ///
-    /// In Java, BMSPlayer writes directly to `main.getPlayerConfig()` (shared reference).
-    /// In Rust, BMSPlayer owns a clone, so save_config() must push changes back via this outbox.
-    fn take_pending_play_config_update(
-        &mut self,
-    ) -> Option<(
-        bms::model::mode::Mode,
-        rubato_types::play_config::PlayConfig,
-    )> {
-        None
-    }
-
-    /// Take pending full PlayerConfig update from MusicSelector.
-    ///
-    /// MusicSelector modifies PlayerConfig fields (play options, sort, target, etc.)
-    /// via skin events. Since MusicSelector owns a clone, changes must be pushed back
-    /// to MainController so periodic_config_save() persists them.
-    fn take_pending_player_config_update(
-        &mut self,
-    ) -> Option<rubato_types::player_config::PlayerConfig> {
         None
     }
 

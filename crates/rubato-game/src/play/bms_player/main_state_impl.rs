@@ -1,6 +1,7 @@
 use super::*;
 use crate::core::app_context::GameContext;
 use crate::core::main_state::StateTransition;
+use rubato_types::player_resource_access::ReplayAccess;
 use rubato_types::sync_utils::lock_or_recover;
 
 fn judge_timer_id(player: usize) -> rubato_types::timer_id::TimerId {
@@ -71,14 +72,6 @@ impl MainState for BMSPlayer {
         self.gauge.as_ref().map(|g| g.value())
     }
 
-    fn take_pending_state_change(&mut self) -> Option<MainStateType> {
-        self.pending.pending_state_change.take()
-    }
-
-    fn take_score_handoff(&mut self) -> Option<rubato_types::score_handoff::ScoreHandoff> {
-        self.pending.pending_score_handoff.take()
-    }
-
     fn take_state_create_effects(&mut self) -> Option<crate::core::main_state::StateCreateEffects> {
         let effects = self.create_side_effects.take()?;
         Some(crate::core::main_state::StateCreateEffects {
@@ -89,31 +82,6 @@ impl MainState for BMSPlayer {
             disable_input: matches!(effects.input_mode_action, InputModeAction::DisableInput),
             guide_se: effects.is_guide_se,
         })
-    }
-
-    fn take_pending_reload_bms(&mut self) -> bool {
-        std::mem::take(&mut self.pending.pending_reload_bms)
-    }
-
-    fn take_pending_replay_seed_reset(&mut self) -> bool {
-        std::mem::take(&mut self.pending.pending_replay_seed_reset)
-    }
-
-    fn take_pending_quick_retry_score(&mut self) -> Option<rubato_types::score_data::ScoreData> {
-        self.pending.pending_quick_retry_score.take()
-    }
-
-    fn take_pending_quick_retry_replay(&mut self) -> Option<rubato_types::replay_data::ReplayData> {
-        self.pending.pending_quick_retry_replay.take()
-    }
-
-    fn take_pending_play_config_update(
-        &mut self,
-    ) -> Option<(
-        bms::model::mode::Mode,
-        rubato_types::play_config::PlayConfig,
-    )> {
-        self.pending.pending_play_config_update.take()
     }
 
     fn receive_updated_play_config(
@@ -1252,16 +1220,13 @@ impl MainState for BMSPlayer {
             .set_recent_judges(self.judge.recent_judges_index(), self.judge.recent_judges());
     }
 
-    fn render_with_game_context(
-        &mut self,
-        ctx: &mut GameContext,
-    ) -> Option<StateTransition> {
+    fn render_with_game_context(&mut self, ctx: &mut GameContext) -> Option<StateTransition> {
+        use crate::core::player_resource::PlayerResource;
+
         // Delegate to the existing render() which populates the outbox.
         self.render();
 
         // Drain sound/audio outbox fields directly into GameContext.
-        // Complex fields (score handoff, reload BMS, quick retry, play config)
-        // remain in the outbox for lifecycle.rs to drain.
 
         // Audio config MUST be applied before sounds so that sounds use the
         // updated volume, not the stale one.
@@ -1290,6 +1255,64 @@ impl MainState for BMSPlayer {
         // Stop all keysound notes (on Failed/Aborted transitions)
         if std::mem::take(&mut self.pending.pending_stop_all_notes) {
             ctx.stop_all_notes();
+        }
+
+        // --- Resource-manipulation outbox fields ---
+        // Order: score handoff -> config -> quick retry -> reload -> state change (last, destroys current)
+
+        // Score handoff - apply to ctx.resource
+        if let Some(handoff) = self.pending.pending_score_handoff.take()
+            && let Some(ref mut resource) = ctx.resource
+        {
+            resource.apply_score_handoff(handoff, &ctx.input);
+        }
+
+        // Play config update - push back to ctx.player
+        if let Some((mode, play_config)) = self.pending.pending_play_config_update.take() {
+            ctx.player.play_config(mode).playconfig = play_config;
+        }
+
+        // Quick retry: reset replay seed (START/assist)
+        if std::mem::take(&mut self.pending.pending_replay_seed_reset)
+            && let Some(ref mut resource) = ctx.resource
+            && let Some(rd) = resource.replay_data_mut()
+        {
+            rd.randomoptionseed = -1;
+        }
+
+        // Quick retry: save score (SELECT key)
+        if let Some(score) = self.pending.pending_quick_retry_score.take()
+            && let Some(ref mut resource) = ctx.resource
+        {
+            resource.set_score_data(score);
+        }
+
+        // Quick retry: save replay (SELECT key)
+        if let Some(mut replay) = self.pending.pending_quick_retry_replay.take()
+            && let Some(ref mut resource) = ctx.resource
+        {
+            PlayerResource::append_keylog_to_replay(&ctx.input, &mut replay);
+            resource.set_replay_data(replay);
+        }
+
+        // Reload BMS file (before state change so new Play state gets fresh model)
+        if std::mem::take(&mut self.pending.pending_reload_bms) {
+            if let Some(ref mut resource) = ctx.resource {
+                resource.reload_bms_file();
+            }
+            // If no state change follows (practice mode restart), push the fresh model
+            // back to this state so it can apply modifiers on a clean copy.
+            if self.pending.pending_state_change.is_none() {
+                let fresh_model = ctx.resource.as_ref().and_then(|r| r.bms_model().cloned());
+                if let Some(model) = fresh_model {
+                    self.receive_reloaded_model(model);
+                }
+            }
+        }
+
+        // State change (last - triggers transition)
+        if let Some(state_type) = self.pending.pending_state_change.take() {
+            return Some(StateTransition::ChangeTo(state_type));
         }
 
         Some(StateTransition::Continue)
