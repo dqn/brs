@@ -13,6 +13,7 @@ members = [
     "crates/rubato-launcher",
     "crates/rubato-song",
     "crates/rubato-bin",
+    "crates/rubato-timing",
     "crates/rubato-types",
     "crates/rubato-render",
     "crates/rubato-e2e",
@@ -38,6 +39,7 @@ rubato-external = { path = "crates/rubato-external" }
 rubato-state = { path = "crates/rubato-state" }
 rubato-launcher = { path = "crates/rubato-launcher" }
 rubato-song = { path = "crates/rubato-song" }
+rubato-timing = { path = "crates/rubato-timing" }
 rubato-types = { path = "crates/rubato-types" }
 
 # Error handling

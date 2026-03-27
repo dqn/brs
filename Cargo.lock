@@ -4184,6 +4184,7 @@ dependencies = [
  "rubato-audio",
  "rubato-input",
  "rubato-render",
+ "rubato-timing",
  "rubato-types",
  "rusqlite",
  "serde",
@@ -4420,6 +4421,15 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
+]
+
+[[package]]
+name = "rubato-timing"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "proptest",
+ "rubato-types",
 ]
 
 [[package]]

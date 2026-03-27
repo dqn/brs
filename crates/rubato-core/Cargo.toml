@@ -9,6 +9,7 @@ bms-model = { workspace = true }
 bms-table = { workspace = true }
 rubato-input = { workspace = true }
 rubato-audio = { workspace = true }
+rubato-timing = { workspace = true }
 rubato-types = { workspace = true }
 
 # Rendering
