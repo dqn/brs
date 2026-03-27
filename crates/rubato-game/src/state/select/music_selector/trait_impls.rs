@@ -1208,27 +1208,7 @@ impl MainState for MusicSelector {
         Some(())
     }
 
-    fn drain_pending_sounds(&mut self) -> Vec<(SoundType, bool)> {
-        std::mem::take(&mut self.pending_sounds)
-    }
-
-    fn drain_pending_sound_stops(&mut self) -> Vec<SoundType> {
-        std::mem::take(&mut self.pending_sound_stops)
-    }
-
-    fn drain_pending_audio_path_plays(&mut self) -> Vec<(String, f32, bool)> {
-        std::mem::take(&mut self.pending_audio_path_plays)
-    }
-
-    fn drain_pending_audio_path_stops(&mut self) -> Vec<String> {
-        std::mem::take(&mut self.pending_audio_path_stops)
-    }
-
-    fn take_pending_audio_config(&mut self) -> Option<rubato_types::audio_config::AudioConfig> {
-        self.pending_audio_config.take()
-    }
-
-    /// Dispose — clean up bar renderer, search field, skin, and background threads.
+    /// Dispose -- clean up bar renderer, search field, skin, and background threads.
     /// Corresponds to Java MusicSelector.dispose()
     fn dispose(&mut self) {
         // Call parent dispose (clears skin)

@@ -290,21 +290,6 @@ pub trait MainState {
         None
     }
 
-    /// Take pending global pitch change (e.g., reset to 1.0 on state transition).
-    fn take_pending_global_pitch(&mut self) -> Option<f32> {
-        None
-    }
-
-    /// Drain pending system sound requests (e.g., PLAY_READY, PLAY_STOP).
-    fn drain_pending_sounds(&mut self) -> Vec<(SoundType, bool)> {
-        vec![]
-    }
-
-    /// Drain pending system sound stop requests (e.g., stop scratch sound on select screen).
-    fn drain_pending_sound_stops(&mut self) -> Vec<SoundType> {
-        vec![]
-    }
-
     /// Take pending score handoff data for PlayerResource.
     fn take_score_handoff(&mut self) -> Option<rubato_types::score_handoff::ScoreHandoff> {
         None
@@ -341,22 +326,6 @@ pub trait MainState {
         None
     }
 
-    /// Take pending stop-all-notes flag.
-    ///
-    /// MusicResult and CourseResult set this during fadeout to stop keysound playback.
-    /// MainController consumes it via `ctx.stop_all_notes()`.
-    fn take_pending_stop_all_notes(&mut self) -> bool {
-        false
-    }
-
-    /// Take pending audio config update to propagate volume changes to the audio driver.
-    ///
-    /// BMSPlayer overrides this to return audio config set by PlayMouseContext
-    /// when volume sliders or notify_audio_config_changed() are called.
-    fn take_pending_audio_config(&mut self) -> Option<rubato_types::audio_config::AudioConfig> {
-        None
-    }
-
     /// Take pending play config update to push back to MainController's PlayerConfig.
     ///
     /// In Java, BMSPlayer writes directly to `main.getPlayerConfig()` (shared reference).
@@ -379,22 +348,6 @@ pub trait MainState {
         &mut self,
     ) -> Option<rubato_types::player_config::PlayerConfig> {
         None
-    }
-
-    /// Drain pending audio path play requests queued by skin scripts during rendering.
-    ///
-    /// Each entry is (path, volume, is_loop). BMSPlayer overrides this to drain
-    /// from PendingActions. MainController consumes via audio.play_path().
-    fn drain_pending_audio_path_plays(&mut self) -> Vec<(String, f32, bool)> {
-        Vec::new()
-    }
-
-    /// Drain pending audio path stop requests queued by skin scripts during rendering.
-    ///
-    /// Each entry is a path string. BMSPlayer overrides this to drain
-    /// from PendingActions. MainController consumes via audio.stop_path().
-    fn drain_pending_audio_path_stops(&mut self) -> Vec<String> {
-        Vec::new()
     }
 
     // --- Inbox pattern methods ---

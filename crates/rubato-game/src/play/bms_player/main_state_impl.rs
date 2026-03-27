@@ -75,14 +75,6 @@ impl MainState for BMSPlayer {
         self.pending.pending_state_change.take()
     }
 
-    fn take_pending_global_pitch(&mut self) -> Option<f32> {
-        self.pending.pending_global_pitch.take()
-    }
-
-    fn drain_pending_sounds(&mut self) -> Vec<(rubato_types::sound_type::SoundType, bool)> {
-        std::mem::take(&mut self.pending.pending_sounds)
-    }
-
     fn take_score_handoff(&mut self) -> Option<rubato_types::score_handoff::ScoreHandoff> {
         self.pending.pending_score_handoff.take()
     }
@@ -115,10 +107,6 @@ impl MainState for BMSPlayer {
         self.pending.pending_quick_retry_replay.take()
     }
 
-    fn take_pending_audio_config(&mut self) -> Option<rubato_types::audio_config::AudioConfig> {
-        self.pending.pending_audio_config.take()
-    }
-
     fn take_pending_play_config_update(
         &mut self,
     ) -> Option<(
@@ -126,14 +114,6 @@ impl MainState for BMSPlayer {
         rubato_types::play_config::PlayConfig,
     )> {
         self.pending.pending_play_config_update.take()
-    }
-
-    fn drain_pending_audio_path_plays(&mut self) -> Vec<(String, f32, bool)> {
-        std::mem::take(&mut self.pending.pending_audio_path_plays)
-    }
-
-    fn drain_pending_audio_path_stops(&mut self) -> Vec<String> {
-        std::mem::take(&mut self.pending.pending_audio_path_stops)
     }
 
     fn receive_updated_play_config(

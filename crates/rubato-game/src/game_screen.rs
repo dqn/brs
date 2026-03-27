@@ -303,14 +303,6 @@ impl MainState for GameScreen {
         delegate!(mut self, take_pending_state_change() -> Option<MainStateType>)
     }
 
-    fn take_pending_global_pitch(&mut self) -> Option<f32> {
-        delegate!(mut self, take_pending_global_pitch() -> Option<f32>)
-    }
-
-    fn drain_pending_sounds(&mut self) -> Vec<(rubato_types::sound_type::SoundType, bool)> {
-        delegate!(mut self, drain_pending_sounds() -> Vec<(rubato_types::sound_type::SoundType, bool)>)
-    }
-
     fn take_score_handoff(&mut self) -> Option<rubato_types::score_handoff::ScoreHandoff> {
         delegate!(mut self, take_score_handoff() -> Option<rubato_types::score_handoff::ScoreHandoff>)
     }
@@ -335,10 +327,6 @@ impl MainState for GameScreen {
         delegate!(mut self, take_pending_quick_retry_replay() -> Option<rubato_types::replay_data::ReplayData>)
     }
 
-    fn take_pending_audio_config(&mut self) -> Option<rubato_types::audio_config::AudioConfig> {
-        delegate!(mut self, take_pending_audio_config() -> Option<rubato_types::audio_config::AudioConfig>)
-    }
-
     fn take_pending_play_config_update(
         &mut self,
     ) -> Option<(
@@ -352,14 +340,6 @@ impl MainState for GameScreen {
         &mut self,
     ) -> Option<rubato_types::player_config::PlayerConfig> {
         delegate!(mut self, take_pending_player_config_update() -> Option<rubato_types::player_config::PlayerConfig>)
-    }
-
-    fn drain_pending_audio_path_plays(&mut self) -> Vec<(String, f32, bool)> {
-        delegate!(mut self, drain_pending_audio_path_plays() -> Vec<(String, f32, bool)>)
-    }
-
-    fn drain_pending_audio_path_stops(&mut self) -> Vec<String> {
-        delegate!(mut self, drain_pending_audio_path_stops() -> Vec<String>)
     }
 
     fn notify_media_load_finished(&mut self) {

@@ -1623,21 +1623,6 @@ impl MainState for MusicDecide {
         Some(old.into_any_send())
     }
 
-    fn drain_pending_sounds(&mut self) -> Vec<(SoundType, bool)> {
-        std::mem::take(&mut self.pending_sounds)
-    }
-
-    fn drain_pending_audio_path_plays(&mut self) -> Vec<(String, f32, bool)> {
-        std::mem::take(&mut self.pending_audio_path_plays)
-    }
-
-    fn drain_pending_audio_path_stops(&mut self) -> Vec<String> {
-        std::mem::take(&mut self.pending_audio_path_stops)
-    }
-
-    fn take_pending_audio_config(&mut self) -> Option<rubato_types::audio_config::AudioConfig> {
-        self.pending_audio_config.take()
-    }
 }
 
 #[cfg(test)]

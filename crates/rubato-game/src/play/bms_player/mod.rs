@@ -218,18 +218,15 @@ pub struct PendingActions {
     /// Pending audio config update to propagate volume changes to MainController.
     ///
     /// Set by PlayMouseContext when volume sliders (set_float_value IDs 17-19) or
-    /// notify_audio_config_changed() are called. Drained by MainController each frame
-    /// via take_pending_audio_config().
+    /// notify_audio_config_changed() are called. Consumed directly via GameContext.
     pub pending_audio_config: Option<rubato_types::audio_config::AudioConfig>,
     /// Pending audio path play requests from skin scripts (audio_play).
     ///
-    /// Each entry is (path, volume, is_loop). Drained by MainController each frame
-    /// via drain_pending_audio_path_plays().
+    /// Each entry is (path, volume, is_loop). Consumed directly via GameContext.
     pub pending_audio_path_plays: Vec<(String, f32, bool)>,
     /// Pending audio path stop requests from skin scripts (audio_stop).
     ///
-    /// Each entry is a path string. Drained by MainController each frame
-    /// via drain_pending_audio_path_stops().
+    /// Each entry is a path string. Consumed directly via GameContext.
     pub pending_audio_path_stops: Vec<String>,
 }
 

@@ -1419,29 +1419,6 @@ impl MainState for MusicResult {
         self.resource.take_inner().map(|b| b.into_any_send())
     }
 
-    fn drain_pending_sounds(&mut self) -> Vec<(SoundType, bool)> {
-        std::mem::take(&mut self.pending_sounds)
-    }
-
-    fn drain_pending_sound_stops(&mut self) -> Vec<SoundType> {
-        std::mem::take(&mut self.pending_sound_stops)
-    }
-
-    fn drain_pending_audio_path_plays(&mut self) -> Vec<(String, f32, bool)> {
-        std::mem::take(&mut self.pending_audio_path_plays)
-    }
-
-    fn drain_pending_audio_path_stops(&mut self) -> Vec<String> {
-        std::mem::take(&mut self.pending_audio_path_stops)
-    }
-
-    fn take_pending_audio_config(&mut self) -> Option<rubato_types::audio_config::AudioConfig> {
-        self.pending_audio_config.take()
-    }
-
-    fn take_pending_stop_all_notes(&mut self) -> bool {
-        std::mem::take(&mut self.pending_stop_all_notes)
-    }
 }
 
 impl Default for MusicResult {

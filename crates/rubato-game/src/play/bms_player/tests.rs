@@ -5758,10 +5758,10 @@ fn take_pending_audio_config_drains_value() {
     let mut player = BMSPlayer::new(model);
     player.pending.pending_audio_config = Some(rubato_types::audio_config::AudioConfig::default());
 
-    let taken = player.take_pending_audio_config();
+    let taken = player.pending.pending_audio_config.take();
     assert!(taken.is_some(), "first take should return Some");
 
-    let taken2 = player.take_pending_audio_config();
+    let taken2 = player.pending.pending_audio_config.take();
     assert!(taken2.is_none(), "second take should return None (drained)");
 }
 
