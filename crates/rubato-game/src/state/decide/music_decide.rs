@@ -1496,7 +1496,7 @@ impl MainState for MusicDecide {
         self.input_snapshot = Some(snapshot.clone());
     }
 
-    fn input_with_ctx(&mut self, ctx: &mut crate::core::app_context::AppContext) {
+    fn input_with_ctx(&mut self, ctx: &mut crate::core::app_context::GameContext) {
         if let Some(ref snapshot) = self.input_snapshot
             && !self.data.timer.is_timer_on(TIMER_FADEOUT)
             && self.data.timer.is_timer_on(TIMER_STARTINPUT)

@@ -5,15 +5,27 @@ use rubato_audio::audio_system::AudioSystem;
 use crate::core::config::Config;
 use crate::core::main_controller::{DatabaseState, IntegrationState, LifecycleState, SkinOffset};
 use crate::core::player_config::PlayerConfig;
+use crate::core::player_resource::PlayerResource;
 use crate::core::system_sound_manager::SystemSoundManager;
 use crate::core::timer_manager::TimerManager;
 use rubato_input::bms_player_input_processor::BMSPlayerInputProcessor;
 use rubato_types::sound_type::SoundType;
 
+/// Backward-compatible type alias for `GameContext`.
+///
+/// New code should use `GameContext` directly. This alias exists to avoid
+/// a flag-day rename across the entire codebase; it will be removed once
+/// all call sites have been migrated.
+pub type AppContext = GameContext;
+
 /// Shared application context holding config, audio, input, timer, database,
 /// display, integration, and lifecycle state. Extracted from `MainController`
 /// to separate application-wide concerns from state-machine mechanics.
-pub struct AppContext {
+///
+/// Renamed from `AppContext` to `GameContext` as part of the Phase 5 migration
+/// to a unified context pattern. The `AppContext` type alias is provided for
+/// backward compatibility during the transition.
+pub struct GameContext {
     // --- Config ---
     pub config: Config,
     pub player: PlayerConfig,
@@ -44,9 +56,14 @@ pub struct AppContext {
     // --- Lifecycle ---
     pub lifecycle: LifecycleState,
     pub exit_requested: AtomicBool,
+
+    // --- Player Resource ---
+    /// Player resource (gameplay session state).
+    /// During active play, this is borrowed by the current state.
+    pub resource: Option<PlayerResource>,
 }
 
-impl AppContext {
+impl GameContext {
     // --- Audio convenience methods ---
 
     pub fn play_sound(&mut self, sound: &SoundType, loop_sound: bool) {

@@ -59,7 +59,7 @@ impl MainController {
         let input = BMSPlayerInputProcessor::new(&config, &player);
 
         Self {
-            ctx: AppContext {
+            ctx: GameContext {
                 config,
                 player,
                 audio: None,
@@ -84,6 +84,7 @@ impl MainController {
                 integration: IntegrationState::default(),
                 lifecycle: LifecycleState::new(),
                 exit_requested: AtomicBool::new(false),
+                resource: None,
             },
             auto,
             song_updated,

@@ -4,10 +4,12 @@
 // becomes a static match instead of a vtable call. Each variant holds the
 // concrete state struct directly.
 
-use crate::core::app_context::AppContext;
+use crate::core::app_context::GameContext;
 use crate::core::config_pkg::key_configuration::KeyConfiguration;
 use crate::core::config_pkg::skin_configuration::SkinConfiguration;
-use crate::core::main_state::{MainState, MainStateData, MainStateType, StateCreateEffects};
+use crate::core::main_state::{
+    MainState, MainStateData, MainStateType, StateCreateEffects, StateTransition,
+};
 use crate::play::bms_player::BMSPlayer;
 use crate::state::decide::music_decide::MusicDecide;
 use crate::state::result::course_result::CourseResult;
@@ -166,7 +168,7 @@ impl MainState for GameScreen {
         delegate!(mut self, render())
     }
 
-    fn render_with_ctx(&mut self, ctx: &mut AppContext) {
+    fn render_with_ctx(&mut self, ctx: &mut GameContext) {
         delegate!(mut self, render_with_ctx(ctx))
     }
 
@@ -174,8 +176,19 @@ impl MainState for GameScreen {
         delegate!(mut self, input())
     }
 
-    fn input_with_ctx(&mut self, ctx: &mut AppContext) {
+    fn input_with_ctx(&mut self, ctx: &mut GameContext) {
         delegate!(mut self, input_with_ctx(ctx))
+    }
+
+    fn render_with_game_context(
+        &mut self,
+        ctx: &mut GameContext,
+    ) -> Option<StateTransition> {
+        delegate!(mut self, render_with_game_context(ctx) -> Option<StateTransition>)
+    }
+
+    fn input_with_game_context(&mut self, ctx: &mut GameContext) -> Option<()> {
+        delegate!(mut self, input_with_game_context(ctx) -> Option<()>)
     }
 
     fn sync_input_from(

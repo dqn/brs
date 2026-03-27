@@ -2,7 +2,7 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use crate::core::app_context::AppContext;
+use crate::core::app_context::GameContext;
 use crate::core::score_data_property::ScoreDataProperty;
 use crate::core::timer_manager::TimerManager;
 use rubato_audio::audio_system::AudioSystem;
@@ -14,6 +14,21 @@ use rubato_types::sound_type::SoundType;
 
 // MainStateType moved to beatoraja-types (Phase 15d)
 pub use rubato_types::main_state_type::MainStateType;
+
+/// Result of a state's render cycle, indicating what should happen next.
+///
+/// Used by the new `render_with_game_context` / `input_with_game_context`
+/// methods on `MainState`. States that adopt the `GameContext` pattern
+/// return this instead of relying on the outbox pattern for state changes.
+#[derive(Debug, Clone, PartialEq)]
+pub enum StateTransition {
+    /// Continue running the current state.
+    Continue,
+    /// Transition to a different state.
+    ChangeTo(MainStateType),
+    /// Exit the application.
+    Exit,
+}
 
 /// Side effects from state creation that MainController must apply.
 ///
@@ -68,7 +83,7 @@ pub trait MainState {
     /// resources can override this instead of `render()` to avoid the
     /// command queue proxy round-trip. The default implementation falls
     /// back to the plain `render()` method.
-    fn render_with_ctx(&mut self, _ctx: &mut AppContext) {
+    fn render_with_ctx(&mut self, _ctx: &mut GameContext) {
         self.render();
     }
 
@@ -82,8 +97,29 @@ pub trait MainState {
     /// resources can override this instead of `input()` to avoid the
     /// command queue proxy round-trip. The default implementation falls
     /// back to the plain `input()` method.
-    fn input_with_ctx(&mut self, _ctx: &mut AppContext) {
+    fn input_with_ctx(&mut self, _ctx: &mut GameContext) {
         self.input();
+    }
+
+    /// New-style render with GameContext. Returns `None` to fall back to the
+    /// legacy `render_with_ctx` path, or `Some(StateTransition)` when the
+    /// state has fully adopted the GameContext pattern.
+    ///
+    /// States migrate incrementally by overriding this method and returning
+    /// `Some(StateTransition::Continue)` (or `ChangeTo`/`Exit` as needed).
+    /// The default returns `None` so that unmigrated states keep using the
+    /// existing render pipeline.
+    fn render_with_game_context(&mut self, _ctx: &mut GameContext) -> Option<StateTransition> {
+        None // Default: use legacy render path
+    }
+
+    /// New-style input with GameContext.
+    ///
+    /// Returns `None` to fall back to the legacy `input_with_ctx` path.
+    /// States that adopt the GameContext pattern override this to handle
+    /// input directly and return `Some(())`.
+    fn input_with_game_context(&mut self, _ctx: &mut GameContext) -> Option<()> {
+        None // Default: use legacy input path
     }
 
     /// Sync live controller input into a state-local wrapper before `input()`.

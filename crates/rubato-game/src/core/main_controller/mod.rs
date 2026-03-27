@@ -16,7 +16,7 @@ pub(crate) use rubato_types::song_database_accessor::SongDatabaseAccessor as Son
 pub(crate) use rubato_types::song_information_db::SongInformationDb;
 pub(crate) use rubato_types::sound_type::SoundType;
 
-pub(crate) use crate::core::app_context::AppContext;
+pub(crate) use crate::core::app_context::GameContext;
 pub(crate) use crate::core::bms_player_mode::BMSPlayerMode;
 pub(crate) use crate::core::config::Config;
 pub(crate) use crate::core::ir_config::IRConfig;
@@ -193,7 +193,7 @@ pub struct IntegrationState {
 #[allow(dead_code)]
 pub struct MainController {
     /// Shared application context (config, audio, input, timer, database, etc.).
-    pub(crate) ctx: AppContext,
+    pub(crate) ctx: GameContext,
 
     auto: Option<BMSPlayerMode>,
     song_updated: bool,
