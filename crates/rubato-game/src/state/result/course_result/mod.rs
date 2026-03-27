@@ -1148,7 +1148,7 @@ impl crate::core::main_state::MainState for CourseResult {
 
     fn render_with_game_context(
         &mut self,
-        _ctx: &mut GameContext,
+        ctx: &mut GameContext,
     ) -> Option<StateTransition> {
         // Poll for async IR results (non-blocking)
         self.poll_ir_results();
@@ -1177,7 +1177,7 @@ impl crate::core::main_state::MainState for CourseResult {
             let fadeout_time = self.main_data.timer.now_time_for_id(TIMER_FADEOUT);
             let skin_fadeout = self.skin.as_ref().map(|s| s.fadeout() as i64).unwrap_or(0);
             if fadeout_time > skin_fadeout {
-                self.pending_stop_all_notes = true;
+                ctx.stop_all_notes();
 
                 return Some(StateTransition::ChangeTo(MainStateType::MusicSelect));
             }
@@ -1185,7 +1185,29 @@ impl crate::core::main_state::MainState for CourseResult {
             let skin_scene = self.skin.as_ref().map(|s| s.scene() as i64).unwrap_or(0);
             if time > skin_scene {
                 self.main_data.timer.switch_timer(TIMER_FADEOUT, true);
-                self.stop_and_play_close_sound();
+                // Stop clear/fail sounds and play close sound (course-specific with fallback)
+                let has_close = ctx.sound_path(&SoundType::CourseClose).is_some()
+                    || ctx.sound_path(&SoundType::ResultClose).is_some();
+                if has_close {
+                    let clear = if ctx.sound_path(&SoundType::CourseClear).is_some() {
+                        SoundType::CourseClear
+                    } else {
+                        SoundType::ResultClear
+                    };
+                    let fail = if ctx.sound_path(&SoundType::CourseFail).is_some() {
+                        SoundType::CourseFail
+                    } else {
+                        SoundType::ResultFail
+                    };
+                    let close = if ctx.sound_path(&SoundType::CourseClose).is_some() {
+                        SoundType::CourseClose
+                    } else {
+                        SoundType::ResultClose
+                    };
+                    ctx.stop_sound(&clear);
+                    ctx.stop_sound(&fail);
+                    ctx.play_sound(&close, false);
+                }
             }
         }
 

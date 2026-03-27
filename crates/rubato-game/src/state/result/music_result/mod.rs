@@ -1080,7 +1080,7 @@ impl MainState for MusicResult {
 
     fn render_with_game_context(
         &mut self,
-        _ctx: &mut GameContext,
+        ctx: &mut GameContext,
     ) -> Option<StateTransition> {
         // Poll for async IR results (non-blocking)
         self.poll_ir_results();
@@ -1109,7 +1109,7 @@ impl MainState for MusicResult {
             let fadeout_time = self.main_data.timer.now_time_for_id(TIMER_FADEOUT);
             let skin_fadeout = self.skin.as_ref().map(|s| s.fadeout() as i64).unwrap_or(0);
             if fadeout_time > skin_fadeout {
-                self.pending_stop_all_notes = true;
+                ctx.stop_all_notes();
 
                 if self.resource.course_bms_models().is_some() {
                     let last_gauge = self
@@ -1231,10 +1231,10 @@ impl MainState for MusicResult {
             let skin_scene = self.skin.as_ref().map(|s| s.scene() as i64).unwrap_or(0);
             if time > skin_scene {
                 self.main_data.timer.switch_timer(TIMER_FADEOUT, true);
-                if self.has_sound(SoundType::ResultClose) {
-                    self.stop_sound_inner(SoundType::ResultClear);
-                    self.stop_sound_inner(SoundType::ResultFail);
-                    self.play_sound_inner(SoundType::ResultClose);
+                if ctx.sound_path(&SoundType::ResultClose).is_some() {
+                    ctx.stop_sound(&SoundType::ResultClear);
+                    ctx.stop_sound(&SoundType::ResultFail);
+                    ctx.play_sound(&SoundType::ResultClose, false);
                 }
             }
         }
