@@ -18,9 +18,21 @@ use config::{
 use rubato_types::main_controller_access::MainControllerCommandQueue;
 use rubato_types::sync_utils::lock_or_recover;
 
-static MAIN: Mutex<Option<MainController>> = Mutex::new(None);
-static PLAYER_CONFIG: Mutex<Option<PlayerConfig>> = Mutex::new(None);
-static COMMAND_QUEUE: Mutex<Option<MainControllerCommandQueue>> = Mutex::new(None);
+/// Combined state for main controller, player config, and command queue.
+/// Previously player_config was a separate static with potential lock-ordering
+/// concerns when accessed alongside other statics. Merging into a single struct behind
+/// one Mutex eliminates that risk.
+struct SkinMenuState {
+    main: Option<MainController>,
+    player_config: Option<PlayerConfig>,
+    command_queue: Option<MainControllerCommandQueue>,
+}
+
+static SKIN_MENU_STATE: Mutex<SkinMenuState> = Mutex::new(SkinMenuState {
+    main: None,
+    player_config: None,
+    command_queue: None,
+});
 
 static READY: Mutex<bool> = Mutex::new(false);
 static LIVE_EDITING: Mutex<bool> = Mutex::new(true);
@@ -59,9 +71,10 @@ impl SkinMenu {
         player_config: PlayerConfig,
         command_queue: MainControllerCommandQueue,
     ) {
-        *lock_or_recover(&MAIN) = Some(main);
-        *lock_or_recover(&PLAYER_CONFIG) = Some(player_config);
-        *lock_or_recover(&COMMAND_QUEUE) = Some(command_queue);
+        let mut state = lock_or_recover(&SKIN_MENU_STATE);
+        state.main = Some(main);
+        state.player_config = Some(player_config);
+        state.command_queue = Some(command_queue);
     }
 
     pub fn invalidate() {
@@ -72,11 +85,12 @@ impl SkinMenu {
     ///
     /// Translated from: SkinMenu.show(ImBoolean)
     pub fn show_ui(ctx: &egui::Context) {
-        let main = lock_or_recover(&MAIN);
-        if main.is_none() {
-            return;
+        {
+            let state = lock_or_recover(&SKIN_MENU_STATE);
+            if state.main.is_none() {
+                return;
+            }
         }
-        drop(main);
 
         let ready = *lock_or_recover(&READY);
         if !ready {
@@ -252,7 +266,7 @@ fn menu_header(ui: &mut egui::Ui) {
             if ui.checkbox(&mut ft, "Freeze timers").changed() {
                 // Wire to TimerManager.frozen via MainController.
                 // TimerManager::frozen controls whether update() advances time.
-                if let Some(ref mut _main) = *lock_or_recover(&MAIN) {
+                if lock_or_recover(&SKIN_MENU_STATE).main.is_some() {
                     // NullMainController has no timer; freeze-timers requires a real MainController.
                     log::warn!(
                         "Freeze timers toggled but MainController is NullMainController — no-op"
@@ -772,9 +786,12 @@ mod tests {
 
     impl Drop for SkinMenuStaticsGuard {
         fn drop(&mut self) {
-            *lock_or_recover(&MAIN) = None;
-            *lock_or_recover(&PLAYER_CONFIG) = None;
-            *lock_or_recover(&COMMAND_QUEUE) = None;
+            {
+                let mut state = lock_or_recover(&SKIN_MENU_STATE);
+                state.main = None;
+                state.player_config = None;
+                state.command_queue = None;
+            }
             *lock_or_recover(&CURRENT_SKIN) = None;
             *lock_or_recover(&CURRENT_SKIN_TYPE) = None;
             *lock_or_recover(&DIRTY_CONFIG) = false;
@@ -806,8 +823,11 @@ mod tests {
         let pc = PlayerConfig::default();
         let skin_type = SkinType::Play7Keys;
 
-        *lock_or_recover(&PLAYER_CONFIG) = Some(pc);
-        *lock_or_recover(&COMMAND_QUEUE) = Some(queue.clone());
+        {
+            let mut state = lock_or_recover(&SKIN_MENU_STATE);
+            state.player_config = Some(pc);
+            state.command_queue = Some(queue.clone());
+        }
         *lock_or_recover(&CURRENT_SKIN_TYPE) = Some(skin_type);
 
         let header = make_test_skin_header("TestSkin", "/skins/test.json", skin_type);
@@ -845,8 +865,11 @@ mod tests {
         let pc = PlayerConfig::default();
         let skin_type = SkinType::Play7Keys;
 
-        *lock_or_recover(&PLAYER_CONFIG) = Some(pc);
-        *lock_or_recover(&COMMAND_QUEUE) = Some(queue.clone());
+        {
+            let mut state = lock_or_recover(&SKIN_MENU_STATE);
+            state.player_config = Some(pc);
+            state.command_queue = Some(queue.clone());
+        }
         *lock_or_recover(&CURRENT_SKIN_TYPE) = Some(skin_type);
 
         let current = make_test_skin_header("SkinA", "/skins/a.json", skin_type);
@@ -877,14 +900,14 @@ mod tests {
         let pc = PlayerConfig::default();
         let skin_type = SkinType::Play7Keys;
 
-        *lock_or_recover(&PLAYER_CONFIG) = Some(pc);
-        // COMMAND_QUEUE deliberately left as None
+        lock_or_recover(&SKIN_MENU_STATE).player_config = Some(pc);
+        // command_queue deliberately left as None
         *lock_or_recover(&CURRENT_SKIN_TYPE) = Some(skin_type);
 
         let header = make_test_skin_header("TestSkin", "/skins/test.json", skin_type);
         *lock_or_recover(&CURRENT_SKIN) = Some(header.clone());
 
-        // Should not panic when COMMAND_QUEUE is None
+        // Should not panic when command_queue is None
         config::save_current_config(&header);
     }
 }

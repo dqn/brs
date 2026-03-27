@@ -8,7 +8,18 @@ use rubato_types::sync_utils::lock_or_recover;
 use std::sync::Mutex;
 use std::thread::ThreadId;
 
-static PLAYER_CONFIG: Mutex<Option<PlayerConfig>> = Mutex::new(None);
+/// Combined state that was previously split across two separate statics
+/// (`PLAYER_CONFIG` and `CURRENT_PLAY_MODE`) with a lock-ordering constraint.
+/// Merging them into a single Mutex eliminates the deadlock risk entirely.
+struct MenuState {
+    player_config: Option<PlayerConfig>,
+    current_play_mode: Option<Mode>,
+}
+
+static MENU_STATE: Mutex<MenuState> = Mutex::new(MenuState {
+    player_config: None,
+    current_play_mode: None,
+});
 
 /// Thread ID of the thread that called `set_player_config()`. Used for
 /// debug-asserting single-thread access in `show_ui()` and `flush_play_config()`.
@@ -19,10 +30,6 @@ static CONFIG: Mutex<Option<Config>> = Mutex::new(None);
 // Some of the settings are based on play mode
 // WARN: PLAY_MODE_VALUE has an initial value, 1 -> BEAT_7K
 static PLAY_MODE_VALUE: Mutex<i32> = Mutex::new(1);
-/// Lock ordering: acquire CURRENT_PLAY_MODE before PLAYER_CONFIG. Never hold
-/// both simultaneously -- copy the mode value first, then release before
-/// acquiring PLAYER_CONFIG.
-static CURRENT_PLAY_MODE: Mutex<Option<Mode>> = Mutex::new(None);
 
 static NOTIFICATION_POSITION: Mutex<i32> = Mutex::new(0);
 static ENABLE_LIFT: Mutex<bool> = Mutex::new(false);
@@ -63,7 +70,7 @@ fn get_play_mode_options() -> Vec<String> {
 /// storage (accessed only from the main thread), not for cross-thread
 /// synchronization.
 ///
-/// Config flow: UI statics -> flush_play_config() -> local PLAYER_CONFIG +
+/// Config flow: UI statics -> flush_play_config() -> MENU_STATE.player_config +
 /// UpdatePlayConfig command -> MainController.process_queued_controller_commands()
 /// -> BMSPlayer.receive_updated_play_config() -> LaneRenderer.apply_play_config().
 pub struct MiscSettingMenu;
@@ -75,10 +82,13 @@ impl MiscSettingMenu {
     /// left behind.
     pub fn clear() {
         *lock_or_recover(&OWNER_THREAD) = None;
-        *lock_or_recover(&PLAYER_CONFIG) = None;
+        {
+            let mut state = lock_or_recover(&MENU_STATE);
+            state.player_config = None;
+            state.current_play_mode = None;
+        }
         *lock_or_recover(&COMMAND_QUEUE) = None;
         *lock_or_recover(&CONFIG) = None;
-        *lock_or_recover(&CURRENT_PLAY_MODE) = None;
         *lock_or_recover(&PLAY_MODE_VALUE) = 1;
         *lock_or_recover(&NOTIFICATION_POSITION) = 0;
         *lock_or_recover(&ENABLE_LIFT) = false;
@@ -111,7 +121,7 @@ impl MiscSettingMenu {
 
         *lock_or_recover(&PLAYERS) = players;
         *lock_or_recover(&SELECTED_PLAYER) = player_idx as i32;
-        *lock_or_recover(&PLAYER_CONFIG) = Some(player_config);
+        lock_or_recover(&MENU_STATE).player_config = Some(player_config);
         *lock_or_recover(&CONFIG) = Some(config);
         *lock_or_recover(&COMMAND_QUEUE) = Some(command_queue);
     }
@@ -123,9 +133,10 @@ impl MiscSettingMenu {
             "MiscSettingMenu::show_ui() must run on the same thread as set_player_config()"
         );
         {
-            let mode = lock_or_recover(&CURRENT_PLAY_MODE);
-            if mode.is_none() {
-                drop(mode);
+            let state = lock_or_recover(&MENU_STATE);
+            let mode_is_none = state.current_play_mode.is_none();
+            drop(state);
+            if mode_is_none {
                 change_play_mode(&Mode::BEAT_7K);
             }
         }
@@ -264,9 +275,9 @@ impl MiscSettingMenu {
 
 /// Build a PlayConfig from the current UI statics, preserving fields not shown in the UI.
 ///
-// Known limitation: reads from process-global PLAYER_CONFIG which may be stale
+// Known limitation: reads from process-global MENU_STATE.player_config which may be stale
 // if hispeed was changed in-game via scroll keys. A proper fix requires either
-// making PLAYER_CONFIG receive UpdatePlayConfig events, or selectively applying
+// making player_config receive UpdatePlayConfig events, or selectively applying
 // only modmenu-managed fields instead of using `..base` spread.
 fn build_play_config_from_statics() -> PlayConfig {
     let base = get_play_config();
@@ -293,23 +304,23 @@ fn flush_play_config() {
         lock_or_recover(&OWNER_THREAD).is_none_or(|tid| tid == std::thread::current().id()),
         "flush_play_config() must run on the same thread as set_player_config()"
     );
-    let mode = match *lock_or_recover(&CURRENT_PLAY_MODE) {
-        Some(m) => m,
-        None => return,
-    };
-
     let updated = build_play_config_from_statics();
 
     // Update the local PlayerConfig clone (merge only modmenu-managed fields
     // so we don't overwrite hispeed/duration that may have been changed live).
-    {
-        let mut pc_guard = lock_or_recover(&PLAYER_CONFIG);
-        if let Some(ref mut pc) = *pc_guard {
+    let mode = {
+        let mut state = lock_or_recover(&MENU_STATE);
+        let mode = match state.current_play_mode {
+            Some(m) => m,
+            None => return,
+        };
+        if let Some(ref mut pc) = state.player_config {
             pc.play_config(mode)
                 .playconfig
                 .apply_modmenu_fields(&updated);
         }
-    }
+        mode
+    };
 
     // Push command to MainController
     let queue = lock_or_recover(&COMMAND_QUEUE);
@@ -323,19 +334,16 @@ fn flush_play_config() {
 
 /// Get current play mode(5k, 7k...) config from the local PlayerConfig clone.
 ///
-/// Lock ordering convention: acquire CURRENT_PLAY_MODE before PLAYER_CONFIG,
-/// and never hold both simultaneously. This matches flush_play_config() and
-/// prevents deadlock if multi-threaded access is ever introduced.
+/// Both `player_config` and `current_play_mode` are held in the same
+/// `MENU_STATE` Mutex, so there is no lock-ordering concern.
 fn get_play_config() -> PlayConfig {
-    // Copy mode first and release the lock before acquiring PLAYER_CONFIG.
-    let mode = match *lock_or_recover(&CURRENT_PLAY_MODE) {
+    let state = lock_or_recover(&MENU_STATE);
+    let mode = match state.current_play_mode {
         Some(m) => m,
         None => return PlayConfig::default(),
     };
 
-    let pc_guard = lock_or_recover(&PLAYER_CONFIG);
-    if let Some(ref pc) = *pc_guard {
-        // Use play_config_ref() to avoid the &mut requirement of play_config()
+    if let Some(ref pc) = state.player_config {
         return pc.play_config_ref(mode).playconfig.clone();
     }
     PlayConfig::default()
@@ -343,7 +351,7 @@ fn get_play_config() -> PlayConfig {
 
 /// Change current play mode, resetting related options
 fn change_play_mode(mode: &Mode) {
-    *lock_or_recover(&CURRENT_PLAY_MODE) = Some(*mode);
+    lock_or_recover(&MENU_STATE).current_play_mode = Some(*mode);
     let conf = get_play_config();
 
     *lock_or_recover(&ENABLE_LIFT) = conf.enablelift;
@@ -428,10 +436,12 @@ fn profile_switcher_ui(ui: &mut egui::Ui) {
                             q.push(MainControllerCommand::SaveConfig);
                         }
                     }
-                    // Update local PlayerConfig
-                    *lock_or_recover(&PLAYER_CONFIG) = Some(new_pc);
+                    // Update local PlayerConfig and read current play mode
+                    let mut state = lock_or_recover(&MENU_STATE);
+                    state.player_config = Some(new_pc);
+                    let mode = state.current_play_mode.unwrap_or(Mode::BEAT_7K);
+                    drop(state);
                     // Refresh play mode settings from the new profile
-                    let mode = lock_or_recover(&CURRENT_PLAY_MODE).unwrap_or(Mode::BEAT_7K);
                     change_play_mode(&mode);
                     log::info!("Profile switched to: {}", player_id);
                 }
@@ -532,10 +542,13 @@ mod tests {
     /// poisoned mutexes from prior panics.
     fn reset_statics() {
         *lock_or_recover(&OWNER_THREAD) = None;
-        *lock_or_recover(&PLAYER_CONFIG) = None;
+        {
+            let mut state = lock_or_recover(&MENU_STATE);
+            state.player_config = None;
+            state.current_play_mode = None;
+        }
         *lock_or_recover(&COMMAND_QUEUE) = None;
         *lock_or_recover(&CONFIG) = None;
-        *lock_or_recover(&CURRENT_PLAY_MODE) = None;
         *lock_or_recover(&PLAY_MODE_VALUE) = 1;
         *lock_or_recover(&ENABLE_LIFT) = false;
         *lock_or_recover(&LIFT_VALUE) = 0;
@@ -564,9 +577,12 @@ mod tests {
 
             let queue = MainControllerCommandQueue::new();
 
-            *lock_or_recover(&PLAYER_CONFIG) = Some(pc);
+            {
+                let mut state = lock_or_recover(&MENU_STATE);
+                state.player_config = Some(pc);
+                state.current_play_mode = Some(Mode::BEAT_7K);
+            }
             *lock_or_recover(&COMMAND_QUEUE) = Some(queue.clone());
-            *lock_or_recover(&CURRENT_PLAY_MODE) = Some(Mode::BEAT_7K);
 
             // Simulate user enabling lift with value 500
             *lock_or_recover(&ENABLE_LIFT) = true;
@@ -575,15 +591,15 @@ mod tests {
             flush_play_config();
 
             // Verify local PlayerConfig was updated
-            let pc_guard = lock_or_recover(&PLAYER_CONFIG);
-            let pc = pc_guard.as_ref().unwrap();
+            let state = lock_or_recover(&MENU_STATE);
+            let pc = state.player_config.as_ref().unwrap();
             assert!(pc.play_config_ref(Mode::BEAT_7K).playconfig.enablelift);
             assert!(
                 (pc.play_config_ref(Mode::BEAT_7K).playconfig.lift - 0.5).abs() < 0.001,
                 "lift should be 0.5 (500/1000), got {}",
                 pc.play_config_ref(Mode::BEAT_7K).playconfig.lift
             );
-            drop(pc_guard);
+            drop(state);
 
             // Verify command was pushed
             let commands = queue.drain();
@@ -611,7 +627,7 @@ mod tests {
             pc.mode7.playconfig.enable_constant = true;
             pc.mode7.playconfig.constant_fadein_time = 200;
 
-            *lock_or_recover(&PLAYER_CONFIG) = Some(pc);
+            lock_or_recover(&MENU_STATE).player_config = Some(pc);
 
             change_play_mode(&Mode::BEAT_7K);
 
@@ -626,27 +642,30 @@ mod tests {
         // --- Part 3: flush without command queue does not panic ---
         {
             let pc = PlayerConfig::default();
-            *lock_or_recover(&PLAYER_CONFIG) = Some(pc);
+            {
+                let mut state = lock_or_recover(&MENU_STATE);
+                state.player_config = Some(pc);
+                state.current_play_mode = Some(Mode::BEAT_7K);
+            }
             *lock_or_recover(&COMMAND_QUEUE) = None;
-            *lock_or_recover(&CURRENT_PLAY_MODE) = Some(Mode::BEAT_7K);
 
             *lock_or_recover(&ENABLE_HIDDEN) = true;
             *lock_or_recover(&HIDDEN_VALUE) = 300;
 
             flush_play_config(); // Should not panic
 
-            let pc_guard = lock_or_recover(&PLAYER_CONFIG);
-            let pc = pc_guard.as_ref().unwrap();
+            let state = lock_or_recover(&MENU_STATE);
+            let pc = state.player_config.as_ref().unwrap();
             assert!(pc.play_config_ref(Mode::BEAT_7K).playconfig.enablehidden);
             assert!((pc.play_config_ref(Mode::BEAT_7K).playconfig.hidden - 0.3).abs() < 0.001,);
-            drop(pc_guard);
+            drop(state);
         }
 
         reset_statics();
     }
 
     /// Regression: flush_play_config must not overwrite hispeed/duration in the
-    /// local PLAYER_CONFIG. If another code path (e.g. scroll wheel) updated
+    /// local player_config. If another code path (e.g. scroll wheel) updated
     /// hispeed in the local clone while the modmenu was open, a full-struct write
     /// would clobber it with the stale snapshot value.
     #[test]
@@ -663,9 +682,12 @@ mod tests {
 
         let queue = MainControllerCommandQueue::new();
 
-        *lock_or_recover(&PLAYER_CONFIG) = Some(pc);
+        {
+            let mut state = lock_or_recover(&MENU_STATE);
+            state.player_config = Some(pc);
+            state.current_play_mode = Some(Mode::BEAT_7K);
+        }
         *lock_or_recover(&COMMAND_QUEUE) = Some(queue.clone());
-        *lock_or_recover(&CURRENT_PLAY_MODE) = Some(Mode::BEAT_7K);
 
         // Simulate user toggling a modmenu field
         *lock_or_recover(&ENABLE_LIFT) = true;
@@ -673,9 +695,10 @@ mod tests {
 
         flush_play_config();
 
-        // Non-modmenu fields must be preserved in the local PLAYER_CONFIG
-        let pc_guard = lock_or_recover(&PLAYER_CONFIG);
-        let live = &pc_guard
+        // Non-modmenu fields must be preserved in the local player_config
+        let state = lock_or_recover(&MENU_STATE);
+        let live = &state
+            .player_config
             .as_ref()
             .unwrap()
             .play_config_ref(Mode::BEAT_7K)
@@ -701,7 +724,7 @@ mod tests {
         // Modmenu-managed fields must be updated
         assert!(live.enablelift);
         assert!((live.lift - 0.25).abs() < 0.001);
-        drop(pc_guard);
+        drop(state);
 
         reset_statics();
     }
@@ -717,10 +740,13 @@ mod tests {
         let queue = MainControllerCommandQueue::new();
         let config = Config::default();
 
-        *lock_or_recover(&PLAYER_CONFIG) = Some(pc);
+        {
+            let mut state = lock_or_recover(&MENU_STATE);
+            state.player_config = Some(pc);
+            state.current_play_mode = Some(Mode::BEAT_7K);
+        }
         *lock_or_recover(&COMMAND_QUEUE) = Some(queue.clone());
         *lock_or_recover(&CONFIG) = Some(config);
-        *lock_or_recover(&CURRENT_PLAY_MODE) = Some(Mode::BEAT_7K);
         *lock_or_recover(&PLAY_MODE_VALUE) = 3;
         *lock_or_recover(&NOTIFICATION_POSITION) = 2;
         *lock_or_recover(&ENABLE_LIFT) = true;
@@ -738,19 +764,25 @@ mod tests {
         *lock_or_recover(&PLAYERS) = vec!["alice".to_string(), "bob".to_string()];
 
         // Verify statics are populated
-        assert!(lock_or_recover(&PLAYER_CONFIG).is_some());
+        {
+            let state = lock_or_recover(&MENU_STATE);
+            assert!(state.player_config.is_some());
+            assert!(state.current_play_mode.is_some());
+        }
         assert!(lock_or_recover(&COMMAND_QUEUE).is_some());
         assert!(lock_or_recover(&CONFIG).is_some());
-        assert!(lock_or_recover(&CURRENT_PLAY_MODE).is_some());
 
         // Clear
         MiscSettingMenu::clear();
 
         // Verify all Option statics are None
-        assert!(lock_or_recover(&PLAYER_CONFIG).is_none());
+        {
+            let state = lock_or_recover(&MENU_STATE);
+            assert!(state.player_config.is_none());
+            assert!(state.current_play_mode.is_none());
+        }
         assert!(lock_or_recover(&COMMAND_QUEUE).is_none());
         assert!(lock_or_recover(&CONFIG).is_none());
-        assert!(lock_or_recover(&CURRENT_PLAY_MODE).is_none());
 
         // Verify value statics are reset to defaults
         assert_eq!(*lock_or_recover(&PLAY_MODE_VALUE), 1);
@@ -792,7 +824,7 @@ mod tests {
 
         MiscSettingMenu::set_player_config(pc, config, queue.clone());
 
-        // Simulate a play mode selection so CURRENT_PLAY_MODE is set
+        // Simulate a play mode selection so current_play_mode is set
         change_play_mode(&Mode::BEAT_7K);
         assert!(*lock_or_recover(&ENABLE_LIFT));
         assert_eq!(*lock_or_recover(&LIFT_VALUE), 420);
@@ -832,16 +864,11 @@ mod tests {
         reset_statics();
     }
 
-    /// Verify that get_play_config and flush_play_config never hold
-    /// PLAYER_CONFIG and CURRENT_PLAY_MODE simultaneously, preventing
-    /// potential deadlock from inconsistent lock ordering.
-    ///
-    /// Lock ordering convention (documented in get_play_config):
-    ///   1. Acquire CURRENT_PLAY_MODE, copy value, release
-    ///   2. Acquire PLAYER_CONFIG
-    /// Both get_play_config and flush_play_config follow this pattern.
+    /// Verify that get_play_config and flush_play_config work correctly
+    /// now that player_config and current_play_mode share a single Mutex
+    /// (MENU_STATE), eliminating the previous deadlock risk.
     #[test]
-    fn test_no_nested_locks_between_player_config_and_play_mode() {
+    fn test_play_config_and_play_mode_via_menu_state() {
         reset_statics();
 
         let mut pc = PlayerConfig::default();
@@ -849,11 +876,14 @@ mod tests {
         pc.mode7.playconfig.lift = 0.75;
         let queue = MainControllerCommandQueue::new();
 
-        *lock_or_recover(&PLAYER_CONFIG) = Some(pc);
+        {
+            let mut state = lock_or_recover(&MENU_STATE);
+            state.player_config = Some(pc);
+            state.current_play_mode = Some(Mode::BEAT_7K);
+        }
         *lock_or_recover(&COMMAND_QUEUE) = Some(queue);
-        *lock_or_recover(&CURRENT_PLAY_MODE) = Some(Mode::BEAT_7K);
 
-        // get_play_config must work without nesting locks
+        // get_play_config reads from single MENU_STATE Mutex
         let play_cfg = get_play_config();
         assert!(play_cfg.enablelift);
         assert!((play_cfg.lift - 0.75).abs() < 0.001);
@@ -862,17 +892,18 @@ mod tests {
         *lock_or_recover(&ENABLE_LIFT) = false;
         flush_play_config();
 
-        let pc_guard = lock_or_recover(&PLAYER_CONFIG);
-        let updated = &pc_guard
+        let state = lock_or_recover(&MENU_STATE);
+        let updated = &state
+            .player_config
             .as_ref()
             .unwrap()
             .play_config_ref(Mode::BEAT_7K)
             .playconfig;
-        assert!(!updated.enablelift, "flush must update PLAYER_CONFIG");
-        drop(pc_guard);
+        assert!(!updated.enablelift, "flush must update player_config");
+        drop(state);
 
         // get_play_config with no mode set returns default
-        *lock_or_recover(&CURRENT_PLAY_MODE) = None;
+        lock_or_recover(&MENU_STATE).current_play_mode = None;
         let default_cfg = get_play_config();
         assert!(!default_cfg.enablelift);
         assert_eq!(default_cfg.lift, PlayConfig::default().lift);

@@ -11,8 +11,8 @@ use super::super::{
 };
 use super::header_converters::{skin_header_from_json_data, skin_header_from_lr2_data};
 use super::{
-    AVAILABLE_FILES, COMMAND_QUEUE, CURRENT_SKIN, CURRENT_SKIN_TYPE, DIRTY_CONFIG, MAIN,
-    OffsetValue, PLAYER_CONFIG, READY, SET_FILES, SET_OFFSETS, SET_OPTIONS,
+    AVAILABLE_FILES, CURRENT_SKIN, CURRENT_SKIN_TYPE, DIRTY_CONFIG, OffsetValue, READY, SET_FILES,
+    SET_OFFSETS, SET_OPTIONS, SKIN_MENU_STATE,
 };
 use rubato_types::main_controller_access::MainControllerCommand;
 use rubato_types::sync_utils::lock_or_recover;
@@ -60,9 +60,8 @@ pub(super) fn load_all_skins(skin_type: &SkinType) -> Vec<SkinHeader> {
                 let _ = loader.load_header(path);
                 // header stays None -- lua skin loader not yet fully implemented
             } else if path_string.ends_with(".lr2skin") {
-                let main = lock_or_recover(&MAIN);
-                if main.is_some() {
-                    drop(main);
+                let main_present = lock_or_recover(&SKIN_MENU_STATE).main.is_some();
+                if main_present {
                     let mut loader = LR2SkinHeaderLoader::new("");
                     match loader.load_skin(path, None).map(skin_header_from_lr2_data) {
                         Ok(mut h) => {
@@ -259,12 +258,11 @@ pub(super) fn load_saved_skin_settings(header: &SkinHeader) {
         .path()
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_default();
-    let player_config = lock_or_recover(&PLAYER_CONFIG);
+    let menu_state = lock_or_recover(&SKIN_MENU_STATE);
 
-    if player_config.is_none() {
+    let Some(ref pc) = menu_state.player_config else {
         return;
-    }
-    let pc = player_config.as_ref().expect("player_config is Some");
+    };
 
     let mut saved_properties: Option<&SkinProperty> = None;
 
@@ -455,68 +453,46 @@ pub(super) fn save_current_config(next_skin: &SkinHeader) {
         properties: Some(property),
     };
 
-    let mut player_config = lock_or_recover(&PLAYER_CONFIG);
-    if player_config.is_none() {
-        return;
-    }
-    let pc = player_config.as_mut().expect("player_config is Some");
+    // Determine command to push while holding SKIN_MENU_STATE, then release
+    // before actually pushing (push_command re-acquires the lock for the queue).
+    let command = {
+        let mut menu_state = lock_or_recover(&SKIN_MENU_STATE);
+        let Some(ref mut pc) = menu_state.player_config else {
+            return;
+        };
 
-    let current_type = lock_or_recover(&CURRENT_SKIN_TYPE);
-    if let Some(ref st) = *current_type
-        && next_skin.name() == cs.name()
-    {
-        let id = st.id() as usize;
-        if id < pc.skin.len() {
-            pc.skin[id] = Some(config.clone());
+        let current_type = lock_or_recover(&CURRENT_SKIN_TYPE);
+        if let Some(ref st) = *current_type
+            && next_skin.name() == cs.name()
+        {
+            let id = st.id() as usize;
+            if id < pc.skin.len() {
+                pc.skin[id] = Some(config.clone());
+            }
+            MainControllerCommand::UpdateSkinConfig(id, Some(Box::new(config)))
+        } else if let Some(entry) = pc
+            .skin_history
+            .iter_mut()
+            .find(|h| h.path().is_some_and(|p| p == skin_path))
+        {
+            *entry = config.clone();
+            MainControllerCommand::UpdateSkinHistory(skin_path, Box::new(config))
+        } else {
+            // this skin hasn't been in the config history before, add it
+            pc.skin_history.push(config.clone());
+            MainControllerCommand::UpdateSkinHistory(skin_path, Box::new(config))
         }
-        // Release locks before pushing to command queue
-        drop(current_type);
-        drop(player_config);
-        drop(current_skin);
-        push_update_skin_config(id, Some(config));
-        return;
-    }
-
-    if let Some(entry) = pc
-        .skin_history
-        .iter_mut()
-        .find(|h| h.path().is_some_and(|p| p == skin_path))
-    {
-        *entry = config.clone();
-        drop(current_type);
-        drop(player_config);
-        drop(current_skin);
-        push_update_skin_history(skin_path, config);
-        return;
-    }
-
-    // this skin hasn't been in the config history before, add it
-    pc.skin_history.push(config.clone());
-    drop(current_type);
-    drop(player_config);
+    };
     drop(current_skin);
-    push_update_skin_history(skin_path, config);
+
+    push_command(command);
 }
 
-/// Push an UpdateSkinConfig command to MainController via the command queue.
-fn push_update_skin_config(id: usize, config: Option<SkinConfig>) {
-    let queue = lock_or_recover(&COMMAND_QUEUE);
-    if let Some(ref q) = *queue {
-        q.push(MainControllerCommand::UpdateSkinConfig(
-            id,
-            config.map(Box::new),
-        ));
-    }
-}
-
-/// Push an UpdateSkinHistory command to MainController via the command queue.
-fn push_update_skin_history(skin_path: String, config: SkinConfig) {
-    let queue = lock_or_recover(&COMMAND_QUEUE);
-    if let Some(ref q) = *queue {
-        q.push(MainControllerCommand::UpdateSkinHistory(
-            skin_path,
-            Box::new(config),
-        ));
+/// Push a command to MainController via the command queue in SKIN_MENU_STATE.
+fn push_command(command: MainControllerCommand) {
+    let state = lock_or_recover(&SKIN_MENU_STATE);
+    if let Some(ref q) = state.command_queue {
+        q.push(command);
     }
 }
 
