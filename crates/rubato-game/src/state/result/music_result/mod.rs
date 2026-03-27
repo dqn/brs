@@ -20,8 +20,7 @@ use super::ir_send_status::IRSendStatusMain;
 use super::result_key_property::{ResultKey, ResultKeyProperty};
 use super::result_skin_data::ResultSkinData;
 use super::{
-    BMSPlayerModeType, ControlKeys, KeyCommand, MainController, NullMainController, PlayerResource,
-    RankingData,
+    BMSPlayerModeType, ControlKeys, KeyCommand, MainController, PlayerResource, RankingData,
 };
 use crate::core::ir_config::{IR_SEND_ALWAYS, IR_SEND_COMPLETE_SONG, IR_SEND_UPDATE_SCORE};
 use rubato_types::property_snapshot::PropertySnapshot;
@@ -69,6 +68,10 @@ pub struct MusicResult {
     pending_audio_config: Option<rubato_types::audio_config::AudioConfig>,
     /// Outbox: pending stop-all-notes request (fadeout).
     pending_stop_all_notes: bool,
+    /// Outbox: pending state change from skin callbacks / do_render.
+    pending_state_change: Option<MainStateType>,
+    /// Outbox: pending save_last_recording requests.
+    pending_save_last_recording: Vec<String>,
     /// Read-only input snapshot for the current frame.
     input_snapshot: Option<rubato_input::input_snapshot::InputSnapshot>,
 }
@@ -91,6 +94,8 @@ impl MusicResult {
             pending_audio_path_stops: Vec::new(),
             pending_audio_config: None,
             pending_stop_all_notes: false,
+            pending_state_change: None,
+            pending_save_last_recording: Vec::new(),
             input_snapshot: None,
         }
     }
@@ -410,10 +415,10 @@ impl MusicResult {
                                 }
                             }
                             // Failed course result
-                            self.main.change_state(MainStateType::CourseResult);
+                            self.pending_state_change = Some(MainStateType::CourseResult);
                         } else {
                             // No course score — go to music select
-                            self.main.change_state(MainStateType::MusicSelect);
+                            self.pending_state_change = Some(MainStateType::MusicSelect);
                         }
                     } else if self.resource.next_course() {
                         // Next course song
@@ -437,10 +442,10 @@ impl MusicResult {
                                 self.resource.ranking_data = songrank;
                             }
                         }
-                        self.main.change_state(MainStateType::Play);
+                        self.pending_state_change = Some(MainStateType::Play);
                     } else {
                         // Course pass result
-                        self.main.change_state(MainStateType::CourseResult);
+                        self.pending_state_change = Some(MainStateType::CourseResult);
                     }
                 } else {
                     // Non-course mode
@@ -475,7 +480,7 @@ impl MusicResult {
                             rd.randomoptionseed = -1;
                         }
                         self.resource.reload_bms_file();
-                        self.main.change_state(MainStateType::Play);
+                        self.pending_state_change = Some(MainStateType::Play);
                     } else if self.resource.play_mode().mode == BMSPlayerModeType::Play
                         && key == Some(ResultKey::ReplaySame)
                     {
@@ -489,9 +494,9 @@ impl MusicResult {
                             }
                         }
                         self.resource.reload_bms_file();
-                        self.main.change_state(MainStateType::Play);
+                        self.pending_state_change = Some(MainStateType::Play);
                     } else {
-                        self.main.change_state(MainStateType::MusicSelect);
+                        self.pending_state_change = Some(MainStateType::MusicSelect);
                     }
                 }
             }
@@ -649,7 +654,8 @@ impl MusicResult {
             ) {
                 Ok(()) => {
                     self.data.save_replay[index] = ReplayStatus::Saved;
-                    self.main.save_last_recording("ON_REPLAY");
+                    self.pending_save_last_recording
+                        .push("ON_REPLAY".to_string());
                 }
                 Err(e) => {
                     log::error!("Failed to save replay data: {}", e);
@@ -984,9 +990,9 @@ impl MusicResult {
             timer.set_micro_timer(timer_id, micro_time);
         }
 
-        // State changes (must stay on command queue)
+        // State changes: queue for outbox drain in render_with_game_context
         for state in actions.state_changes.drain(..) {
-            self.main.change_state(state);
+            self.pending_state_change = Some(state);
         }
 
         // Audio: store in pending lists for outbox drain
@@ -1079,6 +1085,35 @@ impl MainState for MusicResult {
     }
 
     fn render_with_game_context(&mut self, ctx: &mut GameContext) -> Option<StateTransition> {
+        // Drain outbox from previous frame (render_skin, prepare, do_render)
+        for (sound, loop_sound) in self.pending_sounds.drain(..) {
+            ctx.play_sound(&sound, loop_sound);
+        }
+        for sound in self.pending_sound_stops.drain(..) {
+            ctx.stop_sound(&sound);
+        }
+        for (path, volume, is_loop) in self.pending_audio_path_plays.drain(..) {
+            ctx.play_audio_path(&path, volume, is_loop);
+        }
+        for path in self.pending_audio_path_stops.drain(..) {
+            ctx.stop_audio_path(&path);
+        }
+        if let Some(audio) = self.pending_audio_config.take() {
+            ctx.update_audio_config(audio);
+        }
+        if self.pending_stop_all_notes {
+            ctx.stop_all_notes();
+            self.pending_stop_all_notes = false;
+        }
+        for reason in self.pending_save_last_recording.drain(..) {
+            ctx.save_last_recording(&reason);
+        }
+
+        // Check for pending state change from skin callbacks / do_render
+        if let Some(state) = self.pending_state_change.take() {
+            return Some(StateTransition::ChangeTo(state));
+        }
+
         // Poll for async IR results (non-blocking)
         self.poll_ir_results();
 
@@ -1420,7 +1455,10 @@ impl MainState for MusicResult {
 impl Default for MusicResult {
     fn default() -> Self {
         Self::new(
-            MainController::new(Box::new(NullMainController)),
+            MainController::new(
+                rubato_types::config::Config::default(),
+                Box::new(crate::ir::ranking_data_cache::RankingDataCache::new()),
+            ),
             PlayerResource::default(),
             TimerManager::new(),
         )
@@ -1437,11 +1475,16 @@ mod tests {
         ResultMouseContext, ResultRenderContext,
     };
     use crate::state::result::test_helpers::{
-        ExecuteEventSkin, PlayerConfigMutatingSkin, TestMainControllerAccess, make_test_config,
+        ExecuteEventSkin, PlayerConfigMutatingSkin, make_test_config,
     };
     use rubato_types::player_resource_access::PlayerResourceAccess;
     use rubato_types::skin_render_context::SkinRenderContext;
     use std::path::{Path, PathBuf};
+
+    fn make_ranking_cache()
+    -> Box<dyn rubato_types::ranking_data_cache_access::RankingDataCacheAccess> {
+        Box::new(crate::ir::ranking_data_cache::RankingDataCache::new())
+    }
 
     struct MouseResultResourceAccess {
         config: rubato_types::config::Config,
@@ -1672,7 +1715,7 @@ mod tests {
 
     fn make_result_for_mouse() -> MusicResult {
         let config = make_test_config("music-result");
-        let main = MainController::new(Box::new(TestMainControllerAccess::new(config.clone())));
+        let main = MainController::new(config.clone(), make_ranking_cache());
         let resource = PlayerResource::new(
             Box::new(MouseResultResourceAccess::new(config)),
             crate::state::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
@@ -2069,10 +2112,8 @@ mod tests {
                 as Arc<dyn crate::ir::ir_connection::IRConnection + Send + Sync>,
             IRPlayerData::new("id1".into(), "Player1".into(), "1st".into()),
         )];
-        let main = MainController::with_ir_statuses(
-            Box::new(TestMainControllerAccess::new(config.clone())),
-            ir_statuses,
-        );
+        let main =
+            MainController::with_ir_statuses(config.clone(), make_ranking_cache(), ir_statuses);
         let resource = PlayerResource::new(
             Box::new(MouseResultResourceAccess::new(config)),
             crate::state::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
@@ -2095,7 +2136,7 @@ mod tests {
         song_data: Option<rubato_types::song_data::SongData>,
     ) -> MusicResult {
         let config = make_test_config("lnmode-result");
-        let main = MainController::new(Box::new(TestMainControllerAccess::new(config.clone())));
+        let main = MainController::new(config.clone(), make_ranking_cache());
         let mut res_access = MouseResultResourceAccess::new(config);
         res_access.song_data = song_data;
         // Set lnmode config to a sentinel value (99) so we can verify fallback
@@ -2281,67 +2322,13 @@ mod tests {
     // ResultMouseContext set_float_value volume slider tests
     // ============================================================
 
-    /// Mock MainControllerAccess that captures update_audio_config calls.
-    struct VolumeCapturingAccess {
-        config: rubato_types::config::Config,
-        player_config: rubato_types::player_config::PlayerConfig,
-        captured_audio:
-            std::sync::Arc<std::sync::Mutex<Vec<rubato_types::audio_config::AudioConfig>>>,
-    }
-
-    impl VolumeCapturingAccess {
-        fn new(
-            captured: std::sync::Arc<
-                std::sync::Mutex<Vec<rubato_types::audio_config::AudioConfig>>,
-            >,
-        ) -> Self {
-            let mut config = rubato_types::config::Config::default();
-            config.audio = Some(rubato_types::audio_config::AudioConfig::default());
-            Self {
-                config,
-                player_config: rubato_types::player_config::PlayerConfig::default(),
-                captured_audio: captured,
-            }
-        }
-    }
-
-    impl rubato_types::main_controller_access::MainControllerAccess for VolumeCapturingAccess {
-        fn config(&self) -> &rubato_types::config::Config {
-            &self.config
-        }
-        fn player_config(&self) -> &rubato_types::player_config::PlayerConfig {
-            &self.player_config
-        }
-        fn change_state(&mut self, _state: crate::core::main_state::MainStateType) {}
-        fn save_config(&self) -> anyhow::Result<()> {
-            Ok(())
-        }
-        fn exit(&self) -> anyhow::Result<()> {
-            Ok(())
-        }
-        fn save_last_recording(&self, _reason: &str) {}
-        fn update_song(&mut self, _path: Option<&str>) {}
-        fn player_resource(&self) -> Option<&dyn PlayerResourceAccess> {
-            None
-        }
-        fn player_resource_mut(&mut self) -> Option<&mut dyn PlayerResourceAccess> {
-            None
-        }
-        fn update_audio_config(&self, audio: rubato_types::audio_config::AudioConfig) {
-            self.captured_audio.lock().unwrap().push(audio);
-        }
-    }
-
     #[test]
     fn result_mouse_context_set_float_value_propagates_volume() {
         // Regression: volume slider writes (IDs 17-19) on the result screen
-        // must propagate to MainController via update_audio_config, not be silently dropped.
-        let captured: std::sync::Arc<
-            std::sync::Mutex<Vec<rubato_types::audio_config::AudioConfig>>,
-        > = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
-
-        let config = make_test_config("volume-result");
-        let main = MainController::new(Box::new(VolumeCapturingAccess::new(captured.clone())));
+        // must propagate to pending_audio_config, not be silently dropped.
+        let mut config = make_test_config("volume-result");
+        config.audio = Some(rubato_types::audio_config::AudioConfig::default());
+        let main = MainController::new(config.clone(), make_ranking_cache());
         let resource = PlayerResource::new(
             Box::new(MouseResultResourceAccess::new(config)),
             crate::state::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
@@ -2359,21 +2346,20 @@ mod tests {
             ctx.set_float_value(19, 0.25);
         }
 
-        let calls = captured.lock().unwrap();
-        assert_eq!(calls.len(), 3, "should have 3 update_audio_config calls");
-        assert_eq!(calls[0].systemvolume, 0.75);
-        assert_eq!(calls[1].keyvolume, 0.5);
-        assert_eq!(calls[2].bgvolume, 0.25);
+        // Each set_float_value overwrites pending_audio_config, so we see the final accumulated state
+        let audio = mr
+            .pending_audio_config
+            .expect("should have pending audio config");
+        assert_eq!(audio.systemvolume, 0.75);
+        assert_eq!(audio.keyvolume, 0.5);
+        assert_eq!(audio.bgvolume, 0.25);
     }
 
     #[test]
     fn result_mouse_context_set_float_value_clamps_volume() {
-        let captured: std::sync::Arc<
-            std::sync::Mutex<Vec<rubato_types::audio_config::AudioConfig>>,
-        > = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
-
-        let config = make_test_config("volume-clamp-result");
-        let main = MainController::new(Box::new(VolumeCapturingAccess::new(captured.clone())));
+        let mut config = make_test_config("volume-clamp-result");
+        config.audio = Some(rubato_types::audio_config::AudioConfig::default());
+        let main = MainController::new(config.clone(), make_ranking_cache());
         let resource = PlayerResource::new(
             Box::new(MouseResultResourceAccess::new(config)),
             crate::state::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
@@ -2390,10 +2376,11 @@ mod tests {
             ctx.set_float_value(18, 1.5);
         }
 
-        let calls = captured.lock().unwrap();
-        assert_eq!(calls.len(), 2);
-        assert_eq!(calls[0].systemvolume, 0.0, "negative should clamp to 0.0");
-        assert_eq!(calls[1].keyvolume, 1.0, "above 1.0 should clamp to 1.0");
+        let audio = mr
+            .pending_audio_config
+            .expect("should have pending audio config");
+        assert_eq!(audio.systemvolume, 0.0, "negative should clamp to 0.0");
+        assert_eq!(audio.keyvolume, 1.0, "above 1.0 should clamp to 1.0");
     }
 
     // ============================================================

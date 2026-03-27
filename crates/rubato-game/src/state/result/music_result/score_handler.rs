@@ -225,7 +225,7 @@ impl MusicResult {
 mod tests {
     use super::*;
     use crate::core::timer_manager::TimerManager;
-    use crate::state::result::test_helpers::{TestMainControllerAccess, make_test_config};
+    use crate::state::result::test_helpers::make_test_config;
     use crate::state::result::{BMSPlayerModeType, MainController, PlayerResource};
     use rubato_types::player_resource_access::PlayerResourceAccess;
     use std::path::{Path, PathBuf};
@@ -444,7 +444,10 @@ mod tests {
         course_models: Vec<bms::model::bms_model::BMSModel>,
     ) -> MusicResult {
         let config = resource_access.config.clone();
-        let main = MainController::new(Box::new(TestMainControllerAccess::new(config)));
+        let main = MainController::new(
+            config,
+            Box::new(crate::ir::ranking_data_cache::RankingDataCache::new()),
+        );
         let mut resource = PlayerResource::new(
             Box::new(resource_access),
             crate::core::bms_player_mode::BMSPlayerMode::new(BMSPlayerModeType::Play),

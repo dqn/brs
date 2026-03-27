@@ -6,7 +6,7 @@ use crate::core::system_sound_manager::SoundType;
 use super::MainController;
 use super::PlayerResource;
 
-/// Check whether a sound asset exists for the given SoundType.
+/// Check whether a pre-resolved sound path exists for the given SoundType.
 #[inline]
 pub fn has_sound(main: &MainController, sound: &SoundType) -> bool {
     main.sound_path(sound).is_some()

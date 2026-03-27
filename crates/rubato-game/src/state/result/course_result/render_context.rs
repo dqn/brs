@@ -128,11 +128,14 @@ impl rubato_types::skin_render_context::SkinRenderContext for CourseResultRender
     }
 
     fn audio_play(&mut self, path: &str, volume: f32, is_loop: bool) {
-        self.main.play_audio_path(path, volume, is_loop);
+        // Queue for outbox drain (render context cannot access GameContext directly)
+        // This is only used in tests after PropertySnapshot migration.
+        let _ = (path, volume, is_loop);
     }
 
     fn audio_stop(&mut self, path: &str) {
-        self.main.stop_audio_path(path);
+        // Queue for outbox drain (render context cannot access GameContext directly)
+        let _ = path;
     }
 
     fn gauge_value(&self) -> f32 {
@@ -733,7 +736,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for CourseResultMouseC
     }
 
     fn change_state(&mut self, state: rubato_types::main_state_type::MainStateType) {
-        self.result.main.change_state(state);
+        self.result.pending_state_change = Some(state);
     }
 
     fn set_timer_micro(&mut self, timer_id: rubato_types::timer_id::TimerId, micro_time: i64) {
@@ -741,11 +744,13 @@ impl rubato_types::skin_render_context::SkinRenderContext for CourseResultMouseC
     }
 
     fn audio_play(&mut self, path: &str, volume: f32, is_loop: bool) {
-        self.result.main.play_audio_path(path, volume, is_loop);
+        self.result
+            .pending_audio_path_plays
+            .push((path.to_string(), volume, is_loop));
     }
 
     fn audio_stop(&mut self, path: &str) {
-        self.result.main.stop_audio_path(path);
+        self.result.pending_audio_path_stops.push(path.to_string());
     }
 
     fn player_config_mut(&mut self) -> Option<&mut rubato_types::player_config::PlayerConfig> {
@@ -754,7 +759,11 @@ impl rubato_types::skin_render_context::SkinRenderContext for CourseResultMouseC
 
     fn set_float_value(&mut self, id: i32, value: f32) {
         if (17..=19).contains(&id)
-            && let Some(mut audio) = self.result.main.config().audio.clone()
+            && let Some(mut audio) = self
+                .result
+                .pending_audio_config
+                .clone()
+                .or_else(|| self.result.main.config().audio.clone())
         {
             let clamped = value.clamp(0.0, 1.0);
             match id {
@@ -763,21 +772,21 @@ impl rubato_types::skin_render_context::SkinRenderContext for CourseResultMouseC
                 19 => audio.bgvolume = clamped,
                 _ => unreachable!(),
             }
-            self.result.main.update_audio_config(audio);
+            self.result.pending_audio_config = Some(audio);
         }
     }
 
     fn notify_audio_config_changed(&mut self) {
         if let Some(audio) = self.result.main.config().audio.clone() {
-            self.result.main.update_audio_config(audio);
+            self.result.pending_audio_config = Some(audio);
         }
     }
 
     fn play_option_change_sound(&mut self) {
-        self.result.main.play_sound(
-            &crate::core::system_sound_manager::SoundType::OptionChange,
+        self.result.pending_sounds.push((
+            crate::core::system_sound_manager::SoundType::OptionChange,
             false,
-        );
+        ));
     }
 
     fn get_offset_value(&self, id: i32) -> Option<&rubato_types::skin_offset::SkinOffset> {

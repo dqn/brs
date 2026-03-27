@@ -4,12 +4,19 @@
 // Now they return references to owned fields, so repeated calls return the same address.
 // input_processor was removed during InputSnapshot migration.
 
-use rubato_game::state::result::{MainController, NullMainController};
+use rubato_game::state::result::MainController;
+
+fn make_mc() -> MainController {
+    MainController::new(
+        rubato_types::config::Config::default(),
+        Box::new(rubato_game::ir::ranking_data_cache::RankingDataCache::new()),
+    )
+}
 
 /// ir_send_status() returns the same shared Vec (backed by Arc<Mutex<...>>).
 #[test]
 fn ir_send_status_returns_same_instance() {
-    let mc = MainController::new(Box::new(NullMainController));
+    let mc = make_mc();
 
     // With Arc<Mutex<Vec<...>>>, each call returns a MutexGuard to the same Vec.
     // Verify by checking the underlying data pointer.
@@ -27,7 +34,7 @@ fn ir_send_status_returns_same_instance() {
 /// play_data_accessor() returns the same stored instance on repeated calls.
 #[test]
 fn get_play_data_accessor_returns_same_instance() {
-    let mc = MainController::new(Box::new(NullMainController));
+    let mc = make_mc();
 
     let ptr1 = mc.play_data_accessor() as *const _ as usize;
     let ptr2 = mc.play_data_accessor() as *const _ as usize;

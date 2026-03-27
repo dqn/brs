@@ -80,6 +80,10 @@ pub struct CourseResult {
     pending_audio_config: Option<rubato_types::audio_config::AudioConfig>,
     /// Outbox: pending stop-all-notes request (fadeout).
     pending_stop_all_notes: bool,
+    /// Outbox: pending state change from skin callbacks / do_render.
+    pending_state_change: Option<MainStateType>,
+    /// Outbox: pending save_last_recording requests.
+    pending_save_last_recording: Vec<String>,
     /// Read-only input snapshot for the current frame.
     input_snapshot: Option<rubato_input::input_snapshot::InputSnapshot>,
 }
@@ -107,6 +111,8 @@ impl CourseResult {
             pending_audio_path_stops: Vec::new(),
             pending_audio_config: None,
             pending_stop_all_notes: false,
+            pending_state_change: None,
+            pending_save_last_recording: Vec::new(),
             input_snapshot: None,
         }
     }
@@ -574,8 +580,8 @@ impl CourseResult {
             if fadeout_time > skin_fadeout {
                 self.pending_stop_all_notes = true;
 
-                self.main
-                    .change_state(crate::core::main_state::MainStateType::MusicSelect);
+                self.pending_state_change =
+                    Some(crate::core::main_state::MainStateType::MusicSelect);
             }
         } else {
             let skin_scene = self.skin.as_ref().map(|s| s.scene() as i64).unwrap_or(0);
@@ -789,7 +795,8 @@ impl CourseResult {
                 ) {
                     Ok(()) => {
                         self.data.save_replay[index] = ReplayStatus::Saved;
-                        self.main.save_last_recording("ON_REPLAY");
+                        self.pending_save_last_recording
+                            .push("ON_REPLAY".to_string());
                     }
                     Err(e) => {
                         log::error!("Failed to save course replay data: {}", e);
@@ -1050,9 +1057,9 @@ impl CourseResult {
             timer.set_micro_timer(timer_id, micro_time);
         }
 
-        // State changes (must stay on command queue)
+        // State changes: queue for outbox drain in render_with_game_context
         for state in actions.state_changes.drain(..) {
-            self.main.change_state(state);
+            self.pending_state_change = Some(state);
         }
 
         // Audio: store in pending lists for outbox drain
@@ -1108,9 +1115,11 @@ impl CourseResult {
 
 impl Default for CourseResult {
     fn default() -> Self {
-        use super::NullMainController;
         Self::new(
-            MainController::new(Box::new(NullMainController)),
+            MainController::new(
+                rubato_types::config::Config::default(),
+                Box::new(crate::ir::ranking_data_cache::RankingDataCache::new()),
+            ),
             PlayerResource::default(),
             crate::core::timer_manager::TimerManager::new(),
         )
@@ -1147,6 +1156,35 @@ impl crate::core::main_state::MainState for CourseResult {
     }
 
     fn render_with_game_context(&mut self, ctx: &mut GameContext) -> Option<StateTransition> {
+        // Drain outbox from previous frame (render_skin, prepare, do_render)
+        for (sound, loop_sound) in self.pending_sounds.drain(..) {
+            ctx.play_sound(&sound, loop_sound);
+        }
+        for sound in self.pending_sound_stops.drain(..) {
+            ctx.stop_sound(&sound);
+        }
+        for (path, volume, is_loop) in self.pending_audio_path_plays.drain(..) {
+            ctx.play_audio_path(&path, volume, is_loop);
+        }
+        for path in self.pending_audio_path_stops.drain(..) {
+            ctx.stop_audio_path(&path);
+        }
+        if let Some(audio) = self.pending_audio_config.take() {
+            ctx.update_audio_config(audio);
+        }
+        if self.pending_stop_all_notes {
+            ctx.stop_all_notes();
+            self.pending_stop_all_notes = false;
+        }
+        for reason in self.pending_save_last_recording.drain(..) {
+            ctx.save_last_recording(&reason);
+        }
+
+        // Check for pending state change from skin callbacks / do_render
+        if let Some(state) = self.pending_state_change.take() {
+            return Some(StateTransition::ChangeTo(state));
+        }
+
         // Poll for async IR results (non-blocking)
         self.poll_ir_results();
 
@@ -1427,15 +1465,23 @@ mod tests {
     use super::*;
     use crate::core::main_state::MainState;
     use crate::state::result::test_helpers::{
-        ExecuteEventSkin, PlayerConfigMutatingSkin, TestMainControllerAccess, make_test_config,
+        ExecuteEventSkin, PlayerConfigMutatingSkin, make_test_config,
     };
     use rubato_skin::skin_property::TIMER_RESULTGRAPH_BEGIN;
     use rubato_skin::skin_type::SkinType;
     use rubato_types::skin_render_context::SkinRenderContext;
 
+    fn make_ranking_cache()
+    -> Box<dyn rubato_types::ranking_data_cache_access::RankingDataCacheAccess> {
+        Box::new(crate::ir::ranking_data_cache::RankingDataCache::new())
+    }
+
     fn make_default() -> CourseResult {
         CourseResult::new(
-            MainController::new(Box::new(crate::state::result::NullMainController)),
+            MainController::new(
+                rubato_types::config::Config::default(),
+                make_ranking_cache(),
+            ),
             PlayerResource::default(),
             crate::core::timer_manager::TimerManager::new(),
         )
@@ -1443,7 +1489,7 @@ mod tests {
 
     fn make_course_result_for_mouse() -> CourseResult {
         let config = make_test_config("course-result");
-        let main = MainController::new(Box::new(TestMainControllerAccess::new(config)));
+        let main = MainController::new(config, make_ranking_cache());
         let mut resource = PlayerResource::new(
             Box::new(MockPlayerResourceForIR::new_with_course_score()),
             crate::state::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
@@ -1905,7 +1951,8 @@ mod tests {
             IRPlayerData::new(String::new(), String::new(), String::new()),
         );
         let main = MainController::with_ir_statuses(
-            Box::new(crate::state::result::NullMainController),
+            rubato_types::config::Config::default(),
+            make_ranking_cache(),
             vec![ir_status],
         );
         let resource = PlayerResource::new(
@@ -2152,7 +2199,10 @@ mod tests {
             crate::state::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
         );
         let data = AbstractResultData::new();
-        let mut main = MainController::new(Box::new(crate::state::result::NullMainController));
+        let mut main = MainController::new(
+            rubato_types::config::Config::default(),
+            make_ranking_cache(),
+        );
         let mut timer = crate::core::timer_manager::TimerManager::new();
         let offsets = std::collections::HashMap::new();
         let ctx = CourseResultRenderContext {
@@ -2176,7 +2226,10 @@ mod tests {
         // When the resource has no songdata, song_data_ref() should return None.
         let resource = PlayerResource::default();
         let data = AbstractResultData::new();
-        let mut main = MainController::new(Box::new(crate::state::result::NullMainController));
+        let mut main = MainController::new(
+            rubato_types::config::Config::default(),
+            make_ranking_cache(),
+        );
         let mut timer = crate::core::timer_manager::TimerManager::new();
         let offsets = std::collections::HashMap::new();
         let ctx = CourseResultRenderContext {
@@ -2216,7 +2269,10 @@ mod tests {
         data.ranking = Some(ranking);
         data.ranking_offset = 1;
 
-        let mut main = MainController::new(Box::new(crate::state::result::NullMainController));
+        let mut main = MainController::new(
+            rubato_types::config::Config::default(),
+            make_ranking_cache(),
+        );
         let mut timer = crate::core::timer_manager::TimerManager::new();
         let offsets = std::collections::HashMap::new();
         let ctx = CourseResultRenderContext {
@@ -2249,7 +2305,10 @@ mod tests {
             crate::state::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
         );
         let data = AbstractResultData::new();
-        let main = MainController::new(Box::new(crate::state::result::NullMainController));
+        let main = MainController::new(
+            rubato_types::config::Config::default(),
+            make_ranking_cache(),
+        );
         let timer = crate::core::timer_manager::TimerManager::new();
         (resource, data, main, timer)
     }
@@ -2356,7 +2415,10 @@ mod tests {
     fn test_course_result_string_value_no_songdata_returns_empty() {
         let resource = PlayerResource::default();
         let data = AbstractResultData::new();
-        let mut main = MainController::new(Box::new(crate::state::result::NullMainController));
+        let mut main = MainController::new(
+            rubato_types::config::Config::default(),
+            make_ranking_cache(),
+        );
         let mut timer = crate::core::timer_manager::TimerManager::new();
         let offsets = std::collections::HashMap::new();
         let ctx = CourseResultRenderContext {
@@ -2450,7 +2512,10 @@ mod tests {
             crate::state::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
         );
         let data = AbstractResultData::new();
-        let mut main = MainController::new(Box::new(crate::state::result::NullMainController));
+        let mut main = MainController::new(
+            rubato_types::config::Config::default(),
+            make_ranking_cache(),
+        );
         let mut timer = crate::core::timer_manager::TimerManager::new();
         let offsets = std::collections::HashMap::new();
         let ctx = CourseResultRenderContext {
@@ -2548,7 +2613,7 @@ mod tests {
     /// score write guards.
     fn make_course_result_with_mode(mode: BMSPlayerModeType) -> CourseResult {
         let config = make_test_config(&format!("cr-mode-{:?}", mode));
-        let main = MainController::new(Box::new(TestMainControllerAccess::new(config)));
+        let main = MainController::new(config, make_ranking_cache());
         let mut mock = MockPlayerResourceForIR::new_with_course_score();
         // Set up course_score_data so update_score_database doesn't early-return
         mock.course_score = Some(ScoreData {
@@ -2683,70 +2748,13 @@ mod tests {
     // CourseResultMouseContext set_float_value volume slider tests
     // ============================================================
 
-    /// Mock MainControllerAccess that captures update_audio_config calls.
-    struct VolumeCapturingAccess {
-        config: rubato_types::config::Config,
-        player_config: rubato_types::player_config::PlayerConfig,
-        captured_audio:
-            std::sync::Arc<std::sync::Mutex<Vec<rubato_types::audio_config::AudioConfig>>>,
-    }
-
-    impl VolumeCapturingAccess {
-        fn new(
-            captured: std::sync::Arc<
-                std::sync::Mutex<Vec<rubato_types::audio_config::AudioConfig>>,
-            >,
-        ) -> Self {
-            let mut config = rubato_types::config::Config::default();
-            config.audio = Some(rubato_types::audio_config::AudioConfig::default());
-            Self {
-                config,
-                player_config: rubato_types::player_config::PlayerConfig::default(),
-                captured_audio: captured,
-            }
-        }
-    }
-
-    impl rubato_types::main_controller_access::MainControllerAccess for VolumeCapturingAccess {
-        fn config(&self) -> &rubato_types::config::Config {
-            &self.config
-        }
-        fn player_config(&self) -> &rubato_types::player_config::PlayerConfig {
-            &self.player_config
-        }
-        fn change_state(&mut self, _state: crate::core::main_state::MainStateType) {}
-        fn save_config(&self) -> anyhow::Result<()> {
-            Ok(())
-        }
-        fn exit(&self) -> anyhow::Result<()> {
-            Ok(())
-        }
-        fn save_last_recording(&self, _reason: &str) {}
-        fn update_song(&mut self, _path: Option<&str>) {}
-        fn player_resource(
-            &self,
-        ) -> Option<&dyn rubato_types::player_resource_access::PlayerResourceAccess> {
-            None
-        }
-        fn player_resource_mut(
-            &mut self,
-        ) -> Option<&mut dyn rubato_types::player_resource_access::PlayerResourceAccess> {
-            None
-        }
-        fn update_audio_config(&self, audio: rubato_types::audio_config::AudioConfig) {
-            self.captured_audio.lock().unwrap().push(audio);
-        }
-    }
-
     #[test]
     fn course_result_mouse_context_set_float_value_propagates_volume() {
         // Regression: volume slider writes (IDs 17-19) on the course result screen
-        // must propagate to MainController via update_audio_config, not be silently dropped.
-        let captured: std::sync::Arc<
-            std::sync::Mutex<Vec<rubato_types::audio_config::AudioConfig>>,
-        > = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
-
-        let main = MainController::new(Box::new(VolumeCapturingAccess::new(captured.clone())));
+        // must propagate to pending_audio_config on the CourseResult, not be silently dropped.
+        let mut config = rubato_types::config::Config::default();
+        config.audio = Some(rubato_types::audio_config::AudioConfig::default());
+        let main = MainController::new(config, make_ranking_cache());
         let mut resource = PlayerResource::new(
             Box::new(MockPlayerResourceForIR::new_with_course_score()),
             crate::state::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
@@ -2769,130 +2777,43 @@ mod tests {
             ctx.set_float_value(19, 0.4);
         }
 
-        let calls = captured.lock().unwrap();
-        assert_eq!(calls.len(), 3, "should have 3 update_audio_config calls");
-        assert_eq!(calls[0].systemvolume, 0.8);
-        assert_eq!(calls[1].keyvolume, 0.6);
-        assert_eq!(calls[2].bgvolume, 0.4);
+        // Each set_float_value overwrites pending_audio_config, so we see the final accumulated state
+        let audio = cr
+            .pending_audio_config
+            .expect("should have pending audio config");
+        assert_eq!(audio.systemvolume, 0.8);
+        assert_eq!(audio.keyvolume, 0.6);
+        assert_eq!(audio.bgvolume, 0.4);
     }
 
     // ============================================================
     // Finding 1: do_render() missing TIMER_FADEOUT auto-fire
     // ============================================================
 
-    /// Mock MainControllerAccess that tracks sound operations and provides sound_path.
-    struct SoundTrackingAccess {
-        config: rubato_types::config::Config,
-        player_config: rubato_types::player_config::PlayerConfig,
-        available_sounds: std::collections::HashSet<SoundType>,
-        played_sounds: std::sync::Arc<std::sync::Mutex<Vec<SoundType>>>,
-        stopped_sounds: std::sync::Arc<std::sync::Mutex<Vec<SoundType>>>,
-        state_changes:
-            std::sync::Arc<std::sync::Mutex<Vec<crate::core::main_state::MainStateType>>>,
-    }
-
-    impl SoundTrackingAccess {
-        fn new(
-            available: Vec<SoundType>,
-            played: std::sync::Arc<std::sync::Mutex<Vec<SoundType>>>,
-            stopped: std::sync::Arc<std::sync::Mutex<Vec<SoundType>>>,
-            state_changes: std::sync::Arc<
-                std::sync::Mutex<Vec<crate::core::main_state::MainStateType>>,
-            >,
-        ) -> Self {
-            Self {
-                config: rubato_types::config::Config::default(),
-                player_config: rubato_types::player_config::PlayerConfig::default(),
-                available_sounds: available.into_iter().collect(),
-                played_sounds: played,
-                stopped_sounds: stopped,
-                state_changes,
-            }
-        }
-    }
-
-    impl rubato_types::main_controller_access::MainControllerAccess for SoundTrackingAccess {
-        fn config(&self) -> &rubato_types::config::Config {
-            &self.config
-        }
-        fn player_config(&self) -> &rubato_types::player_config::PlayerConfig {
-            &self.player_config
-        }
-        fn change_state(&mut self, state: crate::core::main_state::MainStateType) {
-            self.state_changes.lock().unwrap().push(state);
-        }
-        fn save_config(&self) -> anyhow::Result<()> {
-            Ok(())
-        }
-        fn exit(&self) -> anyhow::Result<()> {
-            Ok(())
-        }
-        fn save_last_recording(&self, _reason: &str) {}
-        fn update_song(&mut self, _path: Option<&str>) {}
-        fn player_resource(
-            &self,
-        ) -> Option<&dyn rubato_types::player_resource_access::PlayerResourceAccess> {
-            None
-        }
-        fn player_resource_mut(
-            &mut self,
-        ) -> Option<&mut dyn rubato_types::player_resource_access::PlayerResourceAccess> {
-            None
-        }
-        fn sound_path(
-            &self,
-            sound: &crate::core::system_sound_manager::SoundType,
-        ) -> Option<String> {
-            if self.available_sounds.contains(sound) {
-                Some(format!("test/{:?}.wav", sound))
-            } else {
-                None
-            }
-        }
-        fn play_sound(
-            &mut self,
-            sound: &crate::core::system_sound_manager::SoundType,
-            _loop_sound: bool,
-        ) {
-            self.played_sounds.lock().unwrap().push(sound.clone());
-        }
-        fn stop_sound(&mut self, sound: &crate::core::system_sound_manager::SoundType) {
-            self.stopped_sounds.lock().unwrap().push(sound.clone());
-        }
-    }
-
-    fn make_sound_tracking_cr(
-        available_sounds: Vec<SoundType>,
-    ) -> (
-        CourseResult,
-        std::sync::Arc<std::sync::Mutex<Vec<SoundType>>>,
-        std::sync::Arc<std::sync::Mutex<Vec<SoundType>>>,
-        std::sync::Arc<std::sync::Mutex<Vec<crate::core::main_state::MainStateType>>>,
-    ) {
-        let played = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
-        let stopped = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
-        let state_changes = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
-        let access = SoundTrackingAccess::new(
-            available_sounds,
-            played.clone(),
-            stopped.clone(),
-            state_changes.clone(),
+    /// Create a CourseResult with pre-resolved sound paths for testing sound selection.
+    fn make_sound_tracking_cr(available_sounds: Vec<SoundType>) -> CourseResult {
+        let mut main = MainController::new(
+            rubato_types::config::Config::default(),
+            make_ranking_cache(),
         );
-        let main = MainController::new(Box::new(access));
+        let mut paths = std::collections::HashMap::new();
+        for sound in &available_sounds {
+            paths.insert(sound.clone(), format!("test/{:?}.wav", sound));
+        }
+        main.set_sound_paths(paths);
         let resource = PlayerResource::default();
-        let cr = CourseResult::new(
+        CourseResult::new(
             main,
             resource,
             crate::core::timer_manager::TimerManager::new(),
-        );
-        (cr, played, stopped, state_changes)
+        )
     }
 
     #[test]
     fn test_do_render_auto_fires_timer_fadeout_when_time_exceeds_scene() {
         // Finding 1: When time > skin.scene and TIMER_FADEOUT is not on,
         // do_render() should auto-fire TIMER_FADEOUT (like Java CourseResult.render()).
-        let (mut cr, _played, _stopped, _state_changes) = make_sound_tracking_cr(vec![]);
+        let mut cr = make_sound_tracking_cr(vec![]);
 
         // Set up a skin with scene=0 so any positive time exceeds it
         cr.skin = Some(ResultSkinData::new_with_timings(0, 0, 0, 0));
@@ -2918,8 +2839,7 @@ mod tests {
     #[test]
     fn test_do_render_auto_fadeout_plays_close_sound_when_available() {
         // Finding 1: When auto-firing TIMER_FADEOUT, should stop clear/fail and play close sound.
-        let (mut cr, _played, _stopped, _state_changes) =
-            make_sound_tracking_cr(vec![SoundType::CourseClose, SoundType::CourseClear]);
+        let mut cr = make_sound_tracking_cr(vec![SoundType::CourseClose, SoundType::CourseClear]);
 
         cr.skin = Some(ResultSkinData::new_with_timings(0, 0, 0, 0));
         cr.main_data.timer.update();
@@ -2950,7 +2870,7 @@ mod tests {
     #[test]
     fn test_do_render_auto_fadeout_no_close_sound_when_none_available() {
         // When neither COURSE_CLOSE nor RESULT_CLOSE exists, no close sound should play.
-        let (mut cr, _played, _stopped, _state_changes) = make_sound_tracking_cr(vec![]);
+        let mut cr = make_sound_tracking_cr(vec![]);
 
         cr.skin = Some(ResultSkinData::new_with_timings(0, 0, 0, 0));
         cr.main_data.timer.update();
@@ -2976,7 +2896,7 @@ mod tests {
     #[test]
     fn test_do_render_does_not_auto_fadeout_when_already_fading() {
         // If TIMER_FADEOUT is already on, the else branch should not fire.
-        let (mut cr, _played, _stopped, _state_changes) = make_sound_tracking_cr(vec![]);
+        let mut cr = make_sound_tracking_cr(vec![]);
 
         cr.skin = Some(ResultSkinData::new_with_timings(0, 0, 0, 0));
         cr.main_data.timer.update();
@@ -2998,8 +2918,7 @@ mod tests {
         // Finding 2: When TIMER_FADEOUT is set during do_input() (OK press path),
         // it should stop clear/fail sounds and play close sound.
         // With score_data() == None (default), the OK path triggers unconditionally.
-        let (mut cr, _played, _stopped, _state_changes) =
-            make_sound_tracking_cr(vec![SoundType::CourseClose, SoundType::CourseClear]);
+        let mut cr = make_sound_tracking_cr(vec![SoundType::CourseClose, SoundType::CourseClear]);
 
         cr.main_data.timer.update();
         // Activate TIMER_STARTINPUT so the input block is entered
@@ -3032,7 +2951,7 @@ mod tests {
     #[test]
     fn test_do_input_no_close_sound_when_none_available() {
         // When no close sound exists, TIMER_FADEOUT should still fire but no sound plays.
-        let (mut cr, _played, _stopped, _state_changes) = make_sound_tracking_cr(vec![]);
+        let mut cr = make_sound_tracking_cr(vec![]);
 
         cr.main_data.timer.update();
         cr.main_data.timer.switch_timer(TIMER_STARTINPUT, true);
@@ -3055,7 +2974,7 @@ mod tests {
     fn test_shutdown_stops_course_sounds_when_course_sounds_available() {
         // Finding 3: shutdown() should stop exactly one per category (exclusive-or),
         // not all six unconditionally.
-        let (mut cr, _played, _stopped, _state_changes) = make_sound_tracking_cr(vec![
+        let mut cr = make_sound_tracking_cr(vec![
             SoundType::CourseClear,
             SoundType::CourseFail,
             SoundType::CourseClose,
@@ -3093,7 +3012,7 @@ mod tests {
     #[test]
     fn test_shutdown_falls_back_to_result_sounds_when_course_sounds_unavailable() {
         // When course-specific sounds don't exist, falls back to result sounds.
-        let (mut cr, _played, _stopped, _state_changes) = make_sound_tracking_cr(vec![
+        let mut cr = make_sound_tracking_cr(vec![
             SoundType::ResultClear,
             SoundType::ResultFail,
             SoundType::ResultClose,
@@ -3131,7 +3050,7 @@ mod tests {
     #[test]
     fn test_shutdown_mixed_availability() {
         // One category has course sound, another has only result fallback.
-        let (mut cr, _played, _stopped, _state_changes) = make_sound_tracking_cr(vec![
+        let mut cr = make_sound_tracking_cr(vec![
             SoundType::CourseClear, // course clear available
             SoundType::ResultFail,  // only result fail available
             SoundType::CourseClose, // course close available

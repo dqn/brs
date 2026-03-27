@@ -168,6 +168,12 @@ impl SystemSoundManager {
         self.soundmap.get(sound)
     }
 
+    /// Return a clone of the full sound-path map (SoundType -> path string).
+    /// Used to snapshot sound paths into result state wrappers.
+    pub fn sound_map_clone(&self) -> HashMap<SoundType, String> {
+        self.soundmap.clone()
+    }
+
     /// Play a system sound effect or BGM.
     ///
     /// Translated from: SystemSoundManager.play() (Java lines 119-121)

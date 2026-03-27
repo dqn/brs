@@ -405,10 +405,17 @@ impl LauncherStateFactory {
                     }
                 };
                 let ir_statuses = extract_ir_statuses(controller);
-                let mc_access = QueuedControllerAccess::from_controller(
-                    controller,
-                    controller.controller_command_queue(),
-                );
+                let config = controller.config().clone();
+                let ranking_cache = controller
+                    .ranking_data_cache()
+                    .map(|cache| cache.clone_box())
+                    .unwrap_or_else(|| {
+                        Box::new(crate::ir::ranking_data_cache::RankingDataCache::new())
+                    });
+                let sound_paths = controller
+                    .sound_manager()
+                    .map(|sm| sm.sound_map_clone())
+                    .unwrap_or_default();
                 let pm = core_res.play_mode().cloned().unwrap_or_else(|| {
                     log::warn!("PlayerResource missing play_mode for Result state");
                     BMSPlayerMode::new(BMSPlayerModeType::Play)
@@ -420,11 +427,10 @@ impl LauncherStateFactory {
                 rr.bms_model = bm;
                 rr.course_bms_models = cm;
                 rr.ranking_data = ranking;
-                let result = MusicResult::new(
-                    ResultMainController::with_ir_statuses(Box::new(mc_access), ir_statuses),
-                    rr,
-                    TimerManager::new(),
-                );
+                let mut result_main =
+                    ResultMainController::with_ir_statuses(config, ranking_cache, ir_statuses);
+                result_main.set_sound_paths(sound_paths);
+                let result = MusicResult::new(result_main, rr, TimerManager::new());
                 Some(StateCreateResult {
                     state: Box::new(GameScreen::Result(Box::new(result))),
                     target_score: None,
@@ -442,10 +448,17 @@ impl LauncherStateFactory {
                     }
                 };
                 let ir_statuses = extract_ir_statuses(controller);
-                let mc_access = QueuedControllerAccess::from_controller(
-                    controller,
-                    controller.controller_command_queue(),
-                );
+                let config = controller.config().clone();
+                let ranking_cache = controller
+                    .ranking_data_cache()
+                    .map(|cache| cache.clone_box())
+                    .unwrap_or_else(|| {
+                        Box::new(crate::ir::ranking_data_cache::RankingDataCache::new())
+                    });
+                let sound_paths = controller
+                    .sound_manager()
+                    .map(|sm| sm.sound_map_clone())
+                    .unwrap_or_default();
                 let pm = core_res.play_mode().cloned().unwrap_or_else(|| {
                     log::warn!("PlayerResource missing play_mode for CourseResult state");
                     BMSPlayerMode::new(BMSPlayerModeType::Play)
@@ -457,11 +470,10 @@ impl LauncherStateFactory {
                 rr.bms_model = bm;
                 rr.course_bms_models = cm;
                 rr.ranking_data = ranking;
-                let course_result = CourseResult::new(
-                    ResultMainController::with_ir_statuses(Box::new(mc_access), ir_statuses),
-                    rr,
-                    TimerManager::new(),
-                );
+                let mut course_main =
+                    ResultMainController::with_ir_statuses(config, ranking_cache, ir_statuses);
+                course_main.set_sound_paths(sound_paths);
+                let course_result = CourseResult::new(course_main, rr, TimerManager::new());
                 Some(StateCreateResult {
                     state: Box::new(GameScreen::CourseResult(Box::new(course_result))),
                     target_score: None,

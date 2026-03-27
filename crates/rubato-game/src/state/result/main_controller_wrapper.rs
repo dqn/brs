@@ -1,109 +1,79 @@
 use crate::core::play_data_accessor::PlayDataAccessor;
+use crate::core::system_sound_manager::SoundType;
 use rubato_types::config::Config;
-use rubato_types::player_config::PlayerConfig;
-use rubato_types::sound_type::SoundType;
 
 use super::ir_send_status::IRSendStatusMain;
 use super::ir_status::IRStatus;
-use rubato_types::main_controller_access::MainControllerAccess;
 use rubato_types::sync_utils::lock_or_recover;
 
 /// Wrapper for bms.player.beatoraja.MainController.
-/// Delegates trait methods (config, player_config, change_state, save_last_recording)
-/// to `Box<dyn MainControllerAccess>`.
-/// Stores crate-local components whose types cannot go on the cross-crate trait:
-/// AudioDriver, IRStatus/IRSendStatus, PlayDataAccessor, RankingDataCache.
+/// Holds a cloned `Config` and locally-stored components:
+/// IRStatus/IRSendStatus, PlayDataAccessor, RankingDataCache, sound_paths.
+/// Audio/state-change/recording side-effects are handled via pending outbox
+/// fields on the owning state (MusicResult/CourseResult), not through this wrapper.
 pub struct MainController {
-    inner: Box<dyn MainControllerAccess>,
+    config: Config,
     ir_statuses: Vec<IRStatus>,
     ir_send_statuses: std::sync::Arc<std::sync::Mutex<Vec<IRSendStatusMain>>>,
     pub play_data_accessor: PlayDataAccessor,
     ranking_data_cache: Box<dyn rubato_types::ranking_data_cache_access::RankingDataCacheAccess>,
+    /// Pre-resolved sound paths for `has_sound` / `select_course_sound` lookups.
+    sound_paths: std::collections::HashMap<SoundType, String>,
 }
 
 impl MainController {
-    pub fn new(inner: Box<dyn MainControllerAccess>) -> Self {
-        let config = inner.config();
-        let play_data_accessor = PlayDataAccessor::new(config);
-        let ranking_data_cache = inner
-            .ranking_data_cache()
-            .map(|cache| cache.clone_box())
-            .unwrap_or_else(|| Box::new(crate::ir::ranking_data_cache::RankingDataCache::new()));
+    pub fn new(
+        config: Config,
+        ranking_data_cache: Box<
+            dyn rubato_types::ranking_data_cache_access::RankingDataCacheAccess,
+        >,
+    ) -> Self {
+        let play_data_accessor = PlayDataAccessor::new(&config);
         Self {
-            inner,
+            config,
             ir_statuses: Vec::new(),
             ir_send_statuses: crate::state::result::ir_resend::shared_ir_statuses(),
             play_data_accessor,
             ranking_data_cache,
+            sound_paths: std::collections::HashMap::new(),
         }
     }
 
     pub fn with_ir_statuses(
-        inner: Box<dyn MainControllerAccess>,
+        config: Config,
+        ranking_data_cache: Box<
+            dyn rubato_types::ranking_data_cache_access::RankingDataCacheAccess,
+        >,
         ir_statuses: Vec<IRStatus>,
     ) -> Self {
-        let config = inner.config();
-        let play_data_accessor = PlayDataAccessor::new(config);
-        let ranking_data_cache = inner
-            .ranking_data_cache()
-            .map(|cache| cache.clone_box())
-            .unwrap_or_else(|| Box::new(crate::ir::ranking_data_cache::RankingDataCache::new()));
+        let play_data_accessor = PlayDataAccessor::new(&config);
         Self {
-            inner,
+            config,
             ir_statuses,
             ir_send_statuses: crate::state::result::ir_resend::shared_ir_statuses(),
             play_data_accessor,
             ranking_data_cache,
+            sound_paths: std::collections::HashMap::new(),
         }
     }
 
-    // ---- Trait-delegated methods ----
+    // ---- Config access ----
 
     pub fn config(&self) -> &Config {
-        self.inner.config()
+        &self.config
     }
 
-    pub fn player_config(&self) -> &PlayerConfig {
-        self.inner.player_config()
+    /// Look up a pre-resolved sound path by SoundType.
+    pub fn sound_path(&self, sound: &SoundType) -> Option<&String> {
+        self.sound_paths.get(sound)
     }
 
-    pub fn change_state(&mut self, state: crate::core::main_state::MainStateType) {
-        self.inner.change_state(state);
+    /// Populate sound paths from the controller's SystemSoundManager snapshot.
+    pub fn set_sound_paths(&mut self, paths: std::collections::HashMap<SoundType, String>) {
+        self.sound_paths = paths;
     }
 
-    pub fn save_last_recording(&self, tag: &str) {
-        self.inner.save_last_recording(tag);
-    }
-
-    pub fn play_sound(&mut self, sound: &SoundType, loop_sound: bool) {
-        self.inner.play_sound(sound, loop_sound);
-    }
-
-    pub fn stop_sound(&mut self, sound: &SoundType) {
-        self.inner.stop_sound(sound);
-    }
-
-    pub fn sound_path(&self, sound: &SoundType) -> Option<String> {
-        self.inner.sound_path(sound)
-    }
-
-    pub fn update_audio_config(&self, audio: rubato_types::audio_config::AudioConfig) {
-        self.inner.update_audio_config(audio);
-    }
-
-    pub fn offset_value(&self, id: i32) -> Option<&rubato_types::skin_offset::SkinOffset> {
-        self.inner.offset_value(id)
-    }
-
-    pub fn play_audio_path(&mut self, path: &str, volume: f32, loop_play: bool) {
-        self.inner.play_audio_path(path, volume, loop_play);
-    }
-
-    pub fn stop_audio_path(&mut self, path: &str) {
-        self.inner.stop_audio_path(path);
-    }
-
-    // ---- Locally-stored components (types not on MainControllerAccess trait) ----
+    // ---- Locally-stored components ----
 
     pub fn ir_status(&self) -> &[IRStatus] {
         &self.ir_statuses
@@ -138,83 +108,20 @@ impl MainController {
 mod tests {
     use super::*;
     use crate::ir::ranking_data::RankingData;
-    use rubato_types::main_controller_access::NullMainController;
-    use rubato_types::player_resource_access::PlayerResourceAccess;
     use rubato_types::song_data::SongData;
 
-    struct CacheBackedMainControllerAccess {
-        config: Config,
-        player_config: PlayerConfig,
-        ranking_data_cache:
-            Box<dyn rubato_types::ranking_data_cache_access::RankingDataCacheAccess>,
-    }
-
-    impl CacheBackedMainControllerAccess {
-        fn new() -> Self {
-            Self {
-                config: Config::default(),
-                player_config: PlayerConfig::default(),
-                ranking_data_cache: Box::new(crate::ir::ranking_data_cache::RankingDataCache::new()),
-            }
-        }
-    }
-
-    impl MainControllerAccess for CacheBackedMainControllerAccess {
-        fn config(&self) -> &Config {
-            &self.config
-        }
-
-        fn player_config(&self) -> &PlayerConfig {
-            &self.player_config
-        }
-
-        fn change_state(&mut self, _state: crate::core::main_state::MainStateType) {}
-
-        fn save_config(&self) -> anyhow::Result<()> {
-            Ok(())
-        }
-
-        fn exit(&self) -> anyhow::Result<()> {
-            Ok(())
-        }
-
-        fn save_last_recording(&self, _tag: &str) {}
-
-        fn update_song(&mut self, _path: Option<&str>) {}
-
-        fn player_resource(&self) -> Option<&dyn PlayerResourceAccess> {
-            None
-        }
-
-        fn player_resource_mut(&mut self) -> Option<&mut dyn PlayerResourceAccess> {
-            None
-        }
-
-        fn ranking_data_cache(
-            &self,
-        ) -> Option<&dyn rubato_types::ranking_data_cache_access::RankingDataCacheAccess> {
-            Some(&*self.ranking_data_cache)
-        }
-
-        fn ranking_data_cache_mut(
-            &mut self,
-        ) -> Option<
-            &mut (dyn rubato_types::ranking_data_cache_access::RankingDataCacheAccess + 'static),
-        > {
-            Some(&mut *self.ranking_data_cache)
-        }
+    fn make_ranking_cache()
+    -> Box<dyn rubato_types::ranking_data_cache_access::RankingDataCacheAccess> {
+        Box::new(crate::ir::ranking_data_cache::RankingDataCache::new())
     }
 
     #[test]
-    fn test_main_controller_reuses_inner_ranking_cache() {
+    fn test_main_controller_reuses_ranking_cache() {
         let song = SongData::default();
-        let mut access = CacheBackedMainControllerAccess::new();
-        access
-            .ranking_data_cache_mut()
-            .expect("test access should expose ranking cache")
-            .put_song_any(&song, 0, Box::new(RankingData::new()));
+        let mut cache = make_ranking_cache();
+        cache.put_song_any(&song, 0, Box::new(RankingData::new()));
 
-        let mc = MainController::new(Box::new(access));
+        let mc = MainController::new(Config::default(), cache);
         let cached = mc
             .ranking_data_cache()
             .song_any(&song, 0)
@@ -223,7 +130,7 @@ mod tests {
 
         assert!(
             cached.is_some(),
-            "result wrapper should reuse the ranking cache exposed by its inner controller access"
+            "result wrapper should reuse the ranking cache passed at construction"
         );
     }
 
@@ -300,7 +207,8 @@ mod tests {
             IRPlayerData::new("id1".into(), "Player1".into(), "Rank1".into()),
         )];
 
-        let mc = MainController::with_ir_statuses(Box::new(NullMainController), ir_statuses);
+        let mc =
+            MainController::with_ir_statuses(Config::default(), make_ranking_cache(), ir_statuses);
 
         assert_eq!(
             mc.ir_status().len(),
@@ -312,8 +220,23 @@ mod tests {
 
     #[test]
     fn test_with_ir_statuses_empty_ir() {
-        let mc = MainController::with_ir_statuses(Box::new(NullMainController), Vec::new());
+        let mc =
+            MainController::with_ir_statuses(Config::default(), make_ranking_cache(), Vec::new());
 
         assert!(mc.ir_status().is_empty());
+    }
+
+    #[test]
+    fn test_sound_path_lookup() {
+        let mut mc = MainController::new(Config::default(), make_ranking_cache());
+        let mut paths = std::collections::HashMap::new();
+        paths.insert(SoundType::ResultClear, "/audio/clear.wav".to_string());
+        mc.set_sound_paths(paths);
+
+        assert_eq!(
+            mc.sound_path(&SoundType::ResultClear),
+            Some(&"/audio/clear.wav".to_string())
+        );
+        assert!(mc.sound_path(&SoundType::ResultFail).is_none());
     }
 }
