@@ -22,7 +22,9 @@ use super::{
     BMSPlayerModeType, ControlKeys, FreqTrainerMenu, IRCourseData, KeyCommand, MainController,
     PlayerResource, RankingData,
 };
+use crate::core::app_context::GameContext;
 use crate::core::ir_config::{IR_SEND_ALWAYS, IR_SEND_COMPLETE_SONG, IR_SEND_UPDATE_SCORE};
+use crate::core::main_state::{MainStateType, StateTransition};
 use crate::core::timer_manager::TimerManager;
 use rubato_types::property_snapshot::PropertySnapshot;
 use rubato_types::skin_action_queue::SkinActionQueue;
@@ -1144,6 +1146,52 @@ impl crate::core::main_state::MainState for CourseResult {
         self.do_render();
     }
 
+    fn render_with_game_context(
+        &mut self,
+        _ctx: &mut GameContext,
+    ) -> Option<StateTransition> {
+        // Poll for async IR results (non-blocking)
+        self.poll_ir_results();
+
+        let time = self.main_data.timer.now_time();
+        self.main_data
+            .timer
+            .switch_timer(TIMER_RESULTGRAPH_BEGIN, true);
+        self.main_data
+            .timer
+            .switch_timer(TIMER_RESULTGRAPH_END, true);
+
+        if let Some(ref skin) = self.skin
+            && skin.rank_time() == 0
+        {
+            self.main_data
+                .timer
+                .switch_timer(TIMER_RESULT_UPDATESCORE, true);
+        }
+        let skin_input = self.skin.as_ref().map(|s| s.input() as i64).unwrap_or(0);
+        if time > skin_input {
+            self.main_data.timer.switch_timer(TIMER_STARTINPUT, true);
+        }
+
+        if self.main_data.timer.is_timer_on(TIMER_FADEOUT) {
+            let fadeout_time = self.main_data.timer.now_time_for_id(TIMER_FADEOUT);
+            let skin_fadeout = self.skin.as_ref().map(|s| s.fadeout() as i64).unwrap_or(0);
+            if fadeout_time > skin_fadeout {
+                self.pending_stop_all_notes = true;
+
+                return Some(StateTransition::ChangeTo(MainStateType::MusicSelect));
+            }
+        } else {
+            let skin_scene = self.skin.as_ref().map(|s| s.scene() as i64).unwrap_or(0);
+            if time > skin_scene {
+                self.main_data.timer.switch_timer(TIMER_FADEOUT, true);
+                self.stop_and_play_close_sound();
+            }
+        }
+
+        Some(StateTransition::Continue)
+    }
+
     fn render_skin(&mut self, sprite: &mut rubato_render::sprite_batch::SpriteBatch) {
         let mut skin = match self.main_data.skin.take() {
             Some(s) => s,
@@ -1296,6 +1344,11 @@ impl crate::core::main_state::MainState for CourseResult {
 
     fn input(&mut self) {
         self.do_input();
+    }
+
+    fn input_with_game_context(&mut self, _ctx: &mut GameContext) -> Option<()> {
+        self.do_input();
+        Some(())
     }
 
     fn sync_input_snapshot(&mut self, snapshot: &rubato_input::input_snapshot::InputSnapshot) {
