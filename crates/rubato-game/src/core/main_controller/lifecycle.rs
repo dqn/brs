@@ -249,10 +249,10 @@ impl MainController {
         // FPS display (Phase 22+: requires system font)
 
         // --- Outbox consumption: poll pending operations from current state ---
-        // Order: sounds -> pitch -> score handoff -> reload -> state change (last, destroys current)
-        let mut pending_sounds: Vec<(SoundType, bool)> = Vec::new();
-        let mut pending_sound_stops: Vec<SoundType> = Vec::new();
-        let mut pending_pitch: Option<f32> = None;
+        // Most audio outbox fields are now drained directly by states in their
+        // render_with_game_context methods. Only resource-manipulation fields
+        // (score handoff, BMS reload, quick retry, config updates) remain here.
+        // Order: score handoff -> config -> quick retry -> reload -> state change (last, destroys current)
         let mut pending_handoff: Option<rubato_types::score_handoff::ScoreHandoff> = None;
         let mut pending_reload = false;
         let mut pending_change: Option<MainStateType> = None;
@@ -264,16 +264,9 @@ impl MainController {
         let mut pending_replay_seed_reset = false;
         let mut pending_quick_retry_score: Option<rubato_types::score_data::ScoreData> = None;
         let mut pending_quick_retry_replay: Option<rubato_types::replay_data::ReplayData> = None;
-        let mut pending_audio_config: Option<rubato_types::audio_config::AudioConfig> = None;
-        let mut pending_audio_path_plays: Vec<(String, f32, bool)> = Vec::new();
-        let mut pending_audio_path_stops: Vec<String> = Vec::new();
         let mut pending_player_config: Option<rubato_types::player_config::PlayerConfig> = None;
-        let mut pending_stop_all_notes = false;
 
         if let Some(ref mut current) = self.current {
-            pending_sounds = current.drain_pending_sounds();
-            pending_sound_stops = current.drain_pending_sound_stops();
-            pending_pitch = current.take_pending_global_pitch();
             pending_handoff = current.take_score_handoff();
             pending_reload = current.take_pending_reload_bms();
             pending_replay_seed_reset = current.take_pending_replay_seed_reset();
@@ -281,10 +274,6 @@ impl MainController {
             pending_quick_retry_replay = current.take_pending_quick_retry_replay();
             pending_play_config = current.take_pending_play_config_update();
             pending_player_config = current.take_pending_player_config_update();
-            pending_audio_config = current.take_pending_audio_config();
-            pending_audio_path_plays = current.drain_pending_audio_path_plays();
-            pending_audio_path_stops = current.drain_pending_audio_path_stops();
-            pending_stop_all_notes = current.take_pending_stop_all_notes();
             pending_change = current.take_pending_state_change();
         }
 
@@ -301,75 +290,6 @@ impl MainController {
                 }
                 StateTransition::Continue => {}
             }
-        }
-
-        // Capture sound count for observability event before consuming the Vec.
-        let pending_sounds_count = pending_sounds.len();
-
-        // Apply audio config (volume changes from skin sliders)
-        // ORDERING: Must be applied BEFORE system sound playback so that
-        // sounds use the updated volume, not the stale one.
-        if let Some(audio_config) = pending_audio_config {
-            self.ctx.config.audio = Some(audio_config);
-        }
-
-        // Apply sounds
-        for (sound, loop_sound) in pending_sounds {
-            let volume = self
-                .ctx
-                .config
-                .audio
-                .as_ref()
-                .map_or(1.0, |a| a.systemvolume);
-            let path = self
-                .ctx
-                .sound
-                .as_ref()
-                .and_then(|sm| sm.sound(&sound).cloned());
-            if let Some(path) = path
-                && let Some(ref mut audio) = self.ctx.audio
-            {
-                audio.play_path(&path, volume, loop_sound);
-            }
-        }
-        // Apply sound stops
-        for sound in pending_sound_stops {
-            let path = self
-                .ctx
-                .sound
-                .as_ref()
-                .and_then(|sm| sm.sound(&sound).cloned());
-            if let Some(path) = path
-                && let Some(ref mut audio) = self.ctx.audio
-            {
-                audio.stop_path(&path);
-            }
-        }
-
-        // Apply skin-scripted audio path plays (from SkinRenderContext::audio_play)
-        if let Some(ref mut audio) = self.ctx.audio {
-            for (path, volume, is_loop) in pending_audio_path_plays {
-                if !path.is_empty() {
-                    audio.play_path(&path, volume, is_loop);
-                }
-            }
-            for path in pending_audio_path_stops {
-                if !path.is_empty() {
-                    audio.stop_path(&path);
-                }
-            }
-        }
-
-        // Apply stop-all-notes (result screen fadeout)
-        if pending_stop_all_notes {
-            self.ctx.stop_all_notes();
-        }
-
-        // Apply global pitch
-        if let Some(pitch) = pending_pitch
-            && let Some(ref mut audio) = self.ctx.audio
-        {
-            audio.set_global_pitch(pitch);
         }
 
         // Capture handoff summary for observability event before values are consumed.
@@ -496,10 +416,9 @@ impl MainController {
             self.change_state(state_type);
         }
 
-        // Emit OutboxDrained event when sounds or state changes were processed.
-        if pending_sounds_count > 0 || has_state_change {
+        // Emit OutboxDrained event when state changes were processed.
+        if has_state_change {
             self.emit_state_event(rubato_types::state_event::StateEvent::OutboxDrained {
-                sounds: pending_sounds_count,
                 state_change: has_state_change,
             });
         }

@@ -24,6 +24,6 @@ pub enum StateEvent {
         max_combo: i32,
         gauge: f64,
     },
-    /// Emitted after outbox sounds and state changes are drained in render().
-    OutboxDrained { sounds: usize, state_change: bool },
+    /// Emitted after outbox state changes are drained in render().
+    OutboxDrained { state_change: bool },
 }
