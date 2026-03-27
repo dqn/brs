@@ -69,8 +69,14 @@ pub struct StateCreateResult {
 /// ```
 pub trait StateReferencesCallback: Send {
     /// Called after state initialization to update cross-state references.
-    /// Receives the controller reference and player config for wiring modmenu stubs.
-    fn update_references(&self, config: &Config, player: &PlayerConfig);
+    /// Receives the controller reference, player config, and modmenu outbox
+    /// for wiring modmenu stubs.
+    fn update_references(
+        &self,
+        config: &Config,
+        player: &PlayerConfig,
+        modmenu_outbox: &std::sync::Arc<crate::state::modmenu::ModmenuOutbox>,
+    );
 }
 
 /// Re-export SkinOffset from rubato-types (single source of truth for the runtime type).
@@ -174,6 +180,14 @@ pub struct DatabaseState {
     pub rivals: RivalDataAccessor,
     pub ircache: Option<Box<dyn RankingDataCacheAccess>>,
     pub ir: Vec<IRStatus>,
+
+    // --- State outbox fields (drained by lifecycle after render) ---
+    /// Pending update_song request from state (Some(Some(path)) for specific, Some(None) for all).
+    pub pending_update_song: Option<Option<String>>,
+    /// Pending update_table requests from state.
+    pub pending_update_table: Vec<Box<dyn rubato_types::table_update_source::TableUpdateSource>>,
+    /// Pending load new profile request from state.
+    pub pending_load_new_profile: Option<rubato_types::player_config::PlayerConfig>,
 }
 
 /// External integration state (ImGui, OBS, IR, downloads, streaming).

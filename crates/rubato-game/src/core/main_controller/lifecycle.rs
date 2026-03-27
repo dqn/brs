@@ -283,6 +283,46 @@ impl MainController {
 
         self.process_queued_controller_commands();
 
+        // Drain modmenu outbox (egui callbacks -> MainController)
+        {
+            let modmenu_actions = self.ctx.modmenu_outbox.drain();
+            for (mode, play_config) in modmenu_actions.play_config_updates {
+                let pc = *play_config;
+                self.ctx
+                    .player
+                    .play_config(mode)
+                    .playconfig
+                    .apply_modmenu_fields(&pc);
+                if let Some(ref mut state) = self.current {
+                    state.receive_updated_play_config(mode, pc);
+                }
+            }
+            if let Some(pc) = modmenu_actions.load_new_profile {
+                self.load_new_profile(*pc);
+            }
+            if modmenu_actions.save_config {
+                self.save_config();
+            }
+            for (id, skin_config) in modmenu_actions.skin_config_updates {
+                self.ctx.update_skin_config(id, skin_config.map(|c| *c));
+            }
+            for (path, skin_config) in modmenu_actions.skin_history_updates {
+                self.ctx.update_skin_history(&path, *skin_config);
+            }
+        }
+
+        // Drain database/state outbox fields
+        if let Some(path_opt) = self.ctx.db.pending_update_song.take() {
+            let path = path_opt.as_deref().unwrap_or("");
+            self.update_song(path);
+        }
+        for source in std::mem::take(&mut self.ctx.db.pending_update_table) {
+            self.update_table(source);
+        }
+        if let Some(pc) = self.ctx.db.pending_load_new_profile.take() {
+            self.load_new_profile(pc);
+        }
+
         // Prune finished background threads: join them to observe panics,
         // then retain only the still-running handles.
         let mut remaining = Vec::new();

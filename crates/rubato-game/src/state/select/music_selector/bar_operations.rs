@@ -97,17 +97,12 @@ impl MusicSelector {
         if load_success {
             // Set table name/level from directory hierarchy
             let table_urls: Vec<String> = self
-                .main
-                .as_ref()
-                .map(|m| {
-                    m.config()
-                        .paths
-                        .table_url
-                        .iter()
-                        .map(|s| s.to_string())
-                        .collect()
-                })
-                .unwrap_or_default();
+                .app_config
+                .paths
+                .table_url
+                .iter()
+                .map(|s| s.to_string())
+                .collect();
 
             let dir = self.manager.directory();
             if !dir.is_empty()
@@ -145,15 +140,12 @@ impl MusicSelector {
 
             // Java L384-388: only create new RankingData when IR active AND currentir is null.
             // Do NOT null out currentir when IR inactive (selectedBarMoved already set it).
-            if let Some(ref mut main) = self.main
-                && main.ir_connection_any().is_some()
-                && self.ranking.currentir.is_none()
-            {
+            if self.ir_connection.is_some() && self.ranking.currentir.is_none() {
                 use crate::ir::ranking_data::RankingData;
                 let lnmode = self.config.play_settings.lnmode;
                 let rd = RankingData::new();
                 self.ranking.currentir = Some(rd.clone());
-                if let Some(cache) = main.ranking_data_cache_mut() {
+                if let Some(cache) = self.ranking_data_cache.as_mut() {
                     cache.put_song_any(song, lnmode, Box::new(rd));
                 }
             }
@@ -177,11 +169,11 @@ impl MusicSelector {
                 .and_then(|r| r.songdata())
                 .cloned();
             let replay_index = play_mode.map_or(0, |p| p.id);
-            let chart_option = if let Some(main_ref) = self.main.as_deref() {
+            let chart_option = if let Some(ref pda) = self.play_data_accessor {
                 Self::compute_chart_option(
                     &self.config,
                     current.rival_score(),
-                    main_ref,
+                    pda,
                     songdata.as_ref(),
                     replay_index,
                 )
@@ -221,7 +213,7 @@ impl MusicSelector {
     fn compute_chart_option(
         config: &PlayerConfig,
         rival_score: Option<&ScoreData>,
-        main: &dyn MainControllerAccess,
+        pda: &crate::core::play_data_accessor::PlayDataAccessor,
         songdata: Option<&SongData>,
         replay_index: i32,
     ) -> Option<rubato_types::replay_data::ReplayData> {
@@ -253,7 +245,7 @@ impl MusicSelector {
                 let sd = songdata?;
                 let sha256 = &sd.file.sha256;
                 let has_ln = sd.chart.has_undefined_long_note();
-                let replay = main.read_replay_data(
+                let replay = pda.read_replay_data(
                     sha256,
                     has_ln,
                     config.play_settings.lnmode,
@@ -567,23 +559,20 @@ impl MusicSelector {
             .as_millis() as i64;
 
         // Java L647-662: IR ranking lookup guarded by IR status check
-        let ir_active = self
-            .main
-            .as_ref()
-            .map(|m| m.ir_connection_any().is_some())
-            .unwrap_or(false);
+        let ir_active = self.ir_connection.is_some();
 
         if ir_active {
             if let Some(current) = self.manager.selected() {
                 if let Some(song_bar) = current.as_song_bar() {
                     if song_bar.exists_song() {
                         // Refresh currentir from cache
-                        if let Some(main) = self.main.as_ref() {
+                        {
                             use crate::ir::ranking_data::RankingData;
                             let lnmode = self.config.play_settings.lnmode;
                             let song = song_bar.song_data();
-                            self.ranking.currentir = main
-                                .ranking_data_cache()
+                            self.ranking.currentir = self
+                                .ranking_data_cache
+                                .as_ref()
                                 .and_then(|c| c.song_any(song, lnmode))
                                 .and_then(|a| a.downcast::<RankingData>().ok())
                                 .map(|ranking| *ranking);
@@ -604,12 +593,13 @@ impl MusicSelector {
                 } else if let Some(grade_bar) = current.as_grade_bar() {
                     if grade_bar.exists_all_songs() {
                         // Refresh currentir from cache for course
-                        if let Some(main) = self.main.as_ref() {
+                        {
                             use crate::ir::ranking_data::RankingData;
                             let lnmode = self.config.play_settings.lnmode;
                             let course = grade_bar.course_data();
-                            self.ranking.currentir = main
-                                .ranking_data_cache()
+                            self.ranking.currentir = self
+                                .ranking_data_cache
+                                .as_ref()
                                 .and_then(|c| c.course_any(course, lnmode))
                                 .and_then(|a| a.downcast::<RankingData>().ok())
                                 .map(|ranking| *ranking);

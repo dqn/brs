@@ -118,13 +118,9 @@ impl MusicSelectCommand {
                         && let Some(song_bar) = selected.as_song_bar()
                     {
                         let song = song_bar.song_data();
-                        if !song.ipfs_str().is_empty() {
-                            let song_clone = song.clone();
-                            if let Some(ref mut main) = selector.main
-                                && main.start_ipfs_download(&song_clone)
-                            {
-                                return;
-                            }
+                        if !song.ipfs_str().is_empty() && selector.ipfs_download_alive {
+                            selector.pending_start_ipfs.push(song.clone());
+                            return;
                         }
                     }
                     log::info!("Download was not started.");
@@ -138,9 +134,7 @@ impl MusicSelectCommand {
                     let md5 = &song.file.md5;
                     if !md5.is_empty() {
                         log::info!("Missing song md5: {}", md5);
-                        if let Some(downloader) =
-                            selector.main.as_ref().and_then(|m| m.http_downloader())
-                        {
+                        if let Some(ref downloader) = selector.http_downloader {
                             downloader.submit_md5_task(md5, &song.metadata.title);
                         }
                     } else {
@@ -151,8 +145,7 @@ impl MusicSelectCommand {
             MusicSelectCommand::DownloadCourseHttp => {
                 if let Some(selected) = selector.manager.selected()
                     && let Some(grade_bar) = selected.as_grade_bar()
-                    && let Some(downloader) =
-                        selector.main.as_ref().and_then(|m| m.http_downloader())
+                    && let Some(ref downloader) = selector.http_downloader
                 {
                     for song in grade_bar.song_datas() {
                         let md5 = &song.file.md5;
@@ -229,10 +222,7 @@ impl MusicSelectCommand {
                     } else if let Some(hash_bar) = current.as_hash_bar()
                         && let Some(prev_table) = previous.as_ref().and_then(|p| p.as_table_bar())
                     {
-                        let enable_http = selector
-                            .main
-                            .as_ref()
-                            .is_some_and(|m| m.config().network.enable_http);
+                        let enable_http = selector.app_config.network.enable_http;
                         if !already_in_context_menu && enable_http {
                             let menu = ContextMenuBar::new_for_table_folder(
                                 prev_table.clone(),

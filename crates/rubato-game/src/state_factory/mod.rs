@@ -26,6 +26,7 @@ use crate::state::select::music_selector::MusicSelector;
 use rubato_types::main_controller_access::MainControllerAccess as _;
 use rubato_types::score_data::ScoreData;
 
+#[cfg(test)]
 use queued_access::QueuedControllerAccess;
 pub use queued_access::new_state_main_controller_access;
 use shared_selector::SharedMusicSelectorState;
@@ -49,6 +50,63 @@ fn extract_ir_statuses(
             ))
         })
         .collect()
+}
+
+/// Wire individual dependencies from MainController into a MusicSelector.
+/// Replaces the old `QueuedControllerAccess::from_controller` + `set_main_controller` pattern.
+pub fn wire_selector_dependencies(selector: &mut MusicSelector, controller: &mut MainController) {
+    use crate::ir::ranking_data_cache::RankingDataCache;
+    use crate::song::song_information_accessor::SongInformationAccessor;
+
+    // Ensure ranking data cache exists on controller
+    if controller.ranking_data_cache().is_none() {
+        controller.set_ranking_data_cache(Box::new(RankingDataCache::new()));
+    }
+
+    let config = controller.config().clone();
+
+    // Ranking data cache (clone box for independent mutation)
+    selector.ranking_data_cache = controller
+        .ranking_data_cache()
+        .map(|cache| cache.clone_box());
+
+    // IR connection
+    selector.ir_connection = controller.ir_connection().cloned();
+
+    // Play data accessor
+    selector.play_data_accessor = Some(crate::core::play_data_accessor::PlayDataAccessor::new(
+        &config,
+    ));
+
+    // Song information database
+    selector.info_database = controller.info_database().and_then(|_| {
+        SongInformationAccessor::new(&config.paths.songinfopath)
+            .map(|db| Box::new(db) as Box<dyn rubato_types::song_information_db::SongInformationDb>)
+            .map_err(|e| {
+                log::warn!(
+                    "Failed to open song information database for MusicSelector: {}",
+                    e
+                );
+                e
+            })
+            .ok()
+    });
+
+    // Rivals
+    selector.rivals = (0..controller.rival_count())
+        .filter_map(|i| controller.rival_information(i))
+        .collect();
+
+    // Sound paths
+    if let Some(sm) = controller.sound_manager() {
+        selector.sound_paths = sm.sound_map_clone();
+    }
+
+    // HTTP downloader
+    selector.http_downloader = controller.clone_http_download_processor();
+
+    // IPFS download alive
+    selector.ipfs_download_alive = controller.is_ipfs_download_alive();
 }
 
 /// LauncherStateFactory -- creates concrete state instances for all screen types.
@@ -151,10 +209,8 @@ impl LauncherStateFactory {
                         MusicSelector::with_config(config.clone())
                     }
                 };
-                // Wire dependencies (same pattern as Decide/Result)
-                let command_queue = controller.controller_command_queue();
-                let mc_access = QueuedControllerAccess::from_controller(controller, command_queue);
-                selector.set_main_controller(Box::new(mc_access));
+                // Wire individual dependencies directly (no more QueuedControllerAccess).
+                wire_selector_dependencies(&mut selector, controller);
                 selector.config = controller.player_config().clone();
                 selector.app_config = config;
                 Some(StateCreateResult {
@@ -587,6 +643,7 @@ mod tests {
             lifecycle: Default::default(),
             exit_requested: std::sync::atomic::AtomicBool::new(false),
             resource: None,
+            modmenu_outbox: std::sync::Arc::new(crate::state::modmenu::ModmenuOutbox::new()),
             transition: None,
         }
     }
@@ -1051,11 +1108,7 @@ mod tests {
         controller.set_info_database(Box::new(info_db));
 
         let mut selector = MusicSelector::with_song_database(Box::new(song_db));
-        let queue = controller.controller_command_queue();
-        selector.set_main_controller(Box::new(QueuedControllerAccess::from_controller(
-            &mut controller,
-            queue,
-        )));
+        wire_selector_dependencies(&mut selector, &mut controller);
         selector.config = player;
         selector.create();
 

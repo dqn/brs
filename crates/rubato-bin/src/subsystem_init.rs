@@ -373,9 +373,7 @@ pub(crate) fn init_stream_controller(controller: &mut MainController) {
         };
     // Wire dependencies so the shared selector can access config, sounds, scores, etc.
     {
-        selector.set_main_controller(
-            rubato_game::state_factory::new_state_main_controller_access(controller),
-        );
+        rubato_game::state_factory::wire_selector_dependencies(&mut selector, controller);
         selector.config = controller.player_config().clone();
         selector.app_config = config;
     }

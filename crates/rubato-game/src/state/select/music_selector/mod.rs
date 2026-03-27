@@ -6,7 +6,6 @@ pub(crate) use crate::core::timer_manager::TimerManager;
 pub(crate) use crate::ir::ranking_data;
 pub(crate) use rubato_audio::audio_system::AudioSystem;
 pub(crate) use rubato_types::audio_config::DEFAULT_AUDIO_VOLUME;
-pub(crate) use rubato_types::main_controller_access::MainControllerAccess;
 pub(crate) use rubato_types::player_resource_access::{
     CourseAccess, MediaAccess, SessionMutation, SongAccess,
 };
@@ -788,8 +787,40 @@ pub struct MusicSelector {
     /// Stagefile pixmap resource pool
     pub stagefiles: PixmapResourcePool,
 
-    /// MainController reference for state transitions and resource access
-    pub main: Option<Box<dyn MainControllerAccess + Send>>,
+    /// Ranking data cache for IR ranking lookups.
+    pub ranking_data_cache:
+        Option<Box<dyn rubato_types::ranking_data_cache_access::RankingDataCacheAccess>>,
+    /// IR connection for ranking data loading and URL lookup.
+    pub ir_connection:
+        Option<std::sync::Arc<dyn crate::ir::ir_connection::IRConnection + Send + Sync>>,
+    /// Play data accessor for score/replay data.
+    pub play_data_accessor: Option<crate::core::play_data_accessor::PlayDataAccessor>,
+    /// Song information database.
+    pub info_database: Option<Box<dyn rubato_types::song_information_db::SongInformationDb>>,
+    /// Rival player information.
+    pub rivals: Vec<rubato_types::player_information::PlayerInformation>,
+    /// Sound paths (SoundType -> path).
+    pub sound_paths: std::collections::HashMap<rubato_types::sound_type::SoundType, String>,
+    /// HTTP download submitter for chart download tasks.
+    pub http_downloader:
+        Option<std::sync::Arc<dyn rubato_types::http_download_submitter::HttpDownloadSubmitter>>,
+    /// Whether IPFS download daemon is alive.
+    pub ipfs_download_alive: bool,
+
+    /// Outbox: pending update_song request (Some(Some(path)) or Some(None) for full).
+    pending_update_song: Option<Option<String>>,
+    /// Outbox: pending update_table requests.
+    pending_update_table: Vec<Box<dyn rubato_types::table_update_source::TableUpdateSource>>,
+    /// Outbox: pending shuffle sounds request.
+    pending_shuffle_sounds: bool,
+    /// Outbox: pending IPFS download requests.
+    pub(crate) pending_start_ipfs: Vec<rubato_types::song_data::SongData>,
+    /// Outbox: pending load new profile.
+    pending_load_new_profile: Option<rubato_types::player_config::PlayerConfig>,
+    /// Outbox: pending save config request.
+    pending_save_config: bool,
+    /// Outbox: pending exit request.
+    pending_exit: bool,
 
     /// Input processor for keyboard/controller input (created from config)
     input_processor: Option<BMSPlayerInputProcessor>,

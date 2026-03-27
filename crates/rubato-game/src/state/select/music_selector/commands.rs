@@ -26,7 +26,21 @@ impl MusicSelector {
             playedcourse: None,
             banners: PixmapResourcePool::with_maxgen(2),
             stagefiles: PixmapResourcePool::with_maxgen(2),
-            main: None,
+            ranking_data_cache: None,
+            ir_connection: None,
+            play_data_accessor: None,
+            info_database: None,
+            rivals: Vec::new(),
+            sound_paths: std::collections::HashMap::new(),
+            http_downloader: None,
+            ipfs_download_alive: false,
+            pending_update_song: None,
+            pending_update_table: Vec::new(),
+            pending_shuffle_sounds: false,
+            pending_start_ipfs: Vec::new(),
+            pending_load_new_profile: None,
+            pending_save_config: false,
+            pending_exit: false,
             input_processor: None,
             pending_state_change: None,
             pending_sounds: Vec::new(),
@@ -57,9 +71,64 @@ impl MusicSelector {
         }
     }
 
-    /// Set the main controller reference.
-    pub fn set_main_controller(&mut self, main: Box<dyn MainControllerAccess + Send>) {
-        self.main = Some(main);
+    /// Wire individual dependencies extracted from MainController.
+    #[allow(clippy::too_many_arguments)]
+    pub fn set_dependencies(
+        &mut self,
+        ranking_data_cache: Box<
+            dyn rubato_types::ranking_data_cache_access::RankingDataCacheAccess,
+        >,
+        ir_connection: Option<
+            std::sync::Arc<dyn crate::ir::ir_connection::IRConnection + Send + Sync>,
+        >,
+        play_data_accessor: crate::core::play_data_accessor::PlayDataAccessor,
+        info_database: Option<Box<dyn rubato_types::song_information_db::SongInformationDb>>,
+        rivals: Vec<rubato_types::player_information::PlayerInformation>,
+        sound_paths: std::collections::HashMap<rubato_types::sound_type::SoundType, String>,
+        http_downloader: Option<
+            std::sync::Arc<dyn rubato_types::http_download_submitter::HttpDownloadSubmitter>,
+        >,
+        ipfs_download_alive: bool,
+    ) {
+        self.ranking_data_cache = Some(ranking_data_cache);
+        self.ir_connection = ir_connection;
+        self.play_data_accessor = Some(play_data_accessor);
+        self.info_database = info_database;
+        self.rivals = rivals;
+        self.sound_paths = sound_paths;
+        self.http_downloader = http_downloader;
+        self.ipfs_download_alive = ipfs_download_alive;
+    }
+
+    /// Backward-compatible shim for test code that constructs mock MainControllerAccess.
+    /// Extracts fields from the trait into the individual typed fields.
+    #[cfg(test)]
+    pub fn set_main_controller(
+        &mut self,
+        mut main: Box<dyn rubato_types::main_controller_access::MainControllerAccess + Send>,
+    ) {
+        // ranking_data_cache
+        if let Some(cache) = main.ranking_data_cache() {
+            self.ranking_data_cache = Some(cache.clone_box());
+        }
+        // ir_connection (via type-erased Any)
+        if let Some(any) = main.ir_connection_any() {
+            if let Some(arc) = any
+                .downcast_ref::<std::sync::Arc<dyn crate::ir::ir_connection::IRConnection + Send + Sync>>()
+                .cloned()
+            {
+                self.ir_connection = Some(arc);
+            }
+        }
+        // info_database
+        // Note: info_database returns a borrow, so we cannot transfer ownership.
+        // Tests that need info_database should set it directly on the selector.
+        // sound_paths
+        for sound in rubato_types::sound_type::SoundType::values() {
+            if let Some(path) = main.sound_path(sound) {
+                self.sound_paths.insert(*sound, path);
+            }
+        }
     }
 
     pub(super) fn ensure_local_score_cache(&mut self) {
@@ -67,11 +136,7 @@ impl MusicSelector {
             return;
         }
 
-        let accessor_config = self
-            .main
-            .as_ref()
-            .map(|main| main.config().clone())
-            .unwrap_or_else(|| self.app_config.clone());
+        let accessor_config = self.app_config.clone();
         let accessor = std::sync::Arc::new(std::sync::Mutex::new(
             crate::core::play_data_accessor::PlayDataAccessor::new(&accessor_config),
         ));
@@ -104,12 +169,13 @@ impl MusicSelector {
     pub(super) fn load_bar_contents(&mut self) {
         self.ensure_local_score_cache();
 
-        let main = self.main.as_deref();
+        let pda = self.play_data_accessor.as_ref();
+        let has_pda = pda.is_some();
         let exists_replay = |sha256: &str, has_ln: bool, lnmode: i32, index: i32| {
-            main.is_some_and(|main| main.exists_replay_data(sha256, has_ln, lnmode, index))
+            pda.is_some_and(|p| p.exists_replay_data(sha256, has_ln, lnmode, index))
         };
         let read_score_by_hash = |hash: &str, has_ln: bool, lnmode: i32| {
-            main.and_then(|main| main.read_score_data_by_hash(hash, has_ln, lnmode))
+            pda.and_then(|p| p.read_score_data_by_hash(hash, has_ln, lnmode))
         };
 
         let mut ctx = crate::state::select::bar_manager::LoaderContext {
@@ -120,13 +186,20 @@ impl MusicSelector {
             is_folderlamp: false,
             banner_resource: Some(&self.banners),
             stagefile_resource: Some(&self.stagefiles),
-            exists_replay_fn: main
-                .map(|_| &exists_replay as crate::state::select::bar_manager::ExistsReplayFn<'_>),
-            read_score_by_hash_fn: main.map(|_| {
-                &read_score_by_hash as crate::state::select::bar_manager::ReadScoreByHashFn<'_>
-            }),
+            exists_replay_fn: if has_pda {
+                Some(&exists_replay as crate::state::select::bar_manager::ExistsReplayFn<'_>)
+            } else {
+                None
+            },
+            read_score_by_hash_fn: if has_pda {
+                Some(
+                    &read_score_by_hash as crate::state::select::bar_manager::ReadScoreByHashFn<'_>,
+                )
+            } else {
+                None
+            },
             songdb: Some(&*self.songdb),
-            song_info_db: main.and_then(|main| main.info_database()),
+            song_info_db: self.info_database.as_deref(),
             command_bar_ctx: None,
         };
         let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -367,14 +440,12 @@ impl MusicSelector {
                 self.play_option_change();
             }
             EventType::Rival => {
-                if let Some(ref main) = self.main {
-                    let rival_count = main.rival_count();
+                let rival_count = self.rivals.len();
+                if rival_count > 0 || self.rival.is_some() {
                     // Find current rival's index in the rival list
                     let mut index: i32 = -1;
                     for i in 0..rival_count {
-                        if let Some(info) = main.rival_information(i)
-                            && self.rival.as_ref() == Some(&info)
-                        {
+                        if self.rival.as_ref() == Some(&self.rivals[i]) {
                             index = i as i32;
                             break;
                         }
@@ -384,7 +455,7 @@ impl MusicSelector {
                     let step = if arg1 >= 0 { 2 } else { total };
                     index = (index + step) % total - 1;
                     let new_rival = if index >= 0 {
-                        main.rival_information(index as usize)
+                        self.rivals.get(index as usize).cloned()
                     } else {
                         None
                     };
@@ -447,23 +518,21 @@ impl MusicSelector {
                 self.play_option_change();
             }
             EventType::UpdateFolder => {
-                if let Some(ref mut main) = self.main
-                    && let Some(selected) = self.manager.selected()
-                {
+                if let Some(selected) = self.manager.selected() {
                     if let Some(folder) = selected.as_folder_bar()
                         && let Some(fd) = folder.folder_data()
                     {
                         let path = fd.path().to_string();
-                        main.update_song(Some(&path));
+                        self.pending_update_song = Some(Some(path));
                     } else if let Some(songbar) = selected.as_song_bar()
                         && let Some(path) = songbar.song_data().file.path()
                         && let Some(parent) =
                             std::path::Path::new(path).parent().and_then(|p| p.to_str())
                     {
-                        main.update_song(Some(parent));
+                        self.pending_update_song = Some(Some(parent.to_string()));
                     } else if let Some(table_bar) = selected.as_table_bar() {
                         let source = TableAccessorUpdateSource::new(table_bar.tr.clone());
-                        main.update_table(Box::new(source));
+                        self.pending_update_table.push(Box::new(source));
                     }
                 }
             }
@@ -497,21 +566,28 @@ impl MusicSelector {
             EventType::OpenIr => {
                 if let Some(songbar) = self.manager.selected().and_then(|b| b.as_song_bar()) {
                     let sd = songbar.song_data();
-                    if let Some(ref main) = self.main
-                        && let Some(url) = main.ir_song_url(sd)
-                        && let Err(e) = open::that(&url)
-                    {
-                        log::error!("Failed to open IR URL: {}", e);
+                    if let Some(ref conn) = self.ir_connection {
+                        let chart = crate::ir::ir_chart_data::IRChartData::new(sd);
+                        if let Some(url) = conn.get_song_url(&chart)
+                            && let Err(e) = open::that(&url)
+                        {
+                            log::error!("Failed to open IR URL: {}", e);
+                        }
                     }
                 } else if let Some(gradebar) =
                     self.manager.selected().and_then(|b| b.as_grade_bar())
                 {
                     let cd = gradebar.course_data();
-                    if let Some(ref main) = self.main
-                        && let Some(url) = main.ir_course_url(cd)
-                        && let Err(e) = open::that(&url)
-                    {
-                        log::error!("Failed to open IR URL: {}", e);
+                    if let Some(ref conn) = self.ir_connection {
+                        let ir_course = crate::ir::ir_course_data::IRCourseData::new_with_lntype(
+                            cd,
+                            self.config.play_settings.lnmode,
+                        );
+                        if let Some(url) = conn.get_course_url(&ir_course)
+                            && let Err(e) = open::that(&url)
+                        {
+                            log::error!("Failed to open IR URL: {}", e);
+                        }
                     }
                 }
             }

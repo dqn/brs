@@ -359,9 +359,12 @@ impl ContextMenuBar {
                     .iter()
                     .flat_map(|f| f.songs.iter().cloned())
                     .collect();
-                if let Some(downloader) = selector.main.as_ref().and_then(|m| m.http_downloader()) {
-                    let fill_count =
-                        ContextMenuBar::fill_missing_charts(&want, &*selector.songdb, downloader);
+                if let Some(ref downloader) = selector.http_downloader {
+                    let fill_count = ContextMenuBar::fill_missing_charts(
+                        &want,
+                        &*selector.songdb,
+                        downloader.as_ref(),
+                    );
                     if fill_count == 0 {
                         log::info!("Nothing to fill");
                     }
@@ -389,11 +392,11 @@ impl ContextMenuBar {
                 STYLE_TEXT_NEW,
             );
             fill_missing.set_function(Arc::new(move |selector| {
-                if let Some(downloader) = selector.main.as_ref().and_then(|m| m.http_downloader()) {
+                if let Some(ref downloader) = selector.http_downloader {
                     let fill_count = ContextMenuBar::fill_missing_charts(
                         &elements,
                         &*selector.songdb,
-                        downloader,
+                        downloader.as_ref(),
                     );
                     if fill_count == 0 {
                         log::info!("Nothing to fill");

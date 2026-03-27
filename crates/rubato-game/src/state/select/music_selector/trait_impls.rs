@@ -166,7 +166,7 @@ impl MainState for MusicSelector {
     }
 
     fn sound(&self, sound: SoundType) -> Option<String> {
-        self.main.as_ref().and_then(|m| m.sound_path(&sound))
+        self.sound_paths.get(&sound).cloned()
     }
 
     fn play_sound_loop(&mut self, sound: SoundType, loop_sound: bool) {
@@ -202,23 +202,21 @@ impl MainState for MusicSelector {
     /// Create state — initialize DB access, song list, bar manager.
     /// Corresponds to Java MusicSelector.create()
     fn create(&mut self) {
-        if self.main.is_none() {
+        if self.play_data_accessor.is_none() {
             log::warn!(
-                "MusicSelector::create(): main controller not set - state transitions, sounds, and score access will be disabled"
+                "MusicSelector::create(): dependencies not set - state transitions, sounds, and score access will be disabled"
             );
         }
 
         // Java: main.getSoundManager().shuffle()
-        if let Some(ref mut main) = self.main {
-            main.shuffle_sounds();
-        }
+        self.pending_shuffle_sounds = true;
 
         self.play = None;
         self.preview_state.show_note_graph = false;
 
         // In Java: resource.setPlayerData(main.getPlayDataAccessor().readPlayerData())
-        if let Some(ref mut main) = self.main {
-            let player_data = main.read_player_data();
+        if let Some(ref pda) = self.play_data_accessor {
+            let player_data = pda.read_player_data();
             if let Some(pd) = player_data {
                 if self.player_resource.is_none() {
                     self.player_resource = Some(crate::core::player_resource::PlayerResource::new(
@@ -763,9 +761,7 @@ impl MainState for MusicSelector {
             && let Ok(rd) = rx.try_recv()
         {
             // Always cache under the correct (requested) song key
-            if let Some(main) = self.main.as_mut()
-                && let Some(cache) = main.ranking_data_cache_mut()
-            {
+            if let Some(cache) = self.ranking_data_cache.as_mut() {
                 cache.put_song_any(requested_song, req_lnmode, Box::new(rd.clone()));
             }
             // Only set currentir if the current selection still matches the requested song
@@ -785,9 +781,7 @@ impl MainState for MusicSelector {
             && let Ok(rd) = rx.try_recv()
         {
             // Always cache under the correct (requested) course key
-            if let Some(main) = self.main.as_mut()
-                && let Some(cache) = main.ranking_data_cache_mut()
-            {
+            if let Some(cache) = self.ranking_data_cache.as_mut() {
                 cache.put_course_any(requested_course, req_lnmode, Box::new(rd.clone()));
             }
             // Only set currentir if the current selection still matches the requested course
@@ -822,9 +816,7 @@ impl MainState for MusicSelector {
         {
             self.ranking.current_ranking_duration = -1;
             // Load/refresh ranking data from cache
-            if let Some(current) = self.manager.selected()
-                && let Some(main) = self.main.as_mut()
-            {
+            if let Some(current) = self.manager.selected() {
                 use crate::ir::ranking_data::RankingData;
                 let lnmode = self.config.play_settings.lnmode;
                 if let Some(song_bar) = current.as_song_bar()
@@ -832,15 +824,16 @@ impl MainState for MusicSelector {
                     && self.play.is_none()
                 {
                     let song = song_bar.song_data();
-                    let cached = main
-                        .ranking_data_cache()
+                    let cached = self
+                        .ranking_data_cache
+                        .as_ref()
                         .and_then(|c| c.song_any(song, lnmode))
                         .and_then(|a| a.downcast::<RankingData>().ok())
                         .map(|ranking| *ranking);
                     if cached.is_none() {
                         let rd = RankingData::new();
                         self.ranking.currentir = Some(rd.clone());
-                        if let Some(cache) = main.ranking_data_cache_mut() {
+                        if let Some(cache) = self.ranking_data_cache.as_mut() {
                             cache.put_song_any(song, lnmode, Box::new(rd));
                         }
                     } else {
@@ -850,22 +843,20 @@ impl MainState for MusicSelector {
                     // Spawn background thread for IR fetch (avoid blocking render thread)
                     if self.pending_ir_song_fetch.is_none() {
                         use crate::ir::ir_chart_data::IRChartData;
-                        use crate::ir::ir_connection::IRConnection;
-                        use std::sync::Arc;
-                        if let Some(conn_arc) = main.ir_connection_any().and_then(|any| {
-                            any.downcast_ref::<Arc<dyn IRConnection + Send + Sync>>()
-                                .cloned()
-                        }) {
+                        if let Some(ref conn_arc) = self.ir_connection {
                             let chart = IRChartData::new(song);
-                            let local_score = main.read_score_data_by_hash(
-                                &song.file.sha256,
-                                song.chart.has_undefined_long_note(),
-                                lnmode,
-                            );
+                            let local_score = self.play_data_accessor.as_ref().and_then(|pda| {
+                                pda.read_score_data_by_hash(
+                                    &song.file.sha256,
+                                    song.chart.has_undefined_long_note(),
+                                    lnmode,
+                                )
+                            });
+                            let conn_clone = std::sync::Arc::clone(conn_arc);
                             let (tx, rx) = std::sync::mpsc::channel();
                             let handle = std::thread::spawn(move || {
                                 let mut rd = RankingData::new();
-                                rd.load_song(conn_arc.as_ref(), &chart, local_score.as_ref());
+                                rd.load_song(conn_clone.as_ref(), &chart, local_score.as_ref());
                                 let _ = tx.send(rd);
                             });
                             self.background_threads.push(handle);
@@ -879,15 +870,16 @@ impl MainState for MusicSelector {
                     && self.play.is_none()
                 {
                     let course = grade_bar.course_data();
-                    let cached = main
-                        .ranking_data_cache()
+                    let cached = self
+                        .ranking_data_cache
+                        .as_ref()
                         .and_then(|c| c.course_any(course, lnmode))
                         .and_then(|a| a.downcast::<RankingData>().ok())
                         .map(|ranking| *ranking);
                     if cached.is_none() {
                         let rd = RankingData::new();
                         self.ranking.currentir = Some(rd.clone());
-                        if let Some(cache) = main.ranking_data_cache_mut() {
+                        if let Some(cache) = self.ranking_data_cache.as_mut() {
                             cache.put_course_any(course, lnmode, Box::new(rd));
                         }
                     } else {
@@ -896,18 +888,14 @@ impl MainState for MusicSelector {
                     // Java MusicSelector L261: irc.load(this, course)
                     // Spawn background thread for IR fetch (avoid blocking render thread)
                     if self.pending_ir_course_fetch.is_none() {
-                        use crate::ir::ir_connection::IRConnection;
                         use crate::ir::ir_course_data::IRCourseData;
-                        use std::sync::Arc;
-                        if let Some(conn_arc) = main.ir_connection_any().and_then(|any| {
-                            any.downcast_ref::<Arc<dyn IRConnection + Send + Sync>>()
-                                .cloned()
-                        }) {
+                        if let Some(ref conn_arc) = self.ir_connection {
                             let ir_course = IRCourseData::new_with_lntype(course, lnmode);
+                            let conn_clone = std::sync::Arc::clone(conn_arc);
                             let (tx, rx) = std::sync::mpsc::channel();
                             let handle = std::thread::spawn(move || {
                                 let mut rd = RankingData::new();
-                                rd.load_course(conn_arc.as_ref(), &ir_course, None);
+                                rd.load_course(conn_clone.as_ref(), &ir_course, None);
                                 let _ = tx.send(rd);
                             });
                             self.background_threads.push(handle);
@@ -1044,16 +1032,8 @@ impl MainState for MusicSelector {
                     // 1. If song has IPFS hash and IPFS daemon is alive -> IPFS download
                     // 2. Else if HTTP download processor is available -> HTTP download
                     // 3. Else -> open download site in browser
-                    let ipfs_available = !song.ipfs_str().is_empty()
-                        && self
-                            .main
-                            .as_ref()
-                            .is_some_and(|m| m.is_ipfs_download_alive());
-                    let http_available = self
-                        .main
-                        .as_ref()
-                        .and_then(|m| m.http_downloader())
-                        .is_some();
+                    let ipfs_available = !song.ipfs_str().is_empty() && self.ipfs_download_alive;
+                    let http_available = self.http_downloader.is_some();
 
                     if ipfs_available {
                         self.execute(MusicSelectCommand::DownloadIpfs);
@@ -1180,6 +1160,36 @@ impl MainState for MusicSelector {
         if self.pending_player_config_dirty {
             self.pending_player_config_dirty = false;
             ctx.player = self.config.clone();
+        }
+
+        // Drain MusicSelector-specific outbox fields
+        if self.pending_shuffle_sounds {
+            self.pending_shuffle_sounds = false;
+            ctx.shuffle_sounds();
+            // Update local sound_paths after shuffle
+            if let Some(ref sm) = ctx.sound {
+                self.sound_paths = sm.sound_map_clone();
+            }
+        }
+        if let Some(path) = self.pending_update_song.take() {
+            ctx.db.pending_update_song = Some(path);
+        }
+        for source in self.pending_update_table.drain(..) {
+            ctx.db.pending_update_table.push(source);
+        }
+        if self.pending_save_config {
+            self.pending_save_config = false;
+            ctx.save_config();
+        }
+        if let Some(pc) = self.pending_load_new_profile.take() {
+            ctx.db.pending_load_new_profile = Some(pc);
+        }
+        for song in self.pending_start_ipfs.drain(..) {
+            ctx.start_ipfs_download(&song);
+        }
+        if self.pending_exit {
+            self.pending_exit = false;
+            return Some(crate::core::main_state::StateTransition::Exit);
         }
 
         // State transition

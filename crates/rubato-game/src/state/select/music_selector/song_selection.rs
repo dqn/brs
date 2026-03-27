@@ -180,11 +180,7 @@ impl MusicSelector {
                     }
                 }
                 InputEvent::Exit => {
-                    if let Some(ref main) = self.main
-                        && let Err(e) = main.exit()
-                    {
-                        log::error!("Failed to exit: {e}");
-                    }
+                    self.pending_exit = true;
                 }
                 InputEvent::ChangeState(state_type) => {
                     self.pending_state_change = Some(state_type);
@@ -260,12 +256,7 @@ impl MusicSelector {
         let gb = grade_bar.as_grade_bar().expect("as_grade_bar");
         if !gb.exists_all_songs() {
             log::info!("段位の楽曲が揃っていません (course songs are not all available)");
-            if self
-                .main
-                .as_ref()
-                .and_then(|m| m.http_downloader())
-                .is_some()
-            {
+            if self.http_downloader.is_some() {
                 self.execute(MusicSelectCommand::DownloadCourseHttp);
             }
             return;
@@ -483,12 +474,13 @@ impl MusicSelector {
             self.playedcourse = Some(course_data);
 
             // Load/create cached IR ranking data for course
-            if let Some(ref mut main) = self.main {
+            {
                 use crate::ir::ranking_data::RankingData;
                 let lnmode = self.config.play_settings.lnmode;
                 let course = gb.course_data();
-                let cached = main
-                    .ranking_data_cache()
+                let cached = self
+                    .ranking_data_cache
+                    .as_ref()
                     .and_then(|c| c.course_any(course, lnmode))
                     .and_then(|a| a.downcast::<RankingData>().ok())
                     .map(|ranking| *ranking);
@@ -497,7 +489,7 @@ impl MusicSelector {
                 } else {
                     let rd = RankingData::new();
                     self.ranking.currentir = Some(rd.clone());
-                    if let Some(cache) = main.ranking_data_cache_mut() {
+                    if let Some(cache) = self.ranking_data_cache.as_mut() {
                         cache.put_course_any(course, lnmode, Box::new(rd));
                     }
                 }
@@ -506,20 +498,21 @@ impl MusicSelector {
             // Java: RankingData songrank = main.getRankingDataCache().get(songs[0], config.getLnmode());
             //       if(main.getIRStatus().length > 0 && songrank == null) { ... }
             //       resource.setRankingData(songrank);
-            if let Some(ref mut main) = self.main {
+            {
                 use crate::ir::ranking_data::RankingData as SongRankingData;
                 let lnmode = self.config.play_settings.lnmode;
                 let first_song = &songs[0];
-                let song_cached = main
-                    .ranking_data_cache()
+                let song_cached = self
+                    .ranking_data_cache
+                    .as_ref()
                     .and_then(|c| c.song_any(first_song, lnmode))
                     .and_then(|a| a.downcast::<SongRankingData>().ok())
                     .map(|ranking| *ranking);
                 let song_ranking = if let Some(sr) = song_cached {
                     Some(sr)
-                } else if main.ir_connection_any().is_some() {
+                } else if self.ir_connection.is_some() {
                     let sr = SongRankingData::new();
-                    if let Some(cache) = main.ranking_data_cache_mut() {
+                    if let Some(cache) = self.ranking_data_cache.as_mut() {
                         cache.put_song_any(first_song, lnmode, Box::new(sr.clone()));
                     }
                     Some(sr)
