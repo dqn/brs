@@ -1161,12 +1161,39 @@ impl MainState for MusicSelector {
 
     fn render_with_game_context(
         &mut self,
-        _ctx: &mut crate::core::app_context::GameContext,
+        ctx: &mut crate::core::app_context::GameContext,
     ) -> Option<crate::core::main_state::StateTransition> {
-        // Conservative wrapper: call existing render logic, then intercept
-        // any pending state change that was queued via the outbox.
+        // Call existing render logic which populates the outbox.
         self.render();
-        if let Some(state_type) = self.take_pending_state_change() {
+
+        // Drain sound/audio outbox fields directly into GameContext.
+        // Player config update remains in the outbox for lifecycle.rs to drain.
+
+        // Audio config MUST be applied before sounds so that sounds use the
+        // updated volume, not the stale one.
+        if let Some(audio_config) = self.pending_audio_config.take() {
+            ctx.config.audio = Some(audio_config);
+        }
+
+        // System sounds
+        for (sound, loop_sound) in std::mem::take(&mut self.pending_sounds) {
+            ctx.play_sound(&sound, loop_sound);
+        }
+        // System sound stops
+        for sound in std::mem::take(&mut self.pending_sound_stops) {
+            ctx.stop_sound(&sound);
+        }
+
+        // Audio path plays/stops (skin-scripted audio)
+        for (path, volume, is_loop) in std::mem::take(&mut self.pending_audio_path_plays) {
+            ctx.play_audio_path(&path, volume, is_loop);
+        }
+        for path in std::mem::take(&mut self.pending_audio_path_stops) {
+            ctx.stop_audio_path(&path);
+        }
+
+        // State transition
+        if let Some(state_type) = self.pending_state_change.take() {
             Some(crate::core::main_state::StateTransition::ChangeTo(state_type))
         } else {
             Some(crate::core::main_state::StateTransition::Continue)

@@ -1274,16 +1274,44 @@ impl MainState for BMSPlayer {
 
     fn render_with_game_context(
         &mut self,
-        _ctx: &mut GameContext,
+        ctx: &mut GameContext,
     ) -> Option<StateTransition> {
-        // Delegate to the existing render() which populates the outbox
-        // (pending_state_change, pending_sounds, pending_score_handoff, etc.).
-        // BMSPlayer has too many outbox side-effects to bypass the outbox
-        // drain in MainController, so we always return Continue and let the
-        // controller's outbox consumption handle the actual state transition
-        // alongside all other pending actions (sounds, pitch, score handoff,
-        // keysounds, reload, etc.).
+        // Delegate to the existing render() which populates the outbox.
         self.render();
+
+        // Drain sound/audio outbox fields directly into GameContext.
+        // Complex fields (score handoff, reload BMS, quick retry, play config)
+        // remain in the outbox for lifecycle.rs to drain.
+
+        // Audio config MUST be applied before sounds so that sounds use the
+        // updated volume, not the stale one.
+        if let Some(audio_config) = self.pending.pending_audio_config.take() {
+            ctx.config.audio = Some(audio_config);
+        }
+
+        // System sounds
+        for (sound, loop_sound) in std::mem::take(&mut self.pending.pending_sounds) {
+            ctx.play_sound(&sound, loop_sound);
+        }
+
+        // Global pitch
+        if let Some(pitch) = self.pending.pending_global_pitch.take() {
+            ctx.set_global_pitch(pitch);
+        }
+
+        // Audio path plays/stops (skin-scripted audio)
+        for (path, volume, is_loop) in std::mem::take(&mut self.pending.pending_audio_path_plays) {
+            ctx.play_audio_path(&path, volume, is_loop);
+        }
+        for path in std::mem::take(&mut self.pending.pending_audio_path_stops) {
+            ctx.stop_audio_path(&path);
+        }
+
+        // Stop all keysound notes (on Failed/Aborted transitions)
+        if std::mem::take(&mut self.pending.pending_stop_all_notes) {
+            ctx.stop_all_notes();
+        }
+
         Some(StateTransition::Continue)
     }
 
