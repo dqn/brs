@@ -1,4 +1,6 @@
 use super::*;
+use crate::core::app_context::GameContext;
+use crate::core::main_state::StateTransition;
 use rubato_types::sync_utils::lock_or_recover;
 
 fn judge_timer_id(player: usize) -> rubato_types::timer_id::TimerId {
@@ -1268,6 +1270,26 @@ impl MainState for BMSPlayer {
         self.main_state_data
             .timer
             .set_recent_judges(self.judge.recent_judges_index(), self.judge.recent_judges());
+    }
+
+    fn render_with_game_context(
+        &mut self,
+        _ctx: &mut GameContext,
+    ) -> Option<StateTransition> {
+        // Delegate to the existing render() which populates the outbox
+        // (pending_state_change, pending_sounds, pending_score_handoff, etc.).
+        // BMSPlayer has too many outbox side-effects to bypass the outbox
+        // drain in MainController, so we always return Continue and let the
+        // controller's outbox consumption handle the actual state transition
+        // alongside all other pending actions (sounds, pitch, score handoff,
+        // keysounds, reload, etc.).
+        self.render();
+        Some(StateTransition::Continue)
+    }
+
+    fn input_with_game_context(&mut self, _ctx: &mut GameContext) -> Option<()> {
+        self.input_impl();
+        Some(())
     }
 
     fn input(&mut self) {

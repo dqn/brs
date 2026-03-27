@@ -1159,6 +1159,28 @@ impl MainState for MusicSelector {
         self.stagefiles.dispose_old();
     }
 
+    fn render_with_game_context(
+        &mut self,
+        _ctx: &mut crate::core::app_context::GameContext,
+    ) -> Option<crate::core::main_state::StateTransition> {
+        // Conservative wrapper: call existing render logic, then intercept
+        // any pending state change that was queued via the outbox.
+        self.render();
+        if let Some(state_type) = self.take_pending_state_change() {
+            Some(crate::core::main_state::StateTransition::ChangeTo(state_type))
+        } else {
+            Some(crate::core::main_state::StateTransition::Continue)
+        }
+    }
+
+    fn input_with_game_context(
+        &mut self,
+        _ctx: &mut crate::core::app_context::GameContext,
+    ) -> Option<()> {
+        self.input();
+        Some(())
+    }
+
     fn drain_pending_sounds(&mut self) -> Vec<(SoundType, bool)> {
         std::mem::take(&mut self.pending_sounds)
     }

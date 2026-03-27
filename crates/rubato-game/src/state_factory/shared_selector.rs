@@ -130,6 +130,20 @@ impl MainState for SharedMusicSelectorState {
         self.with_selector(|selector| selector.render_skin(sprite));
     }
 
+    fn render_with_game_context(
+        &mut self,
+        ctx: &mut crate::core::app_context::GameContext,
+    ) -> Option<crate::core::main_state::StateTransition> {
+        self.with_selector(|selector| selector.render_with_game_context(ctx))
+    }
+
+    fn input_with_game_context(
+        &mut self,
+        ctx: &mut crate::core::app_context::GameContext,
+    ) -> Option<()> {
+        self.with_selector(|selector| selector.input_with_game_context(ctx))
+    }
+
     fn take_pending_state_change(&mut self) -> Option<MainStateType> {
         self.with_selector(|selector| selector.take_pending_state_change())
     }
