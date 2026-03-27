@@ -4182,12 +4182,27 @@ dependencies = [
  "proptest",
  "rand 0.8.5",
  "rubato-audio",
+ "rubato-db",
  "rubato-input",
  "rubato-render",
  "rubato-timing",
  "rubato-types",
- "rusqlite",
  "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+]
+
+[[package]]
+name = "rubato-db"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bms-model",
+ "chrono",
+ "log",
+ "rubato-types",
+ "rusqlite",
  "serde_json",
  "sha2",
  "tempfile",
@@ -4365,10 +4380,19 @@ dependencies = [
  "rubato-input",
  "rubato-play",
  "rubato-render",
+ "rubato-skin-model",
  "rubato-song",
  "rubato-types",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "rubato-skin-model"
+version = "0.1.0"
+dependencies = [
+ "rubato-types",
+ "serde",
 ]
 
 [[package]]
@@ -4384,6 +4408,7 @@ dependencies = [
  "regex",
  "reqwest",
  "rubato-core",
+ "rubato-db",
  "rubato-types",
  "rusqlite",
  "serde",

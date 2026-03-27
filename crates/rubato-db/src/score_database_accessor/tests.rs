@@ -2,9 +2,9 @@ use std::collections::HashMap;
 
 use rusqlite::Connection;
 
-use crate::player_data::PlayerData;
-use crate::score_data::ScoreData;
 use crate::sqlite_database_accessor::{Column, SQLiteDatabaseAccessor, Table};
+use rubato_types::player_data::PlayerData;
+use rubato_types::score_data::ScoreData;
 
 use super::helpers::{local_midnight_timestamp, player_data_to_value, score_data_to_value};
 use super::{ScoreDataCollector, ScoreDatabaseAccessor, SongData};

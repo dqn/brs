@@ -7,6 +7,7 @@ edition.workspace = true
 # Internal crates
 bms-model = { workspace = true }
 bms-table = { workspace = true }
+rubato-db = { workspace = true }
 rubato-input = { workspace = true }
 rubato-audio = { workspace = true }
 rubato-timing = { workspace = true }
@@ -25,9 +26,6 @@ serde_json = { workspace = true }
 
 # Logging
 log = { workspace = true }
-
-# Database
-rusqlite = { workspace = true }
 
 # Encoding
 base64 = { workspace = true }

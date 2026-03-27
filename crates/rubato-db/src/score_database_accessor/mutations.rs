@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use crate::player_data::PlayerData;
-use crate::player_information::PlayerInformation;
-use crate::score_data::ScoreData;
+use rubato_types::player_data::PlayerData;
+use rubato_types::player_information::PlayerInformation;
+use rubato_types::score_data::ScoreData;
 
 use super::ScoreDatabaseAccessor;
 use super::helpers::{local_midnight_timestamp, player_data_to_value, score_data_to_value};

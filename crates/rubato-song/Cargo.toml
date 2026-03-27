@@ -6,6 +6,7 @@ edition.workspace = true
 [dependencies]
 bms-model = { workspace = true }
 rubato-core = { workspace = true }
+rubato-db = { workspace = true }
 rubato-types = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true }

@@ -1,5 +1,5 @@
-use crate::player_data::PlayerData;
-use crate::score_data::ScoreData;
+use rubato_types::player_data::PlayerData;
+use rubato_types::score_data::ScoreData;
 
 pub(super) fn row_to_score_data(row: &rusqlite::Row) -> ScoreData {
     use rubato_types::score_data::{JudgeCounts, PlayOption, TimingStats};

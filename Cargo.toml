@@ -4,9 +4,11 @@ members = [
     "crates/bms-table",
     "crates/rubato-input",
     "crates/rubato-audio",
+    "crates/rubato-db",
     "crates/rubato-core",
     "crates/rubato-play",
     "crates/rubato-skin",
+    "crates/rubato-skin-model",
     "crates/rubato-ir",
     "crates/rubato-external",
     "crates/rubato-state",
@@ -31,9 +33,11 @@ bms-model = { path = "crates/bms-model" }
 bms-table = { path = "crates/bms-table" }
 rubato-input = { path = "crates/rubato-input" }
 rubato-audio = { path = "crates/rubato-audio" }
+rubato-db = { path = "crates/rubato-db" }
 rubato-core = { path = "crates/rubato-core" }
 rubato-play = { path = "crates/rubato-play" }
 rubato-skin = { path = "crates/rubato-skin" }
+rubato-skin-model = { path = "crates/rubato-skin-model" }
 rubato-ir = { path = "crates/rubato-ir" }
 rubato-external = { path = "crates/rubato-external" }
 rubato-state = { path = "crates/rubato-state" }
