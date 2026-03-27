@@ -12,6 +12,7 @@ use crate::bm_controller_input_processor::{
 use crate::bms_player_input_device::{BMSPlayerInputDevice, DeviceType};
 use crate::controller::gdx_controller::GdxController;
 use crate::gdx_compat;
+use crate::input_snapshot::InputSnapshot;
 use crate::key_command::KeyCommand;
 use crate::key_input_log::KeyInputLog;
 use crate::keyboard_input_processor::{
@@ -751,6 +752,56 @@ impl BMSPlayerInputProcessor {
         self.midiinput.close();
     }
 
+    /// Build a read-only snapshot of the current input state.
+    ///
+    /// Captures key, mouse, scroll, and analog state so that game states
+    /// can read input without holding a reference to the processor.
+    ///
+    /// `activated_commands` is left empty for now because `is_activated()`
+    /// is consuming (resets key press timestamps) and MainController still
+    /// calls it directly for KeyCommand handling (F1/F4/F6/etc.). Once
+    /// MainController is migrated to read commands from the snapshot,
+    /// this method will populate the field.
+    ///
+    /// The `analog_diff` array captures the raw difference between current
+    /// and last analog values (via `compute_analog_diff`), matching the
+    /// semantics of `analog_diff(i)` on this processor.
+    pub fn build_snapshot(&self) -> InputSnapshot {
+        // Collect control key states (non-consuming read).
+        let mut control_key_states = std::collections::HashMap::new();
+        for &ck in ControlKeys::values() {
+            control_key_states.insert(ck, self.control_key_state(ck));
+        }
+
+        // Build analog_diff array from current and last values.
+        let mut analog_diff = [0.0f32; KEYSTATE_SIZE];
+        for ((out, &last), &cur) in analog_diff
+            .iter_mut()
+            .zip(&self.last_analog_value)
+            .zip(&self.current_analog_value)
+        {
+            *out = compute_analog_diff(last, cur) as f32;
+        }
+
+        InputSnapshot {
+            key_state: self.keystate,
+            key_changed_time: self.time,
+            start_pressed: self.start_pressed,
+            select_pressed: self.select_pressed,
+            mouse_x: self.mousex,
+            mouse_y: self.mousey,
+            mouse_button: self.mousebutton,
+            mouse_pressed: self.mousepressed,
+            mouse_dragged: self.mousedragged,
+            scroll_x: self.scroll_x,
+            scroll_y: self.scroll_y,
+            is_analog: self.is_analog,
+            analog_diff,
+            activated_commands: Vec::new(),
+            control_key_states,
+        }
+    }
+
     pub fn sync_runtime_state_from(&mut self, source: &Self) {
         self.enable = source.enable;
         self.kbinput.sync_runtime_state_from(&source.kbinput);
@@ -1431,5 +1482,102 @@ mod tests {
         logger.add(999, 42, false);
         assert_eq!(logger.to_array().len(), 1);
         assert_eq!(logger.to_array()[0].time(), 999);
+    }
+
+    #[test]
+    fn test_build_snapshot_captures_key_state() {
+        let mut proc = make_input_processor();
+        proc.set_key_state(0, true, 1000);
+        proc.set_key_state(5, true, 2000);
+
+        let snapshot = proc.build_snapshot();
+
+        assert!(snapshot.key_state[0]);
+        assert!(snapshot.key_state[5]);
+        assert!(!snapshot.key_state[1]);
+        assert_eq!(snapshot.key_changed_time[0], 1000);
+        assert_eq!(snapshot.key_changed_time[5], 2000);
+        assert_eq!(snapshot.key_changed_time[1], i64::MIN);
+    }
+
+    #[test]
+    fn test_build_snapshot_captures_mouse_state() {
+        let mut proc = make_input_processor();
+        proc.mousex = 100;
+        proc.mousey = 200;
+        proc.mousebutton = 1;
+        proc.mousepressed = true;
+        proc.mousedragged = true;
+        proc.scroll_x = 1.5;
+        proc.scroll_y = -2.0;
+
+        let snapshot = proc.build_snapshot();
+
+        assert_eq!(snapshot.mouse_x, 100);
+        assert_eq!(snapshot.mouse_y, 200);
+        assert_eq!(snapshot.mouse_button, 1);
+        assert!(snapshot.mouse_pressed);
+        assert!(snapshot.mouse_dragged);
+        assert_eq!(snapshot.scroll_x, 1.5);
+        assert_eq!(snapshot.scroll_y, -2.0);
+    }
+
+    #[test]
+    fn test_build_snapshot_captures_start_select() {
+        let mut proc = make_input_processor();
+        proc.start_changed(true);
+        proc.select_pressed = true;
+
+        let snapshot = proc.build_snapshot();
+
+        assert!(snapshot.start_pressed);
+        assert!(snapshot.select_pressed);
+    }
+
+    #[test]
+    fn test_build_snapshot_populates_control_key_states() {
+        let proc = make_input_processor();
+        let snapshot = proc.build_snapshot();
+
+        // All control keys should be present in the map.
+        for &ck in ControlKeys::values() {
+            assert!(
+                snapshot.control_key_states.contains_key(&ck),
+                "control key {:?} should be in snapshot",
+                ck,
+            );
+        }
+    }
+
+    #[test]
+    fn test_build_snapshot_does_not_consume_activations() {
+        let shared_state = SharedKeyState::new();
+        let mut proc = make_input_processor_with_state(shared_state.clone());
+        let mut kb_config = KeyboardConfig::default();
+        kb_config.duration = 0;
+        proc.set_keyboard_config(&kb_config);
+
+        // Press F1 (ShowFps key)
+        shared_state.set_key_pressed(Keys::F1, true);
+        proc.poll();
+
+        // build_snapshot is &self and should not consume the activation.
+        let _snapshot = proc.build_snapshot();
+
+        // is_activated should still work after build_snapshot
+        assert!(
+            proc.is_activated(KeyCommand::ShowFps),
+            "build_snapshot must not consume key activations"
+        );
+    }
+
+    #[test]
+    fn test_build_snapshot_activated_commands_empty() {
+        let proc = make_input_processor();
+        let snapshot = proc.build_snapshot();
+
+        // activated_commands is intentionally empty during the migration period
+        // because is_activated() is consuming and MainController still uses it.
+        assert!(snapshot.activated_commands.is_empty());
     }
 }

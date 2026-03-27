@@ -6,6 +6,7 @@ use crate::score_data_property::ScoreDataProperty;
 use crate::timer_manager::TimerManager;
 use rubato_audio::audio_system::AudioSystem;
 use rubato_input::bms_player_input_processor::BMSPlayerInputProcessor;
+use rubato_input::input_snapshot::InputSnapshot;
 use rubato_render::sprite_batch::SpriteBatch;
 use rubato_types::skin_offset::SkinOffset;
 use rubato_types::sound_type::SoundType;
@@ -86,6 +87,20 @@ pub trait MainState {
 
     /// Sync live controller input into a state-local wrapper before `input()`.
     fn sync_input_from(&mut self, _input: &BMSPlayerInputProcessor) {
+        // default empty
+    }
+
+    /// Receive a read-only snapshot of the current frame's input state.
+    ///
+    /// Called by MainController after polling input and before `input()`.
+    /// States can use this to read input without depending on
+    /// BMSPlayerInputProcessor directly. The default implementation is
+    /// empty; states opt in by overriding.
+    ///
+    /// This coexists with `sync_input_from` during migration. Once all
+    /// states are migrated, `sync_input_from` / `sync_input_back_to` can
+    /// be removed.
+    fn sync_input_snapshot(&mut self, _snapshot: &InputSnapshot) {
         // default empty
     }
 

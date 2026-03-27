@@ -487,6 +487,15 @@ impl MainController {
             {
                 current.sync_input_from(input);
             }
+            // Build a read-only input snapshot and pass it to the current state.
+            // This coexists with sync_input_from during migration; states opt in
+            // by overriding sync_input_snapshot().
+            if let Some(ref input) = self.ctx.input
+                && let Some(ref mut current) = self.current
+            {
+                let snapshot = input.build_snapshot();
+                current.sync_input_snapshot(&snapshot);
+            }
             // Take the state out to avoid borrow conflict between
             // `self.current` and `self.ctx`.
             if let Some(mut current) = self.current.take() {

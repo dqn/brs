@@ -18,7 +18,7 @@ pub const MASK_ALT: i32 = 1 << 2;
 /// ControlKeys enum
 ///
 /// Translated from: KeyBoardInputProcesseor.ControlKeys
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ControlKeys {
     Num0,
     Num1,
