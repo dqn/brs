@@ -20,7 +20,7 @@ pub(crate) use crate::core::app_context::GameContext;
 pub(crate) use crate::core::bms_player_mode::BMSPlayerMode;
 pub(crate) use crate::core::config::Config;
 pub(crate) use crate::core::ir_config::IRConfig;
-pub(crate) use crate::core::main_state::{MainState, MainStateType};
+pub(crate) use crate::core::main_state::{MainState, MainStateType, StateTransition};
 #[allow(deprecated)]
 pub(crate) use crate::core::main_state_listener::MainStateListener;
 pub(crate) use crate::core::performance_metrics::PerformanceMetrics;

@@ -149,7 +149,44 @@ impl MainController {
         // current.render() -- take the state out to avoid borrow conflict
         // between `self.current` and `self.ctx`.
         if let Some(mut current) = self.current.take() {
-            current.render_with_ctx(&mut self.ctx);
+            // Move PlayerResource into ctx so states using render_with_game_context
+            // can access it via ctx.resource without a separate accessor.
+            self.ctx.resource = self.resource.take();
+
+            // Try new-style render first. If it returns Some, the state has fully
+            // adopted the GameContext pattern and we process the transition result.
+            // If it returns None, fall through to the legacy render_with_ctx path.
+            if let Some(transition) = current.render_with_game_context(&mut self.ctx) {
+                match transition {
+                    StateTransition::Continue => { /* continue normal frame */ }
+                    StateTransition::ChangeTo(_) | StateTransition::Exit => {
+                        // Restore resource before processing transition; the outbox
+                        // drain and state change code below reads self.resource.
+                        self.resource = self.ctx.resource.take();
+                        self.current = Some(current);
+
+                        // Enqueue the transition as if the state used the outbox.
+                        // ChangeTo maps to the existing change_state path; Exit
+                        // triggers application shutdown.
+                        match transition {
+                            StateTransition::ChangeTo(state_type) => {
+                                self.change_state(state_type);
+                            }
+                            StateTransition::Exit => {
+                                self.exit();
+                            }
+                            StateTransition::Continue => unreachable!(),
+                        }
+                        return;
+                    }
+                }
+            } else {
+                // Legacy render path
+                current.render_with_ctx(&mut self.ctx);
+            }
+
+            // Restore resource from ctx back to controller.
+            self.resource = self.ctx.resource.take();
             self.current = Some(current);
         }
 
@@ -521,7 +558,19 @@ impl MainController {
             // Take the state out to avoid borrow conflict between
             // `self.current` and `self.ctx`.
             if let Some(mut current) = self.current.take() {
-                current.input_with_ctx(&mut self.ctx);
+                // Move PlayerResource into ctx for new-style input handling.
+                self.ctx.resource = self.resource.take();
+
+                // Try new-style input first. If it returns Some, the state has
+                // fully adopted the GameContext pattern. If None, fall through
+                // to the legacy input_with_ctx path.
+                if current.input_with_game_context(&mut self.ctx).is_none() {
+                    // Legacy input path
+                    current.input_with_ctx(&mut self.ctx);
+                }
+
+                // Restore resource from ctx back to controller.
+                self.resource = self.ctx.resource.take();
                 self.current = Some(current);
             }
             if let Some(ref mut input) = self.ctx.input
