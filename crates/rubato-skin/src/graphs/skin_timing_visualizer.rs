@@ -175,7 +175,7 @@ impl SkinTimingVisualizer {
         }
     }
 
-    pub fn draw(&mut self, sprite: &mut SkinObjectRenderer) {
+    pub fn draw_impl(&mut self, sprite: &mut SkinObjectRenderer) {
         if let Some(ref backtex) = self.backtex {
             self.data.draw_image(sprite, backtex);
         }
@@ -259,6 +259,36 @@ impl SkinTimingVisualizer {
     pub fn set_recent_judges(&mut self, index: usize, recent: Vec<i64>) {
         self.index = index;
         self.recent = recent;
+    }
+}
+
+impl crate::types::skin_node::SkinNode for SkinTimingVisualizer {
+    fn data(&self) -> &SkinObjectData {
+        &self.data
+    }
+    fn data_mut(&mut self) -> &mut SkinObjectData {
+        &mut self.data
+    }
+    fn prepare(&mut self, time: i64, state: &dyn MainState) {
+        SkinTimingVisualizer::prepare(self, time, state)
+    }
+    fn draw(&mut self, sprite: &mut SkinObjectRenderer, _state: &dyn MainState) {
+        self.draw_impl(sprite)
+    }
+    fn dispose(&mut self) {
+        SkinTimingVisualizer::dispose(self)
+    }
+    fn type_name(&self) -> &'static str {
+        "TimingVisualizer"
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+    fn into_any_box(self: Box<Self>) -> Box<dyn std::any::Any> {
+        self
     }
 }
 

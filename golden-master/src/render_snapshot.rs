@@ -6,11 +6,11 @@
 
 use rubato_skin::property::float_property::FloatProperty;
 use rubato_skin::property::timer_property::TimerProperty;
-use rubato_skin::skin::SkinObject;
 use rubato_skin::skin_object::SkinObjectData;
 use rubato_skin::skin_property;
 use rubato_skin::skin_text::SkinTextData;
 use rubato_skin::skin_type::SkinType;
+use rubato_skin::types::skin_node::SkinNode;
 use serde::{Deserialize, Serialize};
 
 use crate::eval;
@@ -127,10 +127,10 @@ pub fn capture_render_snapshot(
                 data.dstop
             );
         }
-        if !is_object_valid_for_prepare(object) {
+        if !is_object_valid_for_prepare(&**object) {
             continue;
         }
-        if should_skip_for_parity(skin, object) {
+        if should_skip_for_parity(skin, &**object) {
             continue;
         }
         if !matches_option_conditions(data, skin, provider, skin_type.as_ref()) {
@@ -164,7 +164,7 @@ pub fn capture_render_snapshot(
         let (visible, dst, color, angle, detail) = match resolved {
             Some((rect, col, final_angle, final_alpha)) => {
                 if !matches_dynamic_draw_conditions(data, skin, provider, skin_type.as_ref(), idx)
-                    || !is_object_renderable(data, object, provider, skin_type.as_ref(), idx)
+                    || !is_object_renderable(data, &**object, provider, skin_type.as_ref(), idx)
                 {
                     (false, None, None, 0, None)
                 } else {
@@ -183,7 +183,7 @@ pub fn capture_render_snapshot(
                     if should_force_note_alpha_zero(skin_type.as_ref(), data.name.as_deref()) {
                         color.a = 0.0;
                     }
-                    let detail = resolve_detail(object, provider, skin_type.as_ref());
+                    let detail = resolve_detail(&**object, provider, skin_type.as_ref());
                     (true, Some(dst), Some(color), final_angle, detail)
                 }
             }
@@ -211,14 +211,14 @@ pub fn capture_render_snapshot(
     }
 }
 
-fn should_skip_for_parity(skin: &rubato_skin::skin::Skin, object: &SkinObject) -> bool {
+fn should_skip_for_parity(skin: &rubato_skin::skin::Skin, object: &dyn SkinNode) -> bool {
     let skin_type = skin.header.skin_type();
     matches!(skin_type, Some(&SkinType::MusicSelect))
         && (is_text_with_string_id(object, skin_property::STRING_SEARCHWORD)
             || object.data().name.as_deref() == Some("irname"))
 }
 
-fn is_text_with_string_id(object: &SkinObject, target_id: i32) -> bool {
+fn is_text_with_string_id(object: &dyn SkinNode, target_id: i32) -> bool {
     let text_data = get_text_data(object);
     match text_data {
         Some(td) => td.ref_prop.as_ref().map(|p| p.get_id()) == Some(target_id),
@@ -226,20 +226,36 @@ fn is_text_with_string_id(object: &SkinObject, target_id: i32) -> bool {
     }
 }
 
-fn get_text_data(object: &SkinObject) -> Option<&SkinTextData> {
-    match object {
-        SkinObject::TextFont(t) => Some(&t.text_data),
-        SkinObject::TextBitmap(t) => Some(&t.text_data),
-        SkinObject::TextImage(t) => Some(&t.text_data),
-        _ => None,
+fn get_text_data(object: &dyn SkinNode) -> Option<&SkinTextData> {
+    if let Some(t) = object
+        .as_any()
+        .downcast_ref::<rubato_skin::skin_text_font::SkinTextFont>()
+    {
+        return Some(&t.text_data);
     }
+    if let Some(t) = object
+        .as_any()
+        .downcast_ref::<rubato_skin::skin_text_bitmap::SkinTextBitmap>()
+    {
+        return Some(&t.text_data);
+    }
+    if let Some(t) = object
+        .as_any()
+        .downcast_ref::<rubato_skin::skin_text_image::SkinTextImage>()
+    {
+        return Some(&t.text_data);
+    }
+    None
 }
 
-fn is_object_valid_for_prepare(object: &SkinObject) -> bool {
-    match object {
-        SkinObject::Image(img) => img.has_valid_source(),
-        _ => true,
+fn is_object_valid_for_prepare(object: &dyn SkinNode) -> bool {
+    if let Some(img) = object
+        .as_any()
+        .downcast_ref::<rubato_skin::skin_image::SkinImage>()
+    {
+        return img.has_valid_source();
     }
+    true
 }
 
 fn matches_option_conditions(
@@ -460,7 +476,7 @@ fn java_mock_boolean_default(id: i32) -> Option<bool> {
 
 fn is_object_renderable(
     data: &SkinObjectData,
-    object: &SkinObject,
+    object: &dyn SkinNode,
     provider: &dyn SkinStateProvider,
     skin_type: Option<&SkinType>,
     object_index: usize,
@@ -479,7 +495,9 @@ fn is_object_renderable(
     {
         return false;
     }
-    if let SkinObject::Image(img) = object
+    if let Some(img) = object
+        .as_any()
+        .downcast_ref::<rubato_skin::skin_image::SkinImage>()
         && let Some(ref_prop) = img.ref_prop()
     {
         let id = ref_prop.get_id();
@@ -490,7 +508,9 @@ fn is_object_renderable(
             return false;
         }
     }
-    if let SkinObject::Number(num) = object
+    if let Some(num) = object
+        .as_any()
+        .downcast_ref::<rubato_skin::skin_number::SkinNumber>()
         && let Some(ref_prop) = num.ref_prop()
     {
         let id = ref_prop.get_id();
@@ -641,103 +661,112 @@ fn resolve_text_render_content(
 
 /// Resolves type-specific draw detail for a skin object.
 fn resolve_detail(
-    object: &SkinObject,
+    object: &dyn SkinNode,
     provider: &dyn SkinStateProvider,
     skin_type: Option<&SkinType>,
 ) -> Option<DrawDetail> {
-    match object {
-        SkinObject::Image(img) => {
-            let source_index = img
-                .ref_prop()
-                .and_then(|p| {
-                    let id = p.get_id();
-                    if id != i32::MIN {
-                        resolve_integer_value(id, provider, skin_type)
-                    } else {
-                        None
-                    }
-                })
-                .unwrap_or(0)
-                .max(0) as usize;
-
-            Some(DrawDetail::Image {
-                source_index,
-                frame_index: 0,
+    use rubato_skin::*;
+    let any = object.as_any();
+    if let Some(img) = any.downcast_ref::<skin_image::SkinImage>() {
+        let source_index = img
+            .ref_prop()
+            .and_then(|p| {
+                let id = p.get_id();
+                if id != i32::MIN {
+                    resolve_integer_value(id, provider, skin_type)
+                } else {
+                    None
+                }
             })
-        }
-        SkinObject::Number(num) => {
-            let value = num
-                .ref_prop()
-                .and_then(|p| {
-                    let id = p.get_id();
-                    if id != i32::MIN {
-                        resolve_integer_value(id, provider, skin_type)
-                    } else {
-                        None
-                    }
-                })
-                .unwrap_or(0);
-            Some(DrawDetail::Number { value })
-        }
-        SkinObject::TextFont(t) => {
-            let content = eval::resolve_text_content(&t.text_data, provider);
-            let align = t.text_data.align;
-            Some(DrawDetail::Text { content, align })
-        }
-        SkinObject::TextBitmap(t) => {
-            let content = eval::resolve_text_content(&t.text_data, provider);
-            let align = t.text_data.align;
-            Some(DrawDetail::Text { content, align })
-        }
-        SkinObject::TextImage(t) => {
-            let content = eval::resolve_text_content(&t.text_data, provider);
-            let align = t.text_data.align;
-            Some(DrawDetail::Text { content, align })
-        }
-        SkinObject::Slider(slider) => {
-            let value = slider
-                .ref_prop()
-                .map(|p| {
-                    let id = p.get_id();
-                    if id != i32::MIN {
-                        resolve_float_value(id, provider) as f64
-                    } else {
-                        0.0
-                    }
-                })
-                .unwrap_or(0.0);
-            let direction = slider.direction();
-            Some(DrawDetail::Slider { value, direction })
-        }
-        SkinObject::Graph(graph) => {
-            let value = graph
-                .ref_prop()
-                .map(|p| {
-                    let id = p.get_id();
-                    if id != i32::MIN {
-                        resolve_float_value(id, provider) as f64
-                    } else {
-                        0.0
-                    }
-                })
-                .unwrap_or(0.0);
-            let direction = graph.direction();
-            Some(DrawDetail::Graph { value, direction })
-        }
-        SkinObject::Float(_) => None,
-        SkinObject::BpmGraph(_) => Some(DrawDetail::BpmGraph),
-        SkinObject::HitErrorVisualizer(_) => Some(DrawDetail::HitErrorVisualizer),
-        SkinObject::NoteDistributionGraph(_) => None,
-        SkinObject::TimingDistributionGraph(_) => Some(DrawDetail::TimingDistributionGraph),
-        SkinObject::TimingVisualizer(_) => Some(DrawDetail::TimingVisualizer),
-        SkinObject::Note(_)
-        | SkinObject::Bar(_)
-        | SkinObject::Judge(_)
-        | SkinObject::Bga(_)
-        | SkinObject::Gauge(_)
-        | SkinObject::GaugeGraph(_)
-        | SkinObject::Hidden(_) => None,
+            .unwrap_or(0)
+            .max(0) as usize;
+        return Some(DrawDetail::Image {
+            source_index,
+            frame_index: 0,
+        });
     }
+    if let Some(num) = any.downcast_ref::<skin_number::SkinNumber>() {
+        let value = num
+            .ref_prop()
+            .and_then(|p| {
+                let id = p.get_id();
+                if id != i32::MIN {
+                    resolve_integer_value(id, provider, skin_type)
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(0);
+        return Some(DrawDetail::Number { value });
+    }
+    if let Some(t) = any.downcast_ref::<skin_text_font::SkinTextFont>() {
+        let content = eval::resolve_text_content(&t.text_data, provider);
+        let align = t.text_data.align;
+        return Some(DrawDetail::Text { content, align });
+    }
+    if let Some(t) = any.downcast_ref::<skin_text_bitmap::SkinTextBitmap>() {
+        let content = eval::resolve_text_content(&t.text_data, provider);
+        let align = t.text_data.align;
+        return Some(DrawDetail::Text { content, align });
+    }
+    if let Some(t) = any.downcast_ref::<skin_text_image::SkinTextImage>() {
+        let content = eval::resolve_text_content(&t.text_data, provider);
+        let align = t.text_data.align;
+        return Some(DrawDetail::Text { content, align });
+    }
+    if let Some(slider) = any.downcast_ref::<skin_slider::SkinSlider>() {
+        let value = slider
+            .ref_prop()
+            .map(|p| {
+                let id = p.get_id();
+                if id != i32::MIN {
+                    resolve_float_value(id, provider) as f64
+                } else {
+                    0.0
+                }
+            })
+            .unwrap_or(0.0);
+        let direction = slider.direction();
+        return Some(DrawDetail::Slider { value, direction });
+    }
+    if let Some(graph) = any.downcast_ref::<skin_graph::SkinGraph>() {
+        let value = graph
+            .ref_prop()
+            .map(|p| {
+                let id = p.get_id();
+                if id != i32::MIN {
+                    resolve_float_value(id, provider) as f64
+                } else {
+                    0.0
+                }
+            })
+            .unwrap_or(0.0);
+        let direction = graph.direction();
+        return Some(DrawDetail::Graph { value, direction });
+    }
+    if any.downcast_ref::<skin_bpm_graph::SkinBPMGraph>().is_some() {
+        return Some(DrawDetail::BpmGraph);
+    }
+    if any
+        .downcast_ref::<skin_hit_error_visualizer::SkinHitErrorVisualizer>()
+        .is_some()
+    {
+        return Some(DrawDetail::HitErrorVisualizer);
+    }
+    if any
+        .downcast_ref::<skin_timing_distribution_graph::SkinTimingDistributionGraph>()
+        .is_some()
+    {
+        return Some(DrawDetail::TimingDistributionGraph);
+    }
+    if any
+        .downcast_ref::<skin_timing_visualizer::SkinTimingVisualizer>()
+        .is_some()
+    {
+        return Some(DrawDetail::TimingVisualizer);
+    }
+    // Float, NoteDistributionGraph, Note, Bar, Judge, Bga, Gauge, GaugeGraph, Hidden
+    None
 }
 
 // ---------------------------------------------------------------------------
@@ -1070,9 +1099,8 @@ mod tests {
 
     fn make_skin_with_image() -> Skin {
         let mut skin = Skin::new(SkinHeader::default());
-        let image = SkinImage::new_with_single(TextureRegion::new());
-        let mut obj = SkinObject::Image(image);
-        obj.data_mut().set_destination_with_int_timer_ops(
+        let mut image = SkinImage::new_with_single(TextureRegion::new());
+        image.data.set_destination_with_int_timer_ops(
             &DestinationParams {
                 time: 0,
                 x: 10.0,
@@ -1093,7 +1121,7 @@ mod tests {
             0,
             &[],
         );
-        skin.add(obj);
+        skin.add(Box::new(image));
         skin
     }
 

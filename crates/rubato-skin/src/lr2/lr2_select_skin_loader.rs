@@ -934,8 +934,6 @@ impl LR2SkinLoaderAccess for LR2SelectSkinLoaderState {
     }
 
     fn assemble_objects(&mut self, skin: &mut crate::skin::Skin) {
-        use crate::skin::SkinObject;
-
         // Transfer generic objects from base CSV parser.
         for obj in self.csv.collected_objects.drain(..) {
             skin.add(obj);
@@ -951,7 +949,7 @@ impl LR2SkinLoaderAccess for LR2SelectSkinLoaderState {
             .any(|b| b.is_some());
         if has_bars {
             let bar_obj = crate::skin_bar_object::SkinBarObject::new(self.center_bar);
-            skin.add(SkinObject::Bar(bar_obj));
+            skin.add(Box::new(bar_obj));
 
             // Transfer bar data so MusicSelector can build SkinBar + BarRenderer
             skin.select_bar_data = Some(crate::select_bar_data::SelectBarData {
@@ -974,10 +972,10 @@ impl LR2SkinLoaderAccess for LR2SelectSkinLoaderState {
 
         // Add graph objects
         if let Some(obj) = self.noteobj.take() {
-            skin.add(SkinObject::NoteDistributionGraph(obj));
+            skin.add(Box::new(obj));
         }
         if let Some(obj) = self.bpmgraphobj.take() {
-            skin.add(SkinObject::BpmGraph(obj));
+            skin.add(Box::new(obj));
         }
 
         // Propagate search text region captured from SRC_TEXT/DST_TEXT.

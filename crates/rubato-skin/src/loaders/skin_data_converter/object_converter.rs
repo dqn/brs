@@ -26,12 +26,12 @@ use crate::property::string_property_factory;
 use crate::reexports::{SkinOffset, TextureRegion};
 use crate::text::skin_text_bitmap::{SkinTextBitmap, SkinTextBitmapSource};
 use crate::text::skin_text_font::SkinTextFont;
-use crate::types::skin::SkinObject;
 use crate::types::skin_bar_object::SkinBarObject;
+use crate::types::skin_node::SkinNode;
 
 use super::texture_resolution::{get_texture_for_src, resolve_image_set};
 
-pub(super) fn set_click_event_from_type(obj: &mut SkinObject, obj_type: &SkinObjectType) {
+pub(super) fn set_click_event_from_type(obj: &mut dyn SkinNode, obj_type: &SkinObjectType) {
     match obj_type {
         SkinObjectType::Image {
             act: Some(act_id),
@@ -58,7 +58,7 @@ pub(super) fn set_click_event_from_type(obj: &mut SkinObject, obj_type: &SkinObj
     }
 }
 
-/// Converts a SkinObjectType into a SkinObject.
+/// Converts a SkinObjectType into a boxed SkinNode.
 pub(super) fn convert_skin_object(
     obj_type: &SkinObjectType,
     source_map: &mut HashMap<String, SourceData>,
@@ -67,11 +67,11 @@ pub(super) fn convert_skin_object(
     scale_x: f32,
     scale_y: f32,
     filemap: &HashMap<String, String>,
-) -> Option<SkinObject> {
+) -> Option<Box<dyn SkinNode>> {
     match obj_type {
         SkinObjectType::Unknown => None,
 
-        SkinObjectType::ImageById(id) => Some(SkinObject::Image(SkinImage::new_with_image_id(*id))),
+        SkinObjectType::ImageById(id) => Some(Box::new(SkinImage::new_with_image_id(*id))),
 
         SkinObjectType::Image {
             src,
@@ -314,7 +314,7 @@ pub(super) fn convert_skin_object(
         SkinObjectType::DistributionGraph { graph_type, .. } => {
             // SkinNoteDistributionGraph with TYPE_NORMAL
             let graph = SkinNoteDistributionGraph::new(*graph_type, 0, 0, 0, 0, 0);
-            Some(SkinObject::NoteDistributionGraph(graph))
+            Some(Box::new(graph))
         }
 
         SkinObjectType::GaugeGraph {
@@ -508,7 +508,7 @@ pub(super) fn convert_skin_object(
         SkinObjectType::Note => {
             // Note is handled as pre-built resolved_note in convert_skin_data.
             // Fallback: create empty note (should not reach here with play loader).
-            Some(SkinObject::Note(SkinNoteObject::new(0)))
+            Some(Box::new(SkinNoteObject::new(0)))
         }
         SkinObjectType::HiddenCover {
             src,
@@ -574,11 +574,11 @@ pub(super) fn convert_skin_object(
 
         SkinObjectType::Bga { bga_expand } => {
             let bga = SkinBgaObject::new(*bga_expand);
-            Some(SkinObject::Bga(bga))
+            Some(Box::new(bga))
         }
         SkinObjectType::Judge { index, shift } => {
             let judge = SkinJudgeObject::new(*index, *shift);
-            Some(SkinObject::Judge(judge))
+            Some(Box::new(judge))
         }
         SkinObjectType::PmChara {
             src,
@@ -589,7 +589,7 @@ pub(super) fn convert_skin_object(
 
         SkinObjectType::SongList { center, .. } => {
             let bar = SkinBarObject::new(*center);
-            Some(SkinObject::Bar(bar))
+            Some(Box::new(bar))
         }
         SkinObjectType::SearchTextRegion { x, y, w, h } => {
             // SearchTextRegion: In Java, this sets a Rectangle on MusicSelectSkin.
@@ -622,7 +622,7 @@ fn convert_image(
     skin_path: &Path,
     usecim: bool,
     filemap: &HashMap<String, String>,
-) -> Option<SkinObject> {
+) -> Option<Box<dyn SkinNode>> {
     if is_movie {
         // Movie sources: resolve source ID through source_map to get actual file path,
         // then create SkinImage with SkinSourceMovie
@@ -639,7 +639,7 @@ fn convert_image(
         };
         let movie_path = get_path_with_filemap(&movie_path, filemap);
         let movie_source = crate::skin_source_movie::SkinSourceMovie::new(&movie_path);
-        return Some(SkinObject::Image(SkinImage::new_with_movie(movie_source)));
+        return Some(Box::new(SkinImage::new_with_movie(movie_source)));
     }
 
     let tex = get_texture_for_src(src.as_deref(), source_map, skin_path, usecim, filemap)?;
@@ -657,7 +657,7 @@ fn convert_image(
             // for each ref entry. Mirror that by creating `len` empty Vec entries.
             let tr: Vec<Vec<TextureRegion>> = vec![Vec::new(); len];
             let timer_val = timer.unwrap_or(0);
-            return Some(SkinObject::Image(SkinImage::new_with_int_timer_ref_id(
+            return Some(Box::new(SkinImage::new_with_int_timer_ref_id(
                 tr, timer_val, cycle, ref_id,
             )));
         }
@@ -670,18 +670,22 @@ fn convert_image(
             tr.push(row);
         }
         let timer_val = timer.unwrap_or(0);
-        Some(SkinObject::Image(SkinImage::new_with_int_timer_ref_id(
+        Some(Box::new(SkinImage::new_with_int_timer_ref_id(
             tr, timer_val, cycle, ref_id,
         )))
     } else {
         let timer_val = timer.unwrap_or(0);
-        Some(SkinObject::Image(SkinImage::new_with_int_timer(
+        Some(Box::new(SkinImage::new_with_int_timer(
             srcimg, timer_val, cycle,
         )))
     }
 }
 
-fn convert_image_set(images: &[String], ref_id: i32, value: Option<i32>) -> Option<SkinObject> {
+fn convert_image_set(
+    images: &[String],
+    ref_id: i32,
+    value: Option<i32>,
+) -> Option<Box<dyn SkinNode>> {
     // ImageSet: each image ID in `images` references an entry in sk.image[].
     // The converter doesn't have access to sk, so we create a SkinImage
     // bound to the value/ref property. The actual image sources will be empty
@@ -696,7 +700,7 @@ fn convert_image_set(images: &[String], ref_id: i32, value: Option<i32>) -> Opti
         images.len(),
         binding_id
     );
-    Some(SkinObject::Image(SkinImage::new_with_image_id(binding_id)))
+    Some(Box::new(SkinImage::new_with_image_id(binding_id)))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -722,7 +726,7 @@ fn convert_number(
     skin_path: &Path,
     usecim: bool,
     filemap: &HashMap<String, String>,
-) -> Option<SkinObject> {
+) -> Option<Box<dyn SkinNode>> {
     let tex = get_texture_for_src(src.as_deref(), source_map, skin_path, usecim, filemap)?;
     let images = source_image(&tex, x, y, w, h, divx, divy);
     let timer_val = timer.unwrap_or(0);
@@ -808,7 +812,7 @@ fn convert_number(
         num.set_offsets(skin_offsets);
     }
 
-    Some(SkinObject::Number(num))
+    Some(Box::new(num))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -836,7 +840,7 @@ fn convert_float(
     skin_path: &Path,
     usecim: bool,
     filemap: &HashMap<String, String>,
-) -> Option<SkinObject> {
+) -> Option<Box<dyn SkinNode>> {
     let tex = get_texture_for_src(src.as_deref(), source_map, skin_path, usecim, filemap);
     tex.as_ref()?;
     let tex = tex.expect("tex");
@@ -1050,7 +1054,7 @@ fn convert_float(
         sf.set_offsets(skin_offsets);
     }
 
-    Some(SkinObject::Float(sf))
+    Some(Box::new(sf))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1071,7 +1075,7 @@ fn convert_text(
     shadow_smoothness: f32,
     usecim: bool,
     scale_x: f32,
-) -> Option<SkinObject> {
+) -> Option<Box<dyn SkinNode>> {
     if let Some(font_path) = font {
         let text_id = value.unwrap_or(ref_id);
         let property = if text_id >= 0 {
@@ -1105,7 +1109,7 @@ fn convert_text(
             stb.text_data
                 .set_shadow_offset(shadow_offset_x, shadow_offset_y);
             stb.text_data.shadow_smoothness = shadow_smoothness;
-            Some(SkinObject::TextBitmap(stb))
+            Some(Box::new(stb))
         } else {
             let mut stf = SkinTextFont::new_with_property(font_path, 0, size, 0, property);
             // Apply JSON text layout fields
@@ -1127,7 +1131,7 @@ fn convert_text(
             stf.text_data
                 .set_shadow_offset(shadow_offset_x, shadow_offset_y);
             stf.text_data.shadow_smoothness = shadow_smoothness;
-            Some(SkinObject::TextFont(stf))
+            Some(Box::new(stf))
         }
     } else {
         warn!("Text object without font path, skipping");
@@ -1138,7 +1142,9 @@ fn convert_text(
 #[cfg(test)]
 mod tests {
     use super::convert_text;
-    use crate::types::skin::SkinObject;
+    use crate::text::skin_text_bitmap::SkinTextBitmap;
+    use crate::text::skin_text_font::SkinTextFont;
+    use crate::types::skin_node::SkinNode;
 
     #[test]
     fn convert_text_uses_bitmap_object_for_fnt_fonts() {
@@ -1163,8 +1169,8 @@ mod tests {
         .expect("bitmap text object should be created");
 
         assert!(
-            matches!(obj, SkinObject::TextBitmap(_)),
-            ".fnt fonts must become SkinObject::TextBitmap"
+            obj.as_any().downcast_ref::<SkinTextBitmap>().is_some(),
+            ".fnt fonts must become SkinTextBitmap"
         );
     }
 
@@ -1190,10 +1196,10 @@ mod tests {
         )
         .expect("bitmap text object should be created");
 
-        let bitmap = match obj {
-            SkinObject::TextBitmap(bitmap) => bitmap,
-            _ => panic!("bitmap font should stay bitmap"),
-        };
+        let bitmap = obj
+            .as_any()
+            .downcast_ref::<SkinTextBitmap>()
+            .expect("bitmap font should stay bitmap");
         assert!(
             (bitmap.debug_size() - 25.0 * (1280.0 / 1920.0)).abs() < 0.01,
             "bitmap font size should follow Java parity destination-width scaling, got {}",
@@ -1224,8 +1230,8 @@ mod tests {
         .expect("font text object should be created");
 
         assert!(
-            matches!(obj, SkinObject::TextFont(_)),
-            ".ttf fonts must remain SkinObject::TextFont"
+            obj.as_any().downcast_ref::<SkinTextFont>().is_some(),
+            ".ttf fonts must remain SkinTextFont"
         );
     }
 
@@ -1284,8 +1290,12 @@ mod tests {
             "convert_image should create an Image object even when imgs_per_ref == 0 (Java parity)"
         );
         assert!(
-            matches!(result.unwrap(), SkinObject::Image(_)),
-            "result should be a SkinObject::Image"
+            result
+                .unwrap()
+                .as_any()
+                .downcast_ref::<crate::objects::skin_image::SkinImage>()
+                .is_some(),
+            "result should be a SkinImage"
         );
     }
 
@@ -1375,7 +1385,7 @@ mod tests {
     }
 
     /// Helper: call convert_float with a texture producing `divx * divy` source images.
-    fn call_convert_float(divx: i32, divy: i32, is_signvisible: bool) -> Option<SkinObject> {
+    fn call_convert_float(divx: i32, divy: i32, is_signvisible: bool) -> Option<Box<dyn SkinNode>> {
         use std::path::Path;
 
         let (mut source_map, w, h) = make_source_map_with_image_count(divx, divy);
@@ -1410,102 +1420,95 @@ mod tests {
     fn convert_float_26_layout_preserves_sign_visible() {
         // 26 images: %26 branch, should preserve is_signvisible=true
         let obj = call_convert_float(26, 1, true).expect("should produce Float");
-        match obj {
-            SkinObject::Float(sf) => {
-                assert!(
-                    sf.is_sign_visible,
-                    "%26 layout must preserve is_signvisible=true"
-                );
-            }
-            _ => panic!("expected SkinObject::Float"),
-        }
+        let sf = obj
+            .as_any()
+            .downcast_ref::<crate::core::skin_float::SkinFloat>()
+            .expect("expected SkinFloat");
+        assert!(
+            sf.is_sign_visible,
+            "%26 layout must preserve is_signvisible=true"
+        );
 
         // 26 images with is_signvisible=false: should preserve false
         let obj = call_convert_float(26, 1, false).expect("should produce Float");
-        match obj {
-            SkinObject::Float(sf) => {
-                assert!(
-                    !sf.is_sign_visible,
-                    "%26 layout must preserve is_signvisible=false"
-                );
-            }
-            _ => panic!("expected SkinObject::Float"),
-        }
+        let sf = obj
+            .as_any()
+            .downcast_ref::<crate::core::skin_float::SkinFloat>()
+            .expect("expected SkinFloat");
+        assert!(
+            !sf.is_sign_visible,
+            "%26 layout must preserve is_signvisible=false"
+        );
     }
 
     #[test]
     fn convert_float_24_layout_forces_sign_invisible() {
         // 24 images: %24 branch, should force is_sign_visible=false
         let obj = call_convert_float(24, 1, true).expect("should produce Float");
-        match obj {
-            SkinObject::Float(sf) => {
-                assert!(
-                    !sf.is_sign_visible,
-                    "%24 layout must force is_sign_visible=false"
-                );
-            }
-            _ => panic!("expected SkinObject::Float"),
-        }
+        let sf = obj
+            .as_any()
+            .downcast_ref::<crate::core::skin_float::SkinFloat>()
+            .expect("expected SkinFloat");
+        assert!(
+            !sf.is_sign_visible,
+            "%24 layout must force is_sign_visible=false"
+        );
     }
 
     #[test]
     fn convert_float_22_layout_forces_sign_invisible() {
         // 22 images: %22 branch
         let obj = call_convert_float(22, 1, true).expect("should produce Float");
-        match obj {
-            SkinObject::Float(sf) => {
-                assert!(
-                    !sf.is_sign_visible,
-                    "%22 layout must force is_sign_visible=false"
-                );
-            }
-            _ => panic!("expected SkinObject::Float"),
-        }
+        let sf = obj
+            .as_any()
+            .downcast_ref::<crate::core::skin_float::SkinFloat>()
+            .expect("expected SkinFloat");
+        assert!(
+            !sf.is_sign_visible,
+            "%22 layout must force is_sign_visible=false"
+        );
     }
 
     #[test]
     fn convert_float_12_layout_forces_sign_invisible() {
         // 12 images: %12 branch
         let obj = call_convert_float(12, 1, true).expect("should produce Float");
-        match obj {
-            SkinObject::Float(sf) => {
-                assert!(
-                    !sf.is_sign_visible,
-                    "%12 layout must force is_sign_visible=false"
-                );
-            }
-            _ => panic!("expected SkinObject::Float"),
-        }
+        let sf = obj
+            .as_any()
+            .downcast_ref::<crate::core::skin_float::SkinFloat>()
+            .expect("expected SkinFloat");
+        assert!(
+            !sf.is_sign_visible,
+            "%12 layout must force is_sign_visible=false"
+        );
     }
 
     #[test]
     fn convert_float_11_layout_forces_sign_invisible() {
         // 11 images: %11 branch
         let obj = call_convert_float(11, 1, true).expect("should produce Float");
-        match obj {
-            SkinObject::Float(sf) => {
-                assert!(
-                    !sf.is_sign_visible,
-                    "%11 layout must force is_sign_visible=false"
-                );
-            }
-            _ => panic!("expected SkinObject::Float"),
-        }
+        let sf = obj
+            .as_any()
+            .downcast_ref::<crate::core::skin_float::SkinFloat>()
+            .expect("expected SkinFloat");
+        assert!(
+            !sf.is_sign_visible,
+            "%11 layout must force is_sign_visible=false"
+        );
     }
 
     #[test]
     fn convert_float_fallback_forces_sign_invisible() {
         // 7 images: not divisible by 26/24/22/12/11, hits fallback
         let obj = call_convert_float(7, 1, true).expect("should produce Float");
-        match obj {
-            SkinObject::Float(sf) => {
-                assert!(
-                    !sf.is_sign_visible,
-                    "fallback layout must force is_sign_visible=false"
-                );
-            }
-            _ => panic!("expected SkinObject::Float"),
-        }
+        let sf = obj
+            .as_any()
+            .downcast_ref::<crate::core::skin_float::SkinFloat>()
+            .expect("expected SkinFloat");
+        assert!(
+            !sf.is_sign_visible,
+            "fallback layout must force is_sign_visible=false"
+        );
     }
 
     #[test]
@@ -1515,15 +1518,14 @@ mod tests {
         // %24 forces is_sign_visible=false (same as %12), but uses mimage.
         // We verify it reaches the %24 branch by checking that it still produces a valid Float.
         let obj = call_convert_float(48, 1, true).expect("should produce Float");
-        match obj {
-            SkinObject::Float(sf) => {
-                assert!(
-                    !sf.is_sign_visible,
-                    "%24 branch (48 images) must force is_sign_visible=false"
-                );
-            }
-            _ => panic!("expected SkinObject::Float"),
-        }
+        let sf = obj
+            .as_any()
+            .downcast_ref::<crate::core::skin_float::SkinFloat>()
+            .expect("expected SkinFloat");
+        assert!(
+            !sf.is_sign_visible,
+            "%24 branch (48 images) must force is_sign_visible=false"
+        );
     }
 
     #[test]
@@ -1531,15 +1533,14 @@ mod tests {
         // 52 images: divisible by 26 (=2 sets), also by others (not 24, not 22, not 12)
         // Should pick %26 and preserve is_signvisible
         let obj = call_convert_float(52, 1, true).expect("should produce Float");
-        match obj {
-            SkinObject::Float(sf) => {
-                assert!(
-                    sf.is_sign_visible,
-                    "%26 branch (52 images) must preserve is_signvisible=true"
-                );
-            }
-            _ => panic!("expected SkinObject::Float"),
-        }
+        let sf = obj
+            .as_any()
+            .downcast_ref::<crate::core::skin_float::SkinFloat>()
+            .expect("expected SkinFloat");
+        assert!(
+            sf.is_sign_visible,
+            "%26 branch (52 images) must preserve is_signvisible=true"
+        );
     }
 
     #[test]
@@ -1580,16 +1581,15 @@ mod tests {
         )
         .expect("should produce Slider");
 
-        match obj {
-            SkinObject::Slider(sl) => {
-                assert_eq!(
-                    sl.range(),
-                    (scale_x * range as f32) as i32,
-                    "angle=1 should use scale_x for range scaling"
-                );
-            }
-            _ => panic!("expected SkinObject::Slider"),
-        }
+        let sl = obj
+            .as_any()
+            .downcast_ref::<crate::objects::skin_slider::SkinSlider>()
+            .expect("expected SkinSlider");
+        assert_eq!(
+            sl.range(),
+            (scale_x * range as f32) as i32,
+            "angle=1 should use scale_x for range scaling"
+        );
 
         // angle=0 (up): should use scale_y
         let (mut source_map, w, h) = make_source_map_with_image_count(2, 2);
@@ -1621,16 +1621,15 @@ mod tests {
         )
         .expect("should produce Slider");
 
-        match obj {
-            SkinObject::Slider(sl) => {
-                assert_eq!(
-                    sl.range(),
-                    (scale_y * range as f32) as i32,
-                    "angle=0 should use scale_y for range scaling"
-                );
-            }
-            _ => panic!("expected SkinObject::Slider"),
-        }
+        let sl = obj
+            .as_any()
+            .downcast_ref::<crate::objects::skin_slider::SkinSlider>()
+            .expect("expected SkinSlider");
+        assert_eq!(
+            sl.range(),
+            (scale_y * range as f32) as i32,
+            "angle=0 should use scale_y for range scaling"
+        );
     }
 }
 
@@ -1660,7 +1659,7 @@ fn convert_slider(
     skin_path: &Path,
     usecim: bool,
     filemap: &HashMap<String, String>,
-) -> Option<SkinObject> {
+) -> Option<Box<dyn SkinNode>> {
     let tex = get_texture_for_src(src.as_deref(), source_map, skin_path, usecim, filemap)?;
     let images = source_image(&tex, x, y, w, h, divx, divy);
     let timer_val = timer.unwrap_or(0);
@@ -1726,7 +1725,7 @@ fn convert_slider(
             changeable,
         )
     };
-    Some(SkinObject::Slider(slider))
+    Some(Box::new(slider))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1750,20 +1749,20 @@ fn convert_graph(
     skin_path: &Path,
     usecim: bool,
     filemap: &HashMap<String, String>,
-) -> Option<SkinObject> {
+) -> Option<Box<dyn SkinNode>> {
     let tex = get_texture_for_src(src.as_deref(), source_map, skin_path, usecim, filemap)?;
     let images = source_image(&tex, x, y, w, h, divx, divy);
     let timer_val = timer.unwrap_or(0);
     if let Some(val) = value {
-        Some(SkinObject::Graph(SkinGraph::new_with_int_timer(
+        Some(Box::new(SkinGraph::new_with_int_timer(
             images, timer_val, cycle, val, angle,
         )))
     } else if is_ref_num {
-        Some(SkinObject::Graph(SkinGraph::new_with_int_timer_minmax(
+        Some(Box::new(SkinGraph::new_with_int_timer_minmax(
             images, timer_val, cycle, graph_type, min, max, angle,
         )))
     } else {
-        Some(SkinObject::Graph(SkinGraph::new_with_int_timer(
+        Some(Box::new(SkinGraph::new_with_int_timer(
             images, timer_val, cycle, graph_type, angle,
         )))
     }
@@ -1786,7 +1785,7 @@ fn convert_gauge_graph(
     hazard_line_color: &str,
     borderline_color: &str,
     border_color: &str,
-) -> Option<SkinObject> {
+) -> Option<Box<dyn SkinNode>> {
     let gg = if let Some(colors) = color {
         SkinGaugeGraphObject::new_from_colors(colors)
     } else {
@@ -1809,7 +1808,7 @@ fn convert_gauge_graph(
             },
         )
     };
-    Some(SkinObject::GaugeGraph(gg))
+    Some(Box::new(gg))
 }
 
 fn convert_judge_graph(
@@ -1819,7 +1818,7 @@ fn convert_judge_graph(
     order_reverse: i32,
     no_gap: i32,
     no_gap_x: i32,
-) -> Option<SkinObject> {
+) -> Option<Box<dyn SkinNode>> {
     let graph = SkinNoteDistributionGraph::new(
         graph_type,
         delay,
@@ -1828,7 +1827,7 @@ fn convert_judge_graph(
         no_gap,
         no_gap_x,
     );
-    Some(SkinObject::NoteDistributionGraph(graph))
+    Some(Box::new(graph))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1841,7 +1840,7 @@ fn convert_bpm_graph(
     other_bpm_color: &str,
     stop_line_color: &str,
     transition_line_color: &str,
-) -> Option<SkinObject> {
+) -> Option<Box<dyn SkinNode>> {
     let graph = SkinBPMGraph::new(crate::skin_bpm_graph::BpmGraphConfig {
         delay,
         line_width,
@@ -1852,7 +1851,7 @@ fn convert_bpm_graph(
         stop_line_color,
         transition_line_color,
     });
-    Some(SkinObject::BpmGraph(graph))
+    Some(Box::new(graph))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1875,7 +1874,7 @@ fn convert_hit_error_visualizer(
     window_length: i32,
     transparent: i32,
     draw_decay: i32,
-) -> Option<SkinObject> {
+) -> Option<Box<dyn SkinNode>> {
     let viz =
         SkinHitErrorVisualizer::new(crate::skin_hit_error_visualizer::HitErrorVisualizerConfig {
             width,
@@ -1897,7 +1896,7 @@ fn convert_hit_error_visualizer(
             transparent,
             draw_decay,
         });
-    Some(SkinObject::HitErrorVisualizer(viz))
+    Some(Box::new(viz))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1914,7 +1913,7 @@ fn convert_timing_visualizer(
     pr_color: &str,
     transparent: i32,
     draw_decay: i32,
-) -> Option<SkinObject> {
+) -> Option<Box<dyn SkinNode>> {
     let viz = SkinTimingVisualizer::new(crate::skin_timing_visualizer::TimingVisualizerConfig {
         width,
         judge_width_millis,
@@ -1929,7 +1928,7 @@ fn convert_timing_visualizer(
         transparent,
         draw_decay,
     });
-    Some(SkinObject::TimingVisualizer(viz))
+    Some(Box::new(viz))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1946,7 +1945,7 @@ fn convert_timing_distribution_graph(
     pr_color: &str,
     draw_average: i32,
     draw_dev: i32,
-) -> Option<SkinObject> {
+) -> Option<Box<dyn SkinNode>> {
     let graph = SkinTimingDistributionGraph::new(
         crate::skin_timing_distribution_graph::TimingDistributionGraphConfig {
             width,
@@ -1963,7 +1962,7 @@ fn convert_timing_distribution_graph(
             draw_dev,
         },
     );
-    Some(SkinObject::TimingDistributionGraph(graph))
+    Some(Box::new(graph))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1979,7 +1978,7 @@ fn convert_gauge(
     skin_path: &Path,
     usecim: bool,
     filemap: &HashMap<String, String>,
-) -> Option<SkinObject> {
+) -> Option<Box<dyn SkinNode>> {
     // Resolve gauge node IDs to TextureRegion images via source_map.
     // Each node string references a source entry; resolve to a full-texture TextureRegion.
     // Java indexmap logic maps 4/8/12 node configs to 36 gauge slots.
@@ -2028,7 +2027,7 @@ fn convert_gauge(
     );
     gauge.starttime = starttime;
     gauge.endtime = endtime;
-    Some(SkinObject::Gauge(gauge))
+    Some(Box::new(gauge))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -2049,7 +2048,7 @@ fn convert_hidden_cover(
     skin_path: &Path,
     usecim: bool,
     filemap: &HashMap<String, String>,
-) -> Option<SkinObject> {
+) -> Option<Box<dyn SkinNode>> {
     // HiddenCover: create SkinHidden with texture and disappear line.
     // Java: new SkinHidden(getSourceImage(tex,...), timer, cycle)
     //       setDisapearLine(disapearLine * scaleY)
@@ -2061,7 +2060,7 @@ fn convert_hidden_cover(
         let mut hidden = SkinHidden::new_with_int_timer(srcimg, timer_val, cycle);
         hidden.set_disapear_line(disapear_line as f32 * scale_y);
         hidden.is_disapear_line_link_lift = is_disapear_line_link_lift;
-        Some(SkinObject::Hidden(hidden))
+        Some(Box::new(hidden))
     } else {
         warn!("HiddenCover: texture source {:?} not found", src);
         None
@@ -2086,7 +2085,7 @@ fn convert_lift_cover(
     skin_path: &Path,
     usecim: bool,
     filemap: &HashMap<String, String>,
-) -> Option<SkinObject> {
+) -> Option<Box<dyn SkinNode>> {
     // LiftCover: same as HiddenCover but offset list only adds OFFSET_LIFT.
     let tex = get_texture_for_src(src.as_deref(), source_map, skin_path, usecim, filemap);
     if let Some(tex) = tex {
@@ -2095,14 +2094,18 @@ fn convert_lift_cover(
         let mut hidden = SkinHidden::new_with_int_timer(srcimg, timer_val, cycle);
         hidden.set_disapear_line(disapear_line as f32 * scale_y);
         hidden.is_disapear_line_link_lift = is_disapear_line_link_lift;
-        Some(SkinObject::Hidden(hidden))
+        Some(Box::new(hidden))
     } else {
         warn!("LiftCover: texture source {:?} not found", src);
         None
     }
 }
 
-fn convert_pm_chara(src: &Option<String>, color: i32, chara_type: i32) -> Option<SkinObject> {
+fn convert_pm_chara(
+    src: &Option<String>,
+    color: i32,
+    chara_type: i32,
+) -> Option<Box<dyn SkinNode>> {
     // PmChara: Pomyu character rendering.
     // In Java, this uses PomyuCharaLoader to load character sprite sheets.
     // The loader needs file system access via getSrcIdPath and dst coordinates.
@@ -2111,5 +2114,5 @@ fn convert_pm_chara(src: &Option<String>, color: i32, chara_type: i32) -> Option
         "PmChara: type={}, color={}, src={:?} (image loading deferred)",
         chara_type, color, src
     );
-    Some(SkinObject::Image(SkinImage::new_with_image_id(0)))
+    Some(Box::new(SkinImage::new_with_image_id(0)))
 }

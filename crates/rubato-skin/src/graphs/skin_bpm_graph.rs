@@ -125,7 +125,7 @@ impl SkinBPMGraph {
         self.data.prepare(time, state);
     }
 
-    pub fn draw(&mut self, sprite: &mut SkinObjectRenderer, state: &dyn MainState) {
+    pub fn draw_impl(&mut self, sprite: &mut SkinObjectRenderer, state: &dyn MainState) {
         let song = state.song_data_ref();
         let model = song.and_then(|s| s.bms_model());
 
@@ -383,6 +383,36 @@ impl SkinBPMGraph {
     }
 }
 
+impl crate::types::skin_node::SkinNode for SkinBPMGraph {
+    fn data(&self) -> &SkinObjectData {
+        &self.data
+    }
+    fn data_mut(&mut self) -> &mut SkinObjectData {
+        &mut self.data
+    }
+    fn prepare(&mut self, time: i64, state: &dyn MainState) {
+        SkinBPMGraph::prepare(self, time, state)
+    }
+    fn draw(&mut self, sprite: &mut SkinObjectRenderer, state: &dyn MainState) {
+        self.draw_impl(sprite, state)
+    }
+    fn dispose(&mut self) {
+        SkinBPMGraph::dispose(self)
+    }
+    fn type_name(&self) -> &'static str {
+        "BpmGraph"
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+    fn into_any_box(self: Box<Self>) -> Box<dyn std::any::Any> {
+        self
+    }
+}
+
 /// Sanitize hex color string: remove non-hex chars, take first 6 chars max
 fn sanitize_hex_color(s: &str) -> String {
     let cleaned: String = s.chars().filter(|c| c.is_ascii_hexdigit()).collect();
@@ -467,7 +497,7 @@ mod tests {
 
         let state = MockBpmState::default();
         let mut renderer = SkinObjectRenderer::new();
-        graph.draw(&mut renderer, &state);
+        graph.draw_impl(&mut renderer, &state);
 
         let shapetex = graph.shapetex.as_ref().unwrap();
         // render = 0.5, tex_width = 200 => region_width = 100
@@ -507,7 +537,7 @@ mod tests {
 
         let state = MockBpmState::default();
         let mut renderer = SkinObjectRenderer::new();
-        graph.draw(&mut renderer, &state);
+        graph.draw_impl(&mut renderer, &state);
 
         let shapetex = graph.shapetex.as_ref().unwrap();
         assert_eq!(shapetex.region_width, 200);
@@ -748,7 +778,7 @@ mod tests {
 
         let state = MockBpmState::default();
         let mut renderer = SkinObjectRenderer::new();
-        graph.draw(&mut renderer, &state);
+        graph.draw_impl(&mut renderer, &state);
 
         let shapetex = graph.shapetex.as_ref().unwrap();
         // With delay <= 0, render should be 1.0 (instant reveal), not NEG_INFINITY.
@@ -788,7 +818,7 @@ mod tests {
 
         let state = MockBpmState::default();
         let mut renderer = SkinObjectRenderer::new();
-        graph.draw(&mut renderer, &state);
+        graph.draw_impl(&mut renderer, &state);
 
         let shapetex = graph.shapetex.as_ref().unwrap();
         assert_eq!(shapetex.region_width, 200);
@@ -833,7 +863,7 @@ mod tests {
 
         let state = MockBpmState::default();
         let mut renderer = SkinObjectRenderer::new();
-        graph.draw(&mut renderer, &state);
+        graph.draw_impl(&mut renderer, &state);
 
         let shapetex = graph.shapetex.as_ref().unwrap();
         // render should be ~0.001, not 1.0

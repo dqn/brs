@@ -8,7 +8,8 @@ use crate::json::json_skin_object_loader::source_image;
 use crate::objects::skin_image::SkinImage;
 use crate::objects::skin_number::SkinNumber;
 use crate::reexports::{Rectangle, TextureRegion};
-use crate::types::skin::SkinObject;
+use crate::text::skin_text_bitmap::SkinTextBitmap;
+use crate::text::skin_text_font::SkinTextFont;
 
 use super::object_converter::convert_skin_object;
 use super::texture_resolution::get_texture_for_src;
@@ -145,7 +146,7 @@ fn convert_bar_sub_images(
                 scale_y,
                 filemap,
             )?;
-            if let SkinObject::Image(mut img) = skin_obj {
+            if let Ok(mut img) = skin_obj.into_any_box().downcast::<SkinImage>() {
                 apply_scaled_destinations_with_offsets(
                     &mut img.data,
                     &obj_data.destinations,
@@ -154,7 +155,7 @@ fn convert_bar_sub_images(
                     &obj_data.offset_ids,
                     obj_data.stretch,
                 );
-                Some(img)
+                Some(*img)
             } else {
                 None
             }
@@ -183,8 +184,9 @@ fn convert_bar_sub_text(
                 scale_y,
                 filemap,
             )?;
-            match skin_obj {
-                SkinObject::TextFont(mut stf) => {
+            let any_obj = skin_obj.into_any_box();
+            match any_obj.downcast::<SkinTextFont>() {
+                Ok(mut stf) => {
                     apply_scaled_destinations_with_offsets(
                         &mut stf.text_data.data,
                         &obj_data.destinations,
@@ -193,20 +195,22 @@ fn convert_bar_sub_text(
                         &obj_data.offset_ids,
                         obj_data.stretch,
                     );
-                    Some(crate::skin_text::SkinTextEnum::Font(stf))
+                    Some(crate::skin_text::SkinTextEnum::Font(*stf))
                 }
-                SkinObject::TextBitmap(mut stb) => {
-                    apply_scaled_destinations_with_offsets(
-                        &mut stb.text_data.data,
-                        &obj_data.destinations,
-                        scale_x,
-                        scale_y,
-                        &obj_data.offset_ids,
-                        obj_data.stretch,
-                    );
-                    Some(crate::skin_text::SkinTextEnum::Bitmap(stb))
-                }
-                _ => None,
+                Err(any_obj) => match any_obj.downcast::<SkinTextBitmap>() {
+                    Ok(mut stb) => {
+                        apply_scaled_destinations_with_offsets(
+                            &mut stb.text_data.data,
+                            &obj_data.destinations,
+                            scale_x,
+                            scale_y,
+                            &obj_data.offset_ids,
+                            obj_data.stretch,
+                        );
+                        Some(crate::skin_text::SkinTextEnum::Bitmap(*stb))
+                    }
+                    Err(_) => None,
+                },
             }
         })
         .collect()
@@ -233,7 +237,7 @@ fn convert_bar_sub_numbers(
                 scale_y,
                 filemap,
             )?;
-            if let SkinObject::Number(mut num) = skin_obj {
+            if let Ok(mut num) = skin_obj.into_any_box().downcast::<SkinNumber>() {
                 apply_scaled_destinations_with_offsets(
                     &mut num.data,
                     &obj_data.destinations,
@@ -242,7 +246,7 @@ fn convert_bar_sub_numbers(
                     &obj_data.offset_ids,
                     obj_data.stretch,
                 );
-                Some(num)
+                Some(*num)
             } else {
                 None
             }

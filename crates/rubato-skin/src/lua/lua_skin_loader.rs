@@ -598,9 +598,9 @@ mod tests {
         let judge = skin
             .objects()
             .iter()
-            .find_map(|obj| match obj {
-                crate::skin::SkinObject::Judge(judge) => Some(judge),
-                _ => None,
+            .find_map(|obj| {
+                obj.as_any()
+                    .downcast_ref::<crate::skin_judge_object::SkinJudgeObject>()
             })
             .expect("ECFN play skin should contain a judge object");
         let issues = judge.check_wiring();
@@ -634,7 +634,9 @@ mod tests {
         .expect("ECFN select Lua skin should convert into runtime Skin");
 
         let has_title_bitmap = skin.objects().iter().any(|obj| {
-            matches!(obj, crate::skin::SkinObject::TextBitmap(_))
+            obj.as_any()
+                .downcast_ref::<crate::text::skin_text_bitmap::SkinTextBitmap>()
+                .is_some()
                 && obj.data().name.as_deref() == Some("title")
         });
 

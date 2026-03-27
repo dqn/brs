@@ -325,7 +325,7 @@ impl SkinGaugeGraphObject {
         }
     }
 
-    pub fn draw(&mut self, sprite: &mut SkinObjectRenderer) {
+    pub fn draw_impl(&mut self, sprite: &mut SkinObjectRenderer) {
         if self.gaugehistory.is_empty() {
             return;
         }
@@ -518,6 +518,36 @@ impl SkinGaugeGraphObject {
     }
 }
 
+impl crate::types::skin_node::SkinNode for SkinGaugeGraphObject {
+    fn data(&self) -> &SkinObjectData {
+        &self.data
+    }
+    fn data_mut(&mut self) -> &mut SkinObjectData {
+        &mut self.data
+    }
+    fn prepare(&mut self, time: i64, state: &dyn MainState) {
+        SkinGaugeGraphObject::prepare(self, time, state)
+    }
+    fn draw(&mut self, sprite: &mut SkinObjectRenderer, _state: &dyn MainState) {
+        self.draw_impl(sprite)
+    }
+    fn dispose(&mut self) {
+        SkinGaugeGraphObject::dispose(self)
+    }
+    fn type_name(&self) -> &'static str {
+        "SkinGaugeGraph"
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+    fn into_any_box(self: Box<Self>) -> Box<dyn std::any::Any> {
+        self
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -638,7 +668,7 @@ mod tests {
         // Before the fix, this would produce a fill_rectangle with y > height
         // and negative height for the border region. With the fix, border is
         // clamped to max (100.0), so y = height and rect height = 0.
-        obj.draw(&mut renderer);
+        obj.draw_impl(&mut renderer);
 
         // Verify that draw completed without panic and that shapetex was created
         assert!(obj.shapetex.is_some());
@@ -648,7 +678,7 @@ mod tests {
         obj.dispose();
         obj.border = -50.0;
         obj.max = 100.0;
-        obj.draw(&mut renderer);
+        obj.draw_impl(&mut renderer);
         assert!(obj.shapetex.is_some());
         assert!(obj.backtex.is_some());
     }
@@ -715,7 +745,7 @@ mod tests {
 
         let mut renderer = SkinObjectRenderer::new();
         // Should draw without producing a zero-height connector segment.
-        obj.draw(&mut renderer);
+        obj.draw_impl(&mut renderer);
 
         // Verify that the graph was created (draw completed)
         assert!(

@@ -10,7 +10,6 @@ use rubato_skin::lr2::lr2_skin_csv_loader::LR2SkinLoaderAccess;
 use rubato_skin::reexports::{Rectangle, Resolution, TextureRegion};
 use rubato_skin::skin::Skin;
 use rubato_skin::skin_note_object::SkinNoteObject;
-use rubato_skin::types::skin::SkinObject;
 use rubato_skin::types::skin_header::SkinHeader;
 
 fn make_test_texture() -> TextureRegion {
@@ -92,13 +91,9 @@ fn make_skin() -> Skin {
 }
 
 fn find_note_object(skin: &Skin) -> Option<&SkinNoteObject> {
-    skin.objects().iter().find_map(|obj| {
-        if let SkinObject::Note(note) = obj {
-            Some(note)
-        } else {
-            None
-        }
-    })
+    skin.objects()
+        .iter()
+        .find_map(|obj| obj.as_any().downcast_ref::<SkinNoteObject>())
 }
 
 // ===========================================================================
@@ -195,7 +190,7 @@ fn draw_note_with_texture_produces_draw_call() {
     }];
 
     let mut sprite = SkinObjectRenderer::new();
-    note.draw(&mut sprite);
+    note.draw_impl(&mut sprite);
 
     // The sprite batch should have received a draw call
     assert!(
@@ -225,7 +220,7 @@ fn draw_note_without_texture_produces_no_vertices() {
     }];
 
     let mut sprite = SkinObjectRenderer::new();
-    note.draw(&mut sprite);
+    note.draw_impl(&mut sprite);
 
     // Without a texture, no sprite should be submitted
     assert!(
@@ -248,8 +243,8 @@ fn compute_note_draw_commands_produces_commands() {
     use bms::model::bms_model::BMSModel;
     use bms::model::note::Note;
     use bms::model::time_line::TimeLine;
-    use rubato_core::main_state::SkinDrawable;
-    use rubato_play::lane_renderer::{DrawLaneContext, LaneRenderer};
+    use rubato_game::core::main_state::SkinDrawable;
+    use rubato_game::play::lane_renderer::{DrawLaneContext, LaneRenderer};
 
     // 1. Create a model with one note
     let mut model = BMSModel::new();
@@ -290,7 +285,7 @@ fn compute_note_draw_commands_produces_commands() {
     // 4. Build a DrawLaneContext with TIMER_PLAY active.
     // Safety: model.timelines outlives the DrawLaneContext (consumed synchronously below).
     let all_timelines =
-        unsafe { rubato_play::lane_renderer::TimelinesRef::from_slice(&model.timelines) };
+        unsafe { rubato_game::play::lane_renderer::TimelinesRef::from_slice(&model.timelines) };
     let draw_ctx = DrawLaneContext {
         time: 1000,
         timer_play: Some(0), // TIMER_PLAY started at time 0

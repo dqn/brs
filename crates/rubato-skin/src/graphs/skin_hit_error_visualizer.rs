@@ -148,7 +148,7 @@ impl SkinHitErrorVisualizer {
         }
     }
 
-    pub fn draw(&mut self, sprite: &mut SkinObjectRenderer) {
+    pub fn draw_impl(&mut self, sprite: &mut SkinObjectRenderer) {
         if self.shape.is_none() {
             self.shape = Some(Pixmap::new(
                 self.width,
@@ -299,6 +299,36 @@ impl SkinHitErrorVisualizer {
     }
 }
 
+impl crate::types::skin_node::SkinNode for SkinHitErrorVisualizer {
+    fn data(&self) -> &SkinObjectData {
+        &self.data
+    }
+    fn data_mut(&mut self) -> &mut SkinObjectData {
+        &mut self.data
+    }
+    fn prepare(&mut self, time: i64, state: &dyn MainState) {
+        SkinHitErrorVisualizer::prepare(self, time, state)
+    }
+    fn draw(&mut self, sprite: &mut SkinObjectRenderer, _state: &dyn MainState) {
+        self.draw_impl(sprite)
+    }
+    fn dispose(&mut self) {
+        SkinHitErrorVisualizer::dispose(self)
+    }
+    fn type_name(&self) -> &'static str {
+        "HitErrorVisualizer"
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+    fn into_any_box(self: Box<Self>) -> Box<dyn std::any::Any> {
+        self
+    }
+}
+
 /// Validates color string - delegates to SkinTimingVisualizer.
 pub fn color_string_validation_hev(cs: &str) -> String {
     color_string_validation(cs)
@@ -427,7 +457,7 @@ mod tests {
         viz.index = 0;
 
         let mut renderer = SkinObjectRenderer::new();
-        viz.draw(&mut renderer);
+        viz.draw_impl(&mut renderer);
 
         // Pixmap height must be window_length * 2, not recent.len() * 2
         let shape = viz.shape.as_ref().expect("shape should be created");

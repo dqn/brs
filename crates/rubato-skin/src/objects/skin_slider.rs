@@ -231,7 +231,7 @@ impl SkinSlider {
         };
     }
 
-    pub fn draw(&mut self, sprite: &mut SkinObjectRenderer) {
+    pub fn draw_impl(&mut self, sprite: &mut SkinObjectRenderer) {
         if let Some(ref current_image) = self.current_image {
             let region = self.data.region;
             let range = self.range as f32;
@@ -367,6 +367,42 @@ impl SkinSlider {
     }
 }
 
+impl crate::types::skin_node::SkinNode for SkinSlider {
+    fn data(&self) -> &SkinObjectData {
+        &self.data
+    }
+    fn data_mut(&mut self) -> &mut SkinObjectData {
+        &mut self.data
+    }
+    fn validate(&mut self) -> bool {
+        SkinSlider::validate(self)
+    }
+    fn prepare(&mut self, time: i64, state: &dyn MainState) {
+        SkinSlider::prepare(self, time, state)
+    }
+    fn draw(&mut self, sprite: &mut SkinObjectRenderer, _state: &dyn MainState) {
+        self.draw_impl(sprite)
+    }
+    fn dispose(&mut self) {
+        SkinSlider::dispose(self)
+    }
+    fn type_name(&self) -> &'static str {
+        "Slider"
+    }
+    fn is_slider(&self) -> bool {
+        true
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+    fn into_any_box(self: Box<Self>) -> Box<dyn std::any::Any> {
+        self
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -477,7 +513,7 @@ mod tests {
         );
 
         let mut renderer = SkinObjectRenderer::new();
-        slider.draw(&mut renderer);
+        slider.draw_impl(&mut renderer);
         assert_eq!(renderer.sprite.vertices().len(), 6); // 1 quad
     }
 }

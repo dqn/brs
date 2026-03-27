@@ -945,7 +945,7 @@ impl LR2PlaySkinLoaderState {
     /// 4. SkinNumber for judge duration (rows 3-4 of 10x20 grid) with !OPTION_xP_PERFECT
     fn add_judge_detail(&mut self, values: &[i32], player: usize) {
         use crate::objects::skin_number::{NumberDisplayConfig, SkinNumber};
-        use crate::skin::SkinObject;
+
         use crate::skin_property::{
             OFFSET_JUDGEDETAIL_1P, OFFSET_JUDGEDETAIL_2P, OFFSET_JUDGEDETAIL_3P, OFFSET_LIFT,
             OPTION_1P_EARLY, OPTION_1P_LATE, OPTION_1P_PERFECT, OPTION_2P_EARLY, OPTION_2P_LATE,
@@ -1035,7 +1035,7 @@ impl LR2PlaySkinLoaderState {
             option_early,
             &[offset_judge_detail, OFFSET_LIFT],
         );
-        self.csv.collected_objects.push(SkinObject::Image(early));
+        self.csv.collected_objects.push(Box::new(early));
 
         // 2. LATE text indicator: region (50, 0, 50, 20)
         let late_region = TextureRegion::from_texture_region(tex.clone(), 50, 0, 50, 20);
@@ -1077,7 +1077,7 @@ impl LR2PlaySkinLoaderState {
             option_late,
             &[offset_judge_detail, OFFSET_LIFT],
         );
-        self.csv.collected_objects.push(SkinObject::Image(late));
+        self.csv.collected_objects.push(Box::new(late));
 
         // Split texture into 10x20 grid for digit images
         // Java: TextureRegion.split(tex, 10, 20) returns rows of 10px-wide, 20px-tall tiles
@@ -1159,7 +1159,7 @@ impl LR2PlaySkinLoaderState {
                 option_perfect,
                 &[offset_judge_detail, OFFSET_LIFT],
             );
-            self.csv.collected_objects.push(SkinObject::Number(num));
+            self.csv.collected_objects.push(Box::new(num));
         }
 
         // 4. SkinNumber num2: image=row[3], mimage=row[4], !OPTION_PERFECT (negated)
@@ -1216,7 +1216,7 @@ impl LR2PlaySkinLoaderState {
                 -option_perfect,
                 &[offset_judge_detail, OFFSET_LIFT],
             );
-            self.csv.collected_objects.push(SkinObject::Number(num2));
+            self.csv.collected_objects.push(Box::new(num2));
         }
     }
 

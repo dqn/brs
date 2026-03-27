@@ -182,7 +182,7 @@ impl SkinBgaObject {
     /// In Java:
     ///   if (PRACTICE) { player.getPracticeConfiguration().draw(...) }
     ///   else { resource.getBGAManager().drawBGA(...) }
-    pub fn draw(&mut self, sprite: &mut SkinObjectRenderer, state: &dyn MainState) {
+    pub fn draw_impl(&mut self, sprite: &mut SkinObjectRenderer, state: &dyn MainState) {
         if self.practice_mode {
             self.draw_practice(sprite, state);
         } else if let Some(ref bga_draw) = self.bga_draw {
@@ -240,6 +240,36 @@ impl SkinBgaObject {
 
     pub fn validate(&mut self) -> bool {
         self.data.validate()
+    }
+}
+
+impl crate::types::skin_node::SkinNode for SkinBgaObject {
+    fn data(&self) -> &SkinObjectData {
+        &self.data
+    }
+    fn data_mut(&mut self) -> &mut SkinObjectData {
+        &mut self.data
+    }
+    fn prepare(&mut self, time: i64, state: &dyn MainState) {
+        SkinBgaObject::prepare(self, time, state)
+    }
+    fn draw(&mut self, sprite: &mut SkinObjectRenderer, state: &dyn MainState) {
+        self.draw_impl(sprite, state)
+    }
+    fn dispose(&mut self) {
+        SkinBgaObject::dispose(self)
+    }
+    fn type_name(&self) -> &'static str {
+        "SkinBGA"
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+    fn into_any_box(self: Box<Self>) -> Box<dyn std::any::Any> {
+        self
     }
 }
 
@@ -322,7 +352,7 @@ mod tests {
 
         let mut sprite = SkinObjectRenderer::new();
         let state = crate::test_helpers::MockMainState::default();
-        bga.draw(&mut sprite, &state);
+        bga.draw_impl(&mut sprite, &state);
 
         let mock_locked = mock.lock().expect("mutex poisoned");
         assert_eq!(mock_locked.draw_calls.len(), 1);
@@ -338,7 +368,7 @@ mod tests {
         let mut sprite = SkinObjectRenderer::new();
         let state = crate::test_helpers::MockMainState::default();
         // Should not panic
-        bga.draw(&mut sprite, &state);
+        bga.draw_impl(&mut sprite, &state);
     }
 
     #[test]
@@ -363,8 +393,8 @@ mod tests {
         let mut sprite = SkinObjectRenderer::new();
         let state = crate::test_helpers::MockMainState::default();
         // Draw multiple times -- should not panic and should reuse the stored font.
-        bga.draw(&mut sprite, &state);
-        bga.draw(&mut sprite, &state);
+        bga.draw_impl(&mut sprite, &state);
+        bga.draw_impl(&mut sprite, &state);
 
         // The practice_font field exists and is not re-created per frame.
         // Verify the font is still the same object (scale matches PRACTICE_FONT_SIZE).

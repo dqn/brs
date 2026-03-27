@@ -9,7 +9,7 @@ use crate::loaders::skin_loader;
 use crate::property::string_property::StringProperty;
 use crate::reexports::{BitmapFont, BitmapFontData, Color, GlyphLayout, MainState, TextureRegion};
 use crate::text::skin_text::{OVERFLOW_OVERFLOW, OVERFLOW_SHRINK, OVERFLOW_TRUNCATE, SkinTextData};
-use crate::types::skin_object::{DrawImageAtParams, SkinObjectRenderer};
+use crate::types::skin_object::{DrawImageAtParams, SkinObjectData, SkinObjectRenderer};
 
 /// Parameters for drawing text glyphs at a specific position.
 struct DrawTextGlyphsParams<'a> {
@@ -87,7 +87,7 @@ impl SkinTextBitmap {
         self.text_data.prepare(time, state);
     }
 
-    pub fn draw(&mut self, sprite: &mut SkinObjectRenderer) {
+    pub fn draw_impl(&mut self, sprite: &mut SkinObjectRenderer) {
         if self.text_data.should_update_text() {
             let current = self.text_data.current_text().unwrap_or("").to_string();
             self.set_text(current);
@@ -363,6 +363,36 @@ impl SkinTextBitmap {
 
     pub fn dispose(&mut self) {
         self.source.dispose();
+    }
+}
+
+impl crate::types::skin_node::SkinNode for SkinTextBitmap {
+    fn data(&self) -> &SkinObjectData {
+        &self.text_data.data
+    }
+    fn data_mut(&mut self) -> &mut SkinObjectData {
+        &mut self.text_data.data
+    }
+    fn prepare(&mut self, time: i64, state: &dyn MainState) {
+        SkinTextBitmap::prepare(self, time, state)
+    }
+    fn draw(&mut self, sprite: &mut SkinObjectRenderer, _state: &dyn MainState) {
+        self.draw_impl(sprite)
+    }
+    fn dispose(&mut self) {
+        SkinTextBitmap::dispose(self)
+    }
+    fn type_name(&self) -> &'static str {
+        "Text"
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+    fn into_any_box(self: Box<Self>) -> Box<dyn std::any::Any> {
+        self
     }
 }
 

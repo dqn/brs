@@ -11,11 +11,11 @@ pub struct Skin {
     dh: f32,
 
     /// Registered skin objects
-    objects: Vec<SkinObject>,
+    objects: Vec<Box<dyn SkinNode>>,
     /// Object array (references into objects for fast iteration)
     objectarray_indices: Vec<usize>,
     /// Removed skin objects
-    removes: Vec<SkinObject>,
+    removes: Vec<Box<dyn SkinNode>>,
     /// Input start time (ms)
     pub input: i32,
     /// Scene time (ms)
@@ -179,7 +179,7 @@ impl Skin {
         registry
     }
 
-    pub fn add(&mut self, object: SkinObject) {
+    pub fn add(&mut self, object: Box<dyn SkinNode>) {
         self.objects.push(object);
     }
 
@@ -208,7 +208,8 @@ impl Skin {
             None
         };
         if let Some(obj) = self.objects.get_mut(obj_index) {
-            obj.set_destination(&scaled, timer_prop, ops, offset);
+            obj.data_mut()
+                .set_destination_with_timer_ops_and_offsets(&scaled, timer_prop, ops, offset);
         }
     }
 
@@ -221,7 +222,8 @@ impl Skin {
     ) {
         let scaled = self.scale_params(params);
         if let Some(obj) = self.objects.get_mut(obj_index) {
-            obj.set_destination_with_timer_ops(&scaled, timer, op);
+            obj.data_mut()
+                .set_destination_with_timer_and_ops(&scaled, timer, op);
         }
     }
 
@@ -234,7 +236,8 @@ impl Skin {
     ) {
         let scaled = self.scale_params(params);
         if let Some(obj) = self.objects.get_mut(obj_index) {
-            obj.set_destination_with_timer_draw(&scaled, timer, draw);
+            obj.data_mut()
+                .set_destination_with_timer_draw(&scaled, timer, draw);
         }
     }
 
@@ -263,7 +266,7 @@ impl Skin {
         let dw = self.dw;
         let dh = self.dh;
         if let Some(obj) = self.objects.get_mut(obj_index) {
-            obj.set_mouse_rect(x * dw, y * dh, w * dw, h * dh);
+            obj.data_mut().set_mouse_rect(x * dw, y * dh, w * dw, h * dh);
         }
     }
 
@@ -271,11 +274,11 @@ impl Skin {
         self.objects.len()
     }
 
-    pub fn objects(&self) -> &[SkinObject] {
+    pub fn objects(&self) -> &[Box<dyn SkinNode>] {
         &self.objects
     }
 
-    pub fn objects_mut(&mut self) -> &mut Vec<SkinObject> {
+    pub fn objects_mut(&mut self) -> &mut Vec<Box<dyn SkinNode>> {
         &mut self.objects
     }
 
@@ -321,11 +324,11 @@ impl Skin {
                 if should_remove {
                     remove_indices.push(i);
                 } else {
-                    self.objects[i].set_draw_condition(kept);
+                    self.objects[i].data_mut().dstdraw = kept;
                 }
 
                 // Check options
-                let options = self.objects[i].option().to_vec();
+                let options = self.objects[i].data().option().to_vec();
                 for op in &options {
                     if *op > 0 {
                         let value = self.option.get(op).copied().unwrap_or(-1);
@@ -341,7 +344,7 @@ impl Skin {
                     }
                 }
                 // Clear options on the object (Java: obj.setOption(l.toArray()) where l is empty)
-                self.objects[i].set_option(Vec::new());
+                self.objects[i].data_mut().dstop = Vec::new();
             }
         }
 
@@ -376,7 +379,7 @@ impl Skin {
 
         // Load all remaining objects
         for obj in &mut self.objects {
-            obj.load();
+            obj.data_mut().load();
         }
 
         // Debug mode setup (skipped since debug is false)
@@ -458,11 +461,11 @@ impl Skin {
                 let mut no_timer_no_dst = 0usize;
                 for idx in &self.objectarray_indices {
                     let obj = &self.objects[*idx];
-                    if obj.is_draw() && obj.is_visible() {
+                    let data = obj.data();
+                    if data.draw && data.visible {
                         *drawable.entry(obj.type_name()).or_default() += 1;
                     } else {
                         *skipped.entry(obj.type_name()).or_default() += 1;
-                        let data = obj.data();
                         if data.dst.is_empty() && data.fixr.is_none() {
                             no_dst_count += 1;
                         }
@@ -486,7 +489,9 @@ impl Skin {
 
             let renderer = self.renderer.as_mut().expect("renderer is Some");
             for idx in &self.objectarray_indices {
-                if self.objects[*idx].is_draw() && self.objects[*idx].is_visible() {
+                let obj = &mut self.objects[*idx];
+                let data = obj.data();
+                if data.draw && data.visible {
                     self.objects[*idx].draw(renderer, state);
                 }
             }
@@ -496,7 +501,8 @@ impl Skin {
     pub fn mouse_pressed(&mut self, state: &mut dyn MainState, button: i32, x: i32, y: i32) {
         for i in (0..self.objectarray_indices.len()).rev() {
             let idx = self.objectarray_indices[i];
-            if self.objects[idx].is_draw() && self.objects[idx].mouse_pressed(state, button, x, y) {
+            let obj = &self.objects[idx];
+            if obj.data().draw && obj.data().mouse_pressed(state, button, x, y) {
                 break;
             }
         }
@@ -505,9 +511,10 @@ impl Skin {
     pub fn mouse_dragged(&mut self, state: &mut dyn MainState, button: i32, x: i32, y: i32) {
         for i in (0..self.objectarray_indices.len()).rev() {
             let idx = self.objectarray_indices[i];
-            if self.objects[idx].is_slider()
-                && self.objects[idx].is_draw()
-                && self.objects[idx].mouse_pressed(state, button, x, y)
+            let obj = &self.objects[idx];
+            if obj.is_slider()
+                && obj.data().draw
+                && obj.data().mouse_pressed(state, button, x, y)
             {
                 break;
             }
@@ -516,12 +523,12 @@ impl Skin {
 
     pub fn dispose(&mut self) {
         for obj in &mut self.objects {
-            if !obj.is_disposed() {
+            if !obj.data().is_disposed() {
                 obj.dispose();
             }
         }
         for obj in &mut self.removes {
-            if !obj.is_disposed() {
+            if !obj.data().is_disposed() {
                 obj.dispose();
             }
         }
@@ -638,17 +645,17 @@ impl Skin {
     /// Corresponds to Java Skin.addNumber(21 params)
     pub fn add_number(
         &mut self,
-        number: SkinNumber,
+        mut number: SkinNumber,
         params: &DestinationParams,
         timer: Option<TimerPropertyEnum>,
         ops: &[i32],
         offset: i32,
     ) {
         let scaled = self.scale_params(params);
-        let mut obj = SkinObject::Number(number);
-        obj.data_mut()
+        number
+            .data
             .set_destination_with_timer_ops_and_single_offset(&scaled, timer, ops, offset);
-        self.objects.push(obj);
+        self.objects.push(Box::new(number));
     }
 
     /// Add a SkinImage from a TextureRegion with destination and register it.
@@ -662,11 +669,10 @@ impl Skin {
         offset: i32,
     ) -> usize {
         let scaled = self.scale_params(params);
-        let si = SkinImage::new_with_single(tr);
-        let mut obj = SkinObject::Image(si);
-        obj.data_mut()
+        let mut si = SkinImage::new_with_single(tr);
+        si.data
             .set_destination_with_timer_ops_and_single_offset(&scaled, timer, ops, offset);
-        self.objects.push(obj);
+        self.objects.push(Box::new(si));
         self.objects.len() - 1
     }
 

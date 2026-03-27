@@ -224,30 +224,26 @@ pub trait MediaAccess {
         // default no-op
     }
 
-    /// Get the type-erased BGA processor for reuse across plays.
+    /// Legacy type-erased BGA processor accessor.
     ///
-    /// The concrete type is `Arc<Mutex<BGAProcessor>>` from beatoraja-play, but it is stored
-    /// as `Box<dyn Any + Send>` here because beatoraja-types cannot depend on beatoraja-play.
-    /// The caller (LauncherStateFactory) downcasts to the concrete type.
-    ///
-    /// Java: PlayerResource.getBGAManager() -> BMSResource.getBGAProcessor()
+    /// No longer used -- rubato-game now uses concrete `PlayerResource::bga()` directly.
+    /// Kept for trait compatibility with NullPlayerResource/TestPlayerResource.
     fn bga_any(&self) -> Option<&(dyn Any + Send)> {
         None
     }
 
-    /// Store the type-erased BGA processor for reuse in subsequent plays.
+    /// Legacy type-erased BGA processor setter.
     ///
-    /// The caller passes `Box<Arc<Mutex<BGAProcessor>>>` erased to `Box<dyn Any + Send>`.
-    /// Java: the BGAProcessor lives in BMSResource and is created once per PlayerResource.
+    /// No longer used -- rubato-game now uses concrete `PlayerResource::set_bga()` directly.
+    /// Kept for trait compatibility with NullPlayerResource/TestPlayerResource.
     fn set_bga_any(&mut self, _bga: Box<dyn Any + Send>) {
         // default no-op
     }
 
-    /// Set ranking data (type-erased).
+    /// Legacy type-erased ranking data setter.
     ///
-    /// The `data` parameter should be a `Box<RankingData>` from beatoraja-ir.
-    /// Pass `None` to clear. Callers downcast via `data.downcast::<RankingData>()`.
-    /// Java: PlayerResource.setRankingData(RankingData)
+    /// No longer used -- rubato-game now uses concrete `PlayerResource::set_ranking_data()` directly.
+    /// Kept for trait compatibility with NullPlayerResource/TestPlayerResource.
     fn set_ranking_data_any(&mut self, _data: Option<Box<dyn Any + Send + Sync>>) {
         // default no-op
     }

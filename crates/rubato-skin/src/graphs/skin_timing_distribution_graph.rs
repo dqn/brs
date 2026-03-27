@@ -88,7 +88,7 @@ impl SkinTimingDistributionGraph {
         self.data.prepare(time, state);
     }
 
-    pub fn draw(&mut self, sprite: &mut SkinObjectRenderer, state: &dyn MainState) {
+    pub fn draw_impl(&mut self, sprite: &mut SkinObjectRenderer, state: &dyn MainState) {
         // In Java, draw() accesses this.state (MusicResult) directly.
         // In Rust, we get timing distribution and judge area from MainState.
         if !self.state_set {
@@ -191,6 +191,36 @@ impl SkinTimingDistributionGraph {
         {
             t.dispose();
         }
+    }
+}
+
+impl crate::types::skin_node::SkinNode for SkinTimingDistributionGraph {
+    fn data(&self) -> &SkinObjectData {
+        &self.data
+    }
+    fn data_mut(&mut self) -> &mut SkinObjectData {
+        &mut self.data
+    }
+    fn prepare(&mut self, time: i64, state: &dyn MainState) {
+        SkinTimingDistributionGraph::prepare(self, time, state)
+    }
+    fn draw(&mut self, sprite: &mut SkinObjectRenderer, state: &dyn MainState) {
+        self.draw_impl(sprite, state)
+    }
+    fn dispose(&mut self) {
+        SkinTimingDistributionGraph::dispose(self)
+    }
+    fn type_name(&self) -> &'static str {
+        "TimingDistributionGraph"
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+    fn into_any_box(self: Box<Self>) -> Box<dyn std::any::Any> {
+        self
     }
 }
 

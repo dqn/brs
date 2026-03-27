@@ -58,6 +58,7 @@ pub use types::select_bar_data;
 pub use types::skin;
 pub use types::skin_bar_object;
 pub use types::skin_header;
+pub use types::skin_node;
 pub use types::skin_object;
 pub use types::skin_type;
 

@@ -207,7 +207,7 @@ impl SkinNoteDistributionGraph {
         };
     }
 
-    pub fn draw(&mut self, sprite: &mut SkinObjectRenderer, state: &dyn MainState) {
+    pub fn draw_impl(&mut self, sprite: &mut SkinObjectRenderer, state: &dyn MainState) {
         let song = state.song_data_ref();
         let model = song.and_then(|s| s.bms_model());
 
@@ -335,7 +335,7 @@ impl SkinNoteDistributionGraph {
             params.freq,
         );
         if self.data.draw {
-            self.draw(sprite, params.state);
+            self.draw_impl(sprite, params.state);
         }
     }
 
@@ -712,6 +712,36 @@ impl SkinNoteDistributionGraph {
     }
 }
 
+impl crate::types::skin_node::SkinNode for SkinNoteDistributionGraph {
+    fn data(&self) -> &SkinObjectData {
+        &self.data
+    }
+    fn data_mut(&mut self) -> &mut SkinObjectData {
+        &mut self.data
+    }
+    fn prepare(&mut self, time: i64, state: &dyn MainState) {
+        SkinNoteDistributionGraph::prepare(self, time, state)
+    }
+    fn draw(&mut self, sprite: &mut SkinObjectRenderer, state: &dyn MainState) {
+        self.draw_impl(sprite, state)
+    }
+    fn dispose(&mut self) {
+        SkinNoteDistributionGraph::dispose(self)
+    }
+    fn type_name(&self) -> &'static str {
+        "NoteDistributionGraph"
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+    fn into_any_box(self: Box<Self>) -> Box<dyn std::any::Any> {
+        self
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -803,7 +833,7 @@ mod tests {
         let mut renderer = SkinObjectRenderer::new();
         renderer.sprite.enable_capture();
 
-        g.draw(&mut renderer, &state);
+        g.draw_impl(&mut renderer, &state);
 
         // The shapetex draw should have emitted a quad with u2 = 0.5.
         let quads = renderer.sprite.captured_quads();
@@ -835,7 +865,7 @@ mod tests {
         let mut renderer = SkinObjectRenderer::new();
         renderer.sprite.enable_capture();
 
-        g.draw(&mut renderer, &state);
+        g.draw_impl(&mut renderer, &state);
 
         let quads = renderer.sprite.captured_quads();
         assert!(
@@ -862,7 +892,7 @@ mod tests {
         let mut renderer = SkinObjectRenderer::new();
         renderer.sprite.enable_capture();
 
-        g.draw(&mut renderer, &state);
+        g.draw_impl(&mut renderer, &state);
 
         let quads = renderer.sprite.captured_quads();
         assert!(
@@ -965,7 +995,7 @@ mod tests {
         let mut renderer = SkinObjectRenderer::new();
         renderer.sprite.enable_capture();
 
-        g.draw(&mut renderer, &state);
+        g.draw_impl(&mut renderer, &state);
 
         let quads = renderer.sprite.captured_quads();
         assert!(

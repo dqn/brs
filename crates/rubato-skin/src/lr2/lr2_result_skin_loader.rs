@@ -261,24 +261,22 @@ impl LR2SkinLoaderAccess for LR2ResultSkinLoaderState {
     }
 
     fn assemble_objects(&mut self, skin: &mut crate::skin::Skin) {
-        use crate::skin::SkinObject;
-
         // Transfer generic objects from base CSV parser.
         for obj in self.csv.collected_objects.drain(..) {
             skin.add(obj);
         }
 
         if let Some(obj) = self.gaugeobj.take() {
-            skin.add(SkinObject::GaugeGraph(obj));
+            skin.add(Box::new(obj));
         }
         if let Some(obj) = self.noteobj.take() {
-            skin.add(SkinObject::NoteDistributionGraph(obj));
+            skin.add(Box::new(obj));
         }
         if let Some(obj) = self.bpmgraphobj.take() {
-            skin.add(SkinObject::BpmGraph(obj));
+            skin.add(Box::new(obj));
         }
         if let Some(obj) = self.timinggraphobj.take() {
-            skin.add(SkinObject::TimingDistributionGraph(obj));
+            skin.add(Box::new(obj));
         }
 
         // Propagate ranktime to the Skin so ResultSkinData can read it.

@@ -10,7 +10,8 @@ use golden_master::render_snapshot::{DrawCommand, RenderSnapshot, capture_render
 use golden_master::state_provider::StaticStateProvider;
 
 use rubato_skin::reexports::TextureRegion;
-use rubato_skin::skin::{Skin, SkinObject};
+use rubato_skin::skin::Skin;
+use rubato_skin::types::skin_node::SkinNode;
 use rubato_skin::skin_header::SkinHeader;
 use rubato_skin::skin_image::SkinImage;
 use rubato_skin::skin_object::DestinationParams;
@@ -69,7 +70,7 @@ fn build_interpolation_modes_skin() -> Skin {
 
     for (name, acc) in &modes {
         let image = make_image();
-        let mut obj = SkinObject::Image(image);
+        let mut obj = Box::new(image) as Box<dyn SkinNode>;
         let data = obj.data_mut();
         data.name = Some(name.to_string());
 
@@ -132,7 +133,7 @@ fn build_loop_variants_skin() -> Skin {
     // loop_default: loop_time=0 (default wrap)
     {
         let image = make_image();
-        let mut obj = SkinObject::Image(image);
+        let mut obj = Box::new(image) as Box<dyn SkinNode>;
         let data = obj.data_mut();
         data.name = Some("loop_default".to_string());
         data.set_destination_with_int_timer_ops(
@@ -184,7 +185,7 @@ fn build_loop_variants_skin() -> Skin {
     // loop_mid: loop_time=50 (wrap from midpoint)
     {
         let image = make_image();
-        let mut obj = SkinObject::Image(image);
+        let mut obj = Box::new(image) as Box<dyn SkinNode>;
         let data = obj.data_mut();
         data.name = Some("loop_mid".to_string());
         data.set_destination_with_int_timer_ops(
@@ -235,7 +236,7 @@ fn build_loop_variants_skin() -> Skin {
     // play_once: loop_time=-1 (play once, hide after end)
     {
         let image = make_image();
-        let mut obj = SkinObject::Image(image);
+        let mut obj = Box::new(image) as Box<dyn SkinNode>;
         let data = obj.data_mut();
         data.name = Some("play_once".to_string());
         data.set_destination_with_int_timer_ops(
@@ -303,7 +304,7 @@ fn build_draw_conditions_skin() -> Skin {
 
     for (name, op) in conditions {
         let image = make_image();
-        let mut obj = SkinObject::Image(image);
+        let mut obj = Box::new(image) as Box<dyn SkinNode>;
         let data = obj.data_mut();
         data.name = Some(name.to_string());
         // Single keyframe: always at x=10, y=0, w=10, h=10

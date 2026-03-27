@@ -258,7 +258,7 @@ fn test_offset_value_delegates_through_timer_only_adapter() {
 /// Before the fix, all per-timer-id queries returned 0 (frozen animations).
 #[test]
 fn test_timer_manager_values_flow_through_to_skin_adapter() {
-    use rubato_core::timer_manager::TimerManager;
+    use rubato_game::core::timer_manager::TimerManager;
     let mut tm = TimerManager::new();
     tm.update(); // Advance nowmicrotime from Instant::now()
     tm.set_timer_on(rubato_types::timer_id::TimerId::new(10)); // Timer 10 = ON at current micro time
@@ -394,7 +394,7 @@ fn test_mouse_pressed_dispatches_click_event_through_render_context() {
     image.data.draw = true;
     image.data.region.set_xywh(0.0, 0.0, 100.0, 100.0);
     image.data.set_clickevent_by_id(13);
-    skin.add(SkinObject::Image(image));
+    skin.add(Box::new(image));
     skin.objectarray_indices.push(0);
 
     let registry = HashMap::new();
@@ -739,13 +739,13 @@ fn test_skin_object_enum_two_phase_image() {
         0,
         &[0],
     );
-    let mut obj = SkinObject::Image(image);
+    let mut obj: Box<dyn SkinNode> = Box::new(image);
 
     let state = crate::test_helpers::MockMainState::default();
 
     // Phase 1: prepare (via enum)
     obj.prepare(0, &state);
-    assert!(obj.is_draw());
+    assert!(obj.data().draw);
 
     // Phase 2: draw (via enum)
     let mut renderer = SkinObjectRenderer::new();
@@ -779,13 +779,13 @@ fn test_skin_object_enum_two_phase_bar() {
         0,
         &[0],
     );
-    let mut obj = SkinObject::Bar(bar_obj);
+    let mut obj: Box<dyn SkinNode> = Box::new(bar_obj);
 
     let state = crate::test_helpers::MockMainState::default();
 
     // Phase 1: prepare
     obj.prepare(0, &state);
-    assert!(obj.is_draw());
+    assert!(obj.data().draw);
 
     // Phase 2: draw (stub — no panic)
     let mut renderer = SkinObjectRenderer::new();
@@ -830,7 +830,7 @@ fn test_skin_object_enum_two_phase_number() {
         0,
         &[0],
     );
-    let mut obj = SkinObject::Number(num);
+    let mut obj: Box<dyn SkinNode> = Box::new(num);
 
     let state = crate::test_helpers::MockMainState::default();
 
@@ -871,13 +871,13 @@ fn test_skin_object_enum_two_phase_graph() {
         0,
         &[0],
     );
-    let mut obj = SkinObject::Graph(graph);
+    let mut obj: Box<dyn SkinNode> = Box::new(graph);
 
     let state = crate::test_helpers::MockMainState::default();
 
     // Phase 1: prepare
     obj.prepare(0, &state);
-    assert!(obj.is_draw());
+    assert!(obj.data().draw);
 
     // Phase 2: draw
     let mut renderer = SkinObjectRenderer::new();
@@ -911,13 +911,13 @@ fn test_skin_object_enum_two_phase_slider() {
         0,
         &[0],
     );
-    let mut obj = SkinObject::Slider(slider);
+    let mut obj: Box<dyn SkinNode> = Box::new(slider);
 
     let state = crate::test_helpers::MockMainState::default();
 
     // Phase 1: prepare
     obj.prepare(0, &state);
-    assert!(obj.is_draw());
+    assert!(obj.data().draw);
 
     // Phase 2: draw
     let mut renderer = SkinObjectRenderer::new();
@@ -946,15 +946,15 @@ fn test_skin_float_in_enum_data_access() {
         },
         0,
     );
-    let mut obj = SkinObject::Float(sf);
+    let mut obj: Box<dyn SkinNode> = Box::new(sf);
 
     // data() should return the SkinObjectData
     let _data = obj.data();
-    assert!(!obj.is_draw());
+    assert!(!obj.data().draw);
 
     // data_mut() should also work
     obj.data_mut().visible = false;
-    assert!(!obj.is_visible());
+    assert!(!obj.data().visible);
 }
 
 #[test]
@@ -974,7 +974,7 @@ fn test_skin_float_type_name() {
         },
         0,
     );
-    let obj = SkinObject::Float(sf);
+    let obj: Box<dyn SkinNode> = Box::new(sf);
     assert_eq!(obj.type_name(), "Float");
 }
 
@@ -996,7 +996,7 @@ fn test_skin_float_prepare_draw_dispose() {
         },
         0,
     );
-    let mut obj = SkinObject::Float(sf);
+    let mut obj: Box<dyn SkinNode> = Box::new(sf);
     let state = crate::test_helpers::MockMainState::default();
 
     // prepare should not panic
@@ -1027,7 +1027,7 @@ fn test_skin_float_validate_returns_true() {
         },
         0,
     );
-    let mut obj = SkinObject::Float(sf);
+    let mut obj: Box<dyn SkinNode> = Box::new(sf);
     // Float uses wildcard arm which defaults to true
     assert!(obj.validate());
 }
@@ -1041,17 +1041,17 @@ fn test_skin_float_validate_returns_true() {
 #[test]
 fn test_skin_object_enum_two_phase_note() {
     let note_obj = crate::skin_note_object::SkinNoteObject::new(7);
-    let mut obj = SkinObject::Note(note_obj);
+    let mut obj: Box<dyn SkinNode> = Box::new(note_obj);
 
     let state = crate::test_helpers::MockMainState::default();
 
     // Phase 1: prepare (via enum)
     obj.prepare(0, &state);
     assert!(
-        obj.is_draw(),
+        obj.data().draw,
         "SkinObject::Note must pass is_draw() after prepare()"
     );
-    assert!(obj.is_visible());
+    assert!(obj.data().visible);
 }
 
 /// Integration test: SkinNoteObject added to a Skin and drawn through
@@ -1076,7 +1076,7 @@ fn test_draw_all_objects_includes_note_object() {
     // Wire a texture so the draw actually produces vertices
     note_obj.note_images[0] = Some(make_region(32, 8));
 
-    skin.add(SkinObject::Note(note_obj));
+    skin.add(Box::new(note_obj));
     // Register the object in the draw array
     skin.objectarray_indices.push(skin.objects.len() - 1);
 
@@ -1116,7 +1116,7 @@ fn test_prepare_prunes_static_true_draw_conditions() {
         Box::new(NonStaticProp),
         Box::new(StaticTrueProp),
     ];
-    skin.add(SkinObject::Bar(bar));
+    skin.add(Box::new(bar));
 
     let state = crate::test_helpers::MockMainState::default();
     skin.prepare(&state);
@@ -1125,7 +1125,7 @@ fn test_prepare_prunes_static_true_draw_conditions() {
     assert_eq!(skin.objects.len(), 1, "object should not be removed");
 
     // Only the non-static condition should remain in dstdraw
-    let remaining = skin.objects[0].draw_condition();
+    let remaining = skin.objects[0].data().draw_condition();
     assert_eq!(
         remaining.len(),
         1,
@@ -1148,7 +1148,7 @@ fn test_prepare_removes_object_with_static_false_condition() {
 
     let mut bar = SkinBarObject::new(0);
     bar.data.dstdraw = vec![Box::new(StaticFalseProp), Box::new(NonStaticProp)];
-    skin.add(SkinObject::Bar(bar));
+    skin.add(Box::new(bar));
 
     let state = crate::test_helpers::MockMainState::default();
     skin.prepare(&state);
@@ -1170,14 +1170,14 @@ fn test_prepare_all_static_true_results_in_empty_dstdraw() {
 
     let mut bar = SkinBarObject::new(0);
     bar.data.dstdraw = vec![Box::new(StaticTrueProp), Box::new(StaticTrueProp)];
-    skin.add(SkinObject::Bar(bar));
+    skin.add(Box::new(bar));
 
     let state = crate::test_helpers::MockMainState::default();
     skin.prepare(&state);
 
     assert_eq!(skin.objects.len(), 1, "object should survive");
     assert_eq!(
-        skin.objects[0].draw_condition().len(),
+        skin.objects[0].data().draw_condition().len(),
         0,
         "all static-true conditions should be pruned"
     );

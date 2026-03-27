@@ -387,10 +387,11 @@ mod tests {
         state.assemble_objects(&mut skin);
 
         // Find the BGA object in the skin
-        let bga_obj = skin
-            .objects()
-            .iter()
-            .find(|o| matches!(o, crate::skin::SkinObject::Bga(_)));
+        let bga_obj = skin.objects().iter().find(|o| {
+            o.as_any()
+                .downcast_ref::<crate::skin_bga_object::SkinBgaObject>()
+                .is_some()
+        });
         assert!(bga_obj.is_some(), "BGA object should be present in skin");
 
         let data = bga_obj.unwrap().data();
@@ -1023,14 +1024,23 @@ mod tests {
         if added == 4 {
             let objs = &state.csv.collected_objects;
             let len = objs.len();
-            assert!(matches!(&objs[len - 2], crate::skin::SkinObject::Number(_)));
-            assert!(matches!(&objs[len - 1], crate::skin::SkinObject::Number(_)));
+            assert!(
+                objs[len - 2]
+                    .as_any()
+                    .downcast_ref::<crate::skin_number::SkinNumber>()
+                    .is_some()
+            );
+            assert!(
+                objs[len - 1]
+                    .as_any()
+                    .downcast_ref::<crate::skin_number::SkinNumber>()
+                    .is_some()
+            );
         }
     }
 
     #[test]
     fn test_dst_nowjudge_detail_objects_are_images() {
-        use crate::skin::SkinObject;
         let mut state = make_state();
         let initial_count = state.csv.collected_objects.len();
         setup_judge_and_dst(&mut state);
@@ -1039,11 +1049,17 @@ mod tests {
         assert!(added >= 2);
         // The first two detail objects are always SkinImage (early, late)
         assert!(
-            matches!(&objs[initial_count], SkinObject::Image(_)),
+            objs[initial_count]
+                .as_any()
+                .downcast_ref::<crate::skin_image::SkinImage>()
+                .is_some(),
             "early indicator should be SkinImage"
         );
         assert!(
-            matches!(&objs[initial_count + 1], SkinObject::Image(_)),
+            objs[initial_count + 1]
+                .as_any()
+                .downcast_ref::<crate::skin_image::SkinImage>()
+                .is_some(),
             "late indicator should be SkinImage"
         );
     }
@@ -1123,24 +1139,24 @@ mod tests {
         let objs = &state.csv.collected_objects;
 
         // Early and late images should each have 2 destination entries (time=0 and time=500)
-        if let crate::skin::SkinObject::Image(ref img) = objs[initial_count] {
-            assert_eq!(
-                img.data.dst.len(),
-                2,
-                "early image should have 2 destinations (t=0, t=500)"
-            );
-        } else {
-            panic!("expected SkinImage at index {}", initial_count);
-        }
-        if let crate::skin::SkinObject::Image(ref img) = objs[initial_count + 1] {
-            assert_eq!(
-                img.data.dst.len(),
-                2,
-                "late image should have 2 destinations (t=0, t=500)"
-            );
-        } else {
-            panic!("expected SkinImage at index {}", initial_count + 1);
-        }
+        let img = objs[initial_count]
+            .as_any()
+            .downcast_ref::<crate::skin_image::SkinImage>()
+            .unwrap_or_else(|| panic!("expected SkinImage at index {}", initial_count));
+        assert_eq!(
+            img.data.dst.len(),
+            2,
+            "early image should have 2 destinations (t=0, t=500)"
+        );
+        let img = objs[initial_count + 1]
+            .as_any()
+            .downcast_ref::<crate::skin_image::SkinImage>()
+            .unwrap_or_else(|| panic!("expected SkinImage at index {}", initial_count + 1));
+        assert_eq!(
+            img.data.dst.len(),
+            2,
+            "late image should have 2 destinations (t=0, t=500)"
+        );
     }
 
     #[test]
@@ -1153,24 +1169,24 @@ mod tests {
 
         // SkinNumber objects are only present when texture loaded (4 total objects)
         if added >= 4 {
-            if let crate::skin::SkinObject::Number(ref num) = objs[initial_count + 2] {
-                assert_eq!(
-                    num.data.dst.len(),
-                    2,
-                    "num (perfect) should have 2 destinations (t=0, t=500)"
-                );
-            } else {
-                panic!("expected SkinNumber at index {}", initial_count + 2);
-            }
-            if let crate::skin::SkinObject::Number(ref num) = objs[initial_count + 3] {
-                assert_eq!(
-                    num.data.dst.len(),
-                    2,
-                    "num2 (!perfect) should have 2 destinations (t=0, t=500)"
-                );
-            } else {
-                panic!("expected SkinNumber at index {}", initial_count + 3);
-            }
+            let num = objs[initial_count + 2]
+                .as_any()
+                .downcast_ref::<crate::skin_number::SkinNumber>()
+                .unwrap_or_else(|| panic!("expected SkinNumber at index {}", initial_count + 2));
+            assert_eq!(
+                num.data.dst.len(),
+                2,
+                "num (perfect) should have 2 destinations (t=0, t=500)"
+            );
+            let num = objs[initial_count + 3]
+                .as_any()
+                .downcast_ref::<crate::skin_number::SkinNumber>()
+                .unwrap_or_else(|| panic!("expected SkinNumber at index {}", initial_count + 3));
+            assert_eq!(
+                num.data.dst.len(),
+                2,
+                "num2 (!perfect) should have 2 destinations (t=0, t=500)"
+            );
         }
         // When texture is unavailable (test env), only images are created
         // SkinNumber tests are effectively skipped

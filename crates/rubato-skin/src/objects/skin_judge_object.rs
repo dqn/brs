@@ -1,5 +1,5 @@
 // SkinJudge wrapper for SkinObject enum (Phase 32a)
-// Wraps rubato_play::SkinJudge with SkinObjectData for the skin pipeline.
+// Wraps rubato_game::play::SkinJudge with SkinObjectData for the skin pipeline.
 // Translated from: SkinJudge.java
 
 use crate::objects::skin_image::SkinImage;
@@ -170,19 +170,19 @@ impl SkinJudgeObject {
     }
 
     /// Translated from: Java SkinJudge.draw(SkinObjectRenderer sprite)
-    pub fn draw(&mut self, sprite: &mut SkinObjectRenderer) {
+    pub fn draw_impl(&mut self, sprite: &mut SkinObjectRenderer) {
         // Draw count number first (behind judge image)
         if let Some(ci) = self.now_count_idx
             && let Some(ref mut count) = self.judge_counts[ci]
             && count.data.draw
         {
-            count.draw(sprite);
+            count.draw_impl(sprite);
         }
         // Draw judge image
         if let Some(ji) = self.now_judge_idx
             && let Some(ref mut img) = self.judge_images[ji]
         {
-            img.draw(sprite);
+            img.draw_impl(sprite);
         }
     }
 
@@ -195,6 +195,36 @@ impl SkinJudgeObject {
         }
         self.inner.dispose();
         self.data.set_disposed();
+    }
+}
+
+impl crate::types::skin_node::SkinNode for SkinJudgeObject {
+    fn data(&self) -> &SkinObjectData {
+        &self.data
+    }
+    fn data_mut(&mut self) -> &mut SkinObjectData {
+        &mut self.data
+    }
+    fn prepare(&mut self, time: i64, state: &dyn MainState) {
+        SkinJudgeObject::prepare(self, time, state)
+    }
+    fn draw(&mut self, sprite: &mut SkinObjectRenderer, _state: &dyn MainState) {
+        self.draw_impl(sprite)
+    }
+    fn dispose(&mut self) {
+        SkinJudgeObject::dispose(self)
+    }
+    fn type_name(&self) -> &'static str {
+        "SkinJudge"
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+    fn into_any_box(self: Box<Self>) -> Box<dyn std::any::Any> {
+        self
     }
 }
 
@@ -399,7 +429,7 @@ mod tests {
         judge.prepare(1000, &state);
 
         let mut sprite = SkinObjectRenderer::new();
-        judge.draw(&mut sprite);
+        judge.draw_impl(&mut sprite);
     }
 
     #[test]
@@ -407,7 +437,7 @@ mod tests {
         let mut judge = SkinJudgeObject::new(0, false);
         let mut sprite = SkinObjectRenderer::new();
         // no prepare → no active judge → noop
-        judge.draw(&mut sprite);
+        judge.draw_impl(&mut sprite);
     }
 
     #[test]
