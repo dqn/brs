@@ -3,6 +3,7 @@
 //! Tests BMS loading, play state creation, and basic gameplay with
 //! LauncherStateFactory and real BMSPlayer.
 
+use rubato_game::core::bms_player_mode::BMSPlayerMode;
 use std::path::PathBuf;
 
 use rubato_e2e::{E2eHarness, MainStateType};
@@ -31,7 +32,7 @@ fn harness_with_bms(bms_filename: &str) -> E2eHarness {
         .controller_mut()
         .player_resource_mut()
         .expect("controller should own a player resource")
-        .set_bms_file(&bms_path, 2, 0); // mode_type=2 is AUTOPLAY
+        .set_bms_file(&bms_path, BMSPlayerMode::AUTOPLAY); // mode_type=2 is AUTOPLAY
     assert!(loaded, "BMS file should load successfully");
 
     harness

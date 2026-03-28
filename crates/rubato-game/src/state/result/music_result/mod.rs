@@ -1447,8 +1447,8 @@ impl MainState for MusicResult {
         self.main_data.skin = None;
     }
 
-    fn take_player_resource_box(&mut self) -> Option<Box<dyn std::any::Any + Send>> {
-        self.resource.take_inner().map(|b| b.into_any_send())
+    fn take_player_resource(&mut self) -> Option<crate::core::player_resource::PlayerResource> {
+        self.resource.take_inner()
     }
 }
 
@@ -1477,247 +1477,32 @@ mod tests {
     use crate::state::result::test_helpers::{
         ExecuteEventSkin, PlayerConfigMutatingSkin, make_test_config,
     };
-    use rubato_types::player_resource_access::PlayerResourceAccess;
     use rubato_types::skin_render_context::SkinRenderContext;
-    use std::path::{Path, PathBuf};
 
     fn make_ranking_cache()
     -> Box<dyn rubato_types::ranking_data_cache_access::RankingDataCacheAccess> {
         Box::new(crate::ir::ranking_data_cache::RankingDataCache::new())
     }
 
-    struct MouseResultResourceAccess {
+    /// Create a CorePlayerResource with default score and replay data, matching
+    /// what MouseResultResourceAccess::new(config) previously provided.
+    fn make_test_core_resource(
         config: rubato_types::config::Config,
-        player_config: rubato_types::player_config::PlayerConfig,
-        score_data: Option<crate::core::score_data::ScoreData>,
-        replay_data: Option<crate::core::replay_data::ReplayData>,
-        song_data: Option<rubato_types::song_data::SongData>,
-        course_data: Option<rubato_types::course_data::CourseData>,
-        course_gauge: Vec<Vec<Vec<f32>>>,
-        course_replay: Vec<crate::core::replay_data::ReplayData>,
-        update_score: bool,
-    }
-
-    impl MouseResultResourceAccess {
-        fn new(config: rubato_types::config::Config) -> Self {
-            Self {
-                config,
-                player_config: rubato_types::player_config::PlayerConfig::default(),
-                score_data: Some(crate::core::score_data::ScoreData::default()),
-                replay_data: Some(crate::core::replay_data::ReplayData::default()),
-                song_data: None,
-                course_data: None,
-                course_gauge: Vec::new(),
-                course_replay: Vec::new(),
-                update_score: true,
-            }
-        }
-    }
-
-    impl rubato_types::player_resource_access::ConfigAccess for MouseResultResourceAccess {
-        fn config(&self) -> &rubato_types::config::Config {
-            &self.config
-        }
-
-        fn player_config(&self) -> &rubato_types::player_config::PlayerConfig {
-            &self.player_config
-        }
-
-        fn player_config_mut(&mut self) -> Option<&mut rubato_types::player_config::PlayerConfig> {
-            Some(&mut self.player_config)
-        }
-    }
-
-    impl rubato_types::player_resource_access::ScoreAccess for MouseResultResourceAccess {
-        fn score_data(&self) -> Option<&crate::core::score_data::ScoreData> {
-            self.score_data.as_ref()
-        }
-
-        fn rival_score_data(&self) -> Option<&crate::core::score_data::ScoreData> {
-            None
-        }
-
-        fn target_score_data(&self) -> Option<&crate::core::score_data::ScoreData> {
-            None
-        }
-
-        fn course_score_data(&self) -> Option<&crate::core::score_data::ScoreData> {
-            None
-        }
-
-        fn set_course_score_data(&mut self, _score: crate::core::score_data::ScoreData) {}
-
-        fn score_data_mut(&mut self) -> Option<&mut crate::core::score_data::ScoreData> {
-            self.score_data.as_mut()
-        }
-    }
-
-    impl rubato_types::player_resource_access::SongAccess for MouseResultResourceAccess {
-        fn songdata(&self) -> Option<&rubato_types::song_data::SongData> {
-            self.song_data.as_ref()
-        }
-
-        fn songdata_mut(&mut self) -> Option<&mut rubato_types::song_data::SongData> {
-            self.song_data.as_mut()
-        }
-
-        fn set_songdata(&mut self, data: Option<rubato_types::song_data::SongData>) {
-            self.song_data = data;
-        }
-
-        fn course_song_data(&self) -> Vec<rubato_types::song_data::SongData> {
-            vec![]
-        }
-    }
-
-    impl rubato_types::player_resource_access::ReplayAccess for MouseResultResourceAccess {
-        fn replay_data(&self) -> Option<&crate::core::replay_data::ReplayData> {
-            self.replay_data.as_ref()
-        }
-
-        fn replay_data_mut(&mut self) -> Option<&mut crate::core::replay_data::ReplayData> {
-            self.replay_data.as_mut()
-        }
-
-        fn course_replay(&self) -> &[crate::core::replay_data::ReplayData] {
-            &self.course_replay
-        }
-
-        fn add_course_replay(&mut self, rd: crate::core::replay_data::ReplayData) {
-            self.course_replay.push(rd);
-        }
-
-        fn course_replay_mut(&mut self) -> &mut Vec<crate::core::replay_data::ReplayData> {
-            &mut self.course_replay
-        }
-    }
-
-    impl rubato_types::player_resource_access::CourseAccess for MouseResultResourceAccess {
-        fn course_data(&self) -> Option<&rubato_types::course_data::CourseData> {
-            self.course_data.as_ref()
-        }
-
-        fn course_index(&self) -> usize {
-            0
-        }
-
-        fn next_course(&mut self) -> bool {
-            false
-        }
-
-        fn constraint(&self) -> Vec<rubato_types::course_data::CourseDataConstraint> {
-            vec![]
-        }
-
-        fn set_course_data(&mut self, data: rubato_types::course_data::CourseData) {
-            self.course_data = Some(data);
-        }
-
-        fn clear_course_data(&mut self) {
-            self.course_data = None;
-        }
-    }
-
-    impl rubato_types::player_resource_access::GaugeAccess for MouseResultResourceAccess {
-        fn gauge(&self) -> Option<&Vec<Vec<f32>>> {
-            None
-        }
-
-        fn groove_gauge(&self) -> Option<&rubato_types::groove_gauge::GrooveGauge> {
-            None
-        }
-
-        fn course_gauge(&self) -> &Vec<Vec<Vec<f32>>> {
-            &self.course_gauge
-        }
-
-        fn add_course_gauge(&mut self, gauge: Vec<Vec<f32>>) {
-            self.course_gauge.push(gauge);
-        }
-
-        fn course_gauge_mut(&mut self) -> &mut Vec<Vec<Vec<f32>>> {
-            &mut self.course_gauge
-        }
-    }
-
-    impl rubato_types::player_resource_access::PlayerStateAccess for MouseResultResourceAccess {
-        fn maxcombo(&self) -> i32 {
-            0
-        }
-
-        fn org_gauge_option(&self) -> i32 {
-            0
-        }
-
-        fn set_org_gauge_option(&mut self, _val: i32) {}
-
-        fn assist(&self) -> i32 {
-            0
-        }
-
-        fn is_update_score(&self) -> bool {
-            self.update_score
-        }
-
-        fn is_update_course_score(&self) -> bool {
-            false
-        }
-
-        fn is_force_no_ir_send(&self) -> bool {
-            false
-        }
-
-        fn is_freq_on(&self) -> bool {
-            false
-        }
-    }
-
-    impl rubato_types::player_resource_access::SessionMutation for MouseResultResourceAccess {
-        fn clear(&mut self) {}
-
-        fn set_bms_file(&mut self, _path: &Path, _mode_type: i32, _mode_id: i32) -> bool {
-            false
-        }
-
-        fn set_course_bms_files(&mut self, _files: &[PathBuf]) -> bool {
-            false
-        }
-
-        fn set_tablename(&mut self, _name: &str) {}
-
-        fn set_tablelevel(&mut self, _level: &str) {}
-
-        fn set_rival_score_data_option(
-            &mut self,
-            _score: Option<crate::core::score_data::ScoreData>,
-        ) {
-        }
-
-        fn set_chart_option_data(&mut self, _option: Option<crate::core::replay_data::ReplayData>) {
-        }
-    }
-
-    impl rubato_types::player_resource_access::MediaAccess for MouseResultResourceAccess {
-        fn reverse_lookup_data(&self) -> Vec<String> {
-            vec![]
-        }
-
-        fn reverse_lookup_levels(&self) -> Vec<String> {
-            vec![]
-        }
-    }
-
-    impl PlayerResourceAccess for MouseResultResourceAccess {
-        fn into_any_send(self: Box<Self>) -> Box<dyn std::any::Any + Send> {
-            self
-        }
+    ) -> crate::core::player_resource::PlayerResource {
+        let mut r = crate::core::player_resource::PlayerResource::new(
+            config,
+            rubato_types::player_config::PlayerConfig::default(),
+        );
+        r.set_score_data(crate::core::score_data::ScoreData::default());
+        r.set_replay_data(crate::core::replay_data::ReplayData::default());
+        r
     }
 
     fn make_result_for_mouse() -> MusicResult {
         let config = make_test_config("music-result");
         let main = MainController::new(config.clone(), make_ranking_cache());
         let resource = PlayerResource::new(
-            Box::new(MouseResultResourceAccess::new(config)),
+            make_test_core_resource(config),
             crate::state::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
         );
         MusicResult::new(main, resource, TimerManager::new())
@@ -2115,7 +1900,7 @@ mod tests {
         let main =
             MainController::with_ir_statuses(config.clone(), make_ranking_cache(), ir_statuses);
         let resource = PlayerResource::new(
-            Box::new(MouseResultResourceAccess::new(config)),
+            make_test_core_resource(config),
             crate::state::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
         );
         let mut mr = MusicResult::new(main, resource, TimerManager::new());
@@ -2137,12 +1922,17 @@ mod tests {
     ) -> MusicResult {
         let config = make_test_config("lnmode-result");
         let main = MainController::new(config.clone(), make_ranking_cache());
-        let mut res_access = MouseResultResourceAccess::new(config);
-        res_access.song_data = song_data;
+        let mut core_res = make_test_core_resource(config);
+        if let Some(sd) = song_data {
+            core_res.set_songdata(sd);
+        }
         // Set lnmode config to a sentinel value (99) so we can verify fallback
-        res_access.player_config.play_settings.lnmode = 99;
+        rubato_types::player_resource_access::ConfigAccess::player_config_mut(&mut core_res)
+            .unwrap()
+            .play_settings
+            .lnmode = 99;
         let resource = PlayerResource::new(
-            Box::new(res_access),
+            core_res,
             crate::state::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
         );
         MusicResult::new(main, resource, TimerManager::new())
@@ -2330,7 +2120,7 @@ mod tests {
         config.audio = Some(rubato_types::audio_config::AudioConfig::default());
         let main = MainController::new(config.clone(), make_ranking_cache());
         let resource = PlayerResource::new(
-            Box::new(MouseResultResourceAccess::new(config)),
+            make_test_core_resource(config),
             crate::state::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
         );
         let mut mr = MusicResult::new(main, resource, TimerManager::new());
@@ -2361,7 +2151,7 @@ mod tests {
         config.audio = Some(rubato_types::audio_config::AudioConfig::default());
         let main = MainController::new(config.clone(), make_ranking_cache());
         let resource = PlayerResource::new(
-            Box::new(MouseResultResourceAccess::new(config)),
+            make_test_core_resource(config),
             crate::state::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
         );
         let mut mr = MusicResult::new(main, resource, TimerManager::new());

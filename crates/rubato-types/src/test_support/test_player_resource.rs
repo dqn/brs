@@ -4,7 +4,6 @@
 //! single builder-based struct that covers both "return canned data" and "record
 //! mutations for assertions" patterns.
 
-use std::any::Any;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 
@@ -466,11 +465,7 @@ impl MediaAccess for TestPlayerResource {
     }
 }
 
-impl PlayerResourceAccess for TestPlayerResource {
-    fn into_any_send(self: Box<Self>) -> Box<dyn Any + Send> {
-        self
-    }
-}
+impl PlayerResourceAccess for TestPlayerResource {}
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -603,16 +598,6 @@ mod tests {
 
         res.course_gauge_mut().clear();
         assert!(res.course_gauge().is_empty());
-    }
-
-    #[test]
-    fn into_any_send_downcast_roundtrip() {
-        let res = TestPlayerResource::new().with_bms_file_result(true);
-        let boxed: Box<dyn PlayerResourceAccess> = Box::new(res);
-        let any = boxed.into_any_send();
-        let recovered = any.downcast::<TestPlayerResource>();
-        assert!(recovered.is_ok());
-        assert!(recovered.unwrap().bms_file_result);
     }
 
     #[test]

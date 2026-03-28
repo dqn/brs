@@ -1,21 +1,21 @@
-// PlayerResource wrapper delegating to Box<dyn PlayerResourceAccess>.
+// PlayerResource wrapper delegating to concrete CorePlayerResource.
 
 use crate::core::config::Config;
+use crate::core::player_resource::PlayerResource as CorePlayerResource;
 use crate::core::replay_data::ReplayData;
 use crate::song::song_data::SongData;
 use bms::model::mode::Mode;
-use rubato_types::player_resource_access::{NullPlayerResource, PlayerResourceAccess};
 
 /// Wrapper for bms.player.beatoraja.PlayerResource.
-/// Delegates to `Box<dyn PlayerResourceAccess>` for trait methods.
+/// Delegates to concrete `CorePlayerResource` for trait methods.
 /// `original_mode()` is crate-local (not on trait, since Mode lives in bms-model).
 pub struct PlayerResource {
-    pub(crate) inner: Box<dyn PlayerResourceAccess>,
+    pub(crate) inner: CorePlayerResource,
     original_mode: Mode,
 }
 
 impl PlayerResource {
-    pub fn new(inner: Box<dyn PlayerResourceAccess>, original_mode: Mode) -> Self {
+    pub fn new(inner: CorePlayerResource, original_mode: Mode) -> Self {
         Self {
             inner,
             original_mode,
@@ -46,7 +46,10 @@ impl PlayerResource {
 impl Default for PlayerResource {
     fn default() -> Self {
         Self {
-            inner: Box::new(NullPlayerResource::new()),
+            inner: CorePlayerResource::new(
+                rubato_types::config::Config::default(),
+                rubato_types::player_config::PlayerConfig::default(),
+            ),
             original_mode: Mode::BEAT_7K,
         }
     }

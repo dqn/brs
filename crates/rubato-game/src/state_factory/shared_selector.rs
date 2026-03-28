@@ -144,7 +144,7 @@ impl MainState for SharedMusicSelectorState {
         self.with_selector(|selector| selector.input_with_game_context(ctx))
     }
 
-    fn take_player_resource_box(&mut self) -> Option<Box<dyn std::any::Any + Send>> {
-        self.with_selector(|selector| selector.take_player_resource_box())
+    fn take_player_resource(&mut self) -> Option<crate::core::player_resource::PlayerResource> {
+        self.with_selector(|selector| selector.take_player_resource())
     }
 }

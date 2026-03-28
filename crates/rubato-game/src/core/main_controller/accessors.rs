@@ -127,10 +127,8 @@ impl MainController {
         self.resource.as_ref()
     }
 
-    pub fn player_resource_mut(&mut self) -> Option<&mut dyn PlayerResourceAccess> {
-        self.resource
-            .as_mut()
-            .map(|r| r as &mut dyn PlayerResourceAccess)
+    pub fn player_resource_mut(&mut self) -> Option<&mut PlayerResource> {
+        self.resource.as_mut()
     }
 
     /// Take the PlayerResource out of MainController (leaving None).

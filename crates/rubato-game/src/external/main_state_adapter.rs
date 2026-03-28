@@ -23,7 +23,7 @@ impl rubato_types::main_state_access::MainStateAccess for MainState {
     }
 
     fn resource(&self) -> Option<&dyn rubato_types::player_resource_access::PlayerResourceAccess> {
-        Some(&*self.resource.inner)
+        Some(&self.resource.inner)
     }
 
     fn config(&self) -> &Config {

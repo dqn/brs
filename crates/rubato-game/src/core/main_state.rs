@@ -338,11 +338,11 @@ pub trait MainState {
         None
     }
 
-    /// Take the PlayerResource (type-erased) from this state.
+    /// Take the PlayerResource from this state.
     ///
     /// Called during state transition so MainController can restore the resource.
     /// States that received a PlayerResource via the factory override this to return it.
-    fn take_player_resource_box(&mut self) -> Option<Box<dyn std::any::Any + Send>> {
+    fn take_player_resource(&mut self) -> Option<crate::core::player_resource::PlayerResource> {
         None
     }
 

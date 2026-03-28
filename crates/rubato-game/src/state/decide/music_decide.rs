@@ -11,7 +11,9 @@ use rubato_types::property_snapshot::PropertySnapshot;
 use rubato_types::skin_action_queue::SkinActionQueue;
 use rubato_types::timer_id::TimerId;
 
-use super::{ControlKeys, NullPlayerResource, PlayerResourceAccess};
+use super::ControlKeys;
+use crate::core::player_resource::PlayerResource as CorePlayerResource;
+use rubato_types::player_resource_access::{ConfigAccess, PlayerStateAccess};
 
 /// Render context adapter for decide screen skin rendering.
 /// Provides config access through SkinRenderContext.
@@ -19,7 +21,7 @@ use super::{ControlKeys, NullPlayerResource, PlayerResourceAccess};
 #[cfg_attr(not(test), allow(dead_code))]
 struct DecideRenderContext<'a> {
     timer: &'a mut TimerManager,
-    resource: &'a mut dyn PlayerResourceAccess,
+    resource: &'a mut CorePlayerResource,
     config: &'a rubato_types::config::Config,
     score_data_property: &'a rubato_types::score_data_property::ScoreDataProperty,
     offsets: &'a std::collections::HashMap<i32, rubato_types::skin_offset::SkinOffset>,
@@ -525,54 +527,28 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideRenderContex
                 .map_or(i32::MIN, |s| (s.chart.length.max(0) / 1000) % 60),
             // Cumulative playtime (hours/minutes/seconds from PlayerData, in seconds)
             // Java: PlayerData.getPlaytime() / 3600, / 60 % 60, % 60
-            17 => self
-                .resource
-                .player_data()
-                .map_or(0, |data| (data.playtime / 3600) as i32),
-            18 => self
-                .resource
-                .player_data()
-                .map_or(0, |data| ((data.playtime / 60) % 60) as i32),
-            19 => self
-                .resource
-                .player_data()
-                .map_or(0, |data| (data.playtime % 60) as i32),
+            17 => (self.resource.player_data().playtime / 3600) as i32,
+            18 => ((self.resource.player_data().playtime / 60) % 60) as i32,
+            19 => (self.resource.player_data().playtime % 60) as i32,
             // ---- Player profile stats (IDs 30-37, 333) ----
             // Java: state.resource.getPlayerData().getPlaycount() etc.
             // Available on all screens (global IntegerPropertyFactory).
-            30 => self
-                .resource
-                .player_data()
-                .map_or(0, |pd| pd.playcount as i32),
-            31 => self.resource.player_data().map_or(0, |pd| pd.clear as i32),
-            32 => self
-                .resource
-                .player_data()
-                .map_or(0, |pd| (pd.playcount - pd.clear) as i32),
-            33 => self
-                .resource
-                .player_data()
-                .map_or(0, |pd| pd.judge_count(0) as i32),
-            34 => self
-                .resource
-                .player_data()
-                .map_or(0, |pd| pd.judge_count(1) as i32),
-            35 => self
-                .resource
-                .player_data()
-                .map_or(0, |pd| pd.judge_count(2) as i32),
-            36 => self
-                .resource
-                .player_data()
-                .map_or(0, |pd| pd.judge_count(3) as i32),
-            37 => self
-                .resource
-                .player_data()
-                .map_or(0, |pd| pd.judge_count(4) as i32),
-            333 => self.resource.player_data().map_or(0, |pd| {
+            30 => self.resource.player_data().playcount as i32,
+            31 => self.resource.player_data().clear as i32,
+            32 => {
+                let pd = self.resource.player_data();
+                (pd.playcount - pd.clear) as i32
+            }
+            33 => self.resource.player_data().judge_count(0) as i32,
+            34 => self.resource.player_data().judge_count(1) as i32,
+            35 => self.resource.player_data().judge_count(2) as i32,
+            36 => self.resource.player_data().judge_count(3) as i32,
+            37 => self.resource.player_data().judge_count(4) as i32,
+            333 => {
+                let pd = self.resource.player_data();
                 let total: i64 = (0..=3).map(|judge| pd.judge_count(judge)).sum();
                 total.min(i32::MAX as i64) as i32
-            }),
+            }
             // IDs 20-29 (FPS, system date/time, boot time) handled by default_integer_value
             _ => self.default_integer_value(id),
         }
@@ -614,7 +590,7 @@ impl rubato_skin::reexports::MainState for DecideRenderContext<'_> {}
 struct DecideMouseContext<'a> {
     timer: &'a mut TimerManager,
     config: &'a rubato_types::config::Config,
-    resource: &'a mut dyn PlayerResourceAccess,
+    resource: &'a mut CorePlayerResource,
     score_data_property: &'a rubato_types::score_data_property::ScoreDataProperty,
     offsets: &'a std::collections::HashMap<i32, rubato_types::skin_offset::SkinOffset>,
     /// Events collected during mouse handling for deferred dispatch.
@@ -1025,56 +1001,30 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideMouseContext
                 .songdata()
                 .map_or(i32::MIN, |s| (s.chart.length.max(0) / 1000) % 60),
             // Cumulative playtime (hours/minutes/seconds from PlayerData, in seconds)
-            17 => self
-                .resource
-                .player_data()
-                .map_or(0, |data| (data.playtime / 3600) as i32),
-            18 => self
-                .resource
-                .player_data()
-                .map_or(0, |data| ((data.playtime / 60) % 60) as i32),
-            19 => self
-                .resource
-                .player_data()
-                .map_or(0, |data| (data.playtime % 60) as i32),
+            17 => (self.resource.player_data().playtime / 3600) as i32,
+            18 => ((self.resource.player_data().playtime / 60) % 60) as i32,
+            19 => (self.resource.player_data().playtime % 60) as i32,
             // Chart level
             96 => self.resource.songdata().map_or(i32::MIN, |s| s.chart.level),
             // ---- Player profile stats (IDs 30-37, 333) ----
             // Java: state.resource.getPlayerData().getPlaycount() etc.
             // Available on all screens (global IntegerPropertyFactory).
-            30 => self
-                .resource
-                .player_data()
-                .map_or(0, |pd| pd.playcount as i32),
-            31 => self.resource.player_data().map_or(0, |pd| pd.clear as i32),
-            32 => self
-                .resource
-                .player_data()
-                .map_or(0, |pd| (pd.playcount - pd.clear) as i32),
-            33 => self
-                .resource
-                .player_data()
-                .map_or(0, |pd| pd.judge_count(0) as i32),
-            34 => self
-                .resource
-                .player_data()
-                .map_or(0, |pd| pd.judge_count(1) as i32),
-            35 => self
-                .resource
-                .player_data()
-                .map_or(0, |pd| pd.judge_count(2) as i32),
-            36 => self
-                .resource
-                .player_data()
-                .map_or(0, |pd| pd.judge_count(3) as i32),
-            37 => self
-                .resource
-                .player_data()
-                .map_or(0, |pd| pd.judge_count(4) as i32),
-            333 => self.resource.player_data().map_or(0, |pd| {
+            30 => self.resource.player_data().playcount as i32,
+            31 => self.resource.player_data().clear as i32,
+            32 => {
+                let pd = self.resource.player_data();
+                (pd.playcount - pd.clear) as i32
+            }
+            33 => self.resource.player_data().judge_count(0) as i32,
+            34 => self.resource.player_data().judge_count(1) as i32,
+            35 => self.resource.player_data().judge_count(2) as i32,
+            36 => self.resource.player_data().judge_count(3) as i32,
+            37 => self.resource.player_data().judge_count(4) as i32,
+            333 => {
+                let pd = self.resource.player_data();
                 let total: i64 = (0..=3).map(|judge| pd.judge_count(judge)).sum();
                 total.min(i32::MAX as i64) as i32
-            }),
+            }
             // IDs 20-29 (FPS, system date/time, boot time) handled by default_integer_value
             _ => self.default_integer_value(id),
         }
@@ -1178,7 +1128,7 @@ pub struct MusicDecide {
     pub data: MainStateData,
     pub config: rubato_types::config::Config,
     pending_state_change: Option<MainStateType>,
-    pub resource: Box<dyn PlayerResourceAccess>,
+    pub resource: CorePlayerResource,
     cancel: bool,
     /// Cached ScoreDataProperty for skin property delegation.
     cached_score_data_property: rubato_types::score_data_property::ScoreDataProperty,
@@ -1197,7 +1147,7 @@ pub struct MusicDecide {
 impl MusicDecide {
     pub fn new(
         config: rubato_types::config::Config,
-        resource: Box<dyn PlayerResourceAccess>,
+        resource: CorePlayerResource,
         timer: TimerManager,
     ) -> Self {
         let mut cached_score_data_property =
@@ -1281,7 +1231,7 @@ impl MusicDecide {
         s.score_data_property = self.cached_score_data_property.clone();
 
         // Player / course data
-        s.player_data = self.resource.player_data().copied();
+        s.player_data = Some(*self.resource.player_data());
         s.is_course_mode = self.resource.course_data().is_some();
         s.course_index = self.resource.course_index();
         s.course_song_count = self.resource.course_data().map_or(0, |cd| cd.hash.len());
@@ -1638,10 +1588,16 @@ impl MainState for MusicDecide {
         self.data.skin = None;
     }
 
-    fn take_player_resource_box(&mut self) -> Option<Box<dyn std::any::Any + Send>> {
-        let null: Box<dyn PlayerResourceAccess> = Box::new(NullPlayerResource::new());
-        let old = std::mem::replace(&mut self.resource, null);
-        Some(old.into_any_send())
+    fn take_player_resource(&mut self) -> Option<CorePlayerResource> {
+        // Replace with a default resource; the taken resource is returned to MainController.
+        let old = std::mem::replace(
+            &mut self.resource,
+            CorePlayerResource::new(
+                rubato_types::config::Config::default(),
+                rubato_types::player_config::PlayerConfig::default(),
+            ),
+        );
+        Some(old)
     }
 }
 
@@ -1651,7 +1607,7 @@ mod tests {
     use super::*;
     use crate::core::main_state::SkinDrawable;
     use crate::core::sprite_batch_helper::SpriteBatch;
-    use crate::state::decide::NullPlayerResource;
+    use rubato_types::player_resource_access::{ConfigAccess, SongAccess};
 
     struct TestOutbox {
         audio_plays: Vec<(String, f32, bool)>,
@@ -1823,7 +1779,10 @@ mod tests {
     fn make_decide() -> MusicDecide {
         MusicDecide::new(
             rubato_types::config::Config::default(),
-            Box::new(NullPlayerResource::new()),
+            CorePlayerResource::new(
+                rubato_types::config::Config::default(),
+                rubato_types::player_config::PlayerConfig::default(),
+            ),
             TimerManager::new(),
         )
     }
@@ -1945,6 +1904,7 @@ mod tests {
             lifecycle: LifecycleState::new(),
             exit_requested: AtomicBool::new(false),
             resource: None,
+            modmenu_outbox: std::sync::Arc::new(crate::state::modmenu::ModmenuOutbox::new()),
             transition: None,
         }
     }
@@ -2148,204 +2108,30 @@ mod tests {
         let _ = decide.main_state_data_mut();
     }
 
-    /// Mock PlayerResourceAccess that returns a SongData with a given chart.length.
-    struct SongLengthResource {
-        song: rubato_types::song_data::SongData,
-        config: rubato_types::config::Config,
-        player_config: rubato_types::player_config::PlayerConfig,
-        score: Option<crate::core::score_data::ScoreData>,
-        rival_score: Option<crate::core::score_data::ScoreData>,
-        target_score: Option<crate::core::score_data::ScoreData>,
-        replay_data: Option<rubato_types::replay_data::ReplayData>,
-        player_data: Option<rubato_types::player_data::PlayerData>,
+    /// Create a test CorePlayerResource with a SongData whose chart.length is `length`.
+    fn make_resource_with_song_length(length: i32) -> CorePlayerResource {
+        let mut resource = CorePlayerResource::new(
+            rubato_types::config::Config::default(),
+            rubato_types::player_config::PlayerConfig::default(),
+        );
+        let mut song = rubato_types::song_data::SongData::default();
+        song.chart.length = length;
+        resource.set_songdata(song);
+        resource
     }
 
-    impl SongLengthResource {
-        fn with_length_ms(length: i32) -> Self {
-            let mut song = rubato_types::song_data::SongData::default();
-            song.chart.length = length;
-            Self {
-                song,
-                config: rubato_types::config::Config::default(),
-                player_config: rubato_types::player_config::PlayerConfig::default(),
-                score: None,
-                rival_score: None,
-                target_score: None,
-                replay_data: None,
-                player_data: None,
-            }
-        }
-    }
-
-    impl rubato_types::player_resource_access::ConfigAccess for SongLengthResource {
-        fn config(&self) -> &rubato_types::config::Config {
-            &self.config
-        }
-        fn player_config(&self) -> &rubato_types::player_config::PlayerConfig {
-            &self.player_config
-        }
-    }
-
-    impl rubato_types::player_resource_access::ScoreAccess for SongLengthResource {
-        fn score_data(&self) -> Option<&crate::core::score_data::ScoreData> {
-            self.score.as_ref()
-        }
-        fn rival_score_data(&self) -> Option<&crate::core::score_data::ScoreData> {
-            self.rival_score.as_ref()
-        }
-        fn target_score_data(&self) -> Option<&crate::core::score_data::ScoreData> {
-            self.target_score.as_ref()
-        }
-        fn course_score_data(&self) -> Option<&crate::core::score_data::ScoreData> {
-            None
-        }
-        fn set_course_score_data(&mut self, _score: crate::core::score_data::ScoreData) {}
-        fn score_data_mut(&mut self) -> Option<&mut crate::core::score_data::ScoreData> {
-            None
-        }
-    }
-
-    impl rubato_types::player_resource_access::SongAccess for SongLengthResource {
-        fn songdata(&self) -> Option<&rubato_types::song_data::SongData> {
-            Some(&self.song)
-        }
-        fn songdata_mut(&mut self) -> Option<&mut rubato_types::song_data::SongData> {
-            Some(&mut self.song)
-        }
-        fn set_songdata(&mut self, _data: Option<rubato_types::song_data::SongData>) {}
-        fn course_song_data(&self) -> Vec<rubato_types::song_data::SongData> {
-            vec![]
-        }
-    }
-
-    impl rubato_types::player_resource_access::ReplayAccess for SongLengthResource {
-        fn replay_data(&self) -> Option<&rubato_types::replay_data::ReplayData> {
-            self.replay_data.as_ref()
-        }
-        fn replay_data_mut(&mut self) -> Option<&mut rubato_types::replay_data::ReplayData> {
-            self.replay_data.as_mut()
-        }
-        fn course_replay(&self) -> &[rubato_types::replay_data::ReplayData] {
-            &[]
-        }
-        fn add_course_replay(&mut self, _rd: rubato_types::replay_data::ReplayData) {}
-        fn course_replay_mut(&mut self) -> &mut Vec<rubato_types::replay_data::ReplayData> {
-            static mut EMPTY: Vec<rubato_types::replay_data::ReplayData> = Vec::new();
-            // SAFETY: only used in tests, never concurrently
-            unsafe { &mut *std::ptr::addr_of_mut!(EMPTY) }
-        }
-    }
-
-    impl rubato_types::player_resource_access::CourseAccess for SongLengthResource {
-        fn course_data(&self) -> Option<&rubato_types::course_data::CourseData> {
-            None
-        }
-        fn course_index(&self) -> usize {
-            0
-        }
-        fn next_course(&mut self) -> bool {
-            false
-        }
-        fn constraint(&self) -> Vec<rubato_types::course_data::CourseDataConstraint> {
-            vec![]
-        }
-        fn set_course_data(&mut self, _data: rubato_types::course_data::CourseData) {}
-        fn clear_course_data(&mut self) {}
-    }
-
-    impl rubato_types::player_resource_access::GaugeAccess for SongLengthResource {
-        fn gauge(&self) -> Option<&Vec<Vec<f32>>> {
-            None
-        }
-        fn groove_gauge(&self) -> Option<&rubato_types::groove_gauge::GrooveGauge> {
-            None
-        }
-        fn course_gauge(&self) -> &Vec<Vec<Vec<f32>>> {
-            static EMPTY: Vec<Vec<Vec<f32>>> = Vec::new();
-            &EMPTY
-        }
-        fn add_course_gauge(&mut self, _gauge: Vec<Vec<f32>>) {}
-        fn course_gauge_mut(&mut self) -> &mut Vec<Vec<Vec<f32>>> {
-            static mut EMPTY: Vec<Vec<Vec<f32>>> = Vec::new();
-            // SAFETY: only used in tests, never concurrently
-            unsafe { &mut *std::ptr::addr_of_mut!(EMPTY) }
-        }
-    }
-
-    impl rubato_types::player_resource_access::PlayerStateAccess for SongLengthResource {
-        fn maxcombo(&self) -> i32 {
-            0
-        }
-        fn org_gauge_option(&self) -> i32 {
-            0
-        }
-        fn set_org_gauge_option(&mut self, _val: i32) {}
-        fn assist(&self) -> i32 {
-            0
-        }
-        fn is_update_score(&self) -> bool {
-            false
-        }
-        fn is_update_course_score(&self) -> bool {
-            false
-        }
-        fn is_force_no_ir_send(&self) -> bool {
-            false
-        }
-        fn is_freq_on(&self) -> bool {
-            false
-        }
-    }
-
-    impl rubato_types::player_resource_access::SessionMutation for SongLengthResource {
-        fn clear(&mut self) {}
-        fn set_bms_file(
-            &mut self,
-            _path: &std::path::Path,
-            _mode_type: i32,
-            _mode_id: i32,
-        ) -> bool {
-            false
-        }
-        fn set_course_bms_files(&mut self, _files: &[std::path::PathBuf]) -> bool {
-            false
-        }
-        fn set_tablename(&mut self, _name: &str) {}
-        fn set_tablelevel(&mut self, _level: &str) {}
-        fn set_rival_score_data_option(
-            &mut self,
-            _score: Option<crate::core::score_data::ScoreData>,
-        ) {
-        }
-        fn set_chart_option_data(
-            &mut self,
-            _option: Option<rubato_types::replay_data::ReplayData>,
-        ) {
-        }
-    }
-
-    impl rubato_types::player_resource_access::MediaAccess for SongLengthResource {
-        fn reverse_lookup_data(&self) -> Vec<String> {
-            vec![]
-        }
-        fn reverse_lookup_levels(&self) -> Vec<String> {
-            vec![]
-        }
-        fn player_data(&self) -> Option<&rubato_types::player_data::PlayerData> {
-            self.player_data.as_ref()
-        }
-    }
-
-    impl PlayerResourceAccess for SongLengthResource {
-        fn into_any_send(self: Box<Self>) -> Box<dyn std::any::Any + Send> {
-            self
-        }
+    /// Create a default test CorePlayerResource (no song data).
+    fn make_default_resource() -> CorePlayerResource {
+        CorePlayerResource::new(
+            rubato_types::config::Config::default(),
+            rubato_types::player_config::PlayerConfig::default(),
+        )
     }
 
     #[test]
     fn decide_render_context_song_duration_minutes_seconds() {
         // 150_000 ms = 2 minutes 30 seconds
-        let mut resource = SongLengthResource::with_length_ms(150_000);
+        let mut resource = make_resource_with_song_length(150_000);
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
         let mut outbox = TestOutbox::new();
@@ -2374,7 +2160,7 @@ mod tests {
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
         let mut outbox = TestOutbox::new();
-        let mut resource = NullPlayerResource::new();
+        let mut resource = make_default_resource();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
@@ -2396,7 +2182,7 @@ mod tests {
 
     #[test]
     fn decide_render_context_song_data_ref_returns_songdata() {
-        let mut resource = SongLengthResource::with_length_ms(100_000);
+        let mut resource = make_resource_with_song_length(100_000);
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
         let mut outbox = TestOutbox::new();
@@ -2421,7 +2207,7 @@ mod tests {
 
     #[test]
     fn decide_render_context_song_data_ref_none_when_no_song() {
-        let mut resource = NullPlayerResource::new();
+        let mut resource = make_default_resource();
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
         let mut outbox = TestOutbox::new();
@@ -2445,8 +2231,8 @@ mod tests {
 
     #[test]
     fn decide_render_context_current_play_config_ref_for_7k() {
-        let mut resource = SongLengthResource::with_length_ms(0);
-        resource.song.chart.mode = 7;
+        let mut resource = make_resource_with_song_length(0);
+        resource.songdata_mut().unwrap().chart.mode = 7;
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
         let mut outbox = TestOutbox::new();
@@ -2470,8 +2256,8 @@ mod tests {
 
     #[test]
     fn decide_render_context_current_play_config_ref_none_for_unknown_mode() {
-        let mut resource = SongLengthResource::with_length_ms(0);
-        resource.song.chart.mode = 999;
+        let mut resource = make_resource_with_song_length(0);
+        resource.songdata_mut().unwrap().chart.mode = 999;
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
         let mut outbox = TestOutbox::new();
@@ -2495,7 +2281,7 @@ mod tests {
 
     #[test]
     fn decide_render_context_current_play_config_ref_none_when_no_songdata() {
-        let mut resource = NullPlayerResource::new();
+        let mut resource = make_default_resource();
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
         let mut outbox = TestOutbox::new();
@@ -2519,8 +2305,8 @@ mod tests {
 
     #[test]
     fn decide_render_context_favorite_image_index_uses_song_data_ref() {
-        let mut resource = SongLengthResource::with_length_ms(0);
-        resource.song.favorite = rubato_types::song_data::FAVORITE_SONG;
+        let mut resource = make_resource_with_song_length(0);
+        resource.songdata_mut().unwrap().favorite = rubato_types::song_data::FAVORITE_SONG;
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
         let mut outbox = TestOutbox::new();
@@ -2545,13 +2331,13 @@ mod tests {
 
     #[test]
     fn decide_render_context_mainbpm_from_song_information() {
-        let mut resource = SongLengthResource::with_length_ms(0);
-        resource.song.chart.maxbpm = 200;
-        resource.song.chart.minbpm = 100;
+        let mut resource = make_resource_with_song_length(0);
+        resource.songdata_mut().unwrap().chart.maxbpm = 200;
+        resource.songdata_mut().unwrap().chart.minbpm = 100;
         // Set SongInformation with mainbpm = 160
         let mut info = rubato_types::song_information::SongInformation::default();
         info.mainbpm = 160.0;
-        resource.song.info = Some(info);
+        resource.songdata_mut().unwrap().info = Some(info);
 
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
@@ -2579,8 +2365,8 @@ mod tests {
     fn decide_render_context_mainbpm_no_info_returns_min_value() {
         // When SongInformation is absent, Java returns Integer.MIN_VALUE
         // so skin renderers hide the value.
-        let mut resource = SongLengthResource::with_length_ms(0);
-        resource.song.chart.maxbpm = 180;
+        let mut resource = make_resource_with_song_length(0);
+        resource.songdata_mut().unwrap().chart.maxbpm = 180;
         // No SongInformation set -> should return i32::MIN, not maxbpm
 
         let mut timer = TimerManager::new();
@@ -2607,7 +2393,7 @@ mod tests {
     #[test]
     fn decide_render_context_mainbpm_no_songdata_returns_min_value() {
         // When songdata is absent, Java returns Integer.MIN_VALUE.
-        let mut resource = NullPlayerResource::new();
+        let mut resource = make_default_resource();
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
         let mut outbox = TestOutbox::new();
@@ -2633,7 +2419,7 @@ mod tests {
     fn decide_render_context_maxbpm_no_songdata_returns_min_value() {
         // When songdata is absent, ID 90 (maxbpm) should return i32::MIN
         // so skin renderers hide the value, matching select screen behavior.
-        let mut resource = NullPlayerResource::new();
+        let mut resource = make_default_resource();
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
         let mut outbox = TestOutbox::new();
@@ -2659,7 +2445,7 @@ mod tests {
     fn decide_render_context_minbpm_no_songdata_returns_min_value() {
         // When songdata is absent, ID 91 (minbpm) should return i32::MIN
         // so skin renderers hide the value, matching select screen behavior.
-        let mut resource = NullPlayerResource::new();
+        let mut resource = make_default_resource();
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
         let mut outbox = TestOutbox::new();
@@ -2683,8 +2469,8 @@ mod tests {
 
     #[test]
     fn decide_render_context_maxbpm_with_songdata_returns_value() {
-        let mut resource = SongLengthResource::with_length_ms(0);
-        resource.song.chart.maxbpm = 200;
+        let mut resource = make_resource_with_song_length(0);
+        resource.songdata_mut().unwrap().chart.maxbpm = 200;
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
         let mut outbox = TestOutbox::new();
@@ -2708,8 +2494,8 @@ mod tests {
 
     #[test]
     fn decide_render_context_minbpm_with_songdata_returns_value() {
-        let mut resource = SongLengthResource::with_length_ms(0);
-        resource.song.chart.minbpm = 120;
+        let mut resource = make_resource_with_song_length(0);
+        resource.songdata_mut().unwrap().chart.minbpm = 120;
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
         let mut outbox = TestOutbox::new();
@@ -2735,7 +2521,7 @@ mod tests {
     fn decide_render_context_negative_length_clamped_to_zero() {
         // Negative chart.length should be clamped to 0, not produce
         // negative minutes/seconds.
-        let mut resource = SongLengthResource::with_length_ms(-120_000);
+        let mut resource = make_resource_with_song_length(-120_000);
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
         let mut outbox = TestOutbox::new();
@@ -2772,8 +2558,8 @@ mod tests {
 
     #[test]
     fn decide_render_context_lnmode_308_override_longnote() {
-        let mut resource = SongLengthResource::with_length_ms(0);
-        resource.song.chart.feature = rubato_types::song_data::FEATURE_LONGNOTE;
+        let mut resource = make_resource_with_song_length(0);
+        resource.songdata_mut().unwrap().chart.feature = rubato_types::song_data::FEATURE_LONGNOTE;
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
         let mut outbox = TestOutbox::new();
@@ -2801,8 +2587,9 @@ mod tests {
 
     #[test]
     fn decide_render_context_lnmode_308_override_chargenote() {
-        let mut resource = SongLengthResource::with_length_ms(0);
-        resource.song.chart.feature = rubato_types::song_data::FEATURE_CHARGENOTE;
+        let mut resource = make_resource_with_song_length(0);
+        resource.songdata_mut().unwrap().chart.feature =
+            rubato_types::song_data::FEATURE_CHARGENOTE;
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
         let mut outbox = TestOutbox::new();
@@ -2830,8 +2617,9 @@ mod tests {
 
     #[test]
     fn decide_render_context_lnmode_308_override_hellchargenote() {
-        let mut resource = SongLengthResource::with_length_ms(0);
-        resource.song.chart.feature = rubato_types::song_data::FEATURE_HELLCHARGENOTE;
+        let mut resource = make_resource_with_song_length(0);
+        resource.songdata_mut().unwrap().chart.feature =
+            rubato_types::song_data::FEATURE_HELLCHARGENOTE;
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
         let mut outbox = TestOutbox::new();
@@ -2860,7 +2648,7 @@ mod tests {
     #[test]
     fn decide_render_context_lnmode_308_no_override_falls_through() {
         // No LN features -> falls through to config-based default
-        let mut resource = SongLengthResource::with_length_ms(0);
+        let mut resource = make_resource_with_song_length(0);
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
         let mut outbox = TestOutbox::new();
@@ -2891,8 +2679,9 @@ mod tests {
     #[test]
     fn decide_render_context_lnmode_308_undefined_ln_falls_through() {
         // UNDEFINEDLN set -> no override (has_undefined_long_note is true)
-        let mut resource = SongLengthResource::with_length_ms(0);
-        resource.song.chart.feature = rubato_types::song_data::FEATURE_UNDEFINEDLN;
+        let mut resource = make_resource_with_song_length(0);
+        resource.songdata_mut().unwrap().chart.feature =
+            rubato_types::song_data::FEATURE_UNDEFINEDLN;
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
         let mut outbox = TestOutbox::new();
@@ -2921,7 +2710,7 @@ mod tests {
 
     #[test]
     fn decide_render_context_lnmode_308_no_songdata_falls_through() {
-        let mut resource = NullPlayerResource::new();
+        let mut resource = make_default_resource();
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
         let mut outbox = TestOutbox::new();
@@ -2961,10 +2750,10 @@ mod tests {
         // Regression: image_index_value(370) must return the clear type from
         // score_data_ref, not -1. Without score_data_ref delegation, the
         // default trait method returns None and 370 maps to -1.
-        let mut resource = SongLengthResource::with_length_ms(0);
+        let mut resource = make_resource_with_song_length(0);
         let mut score = crate::core::score_data::ScoreData::default();
         score.clear = 5; // e.g. ClearType::FullCombo
-        resource.score = Some(score);
+        resource.set_score_data(score);
 
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
@@ -2994,7 +2783,7 @@ mod tests {
     #[test]
     fn decide_render_context_image_index_370_no_score_returns_minus_one() {
         // When no score data is available, 370 should still return -1.
-        let mut resource = SongLengthResource::with_length_ms(0);
+        let mut resource = make_resource_with_song_length(0);
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
         let mut outbox = TestOutbox::new();
@@ -3026,10 +2815,10 @@ mod tests {
 
     #[test]
     fn decide_mouse_context_score_data_ref_delegates_to_resource() {
-        let mut resource = SongLengthResource::with_length_ms(0);
+        let mut resource = make_resource_with_song_length(0);
         let mut score = crate::core::score_data::ScoreData::default();
         score.clear = 4;
-        resource.score = Some(score);
+        resource.set_score_data(score);
 
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
@@ -3059,8 +2848,8 @@ mod tests {
 
     #[test]
     fn decide_mouse_context_song_data_ref_delegates_to_resource() {
-        let mut resource = SongLengthResource::with_length_ms(0);
-        resource.song.metadata.title = "DecideTest".to_string();
+        let mut resource = make_resource_with_song_length(0);
+        resource.songdata_mut().unwrap().metadata.title = "DecideTest".to_string();
 
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
@@ -3090,8 +2879,8 @@ mod tests {
 
     #[test]
     fn decide_mouse_context_current_play_config_ref_delegates_for_7k() {
-        let mut resource = SongLengthResource::with_length_ms(0);
-        resource.song.chart.mode = 7;
+        let mut resource = make_resource_with_song_length(0);
+        resource.songdata_mut().unwrap().chart.mode = 7;
 
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
@@ -3119,9 +2908,9 @@ mod tests {
 
     #[test]
     fn decide_mouse_context_integer_value_delegates_bpm_ids() {
-        let mut resource = SongLengthResource::with_length_ms(150_000);
-        resource.song.chart.maxbpm = 200;
-        resource.song.chart.minbpm = 100;
+        let mut resource = make_resource_with_song_length(150_000);
+        resource.songdata_mut().unwrap().chart.maxbpm = 200;
+        resource.songdata_mut().unwrap().chart.minbpm = 100;
 
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
@@ -3157,9 +2946,10 @@ mod tests {
     fn decide_mouse_context_image_index_value_delegates_lnmode() {
         // Set lnmode config to a non-zero sentinel so we can distinguish
         // the chart-based override (CHARGENOTE -> 1) from the config fallback.
-        let mut resource = SongLengthResource::with_length_ms(0);
-        resource.song.chart.feature = rubato_types::song_data::FEATURE_CHARGENOTE;
-        resource.player_config.play_settings.lnmode = 99;
+        let mut resource = make_resource_with_song_length(0);
+        resource.songdata_mut().unwrap().chart.feature =
+            rubato_types::song_data::FEATURE_CHARGENOTE;
+        resource.player_config_mut().unwrap().play_settings.lnmode = 99;
 
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
@@ -3188,8 +2978,8 @@ mod tests {
 
     #[test]
     fn decide_mouse_context_string_value_delegates_title() {
-        let mut resource = SongLengthResource::with_length_ms(0);
-        resource.song.metadata.title = "DecideTitle".to_string();
+        let mut resource = make_resource_with_song_length(0);
+        resource.songdata_mut().unwrap().metadata.title = "DecideTitle".to_string();
 
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
@@ -3220,8 +3010,8 @@ mod tests {
 
     #[test]
     fn decide_render_context_integer_value_chart_level() {
-        let mut resource = SongLengthResource::with_length_ms(0);
-        resource.song.chart.level = 12;
+        let mut resource = make_resource_with_song_length(0);
+        resource.songdata_mut().unwrap().chart.level = 12;
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
         let mut outbox = TestOutbox::new();
@@ -3249,7 +3039,7 @@ mod tests {
 
     #[test]
     fn decide_render_context_integer_value_chart_level_no_songdata() {
-        let mut resource = NullPlayerResource::new();
+        let mut resource = make_default_resource();
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
         let mut outbox = TestOutbox::new();
@@ -3284,7 +3074,7 @@ mod tests {
         let mut config = rubato_types::config::Config::default();
         config.audio = Some(rubato_types::audio_config::AudioConfig::default());
         let mut timer = TimerManager::new();
-        let mut resource = NullPlayerResource::new();
+        let mut resource = make_default_resource();
         let mut outbox = TestOutbox::new();
         {
             let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
@@ -3319,7 +3109,7 @@ mod tests {
         let mut config = rubato_types::config::Config::default();
         config.audio = Some(rubato_types::audio_config::AudioConfig::default());
         let mut timer = TimerManager::new();
-        let mut resource = NullPlayerResource::new();
+        let mut resource = make_default_resource();
         let mut outbox = TestOutbox::new();
         {
             let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
@@ -3354,7 +3144,7 @@ mod tests {
         let mut config = rubato_types::config::Config::default();
         config.audio = Some(rubato_types::audio_config::AudioConfig::default());
         let mut timer = TimerManager::new();
-        let mut resource = NullPlayerResource::new();
+        let mut resource = make_default_resource();
         let mut outbox = TestOutbox::new();
         {
             let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
@@ -3389,7 +3179,7 @@ mod tests {
         let mut config = rubato_types::config::Config::default();
         config.audio = Some(rubato_types::audio_config::AudioConfig::default());
         let mut timer = TimerManager::new();
-        let mut resource = NullPlayerResource::new();
+        let mut resource = make_default_resource();
         let mut outbox = TestOutbox::new();
         {
             let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
@@ -3424,7 +3214,7 @@ mod tests {
         let mut config = rubato_types::config::Config::default();
         config.audio = Some(rubato_types::audio_config::AudioConfig::default());
         let mut timer = TimerManager::new();
-        let mut resource = NullPlayerResource::new();
+        let mut resource = make_default_resource();
         let mut outbox = TestOutbox::new();
         {
             let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
@@ -3457,7 +3247,7 @@ mod tests {
         audio.systemvolume = 0.42;
         config.audio = Some(audio);
         let mut timer = TimerManager::new();
-        let mut resource = NullPlayerResource::new();
+        let mut resource = make_default_resource();
         let mut outbox = TestOutbox::new();
         {
             let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
@@ -3493,7 +3283,7 @@ mod tests {
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
         let mut outbox = TestOutbox::new();
-        let mut resource = NullPlayerResource::new();
+        let mut resource = make_default_resource();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let mut ctx = DecideMouseContext {
             timer: &mut timer,
@@ -3519,7 +3309,7 @@ mod tests {
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
         let mut outbox = TestOutbox::new();
-        let mut resource = NullPlayerResource::new();
+        let mut resource = make_default_resource();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let mut ctx = DecideMouseContext {
             timer: &mut timer,
@@ -3546,7 +3336,7 @@ mod tests {
     #[test]
     fn decide_render_context_replay_option_data_returns_none_without_replay() {
         // Regression: DecideRenderContext must delegate replay_option_data to resource.
-        let mut resource = SongLengthResource::with_length_ms(100_000);
+        let mut resource = make_resource_with_song_length(100_000);
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
         let mut outbox = TestOutbox::new();
@@ -3574,10 +3364,10 @@ mod tests {
     #[test]
     fn decide_render_context_replay_option_data_returns_some_with_replay() {
         // Regression: DecideRenderContext must delegate replay_option_data to resource.
-        let mut resource = SongLengthResource::with_length_ms(100_000);
+        let mut resource = make_resource_with_song_length(100_000);
         let mut rd = rubato_types::replay_data::ReplayData::default();
         rd.randomoption = 3; // RANDOM option
-        resource.replay_data = Some(rd);
+        resource.set_replay_data(rd);
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
         let mut outbox = TestOutbox::new();
@@ -3608,7 +3398,7 @@ mod tests {
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
         let mut outbox = TestOutbox::new();
-        let mut resource = NullPlayerResource::new();
+        let mut resource = make_default_resource();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideMouseContext {
             timer: &mut timer,
@@ -3633,10 +3423,10 @@ mod tests {
     #[test]
     fn decide_mouse_context_replay_option_data_returns_some_with_replay() {
         // Regression: DecideMouseContext must delegate replay_option_data to resource.
-        let mut resource = SongLengthResource::with_length_ms(100_000);
+        let mut resource = make_resource_with_song_length(100_000);
         let mut rd = rubato_types::replay_data::ReplayData::default();
         rd.doubleoption = 2; // DP option
-        resource.replay_data = Some(rd);
+        resource.set_replay_data(rd);
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
         let mut outbox = TestOutbox::new();
@@ -3665,8 +3455,8 @@ mod tests {
     // Player profile stats (IDs 30-37, 333) tests
     // ============================================================
 
-    fn make_player_data_resource() -> SongLengthResource {
-        let mut resource = SongLengthResource::with_length_ms(100_000);
+    fn make_player_data_resource() -> CorePlayerResource {
+        let mut resource = make_resource_with_song_length(100_000);
         let mut pd = rubato_types::player_data::PlayerData::new();
         pd.playcount = 100;
         pd.clear = 75;
@@ -3685,7 +3475,7 @@ mod tests {
         // PR: epr=8, lpr=2 => judge_count(4)=10
         pd.epr = 8;
         pd.lpr = 2;
-        resource.player_data = Some(pd);
+        resource.playerdata = pd;
         resource
     }
 
@@ -3724,7 +3514,7 @@ mod tests {
 
     #[test]
     fn decide_render_context_player_profile_stats_no_player_data() {
-        let mut resource = SongLengthResource::with_length_ms(100_000);
+        let mut resource = make_resource_with_song_length(100_000);
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
         let mut outbox = TestOutbox::new();
@@ -3795,11 +3585,11 @@ mod tests {
 
     #[test]
     fn decide_render_context_target_score_data_delegates_to_resource() {
-        let mut resource = SongLengthResource::with_length_ms(100_000);
+        let mut resource = make_resource_with_song_length(100_000);
         let mut target = crate::core::score_data::ScoreData::default();
         target.notes = 999;
         target.judge_counts.epg = 500;
-        resource.target_score = Some(target);
+        resource.set_target_score_data(target);
 
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
@@ -3829,11 +3619,11 @@ mod tests {
 
     #[test]
     fn decide_render_context_rival_score_data_ref_delegates_to_resource() {
-        let mut resource = SongLengthResource::with_length_ms(100_000);
+        let mut resource = make_resource_with_song_length(100_000);
         let mut rival = crate::core::score_data::ScoreData::default();
         rival.notes = 777;
         rival.judge_counts.egr = 200;
-        resource.rival_score = Some(rival);
+        resource.set_rival_score_data(rival);
 
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
@@ -3863,7 +3653,7 @@ mod tests {
 
     #[test]
     fn decide_render_context_target_and_rival_none_when_absent() {
-        let mut resource = SongLengthResource::with_length_ms(100_000);
+        let mut resource = make_resource_with_song_length(100_000);
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
         let mut outbox = TestOutbox::new();
@@ -3888,10 +3678,10 @@ mod tests {
 
     #[test]
     fn decide_mouse_context_target_score_data_delegates_to_resource() {
-        let mut resource = SongLengthResource::with_length_ms(100_000);
+        let mut resource = make_resource_with_song_length(100_000);
         let mut target = crate::core::score_data::ScoreData::default();
         target.notes = 888;
-        resource.target_score = Some(target);
+        resource.set_target_score_data(target);
 
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
@@ -3921,10 +3711,10 @@ mod tests {
 
     #[test]
     fn decide_mouse_context_rival_score_data_ref_delegates_to_resource() {
-        let mut resource = SongLengthResource::with_length_ms(100_000);
+        let mut resource = make_resource_with_song_length(100_000);
         let mut rival = crate::core::score_data::ScoreData::default();
         rival.notes = 666;
-        resource.rival_score = Some(rival);
+        resource.set_rival_score_data(rival);
 
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
@@ -3958,11 +3748,11 @@ mod tests {
 
     #[test]
     fn decide_render_context_integer_value_exscore_71() {
-        let mut resource = SongLengthResource::with_length_ms(0);
+        let mut resource = make_resource_with_song_length(0);
         let mut score = crate::core::score_data::ScoreData::new(bms::model::mode::Mode::BEAT_7K);
         score.judge_counts.epg = 50;
         score.notes = 100;
-        resource.score = Some(score.clone());
+        resource.set_score_data(score.clone());
 
         let mut sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         sdp.update_score(Some(&score));
@@ -3994,14 +3784,14 @@ mod tests {
 
     #[test]
     fn decide_render_context_integer_value_judge_counts_80_84() {
-        let mut resource = SongLengthResource::with_length_ms(0);
+        let mut resource = make_resource_with_song_length(0);
         let mut score = crate::core::score_data::ScoreData::new(bms::model::mode::Mode::BEAT_7K);
         score.judge_counts.epg = 10;
         score.judge_counts.lpg = 5;
         score.judge_counts.egr = 3;
         score.judge_counts.lgr = 2;
         score.notes = 100;
-        resource.score = Some(score.clone());
+        resource.set_score_data(score.clone());
 
         let mut sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         sdp.update_score(Some(&score));
@@ -4039,11 +3829,11 @@ mod tests {
 
     #[test]
     fn decide_render_context_integer_value_score_rate_102_103() {
-        let mut resource = SongLengthResource::with_length_ms(0);
+        let mut resource = make_resource_with_song_length(0);
         let mut score = crate::core::score_data::ScoreData::new(bms::model::mode::Mode::BEAT_7K);
         score.judge_counts.epg = 50;
         score.notes = 100;
-        resource.score = Some(score.clone());
+        resource.set_score_data(score.clone());
 
         let mut sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         sdp.update_score(Some(&score));
@@ -4082,9 +3872,14 @@ mod tests {
 
     #[test]
     fn decide_render_context_integer_value_hispeed_10() {
-        let mut resource = SongLengthResource::with_length_ms(0);
-        resource.song.chart.mode = 7;
-        resource.player_config.mode7.playconfig.hispeed = 2.5;
+        let mut resource = make_resource_with_song_length(0);
+        resource.songdata_mut().unwrap().chart.mode = 7;
+        resource
+            .player_config_mut()
+            .unwrap()
+            .mode7
+            .playconfig
+            .hispeed = 2.5;
 
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
@@ -4114,8 +3909,12 @@ mod tests {
 
     #[test]
     fn decide_render_context_integer_value_judgetiming_12() {
-        let mut resource = SongLengthResource::with_length_ms(0);
-        resource.player_config.judge_settings.judgetiming = 5;
+        let mut resource = make_resource_with_song_length(0);
+        resource
+            .player_config_mut()
+            .unwrap()
+            .judge_settings
+            .judgetiming = 5;
 
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
@@ -4146,7 +3945,7 @@ mod tests {
     #[test]
     fn decide_render_context_boolean_value_bga_off_on() {
         use rubato_types::config::BgaMode;
-        let mut resource = SongLengthResource::with_length_ms(0);
+        let mut resource = make_resource_with_song_length(0);
 
         let mut timer = TimerManager::new();
         let mut config = rubato_types::config::Config::default();
@@ -4179,8 +3978,8 @@ mod tests {
 
     #[test]
     fn decide_render_context_boolean_value_stagefile_exists() {
-        let mut resource = SongLengthResource::with_length_ms(0);
-        resource.song.file.stagefile = "stage.png".to_string();
+        let mut resource = make_resource_with_song_length(0);
+        resource.songdata_mut().unwrap().file.stagefile = "stage.png".to_string();
 
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
@@ -4212,7 +4011,7 @@ mod tests {
 
     #[test]
     fn decide_render_context_boolean_value_course_mode() {
-        let mut resource = SongLengthResource::with_length_ms(0);
+        let mut resource = make_resource_with_song_length(0);
 
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
@@ -4245,11 +4044,11 @@ mod tests {
 
     #[test]
     fn decide_mouse_context_integer_value_exscore_71() {
-        let mut resource = SongLengthResource::with_length_ms(0);
+        let mut resource = make_resource_with_song_length(0);
         let mut score = crate::core::score_data::ScoreData::new(bms::model::mode::Mode::BEAT_7K);
         score.judge_counts.epg = 50;
         score.notes = 100;
-        resource.score = Some(score.clone());
+        resource.set_score_data(score.clone());
 
         let mut sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         sdp.update_score(Some(&score));
@@ -4281,7 +4080,7 @@ mod tests {
     #[test]
     fn decide_mouse_context_boolean_value_bga_off() {
         use rubato_types::config::BgaMode;
-        let mut resource = SongLengthResource::with_length_ms(0);
+        let mut resource = make_resource_with_song_length(0);
 
         let mut config = rubato_types::config::Config::default();
         config.render.bga = BgaMode::Off;
@@ -4310,10 +4109,14 @@ mod tests {
 
     #[test]
     fn decide_render_context_integer_value_400_returns_chart_judge() {
-        let mut resource = SongLengthResource::with_length_ms(0);
-        resource.song.chart.judge = 42;
+        let mut resource = make_resource_with_song_length(0);
+        resource.songdata_mut().unwrap().chart.judge = 42;
         // Set judgetiming to a different value to ensure we are NOT returning it
-        resource.player_config.judge_settings.judgetiming = 999;
+        resource
+            .player_config_mut()
+            .unwrap()
+            .judge_settings
+            .judgetiming = 999;
 
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
@@ -4345,7 +4148,7 @@ mod tests {
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();
         let mut outbox = TestOutbox::new();
-        let mut resource = NullPlayerResource::new();
+        let mut resource = make_default_resource();
         let sdp = rubato_types::score_data_property::ScoreDataProperty::new();
         let ctx = DecideRenderContext {
             timer: &mut timer,
@@ -4370,10 +4173,14 @@ mod tests {
 
     #[test]
     fn decide_mouse_context_integer_value_400_returns_chart_judge() {
-        let mut resource = SongLengthResource::with_length_ms(0);
-        resource.song.chart.judge = 77;
+        let mut resource = make_resource_with_song_length(0);
+        resource.songdata_mut().unwrap().chart.judge = 77;
         // Set judgetiming to a different value to ensure we are NOT returning it
-        resource.player_config.judge_settings.judgetiming = 888;
+        resource
+            .player_config_mut()
+            .unwrap()
+            .judge_settings
+            .judgetiming = 888;
 
         let mut timer = TimerManager::new();
         let config = rubato_types::config::Config::default();

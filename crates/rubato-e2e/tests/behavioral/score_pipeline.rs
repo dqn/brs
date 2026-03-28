@@ -2,6 +2,7 @@
 //!
 //! Tests that ScoreData, PlayerResource, and replay data flow correctly.
 
+use rubato_game::core::bms_player_mode::BMSPlayerMode;
 use std::path::PathBuf;
 
 use rubato_e2e::E2eHarness;
@@ -30,7 +31,7 @@ fn player_resource_loads_bms_model() {
         .controller_mut()
         .player_resource_mut()
         .expect("resource")
-        .set_bms_file(&bms_path, 0, 0);
+        .set_bms_file(&bms_path, BMSPlayerMode::PLAY);
 
     assert!(loaded, "BMS file should load");
     assert!(
@@ -53,7 +54,7 @@ fn player_resource_populates_songdata_after_load() {
         .controller_mut()
         .player_resource_mut()
         .unwrap()
-        .set_bms_file(&bms_path, 0, 0);
+        .set_bms_file(&bms_path, BMSPlayerMode::PLAY);
 
     let songdata = harness.controller().player_resource().unwrap().songdata();
     assert!(
@@ -74,7 +75,10 @@ fn player_resource_returns_false_for_nonexistent_file() {
         .controller_mut()
         .player_resource_mut()
         .unwrap()
-        .set_bms_file(std::path::Path::new("/nonexistent/file.bms"), 0, 0);
+        .set_bms_file(
+            std::path::Path::new("/nonexistent/file.bms"),
+            BMSPlayerMode::PLAY,
+        );
 
     assert!(!result, "should return false for nonexistent file");
 }
@@ -112,7 +116,7 @@ fn player_resource_clear_via_trait() {
         .controller_mut()
         .player_resource_mut()
         .unwrap()
-        .set_bms_file(&bms_path, 0, 0);
+        .set_bms_file(&bms_path, BMSPlayerMode::PLAY);
 
     // Verify songdata is populated
     assert!(
@@ -152,7 +156,7 @@ fn player_resource_original_mode_set_after_bms_load() {
         .controller_mut()
         .player_resource_mut()
         .unwrap()
-        .set_bms_file(&bms_path, 0, 0);
+        .set_bms_file(&bms_path, BMSPlayerMode::PLAY);
 
     assert!(
         harness

@@ -359,7 +359,7 @@ fn e2e_gameplay_select_decide_play_result_with_bms() {
             .player_resource_mut()
             .expect("PlayerResource should exist after create()");
         // mode_type 0 = Play mode
-        let loaded = resource.set_bms_file(&bms_path, 0, 0);
+        let loaded = resource.set_bms_file(&bms_path, BMSPlayerMode::PLAY);
         assert!(loaded, "BMS file should load successfully");
         assert!(
             resource.bms_model().is_some(),
@@ -748,7 +748,7 @@ fn e2e_gameplay_play_lifecycle_with_bms() {
         let resource = mc
             .player_resource_mut()
             .expect("PlayerResource should exist");
-        assert!(resource.set_bms_file(&bms_path, 0, 0));
+        assert!(resource.set_bms_file(&bms_path, BMSPlayerMode::PLAY));
     }
 
     // Enter Play state
@@ -784,7 +784,7 @@ fn e2e_gameplay_bms_model_propagates_to_play_state() {
         let resource = mc
             .player_resource_mut()
             .expect("PlayerResource should exist");
-        assert!(resource.set_bms_file(&bms_path, 0, 0));
+        assert!(resource.set_bms_file(&bms_path, BMSPlayerMode::PLAY));
         let model = resource
             .bms_model()
             .expect("model should be present after load");
@@ -826,7 +826,7 @@ fn e2e_gameplay_play_to_course_result_with_bms() {
         let resource = mc
             .player_resource_mut()
             .expect("PlayerResource should exist");
-        assert!(resource.set_bms_file(&bms_path, 0, 0));
+        assert!(resource.set_bms_file(&bms_path, BMSPlayerMode::PLAY));
     }
 
     // Play -> CourseResult (course mode end-of-song path)
@@ -863,7 +863,7 @@ fn e2e_gameplay_multiple_play_sessions() {
                 .player_resource_mut()
                 .expect("PlayerResource should exist");
             assert!(
-                resource.set_bms_file(&bms_path, 0, 0),
+                resource.set_bms_file(&bms_path, BMSPlayerMode::PLAY),
                 "session {} BMS load failed",
                 session
             );
@@ -923,7 +923,7 @@ fn e2e_gameplay_skip_decide_with_bms() {
         let resource = mc
             .player_resource_mut()
             .expect("PlayerResource should exist");
-        assert!(resource.set_bms_file(&bms_path, 0, 0));
+        assert!(resource.set_bms_file(&bms_path, BMSPlayerMode::PLAY));
     }
 
     // When skip_decide_screen is true, requesting Decide creates Play instead
@@ -959,7 +959,7 @@ fn e2e_gameplay_sustained_rendering_with_bms() {
         let resource = mc
             .player_resource_mut()
             .expect("PlayerResource should exist");
-        assert!(resource.set_bms_file(&bms_path, 0, 0));
+        assert!(resource.set_bms_file(&bms_path, BMSPlayerMode::PLAY));
     }
 
     // Render 10 frames in each state to test sustained operation

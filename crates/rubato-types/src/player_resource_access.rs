@@ -1,4 +1,3 @@
-use std::any::Any;
 use std::path::{Path, PathBuf};
 
 use bms::model::bms_model::BMSModel;
@@ -223,30 +222,6 @@ pub trait MediaAccess {
     fn set_bms_stagefile_raw(&mut self, _data: Option<(i32, i32, Vec<u8>)>) {
         // default no-op
     }
-
-    /// Legacy type-erased BGA processor accessor.
-    ///
-    /// No longer used -- rubato-game now uses concrete `PlayerResource::bga()` directly.
-    /// Kept for trait compatibility with NullPlayerResource/TestPlayerResource.
-    fn bga_any(&self) -> Option<&(dyn Any + Send)> {
-        None
-    }
-
-    /// Legacy type-erased BGA processor setter.
-    ///
-    /// No longer used -- rubato-game now uses concrete `PlayerResource::set_bga()` directly.
-    /// Kept for trait compatibility with NullPlayerResource/TestPlayerResource.
-    fn set_bga_any(&mut self, _bga: Box<dyn Any + Send>) {
-        // default no-op
-    }
-
-    /// Legacy type-erased ranking data setter.
-    ///
-    /// No longer used -- rubato-game now uses concrete `PlayerResource::set_ranking_data()` directly.
-    /// Kept for trait compatibility with NullPlayerResource/TestPlayerResource.
-    fn set_ranking_data_any(&mut self, _data: Option<Box<dyn Any + Send + Sync>>) {
-        // default no-op
-    }
 }
 
 /// Trait interface for PlayerResource access.
@@ -269,9 +244,6 @@ pub trait PlayerResourceAccess:
     + MediaAccess
     + Send
 {
-    /// Convert a boxed trait object into `Box<dyn Any + Send>` for type-erased
-    /// take/restore of the underlying concrete type (e.g., core::PlayerResource).
-    fn into_any_send(self: Box<Self>) -> Box<dyn Any + Send>;
 }
 
 /// Null implementation of PlayerResourceAccess for stub contexts.
@@ -444,8 +416,4 @@ impl MediaAccess for NullPlayerResource {
     }
 }
 
-impl PlayerResourceAccess for NullPlayerResource {
-    fn into_any_send(self: Box<Self>) -> Box<dyn Any + Send> {
-        self
-    }
-}
+impl PlayerResourceAccess for NullPlayerResource {}

@@ -413,11 +413,7 @@ mod tests {
         }
     }
 
-    impl PlayerResourceAccess for CourseScoreResourceAccess {
-        fn into_any_send(self: Box<Self>) -> Box<dyn std::any::Any + Send> {
-            self
-        }
-    }
+    impl PlayerResourceAccess for CourseScoreResourceAccess {}
 
     /// Create a BMSModel with `n` normal notes and total = 300.0.
     fn make_model_with_notes(n: usize) -> bms::model::bms_model::BMSModel {
@@ -443,13 +439,45 @@ mod tests {
         resource_access: CourseScoreResourceAccess,
         course_models: Vec<bms::model::bms_model::BMSModel>,
     ) -> MusicResult {
+        use rubato_types::player_resource_access::{
+            GaugeAccess, PlayerStateAccess, ReplayAccess, ScoreAccess,
+        };
         let config = resource_access.config.clone();
         let main = MainController::new(
-            config,
+            config.clone(),
             Box::new(crate::ir::ranking_data_cache::RankingDataCache::new()),
         );
+        // Build a CorePlayerResource with the same data as the mock.
+        let mut core_res = crate::core::player_resource::PlayerResource::new(
+            config,
+            resource_access.player_config.clone(),
+        );
+        if let Some(s) = resource_access.score_data().cloned() {
+            core_res.set_score_data(s);
+        }
+        if let Some(rd) = resource_access.replay_data().cloned() {
+            core_res.set_replay_data(rd);
+        }
+        if let Some(cs) = resource_access.course_score_data().cloned() {
+            core_res.set_course_score_data(cs);
+        }
+        if let Some(gg) = resource_access.groove_gauge().cloned() {
+            core_res.set_groove_gauge(gg);
+        }
+        if let Some(g) = resource_access.gauge.clone() {
+            core_res.set_gauge(g);
+        }
+        for cr in &resource_access.course_replay {
+            core_res.add_course_replay(cr.clone());
+        }
+        for cg in &resource_access.course_gauge {
+            core_res.add_course_gauge(cg.clone());
+        }
+        core_res.courseindex = resource_access.course_index;
+        core_res.assist = resource_access.assist;
+        core_res.maxcombo = resource_access.maxcombo;
         let mut resource = PlayerResource::new(
-            Box::new(resource_access),
+            core_res,
             crate::core::bms_player_mode::BMSPlayerMode::new(BMSPlayerModeType::Play),
         );
         resource.course_bms_models = Some(course_models);

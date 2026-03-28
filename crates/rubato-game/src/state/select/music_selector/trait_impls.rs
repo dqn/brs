@@ -183,7 +183,7 @@ impl MainState for MusicSelector {
         }
     }
 
-    fn take_player_resource_box(&mut self) -> Option<Box<dyn std::any::Any + Send>> {
+    fn take_player_resource(&mut self) -> Option<crate::core::player_resource::PlayerResource> {
         let should_handoff = self.player_resource.as_ref().is_some_and(|resource| {
             resource.bms_model().is_some()
                 || resource.songdata().is_some()
@@ -194,9 +194,7 @@ impl MainState for MusicSelector {
             return None;
         }
 
-        self.player_resource
-            .take()
-            .map(|r| Box::new(r) as Box<dyn std::any::Any + Send>)
+        self.player_resource.take()
     }
 
     /// Create state — initialize DB access, song list, bar manager.

@@ -327,8 +327,8 @@ impl MainState for GameScreen {
         delegate!(mut self, take_bga_cache() -> Option<std::sync::Arc<std::sync::Mutex<crate::play::bga::bga_processor::BGAProcessor>>>)
     }
 
-    fn take_player_resource_box(&mut self) -> Option<Box<dyn std::any::Any + Send>> {
-        delegate!(mut self, take_player_resource_box() -> Option<Box<dyn std::any::Any + Send>>)
+    fn take_player_resource(&mut self) -> Option<crate::core::player_resource::PlayerResource> {
+        delegate!(mut self, take_player_resource() -> Option<crate::core::player_resource::PlayerResource>)
     }
 
     fn bms_model(&self) -> Option<&bms::model::bms_model::BMSModel> {

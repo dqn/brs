@@ -1446,8 +1446,8 @@ impl crate::core::main_state::MainState for CourseResult {
         }
     }
 
-    fn take_player_resource_box(&mut self) -> Option<Box<dyn std::any::Any + Send>> {
-        self.resource.take_inner().map(|b| b.into_any_send())
+    fn take_player_resource(&mut self) -> Option<crate::core::player_resource::PlayerResource> {
+        self.resource.take_inner()
     }
 
     fn shutdown(&mut self) {
@@ -1491,7 +1491,7 @@ mod tests {
         let config = make_test_config("course-result");
         let main = MainController::new(config, make_ranking_cache());
         let mut resource = PlayerResource::new(
-            Box::new(MockPlayerResourceForIR::new_with_course_score()),
+            mock_to_core(MockPlayerResourceForIR::new_with_course_score()),
             crate::state::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
         );
         resource.course_bms_models = Some(vec![bms::model::bms_model::BMSModel::default()]);
@@ -1935,10 +1935,33 @@ mod tests {
         }
     }
 
-    impl rubato_types::player_resource_access::PlayerResourceAccess for MockPlayerResourceForIR {
-        fn into_any_send(self: Box<Self>) -> Box<dyn std::any::Any + Send> {
-            self
+    impl rubato_types::player_resource_access::PlayerResourceAccess for MockPlayerResourceForIR {}
+
+    /// Convert a MockPlayerResourceForIR to a CorePlayerResource.
+    fn mock_to_core(mock: MockPlayerResourceForIR) -> crate::core::player_resource::PlayerResource {
+        let mut core = crate::core::player_resource::PlayerResource::new(
+            rubato_types::config::Config::default(),
+            mock.player_config.clone(),
+        );
+        if let Some(cs) = mock.course_score {
+            core.set_course_score_data(cs);
         }
+        if let Some(cd) = mock.course_data {
+            core.set_course_data(cd);
+        }
+        if let Some(rd) = mock.replay_data {
+            core.set_replay_data(rd);
+        }
+        if let Some(sd) = mock.song_data {
+            core.set_songdata(sd);
+        }
+        for cr in mock.course_replay {
+            core.add_course_replay(cr);
+        }
+        for cg in mock.course_gauge {
+            core.add_course_gauge(cg);
+        }
+        core
     }
 
     fn make_ir_course_result(
@@ -1956,7 +1979,7 @@ mod tests {
             vec![ir_status],
         );
         let resource = PlayerResource::new(
-            Box::new(MockPlayerResourceForIR::new_with_course_score()),
+            mock_to_core(MockPlayerResourceForIR::new_with_course_score()),
             crate::state::result::BMSPlayerMode::new(crate::state::result::BMSPlayerModeType::Play),
         );
         CourseResult::new(
@@ -2195,7 +2218,7 @@ mod tests {
         song.metadata.title = "TestSong".to_string();
         mock.song_data = Some(song);
         let resource = PlayerResource::new(
-            Box::new(mock),
+            mock_to_core(mock),
             crate::state::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
         );
         let data = AbstractResultData::new();
@@ -2301,7 +2324,7 @@ mod tests {
         let mut mock = MockPlayerResourceForIR::new_with_course_score();
         mock.song_data = Some(song);
         let resource = PlayerResource::new(
-            Box::new(mock),
+            mock_to_core(mock),
             crate::state::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
         );
         let data = AbstractResultData::new();
@@ -2508,7 +2531,7 @@ mod tests {
         mock.song_data = Some(rubato_types::song_data::SongData::default());
         mock.player_config.play_settings.lnmode = 42;
         let resource = PlayerResource::new(
-            Box::new(mock),
+            mock_to_core(mock),
             crate::state::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
         );
         let data = AbstractResultData::new();
@@ -2621,7 +2644,7 @@ mod tests {
             ..Default::default()
         });
         let mut resource = PlayerResource::new(
-            Box::new(mock),
+            mock_to_core(mock),
             crate::state::result::BMSPlayerMode::new(mode),
         );
         // Provide course models so write_score_data_course has data
@@ -2756,7 +2779,7 @@ mod tests {
         config.audio = Some(rubato_types::audio_config::AudioConfig::default());
         let main = MainController::new(config, make_ranking_cache());
         let mut resource = PlayerResource::new(
-            Box::new(MockPlayerResourceForIR::new_with_course_score()),
+            mock_to_core(MockPlayerResourceForIR::new_with_course_score()),
             crate::state::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
         );
         resource.course_bms_models = Some(vec![bms::model::bms_model::BMSModel::default()]);

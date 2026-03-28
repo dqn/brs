@@ -219,7 +219,7 @@ impl LauncherStateFactory {
                     Some(resource) => {
                         let decide = MusicDecide::new(
                             controller.config().clone(),
-                            Box::new(resource),
+                            resource,
                             TimerManager::new(),
                         );
                         Some(StateCreateResult {
@@ -474,7 +474,7 @@ impl LauncherStateFactory {
                 let bm = core_res.bms_model().cloned().unwrap_or_default();
                 let cm = core_res.course_bms_models().cloned();
                 let ranking = core_res.ranking_data().cloned();
-                let mut rr = ResultPlayerResource::new(Box::new(core_res), pm);
+                let mut rr = ResultPlayerResource::new(core_res, pm);
                 rr.bms_model = bm;
                 rr.course_bms_models = cm;
                 rr.ranking_data = ranking;
@@ -517,7 +517,7 @@ impl LauncherStateFactory {
                 let bm = core_res.bms_model().cloned().unwrap_or_default();
                 let cm = core_res.course_bms_models().cloned();
                 let ranking = core_res.ranking_data().cloned();
-                let mut rr = ResultPlayerResource::new(Box::new(core_res), pm);
+                let mut rr = ResultPlayerResource::new(core_res, pm);
                 rr.bms_model = bm;
                 rr.course_bms_models = cm;
                 rr.ranking_data = ranking;
@@ -1175,7 +1175,7 @@ mod tests {
         assert!(
             mc.player_resource_mut()
                 .expect("controller should own a player resource")
-                .set_bms_file(&bms_path, 0, 0),
+                .set_bms_file(&bms_path, BMSPlayerMode::PLAY),
             "test fixture should load into PlayerResource"
         );
         mc.change_state(MainStateType::Play);

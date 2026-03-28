@@ -82,10 +82,9 @@ impl MainController {
         // silently get a null stub because the resource was still inside the
         // old state and only restored during transition_to_state (too late).
         if let Some(ref mut current) = self.current
-            && let Some(any_box) = current.take_player_resource_box()
-            && let Ok(core_resource) = any_box.downcast::<PlayerResource>()
+            && let Some(resource) = current.take_player_resource()
         {
-            self.resource = Some(*core_resource);
+            self.resource = Some(resource);
         }
 
         // Create the new state via factory.
@@ -173,10 +172,8 @@ impl MainController {
             // Restore PlayerResource from the exiting state back to MainController.
             // States receive ownership via take_player_resource() in the factory;
             // we reclaim it here so it's available for the next state.
-            if let Some(any_box) = old_state.take_player_resource_box()
-                && let Ok(core_resource) = any_box.downcast::<PlayerResource>()
-            {
-                self.resource = Some(*core_resource);
+            if let Some(resource) = old_state.take_player_resource() {
+                self.resource = Some(resource);
             }
             // Flush pending audio commands before shutdown so they operate on
             // live state rather than potentially disposed resources.
@@ -352,8 +349,6 @@ impl MainController {
             current.prepare();
         }
 
-        self.process_queued_controller_commands();
-
         // Emit transition complete event
         if let Some(ref current) = self.current
             && let Some(st) = current.state_type()
@@ -364,100 +359,5 @@ impl MainController {
         }
 
         self.update_main_state_listener(0);
-    }
-
-    pub(super) fn process_queued_controller_commands(&mut self) {
-        use rubato_types::main_controller_access::MainControllerCommand;
-
-        let mut pending_change: Option<MainStateType> = None;
-        for command in self.command_queue.drain() {
-            match command {
-                MainControllerCommand::ChangeState(state) => pending_change = Some(state),
-                MainControllerCommand::SaveConfig => self.save_config(),
-                MainControllerCommand::Exit => self.exit(),
-                MainControllerCommand::SaveLastRecording(reason) => {
-                    self.save_last_recording(&reason);
-                }
-                MainControllerCommand::UpdateSong(Some(path)) => self.update_song(&path),
-                MainControllerCommand::UpdateSong(None) => {}
-                MainControllerCommand::PlaySound(sound, loop_sound) => {
-                    <Self as MainControllerAccess>::play_sound(self, &sound, loop_sound);
-                }
-                MainControllerCommand::StopSound(sound) => {
-                    <Self as MainControllerAccess>::stop_sound(self, &sound);
-                }
-                MainControllerCommand::ShuffleSounds => {
-                    <Self as MainControllerAccess>::shuffle_sounds(self);
-                }
-                MainControllerCommand::UpdateTable(source) => {
-                    self.update_table(source);
-                }
-                MainControllerCommand::StartIpfsDownload(song) => {
-                    let _ = <Self as MainControllerAccess>::start_ipfs_download(self, &song);
-                }
-                MainControllerCommand::PlayAudioPath(path, volume, loop_play) => {
-                    if let Some(ref mut audio) = self.ctx.audio {
-                        audio.play_path(&path, volume, loop_play);
-                    }
-                }
-                MainControllerCommand::SetAudioPathVolume(path, volume) => {
-                    if let Some(ref mut audio) = self.ctx.audio {
-                        audio.set_volume_path(&path, volume);
-                    }
-                }
-                MainControllerCommand::StopAudioPath(path) => {
-                    if let Some(ref mut audio) = self.ctx.audio {
-                        audio.stop_path(&path);
-                    }
-                }
-                MainControllerCommand::DisposeAudioPath(path) => {
-                    if let Some(ref mut audio) = self.ctx.audio {
-                        audio.dispose_path(&path);
-                    }
-                }
-                MainControllerCommand::LoadNewProfile(pc) => {
-                    self.load_new_profile(*pc);
-                }
-                MainControllerCommand::UpdatePlayConfig(mode, play_config) => {
-                    let pc = *play_config;
-                    // Only merge modmenu-managed fields to avoid overwriting
-                    // live fields (e.g. hispeed changed via scroll wheel) with
-                    // stale values from the modmenu's PlayConfig snapshot.
-                    self.ctx
-                        .player
-                        .play_config(mode)
-                        .playconfig
-                        .apply_modmenu_fields(&pc);
-                    if let Some(ref mut state) = self.current {
-                        state.receive_updated_play_config(mode, pc);
-                    }
-                }
-                MainControllerCommand::UpdateAudioConfig(audio) => {
-                    self.ctx.config.audio = Some(audio);
-                }
-                MainControllerCommand::UpdateSkinConfig(id, skin_config) => {
-                    if id < self.ctx.player.skin.len() {
-                        self.ctx.player.skin[id] = skin_config.map(|c| *c);
-                    }
-                }
-                MainControllerCommand::UpdateSkinHistory(skin_path, skin_config) => {
-                    if let Some(entry) = self
-                        .ctx
-                        .player
-                        .skin_history
-                        .iter_mut()
-                        .find(|h| h.path().is_some_and(|p| p == skin_path))
-                    {
-                        *entry = *skin_config;
-                    } else {
-                        self.ctx.player.skin_history.push(*skin_config);
-                    }
-                }
-            }
-        }
-
-        if let Some(state) = pending_change {
-            self.change_state(state);
-        }
     }
 }

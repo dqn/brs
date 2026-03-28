@@ -7,6 +7,7 @@
 //! 2. Key state changes are visible through the input processor
 //! 3. Multiple keys can be pressed simultaneously
 
+use rubato_game::core::bms_player_mode::BMSPlayerMode;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -38,7 +39,7 @@ fn harness_with_bms(bms_filename: &str) -> E2eHarness {
         .controller_mut()
         .player_resource_mut()
         .expect("controller should own a player resource")
-        .set_bms_file(&bms_path, 0, 0); // mode_type=0 is PLAY (manual)
+        .set_bms_file(&bms_path, BMSPlayerMode::PLAY); // mode_type=0 is PLAY (manual)
     assert!(loaded, "BMS file should load successfully");
 
     harness

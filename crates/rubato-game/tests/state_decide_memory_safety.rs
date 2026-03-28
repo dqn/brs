@@ -3,7 +3,7 @@
 // Previously tested MainControllerRef memory safety. After migration to
 // direct config fields, this test validates basic construction/drop safety.
 
-use rubato_game::state::decide::NullPlayerResource;
+use rubato_game::core::player_resource::PlayerResource;
 use rubato_game::state::decide::music_decide::MusicDecide;
 
 /// MusicDecide can be constructed and dropped without leak.
@@ -11,7 +11,10 @@ use rubato_game::state::decide::music_decide::MusicDecide;
 fn construction_and_drop_is_safe() {
     let decide = MusicDecide::new(
         rubato_types::config::Config::default(),
-        Box::new(NullPlayerResource::new()),
+        PlayerResource::new(
+            rubato_types::config::Config::default(),
+            rubato_types::player_config::PlayerConfig::default(),
+        ),
         rubato_game::core::timer_manager::TimerManager::new(),
     );
     drop(decide);

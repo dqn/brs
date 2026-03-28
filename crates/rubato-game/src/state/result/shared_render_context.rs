@@ -1277,11 +1277,7 @@ mod tests {
         }
     }
 
-    impl rubato_types::player_resource_access::PlayerResourceAccess for GaugeTestResourceAccess {
-        fn into_any_send(self: Box<Self>) -> Box<dyn std::any::Any + Send> {
-            self
-        }
-    }
+    impl rubato_types::player_resource_access::PlayerResourceAccess for GaugeTestResourceAccess {}
 
     fn make_resource_with_gauge(gauge_value: f32) -> PlayerResource {
         use rubato_types::gauge_property::GaugeProperty;
@@ -1293,16 +1289,19 @@ mod tests {
             &GaugeProperty::SevenKeys,
         );
         gg.set_value(gauge_value);
-        PlayerResource::new(
-            Box::new(GaugeTestResourceAccess {
-                config: rubato_types::config::Config::default(),
-                player_config: rubato_types::player_config::PlayerConfig::default(),
-                groove_gauge: Some(gg),
-                course_gauge: Vec::new(),
-                course_replay: Vec::new(),
-            }),
-            crate::state::result::BMSPlayerMode::new(crate::state::result::BMSPlayerModeType::Play),
-        )
+        {
+            let mut core = crate::core::player_resource::PlayerResource::new(
+                rubato_types::config::Config::default(),
+                rubato_types::player_config::PlayerConfig::default(),
+            );
+            core.set_groove_gauge(gg);
+            PlayerResource::new(
+                core,
+                crate::state::result::BMSPlayerMode::new(
+                    crate::state::result::BMSPlayerModeType::Play,
+                ),
+            )
+        }
     }
 
     #[test]

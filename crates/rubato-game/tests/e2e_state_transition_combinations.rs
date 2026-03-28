@@ -13,6 +13,7 @@
 
 use std::path::PathBuf;
 
+use rubato_game::core::bms_player_mode::BMSPlayerMode;
 use rubato_game::core::config::Config;
 use rubato_game::core::main_controller::MainController;
 use rubato_game::core::main_state::MainStateType;
@@ -20,6 +21,7 @@ use rubato_game::core::player_config::PlayerConfig;
 use rubato_game::core::player_resource::PlayerResource;
 use rubato_game::state_factory::LauncherStateFactory;
 use rubato_types::course_data::CourseData;
+use rubato_types::player_resource_access::CourseAccess;
 
 fn test_bms_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -58,7 +60,7 @@ fn e2e_practice_mode_to_result() {
         let resource = mc
             .player_resource_mut()
             .expect("PlayerResource should exist after create()");
-        let loaded = resource.set_bms_file(&bms_path, 1, 0);
+        let loaded = resource.set_bms_file(&bms_path, BMSPlayerMode::PRACTICE);
         assert!(loaded, "BMS file should load successfully in practice mode");
     }
 
@@ -91,7 +93,7 @@ fn e2e_practice_mode_lifecycle_with_render() {
         let resource = mc
             .player_resource_mut()
             .expect("PlayerResource should exist");
-        assert!(resource.set_bms_file(&bms_path, 1, 0));
+        assert!(resource.set_bms_file(&bms_path, BMSPlayerMode::PRACTICE));
     }
 
     // Enter Play state from practice
@@ -125,7 +127,7 @@ fn e2e_practice_mode_back_to_select_skipping_result() {
         let resource = mc
             .player_resource_mut()
             .expect("PlayerResource should exist");
-        assert!(resource.set_bms_file(&bms_path, 1, 0));
+        assert!(resource.set_bms_file(&bms_path, BMSPlayerMode::PRACTICE));
     }
 
     // Practice Play -> skip Result -> back to MusicSelect
@@ -165,7 +167,7 @@ fn e2e_course_play_multi_song_sequence() {
         let course = CourseData::default();
         resource.set_course_data(course);
         // Load the first song
-        let loaded = resource.set_bms_file(&bms_path, 0, 0);
+        let loaded = resource.set_bms_file(&bms_path, BMSPlayerMode::PLAY);
         assert!(loaded, "First song of course should load successfully");
     }
 
@@ -185,7 +187,7 @@ fn e2e_course_play_multi_song_sequence() {
         let resource = mc
             .player_resource_mut()
             .expect("PlayerResource should exist");
-        let loaded = resource.set_bms_file(&bms_path, 0, 0);
+        let loaded = resource.set_bms_file(&bms_path, BMSPlayerMode::PLAY);
         assert!(loaded, "Second song of course should load successfully");
     }
 
@@ -208,7 +210,7 @@ fn e2e_course_play_multi_song_sequence() {
         let resource = mc
             .player_resource_mut()
             .expect("PlayerResource should exist after Result returned it");
-        let loaded = resource.set_bms_file(&bms_path, 0, 0);
+        let loaded = resource.set_bms_file(&bms_path, BMSPlayerMode::PLAY);
         assert!(loaded, "Third song of course should load successfully");
     }
     mc.render();
@@ -240,7 +242,7 @@ fn e2e_course_play_to_course_result_with_renders() {
         let mut course = CourseData::default();
         course.name = Some("Test Course".to_string());
         resource.set_course_data(course);
-        assert!(resource.set_bms_file(&bms_path, 0, 0));
+        assert!(resource.set_bms_file(&bms_path, BMSPlayerMode::PLAY));
     }
 
     // Play song 1 with sustained rendering
@@ -255,7 +257,7 @@ fn e2e_course_play_to_course_result_with_renders() {
         let resource = mc
             .player_resource_mut()
             .expect("PlayerResource should exist");
-        assert!(resource.set_bms_file(&bms_path, 0, 0));
+        assert!(resource.set_bms_file(&bms_path, BMSPlayerMode::PLAY));
     }
     mc.change_state(MainStateType::Result);
     mc.change_state(MainStateType::Play);
@@ -289,7 +291,7 @@ fn e2e_course_data_cleared_after_course_result() {
         let mut course = CourseData::default();
         course.name = Some("Cleanup Course".to_string());
         resource.set_course_data(course);
-        assert!(resource.set_bms_file(&bms_path, 0, 0));
+        assert!(resource.set_bms_file(&bms_path, BMSPlayerMode::PLAY));
     }
 
     // Verify course data is set
@@ -627,7 +629,7 @@ fn e2e_rapid_full_cycle_with_bms_data() {
                 .player_resource_mut()
                 .expect("PlayerResource should exist");
             assert!(
-                resource.set_bms_file(&bms_path, 0, 0),
+                resource.set_bms_file(&bms_path, BMSPlayerMode::PLAY),
                 "iteration {} BMS load failed",
                 iteration
             );

@@ -24,7 +24,7 @@ pub use rubato_skin::skin_header::SkinHeader;
 pub use rubato_skin::skin_object::SkinObjectData;
 pub use rubato_skin::skin_object::SkinObjectRenderer;
 pub use rubato_types::groove_gauge::GrooveGauge;
-pub use rubato_types::player_resource_access::{NullPlayerResource, PlayerResourceAccess};
+pub use rubato_types::player_resource_access::PlayerResourceAccess;
 
 // Convenience re-exports for the wrapper types
 pub use main_controller_wrapper::MainController;
@@ -244,8 +244,8 @@ macro_rules! impl_result_main_state {
             }
         }
 
-        fn take_player_resource_box(&mut self) -> Option<Box<dyn std::any::Any + Send>> {
-            self.resource.take_inner().map(|b| b.into_any_send())
+        fn take_player_resource(&mut self) -> Option<crate::core::player_resource::PlayerResource> {
+            self.resource.take_inner()
         }
     };
 }

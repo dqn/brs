@@ -1,19 +1,22 @@
 use crate::ir::ranking_data::RankingData;
 use rubato_types::groove_gauge::GrooveGauge;
-use rubato_types::player_resource_access::{NullPlayerResource, PlayerResourceAccess};
+use rubato_types::player_resource_access::{
+    ConfigAccess, GaugeAccess, PlayerStateAccess, ReplayAccess, ScoreAccess, SessionMutation,
+};
 
 use crate::core::bms_player_mode::BMSPlayerMode;
 use crate::core::bms_player_mode::Mode as BMSPlayerModeType;
+use crate::core::player_resource::PlayerResource as CorePlayerResource;
 
 /// Wrapper for bms.player.beatoraja.PlayerResource.
-/// Delegates to `Box<dyn PlayerResourceAccess>` for trait methods.
+/// Delegates to concrete `CorePlayerResource` for trait methods.
 /// Crate-local methods provide access to non-trait types (BMSModel, BMSPlayerMode, RankingData).
 ///
 /// NOTE: `bms_model` is a snapshot taken at construction time. After `next_course()` updates the
 /// inner PlayerResource's model, this local field becomes stale. Use `inner.songdata()` for
 /// post-next_course data; the local `bms_model` must not be relied on after course advancement.
 pub struct PlayerResource {
-    inner: Box<dyn PlayerResourceAccess>,
+    inner: CorePlayerResource,
     pub bms_model: bms::model::bms_model::BMSModel,
     pub course_bms_models: Option<Vec<bms::model::bms_model::BMSModel>>,
     play_mode: BMSPlayerMode,
@@ -21,7 +24,7 @@ pub struct PlayerResource {
 }
 
 impl PlayerResource {
-    pub fn new(inner: Box<dyn PlayerResourceAccess>, play_mode: BMSPlayerMode) -> Self {
+    pub fn new(inner: CorePlayerResource, play_mode: BMSPlayerMode) -> Self {
         Self {
             inner,
             bms_model: bms::model::bms_model::BMSModel::default(),
@@ -158,27 +161,7 @@ impl PlayerResource {
     }
 
     pub fn player_data(&self) -> &rubato_types::player_data::PlayerData {
-        static DEFAULT: rubato_types::player_data::PlayerData =
-            rubato_types::player_data::PlayerData {
-                date: 0,
-                playcount: 0,
-                clear: 0,
-                epg: 0,
-                lpg: 0,
-                egr: 0,
-                lgr: 0,
-                egd: 0,
-                lgd: 0,
-                ebd: 0,
-                lbd: 0,
-                epr: 0,
-                lpr: 0,
-                ems: 0,
-                lms: 0,
-                playtime: 0,
-                maxcombo: 0,
-            };
-        self.inner.player_data().unwrap_or(&DEFAULT)
+        self.inner.player_data()
     }
 
     // ---- Crate-local methods (not on trait -- types cause circular deps) ----
@@ -210,11 +193,14 @@ impl PlayerResource {
         self.ranking_data.as_ref()
     }
 
-    /// Take the inner PlayerResourceAccess, replacing it with a NullPlayerResource.
+    /// Take the inner CorePlayerResource, replacing it with a default.
     /// Used during state transition to return the resource to MainController.
-    pub fn take_inner(&mut self) -> Option<Box<dyn PlayerResourceAccess>> {
-        let null: Box<dyn PlayerResourceAccess> = Box::new(NullPlayerResource::new());
-        Some(std::mem::replace(&mut self.inner, null))
+    pub fn take_inner(&mut self) -> Option<CorePlayerResource> {
+        let default = CorePlayerResource::new(
+            rubato_types::config::Config::default(),
+            rubato_types::player_config::PlayerConfig::default(),
+        );
+        Some(std::mem::replace(&mut self.inner, default))
     }
 
     pub fn replay_data_mut(&mut self) -> Option<&mut crate::core::replay_data::ReplayData> {
@@ -233,7 +219,10 @@ impl PlayerResource {
 impl Default for PlayerResource {
     fn default() -> Self {
         Self {
-            inner: Box::new(NullPlayerResource::new()),
+            inner: CorePlayerResource::new(
+                rubato_types::config::Config::default(),
+                rubato_types::player_config::PlayerConfig::default(),
+            ),
             bms_model: bms::model::bms_model::BMSModel::default(),
             course_bms_models: None,
             play_mode: BMSPlayerMode::new(BMSPlayerModeType::Play),

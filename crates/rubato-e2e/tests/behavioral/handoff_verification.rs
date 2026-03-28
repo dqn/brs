@@ -5,6 +5,7 @@
 //! - PlayerResource state is consistent across transitions
 //! - Audio state (playing/stopped) at each transition point
 
+use rubato_game::core::bms_player_mode::BMSPlayerMode;
 use std::path::PathBuf;
 
 use rubato_e2e::{AudioEvent, E2eHarness, MainStateType};
@@ -29,7 +30,7 @@ fn harness_with_bms(bms_filename: &str) -> Option<E2eHarness> {
         .controller_mut()
         .player_resource_mut()
         .expect("resource")
-        .set_bms_file(&bms_path, 2, 0); // AUTOPLAY mode
+        .set_bms_file(&bms_path, BMSPlayerMode::AUTOPLAY); // AUTOPLAY mode
     assert!(loaded, "BMS file should load");
     Some(harness)
 }
@@ -176,7 +177,7 @@ fn bms_load_with_5key_preserves_mode() {
         .controller_mut()
         .player_resource_mut()
         .unwrap()
-        .set_bms_file(&bms_path, 0, 0);
+        .set_bms_file(&bms_path, BMSPlayerMode::PLAY);
     assert!(loaded);
 
     let model = harness
@@ -203,7 +204,7 @@ fn bms_load_with_bpm_changes_has_timelines() {
         .controller_mut()
         .player_resource_mut()
         .unwrap()
-        .set_bms_file(&bms_path, 0, 0);
+        .set_bms_file(&bms_path, BMSPlayerMode::PLAY);
     assert!(loaded);
 
     let model = harness

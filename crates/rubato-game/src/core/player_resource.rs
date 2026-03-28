@@ -1,4 +1,3 @@
-use std::any::Any;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
@@ -74,7 +73,7 @@ pub struct PlayerResource {
     /// Course BMS models
     course: Option<Vec<BMSModel>>,
     /// Course index
-    courseindex: usize,
+    pub(crate) courseindex: usize,
     /// Course gauge history
     coursegauge: Vec<Vec<FloatArray>>,
     /// Course replay data
@@ -1005,11 +1004,7 @@ impl MediaAccess for PlayerResource {
     }
 }
 
-impl PlayerResourceAccess for PlayerResource {
-    fn into_any_send(self: Box<Self>) -> Box<dyn Any + Send> {
-        self
-    }
-}
+impl PlayerResourceAccess for PlayerResource {}
 
 #[cfg(test)]
 mod tests {

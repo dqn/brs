@@ -24,7 +24,7 @@ impl MainController {
             let resource = self
                 .resource
                 .as_ref()
-                .map(|r| r as &dyn PlayerResourceAccess);
+                .map(|r| r as &dyn rubato_types::player_resource_access::PlayerResourceAccess);
             let adapter = StateAccessAdapter {
                 screen_type,
                 resource,
@@ -448,7 +448,11 @@ impl MainController {
     /// `set_state_references_callback()` to wire these references.
     pub fn update_state_references(&self) {
         if let Some(ref callback) = self.state_references_callback {
-            callback.update_references(&self.ctx.config, &self.ctx.player);
+            callback.update_references(
+                &self.ctx.config,
+                &self.ctx.player,
+                &self.ctx.modmenu_outbox,
+            );
         }
     }
 
