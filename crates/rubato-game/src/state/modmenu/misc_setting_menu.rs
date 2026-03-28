@@ -1,8 +1,9 @@
 use bms::model::mode::Mode;
 
 use super::imgui_notify::{ImGuiNotify, NOTIFICATION_POSITIONS};
-use super::{Config, ModmenuOutbox, PlayConfig, PlayerConfig, read_all_player_id};
+use super::{Config, PlayConfig, PlayerConfig, read_all_player_id};
 
+use crate::core::command::Command;
 use rubato_types::sync_utils::lock_or_recover;
 use std::sync::{Arc, Mutex};
 use std::thread::ThreadId;
@@ -23,7 +24,7 @@ static MENU_STATE: Mutex<MenuState> = Mutex::new(MenuState {
 /// Thread ID of the thread that called `set_player_config()`. Used for
 /// debug-asserting single-thread access in `show_ui()` and `flush_play_config()`.
 static OWNER_THREAD: Mutex<Option<ThreadId>> = Mutex::new(None);
-static MODMENU_OUTBOX: Mutex<Option<Arc<ModmenuOutbox>>> = Mutex::new(None);
+static COMMAND_QUEUE: Mutex<Option<Arc<Mutex<Vec<Command>>>>> = Mutex::new(None);
 static CONFIG: Mutex<Option<Config>> = Mutex::new(None);
 
 // Some of the settings are based on play mode
@@ -62,15 +63,15 @@ fn get_play_mode_options() -> Vec<String> {
 /// In-game misc settings menu (egui overlay).
 ///
 /// Threading model: `show_ui()` runs on the main thread within the egui render
-/// pass, NOT on a separate thread. Config changes are applied through a
-/// `ModmenuOutbox` which is drained by `MainController` at safe points
+/// pass, NOT on a separate thread. Config changes are pushed to the unified
+/// `Command` queue which is drained by `MainController` at safe points
 /// (between state ticks), ensuring no config mutation races with
 /// `BMSPlayer`'s own config reads. The static Mutexes here are for global state
 /// storage (accessed only from the main thread), not for cross-thread
 /// synchronization.
 ///
 /// Config flow: UI statics -> flush_play_config() -> MENU_STATE.player_config +
-/// ModmenuOutbox -> MainController drain -> BMSPlayer.receive_updated_play_config()
+/// Command queue -> MainController drain -> BMSPlayer.receive_updated_play_config()
 /// -> LaneRenderer.apply_play_config().
 pub struct MiscSettingMenu;
 
@@ -86,7 +87,7 @@ impl MiscSettingMenu {
             state.player_config = None;
             state.current_play_mode = None;
         }
-        *lock_or_recover(&MODMENU_OUTBOX) = None;
+        *lock_or_recover(&COMMAND_QUEUE) = None;
         *lock_or_recover(&CONFIG) = None;
         *lock_or_recover(&PLAY_MODE_VALUE) = 1;
         *lock_or_recover(&NOTIFICATION_POSITION) = 0;
@@ -105,11 +106,11 @@ impl MiscSettingMenu {
         *lock_or_recover(&PLAYERS) = Vec::new();
     }
 
-    /// Initialize with a PlayerConfig and outbox for writing changes back to MainController.
+    /// Initialize with a PlayerConfig and command queue for writing changes back to MainController.
     pub fn set_player_config(
         player_config: PlayerConfig,
         config: Config,
-        outbox: Arc<ModmenuOutbox>,
+        commands: Arc<Mutex<Vec<Command>>>,
     ) {
         *lock_or_recover(&OWNER_THREAD) = Some(std::thread::current().id());
         let players = read_all_player_id("player");
@@ -122,7 +123,7 @@ impl MiscSettingMenu {
         *lock_or_recover(&SELECTED_PLAYER) = player_idx as i32;
         lock_or_recover(&MENU_STATE).player_config = Some(player_config);
         *lock_or_recover(&CONFIG) = Some(config);
-        *lock_or_recover(&MODMENU_OUTBOX) = Some(outbox);
+        *lock_or_recover(&COMMAND_QUEUE) = Some(commands);
     }
 
     /// Render the misc settings window using egui.
@@ -321,10 +322,15 @@ fn flush_play_config() {
         mode
     };
 
-    // Push to modmenu outbox for MainController to drain
-    let outbox = lock_or_recover(&MODMENU_OUTBOX);
-    if let Some(ref ob) = *outbox {
-        ob.push_play_config_update(mode, updated);
+    // Push to command queue for MainController to drain
+    let queue = lock_or_recover(&COMMAND_QUEUE);
+    if let Some(ref q) = *queue {
+        q.lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(Command::UpdatePlayConfig {
+                mode,
+                config: Box::new(updated),
+            });
     }
 }
 
@@ -424,10 +430,11 @@ fn profile_switcher_ui(ui: &mut egui::Ui) {
                     // Push LoadNewProfile before SaveConfig so MainController.config.playername
                     // is updated before the save (the modmenu's local CONFIG clone is separate).
                     {
-                        let outbox = lock_or_recover(&MODMENU_OUTBOX);
-                        if let Some(ref ob) = *outbox {
-                            ob.push_load_new_profile(new_pc.clone());
-                            ob.push_save_config();
+                        let queue = lock_or_recover(&COMMAND_QUEUE);
+                        if let Some(ref q) = *queue {
+                            let mut cmds = q.lock().unwrap_or_else(|e| e.into_inner());
+                            cmds.push(Command::LoadNewProfile(Box::new(new_pc.clone())));
+                            cmds.push(Command::SaveConfig);
                         }
                     }
                     // Update local PlayerConfig and read current play mode
@@ -541,7 +548,7 @@ mod tests {
             state.player_config = None;
             state.current_play_mode = None;
         }
-        *lock_or_recover(&MODMENU_OUTBOX) = None;
+        *lock_or_recover(&COMMAND_QUEUE) = None;
         *lock_or_recover(&CONFIG) = None;
         *lock_or_recover(&PLAY_MODE_VALUE) = 1;
         *lock_or_recover(&ENABLE_LIFT) = false;
@@ -569,14 +576,14 @@ mod tests {
             pc.mode7.playconfig.enablelift = false;
             pc.mode7.playconfig.lift = 0.0;
 
-            let outbox = Arc::new(ModmenuOutbox::new());
+            let outbox = Arc::new(Mutex::new(Vec::new()));
 
             {
                 let mut state = lock_or_recover(&MENU_STATE);
                 state.player_config = Some(pc);
                 state.current_play_mode = Some(Mode::BEAT_7K);
             }
-            *lock_or_recover(&MODMENU_OUTBOX) = Some(outbox.clone());
+            *lock_or_recover(&COMMAND_QUEUE) = Some(outbox.clone());
 
             // Simulate user enabling lift with value 500
             *lock_or_recover(&ENABLE_LIFT) = true;
@@ -595,13 +602,17 @@ mod tests {
             );
             drop(state);
 
-            // Verify play config update was pushed to outbox
-            let drained = outbox.drain();
-            assert_eq!(drained.play_config_updates.len(), 1);
-            let (mode, config) = &drained.play_config_updates[0];
-            assert_eq!(*mode, Mode::BEAT_7K);
-            assert!(config.enablelift);
-            assert!((config.lift - 0.5).abs() < 0.001);
+            // Verify play config update was pushed to command queue
+            let drained: Vec<_> = std::mem::take(&mut *outbox.lock().unwrap());
+            assert_eq!(drained.len(), 1);
+            match &drained[0] {
+                Command::UpdatePlayConfig { mode, config } => {
+                    assert_eq!(*mode, Mode::BEAT_7K);
+                    assert!(config.enablelift);
+                    assert!((config.lift - 0.5).abs() < 0.001);
+                }
+                other => panic!("expected UpdatePlayConfig, got {:?}", std::mem::discriminant(other)),
+            }
         }
 
         reset_statics();
@@ -634,7 +645,7 @@ mod tests {
                 state.player_config = Some(pc);
                 state.current_play_mode = Some(Mode::BEAT_7K);
             }
-            *lock_or_recover(&MODMENU_OUTBOX) = None;
+            *lock_or_recover(&COMMAND_QUEUE) = None;
 
             *lock_or_recover(&ENABLE_HIDDEN) = true;
             *lock_or_recover(&HIDDEN_VALUE) = 300;
@@ -667,14 +678,14 @@ mod tests {
         pc.mode7.playconfig.hispeedmargin = 3.5;
         pc.mode7.playconfig.hispeedautoadjust = true;
 
-        let outbox = Arc::new(ModmenuOutbox::new());
+        let outbox = Arc::new(Mutex::new(Vec::new()));
 
         {
             let mut state = lock_or_recover(&MENU_STATE);
             state.player_config = Some(pc);
             state.current_play_mode = Some(Mode::BEAT_7K);
         }
-        *lock_or_recover(&MODMENU_OUTBOX) = Some(outbox.clone());
+        *lock_or_recover(&COMMAND_QUEUE) = Some(outbox.clone());
 
         // Simulate user toggling a modmenu field
         *lock_or_recover(&ENABLE_LIFT) = true;
@@ -724,7 +735,7 @@ mod tests {
 
         // Populate statics with non-default values
         let pc = PlayerConfig::default();
-        let outbox = Arc::new(ModmenuOutbox::new());
+        let outbox = Arc::new(Mutex::new(Vec::new()));
         let config = Config::default();
 
         {
@@ -732,7 +743,7 @@ mod tests {
             state.player_config = Some(pc);
             state.current_play_mode = Some(Mode::BEAT_7K);
         }
-        *lock_or_recover(&MODMENU_OUTBOX) = Some(outbox.clone());
+        *lock_or_recover(&COMMAND_QUEUE) = Some(outbox.clone());
         *lock_or_recover(&CONFIG) = Some(config);
         *lock_or_recover(&PLAY_MODE_VALUE) = 3;
         *lock_or_recover(&NOTIFICATION_POSITION) = 2;
@@ -756,7 +767,7 @@ mod tests {
             assert!(state.player_config.is_some());
             assert!(state.current_play_mode.is_some());
         }
-        assert!(lock_or_recover(&MODMENU_OUTBOX).is_some());
+        assert!(lock_or_recover(&COMMAND_QUEUE).is_some());
         assert!(lock_or_recover(&CONFIG).is_some());
 
         // Clear
@@ -768,7 +779,7 @@ mod tests {
             assert!(state.player_config.is_none());
             assert!(state.current_play_mode.is_none());
         }
-        assert!(lock_or_recover(&MODMENU_OUTBOX).is_none());
+        assert!(lock_or_recover(&COMMAND_QUEUE).is_none());
         assert!(lock_or_recover(&CONFIG).is_none());
 
         // Verify value statics are reset to defaults
@@ -788,10 +799,10 @@ mod tests {
         assert_eq!(*lock_or_recover(&SELECTED_PLAYER), 0);
         assert!(lock_or_recover(&PLAYERS).is_empty());
 
-        // Verify that the outbox static is cleared (old Arc still exists but is
-        // no longer reachable via the global static)
-        outbox.push_save_config();
-        assert!(lock_or_recover(&MODMENU_OUTBOX).is_none());
+        // Verify that the command queue static is cleared (old Arc still exists
+        // but is no longer reachable via the global static)
+        outbox.lock().unwrap().push(Command::SaveConfig);
+        assert!(lock_or_recover(&COMMAND_QUEUE).is_none());
 
         reset_statics();
     }
@@ -806,7 +817,7 @@ mod tests {
         let mut pc = PlayerConfig::default();
         pc.mode7.playconfig.enablelift = true;
         pc.mode7.playconfig.lift = 0.42;
-        let outbox = Arc::new(ModmenuOutbox::new());
+        let outbox = Arc::new(Mutex::new(Vec::new()));
         let config = Config::default();
 
         MiscSettingMenu::set_player_config(pc, config, outbox.clone());
@@ -825,7 +836,7 @@ mod tests {
         new_pc.mode7.playconfig.enablehidden = true;
         new_pc.mode7.playconfig.hidden = 0.55;
 
-        let new_outbox = Arc::new(ModmenuOutbox::new());
+        let new_outbox = Arc::new(Mutex::new(Vec::new()));
         let new_config = Config::default();
         MiscSettingMenu::set_player_config(new_pc, new_config, new_outbox.clone());
 
@@ -840,12 +851,12 @@ mod tests {
         assert!(*lock_or_recover(&ENABLE_HIDDEN));
         assert_eq!(*lock_or_recover(&HIDDEN_VALUE), 550);
 
-        // Commands should go to the new outbox, not the old one
+        // Commands should go to the new queue, not the old one
         flush_play_config();
-        assert!(outbox.is_empty(), "old outbox should receive no commands");
+        assert!(outbox.lock().unwrap().is_empty(), "old queue should receive no commands");
         assert!(
-            !new_outbox.is_empty(),
-            "new outbox should receive the flush command"
+            !new_outbox.lock().unwrap().is_empty(),
+            "new queue should receive the flush command"
         );
 
         reset_statics();
@@ -861,14 +872,14 @@ mod tests {
         let mut pc = PlayerConfig::default();
         pc.mode7.playconfig.enablelift = true;
         pc.mode7.playconfig.lift = 0.75;
-        let outbox = Arc::new(ModmenuOutbox::new());
+        let outbox = Arc::new(Mutex::new(Vec::new()));
 
         {
             let mut state = lock_or_recover(&MENU_STATE);
             state.player_config = Some(pc);
             state.current_play_mode = Some(Mode::BEAT_7K);
         }
-        *lock_or_recover(&MODMENU_OUTBOX) = Some(outbox);
+        *lock_or_recover(&COMMAND_QUEUE) = Some(outbox);
 
         // get_play_config reads from single MENU_STATE Mutex
         let play_cfg = get_play_config();

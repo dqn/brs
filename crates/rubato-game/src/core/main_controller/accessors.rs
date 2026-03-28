@@ -85,9 +85,8 @@ impl MainController {
                 lifecycle: LifecycleState::new(),
                 exit_requested: AtomicBool::new(false),
                 resource: None,
-                modmenu_outbox: std::sync::Arc::new(crate::state::modmenu::ModmenuOutbox::new()),
                 transition: None,
-                commands: Vec::new(),
+                commands: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
             },
             auto,
             song_updated,
@@ -211,9 +210,11 @@ impl MainController {
             .and_then(|status| status.connection.as_ref())
     }
 
-    /// Get the shared modmenu outbox for wiring modmenu callbacks.
-    pub fn modmenu_outbox(&self) -> &std::sync::Arc<crate::state::modmenu::ModmenuOutbox> {
-        &self.ctx.modmenu_outbox
+    /// Get the shared command queue for wiring modmenu callbacks.
+    pub fn command_queue(
+        &self,
+    ) -> &std::sync::Arc<std::sync::Mutex<Vec<crate::core::command::Command>>> {
+        &self.ctx.commands
     }
 
     pub fn timer(&self) -> &TimerManager {

@@ -273,46 +273,44 @@ impl MainController {
             });
         }
 
-        // Drain modmenu outbox (egui callbacks -> MainController)
+        // Drain unified command queue (states + egui callbacks -> MainController)
         {
-            let modmenu_actions = self.ctx.modmenu_outbox.drain();
-            for (mode, play_config) in modmenu_actions.play_config_updates {
-                let pc = *play_config;
-                self.ctx
-                    .player
-                    .play_config(mode)
-                    .playconfig
-                    .apply_modmenu_fields(&pc);
-                if let Some(ref mut state) = self.current {
-                    state.receive_updated_play_config(mode, pc);
-                }
-            }
-            if let Some(pc) = modmenu_actions.load_new_profile {
-                self.load_new_profile(*pc);
-            }
-            if modmenu_actions.save_config {
-                self.save_config();
-            }
-            for (id, skin_config) in modmenu_actions.skin_config_updates {
-                self.ctx.update_skin_config(id, skin_config.map(|c| *c));
-            }
-            for (path, skin_config) in modmenu_actions.skin_history_updates {
-                self.ctx.update_skin_history(&path, *skin_config);
-            }
-        }
-
-        // Drain typed command queue
-        for cmd in std::mem::take(&mut self.ctx.commands) {
-            match cmd {
-                crate::core::command::Command::UpdateSong(path_opt) => {
-                    let path = path_opt.as_deref().unwrap_or("");
-                    self.update_song(path);
-                }
-                crate::core::command::Command::UpdateTable(source) => {
-                    self.update_table(source);
-                }
-                crate::core::command::Command::LoadNewProfile(pc) => {
-                    self.load_new_profile(*pc);
+            let commands: Vec<_> = {
+                let mut queue = self.ctx.commands.lock().unwrap_or_else(|e| e.into_inner());
+                std::mem::take(&mut *queue)
+            };
+            for cmd in commands {
+                match cmd {
+                    crate::core::command::Command::UpdateSong(path_opt) => {
+                        let path = path_opt.as_deref().unwrap_or("");
+                        self.update_song(path);
+                    }
+                    crate::core::command::Command::UpdateTable(source) => {
+                        self.update_table(source);
+                    }
+                    crate::core::command::Command::LoadNewProfile(pc) => {
+                        self.load_new_profile(*pc);
+                    }
+                    crate::core::command::Command::UpdatePlayConfig { mode, config } => {
+                        let pc = *config;
+                        self.ctx
+                            .player
+                            .play_config(mode)
+                            .playconfig
+                            .apply_modmenu_fields(&pc);
+                        if let Some(ref mut state) = self.current {
+                            state.receive_updated_play_config(mode, pc);
+                        }
+                    }
+                    crate::core::command::Command::SaveConfig => {
+                        self.save_config();
+                    }
+                    crate::core::command::Command::UpdateSkinConfig { id, config } => {
+                        self.ctx.update_skin_config(id, config.map(|c| *c));
+                    }
+                    crate::core::command::Command::UpdateSkinHistory { path, config } => {
+                        self.ctx.update_skin_history(&path, *config);
+                    }
                 }
             }
         }

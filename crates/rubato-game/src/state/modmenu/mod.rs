@@ -4,7 +4,6 @@
 // Types
 pub mod clipboard_wrapper;
 pub mod imgui_surrogates;
-pub mod modmenu_outbox;
 pub mod modmenu_skin;
 
 // Re-exports
@@ -35,13 +34,12 @@ pub use rubato_skin::lua::lua_skin_loader::LuaSkinLoader;
 
 /// Empty stub for backward compatibility -- callers use `MainController`.
 /// The modmenu (egui launcher/settings) does not need a real MainController;
-/// all side-effects go through ModmenuOutbox.
+/// all side-effects go through the unified Command queue.
 pub struct MainController;
 
 // Re-exports for moved types
 pub use clipboard_wrapper::Clipboard;
 pub use imgui_surrogates::{ImBoolean, ImFloat};
-pub use modmenu_outbox::ModmenuOutbox;
 pub use modmenu_skin::{Skin, SkinObject, SkinObjectDestination};
 
 pub mod download_task_menu;

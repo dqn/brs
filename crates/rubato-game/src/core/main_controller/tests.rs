@@ -1514,7 +1514,7 @@ impl StateReferencesCallback for MockReferencesCallback {
         &self,
         _config: &Config,
         _player: &PlayerConfig,
-        _modmenu_outbox: &std::sync::Arc<crate::state::modmenu::ModmenuOutbox>,
+        _commands: &std::sync::Arc<std::sync::Mutex<Vec<crate::core::command::Command>>>,
     ) {
         *self.called.lock().expect("mutex poisoned") = true;
     }

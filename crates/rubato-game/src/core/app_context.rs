@@ -1,4 +1,5 @@
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 
 use rubato_audio::audio_system::AudioSystem;
 
@@ -63,10 +64,6 @@ pub struct GameContext {
     /// During active play, this is borrowed by the current state.
     pub resource: Option<PlayerResource>,
 
-    // --- Modmenu outbox ---
-    /// Thread-safe outbox for modmenu actions (egui callbacks -> MainController drain).
-    pub modmenu_outbox: std::sync::Arc<crate::state::modmenu::ModmenuOutbox>,
-
     // --- Frame transition ---
     /// Pending state transition from `render_with_game_context`.
     /// Stored here so the outbox drain runs before the transition is applied.
@@ -74,8 +71,8 @@ pub struct GameContext {
 
     // --- Command queue ---
     /// Typed command queue, drained by MainController after each render frame.
-    /// Replaces the scattered outbox fields on DatabaseState.
-    pub commands: Vec<Command>,
+    /// `Arc<Mutex<..>>` so egui callbacks can push commands via a cloned Arc.
+    pub commands: Arc<Mutex<Vec<Command>>>,
 }
 
 impl GameContext {
@@ -235,22 +232,39 @@ impl GameContext {
     // --- Command queue convenience methods ---
 
     pub fn queue_command(&mut self, cmd: Command) {
-        self.commands.push(cmd);
+        self.commands
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(cmd);
+    }
+
+    /// Get a cloned Arc handle for the command queue.
+    /// Used by egui callbacks that cannot carry `&mut GameContext`.
+    pub fn command_queue(&self) -> Arc<Mutex<Vec<Command>>> {
+        Arc::clone(&self.commands)
     }
 
     pub fn queue_update_song(&mut self, path: Option<String>) {
-        self.commands.push(Command::UpdateSong(path));
+        self.commands
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(Command::UpdateSong(path));
     }
 
     pub fn queue_update_table(
         &mut self,
         source: Box<dyn rubato_types::table_update_source::TableUpdateSource>,
     ) {
-        self.commands.push(Command::UpdateTable(source));
+        self.commands
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(Command::UpdateTable(source));
     }
 
     pub fn queue_load_new_profile(&mut self, config: PlayerConfig) {
         self.commands
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
             .push(Command::LoadNewProfile(Box::new(config)));
     }
 

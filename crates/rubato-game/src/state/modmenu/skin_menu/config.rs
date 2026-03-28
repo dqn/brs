@@ -14,6 +14,7 @@ use super::{
     AVAILABLE_FILES, CURRENT_SKIN, CURRENT_SKIN_TYPE, DIRTY_CONFIG, OffsetValue, READY, SET_FILES,
     SET_OFFSETS, SET_OPTIONS, SKIN_MENU_STATE,
 };
+use crate::core::command::Command;
 use rubato_types::sync_utils::lock_or_recover;
 
 pub(super) fn refresh() {
@@ -489,13 +490,20 @@ pub(super) fn save_current_config(next_skin: &SkinHeader) {
     drop(current_skin);
 
     let state = lock_or_recover(&SKIN_MENU_STATE);
-    if let Some(ref ob) = state.outbox {
+    if let Some(ref q) = state.commands {
+        let mut cmds = q.lock().unwrap_or_else(|e| e.into_inner());
         match action {
             OutboxAction::SkinConfig(id, cfg) => {
-                ob.push_skin_config_update(id, Some(cfg));
+                cmds.push(Command::UpdateSkinConfig {
+                    id,
+                    config: Some(Box::new(cfg)),
+                });
             }
             OutboxAction::SkinHistory(path, cfg) => {
-                ob.push_skin_history_update(path, cfg);
+                cmds.push(Command::UpdateSkinHistory {
+                    path,
+                    config: Box::new(cfg),
+                });
             }
         }
     }

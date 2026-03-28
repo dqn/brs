@@ -67,13 +67,13 @@ pub struct StateCreateResult {
 /// ```
 pub trait StateReferencesCallback: Send {
     /// Called after state initialization to update cross-state references.
-    /// Receives the controller reference, player config, and modmenu outbox
+    /// Receives the controller reference, player config, and command queue
     /// for wiring modmenu stubs.
     fn update_references(
         &self,
         config: &Config,
         player: &PlayerConfig,
-        modmenu_outbox: &std::sync::Arc<crate::state::modmenu::ModmenuOutbox>,
+        commands: &std::sync::Arc<std::sync::Mutex<Vec<crate::core::command::Command>>>,
     );
 }
 

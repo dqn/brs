@@ -2763,9 +2763,8 @@ fn render_with_game_context_drains_player_config_update() {
         lifecycle: Default::default(),
         exit_requested: std::sync::atomic::AtomicBool::new(false),
         resource: None,
-        modmenu_outbox: std::sync::Arc::new(crate::state::modmenu::ModmenuOutbox::new()),
         transition: None,
-        commands: Vec::new(),
+        commands: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
     };
 
     use crate::core::main_state::MainState;

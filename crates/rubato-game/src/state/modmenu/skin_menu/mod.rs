@@ -9,9 +9,10 @@ use super::imgui_renderer;
 use std::sync::Arc;
 
 use super::{
-    CustomCategoryItem, CustomFile, CustomOffset, CustomOption, MainController, ModmenuOutbox,
+    CustomCategoryItem, CustomFile, CustomOffset, CustomOption, MainController,
     OPTION_RANDOM_VALUE, PlayerConfig, SkinHeader, SkinType,
 };
+use crate::core::command::Command;
 
 use config::{
     dirty, get_file_setting, get_offset_setting, get_option_setting, refresh,
@@ -26,13 +27,13 @@ use rubato_types::sync_utils::lock_or_recover;
 struct SkinMenuState {
     main: Option<MainController>,
     player_config: Option<PlayerConfig>,
-    outbox: Option<Arc<ModmenuOutbox>>,
+    commands: Option<Arc<Mutex<Vec<Command>>>>,
 }
 
 static SKIN_MENU_STATE: Mutex<SkinMenuState> = Mutex::new(SkinMenuState {
     main: None,
     player_config: None,
-    outbox: None,
+    commands: None,
 });
 
 static READY: Mutex<bool> = Mutex::new(false);
@@ -67,11 +68,11 @@ impl OffsetValue {
 pub struct SkinMenu;
 
 impl SkinMenu {
-    pub fn init(main: MainController, player_config: PlayerConfig, outbox: Arc<ModmenuOutbox>) {
+    pub fn init(main: MainController, player_config: PlayerConfig, commands: Arc<Mutex<Vec<Command>>>) {
         let mut state = lock_or_recover(&SKIN_MENU_STATE);
         state.main = Some(main);
         state.player_config = Some(player_config);
-        state.outbox = Some(outbox);
+        state.commands = Some(commands);
     }
 
     pub fn invalidate() {
@@ -787,7 +788,7 @@ mod tests {
                 let mut state = lock_or_recover(&SKIN_MENU_STATE);
                 state.main = None;
                 state.player_config = None;
-                state.outbox = None;
+                state.commands = None;
             }
             *lock_or_recover(&CURRENT_SKIN) = None;
             *lock_or_recover(&CURRENT_SKIN_TYPE) = None;
@@ -813,14 +814,14 @@ mod tests {
     fn save_current_config_pushes_update_skin_config_for_same_skin() {
         let _guard = SkinMenuStaticsGuard;
 
-        let outbox = Arc::new(ModmenuOutbox::new());
+        let queue = Arc::new(Mutex::new(Vec::<Command>::new()));
         let pc = PlayerConfig::default();
         let skin_type = SkinType::Play7Keys;
 
         {
             let mut state = lock_or_recover(&SKIN_MENU_STATE);
             state.player_config = Some(pc);
-            state.outbox = Some(outbox.clone());
+            state.commands = Some(queue.clone());
         }
         *lock_or_recover(&CURRENT_SKIN_TYPE) = Some(skin_type);
 
@@ -830,34 +831,38 @@ mod tests {
         // Call save_current_config with same skin name (triggers UpdateSkinConfig path)
         config::save_current_config(&header);
 
-        let drained = outbox.drain();
+        let drained: Vec<_> = std::mem::take(&mut *queue.lock().unwrap());
         assert_eq!(
-            drained.skin_config_updates.len(),
+            drained.len(),
             1,
             "expected exactly one skin config update"
         );
-        let (id, ref config) = drained.skin_config_updates[0];
-        assert_eq!(id, skin_type.id() as usize);
-        let boxed_config = config.as_ref().expect("config should be Some");
-        assert_eq!(
-            boxed_config.path(),
-            Some("/skins/test.json"),
-            "config path should match skin path"
-        );
+        match &drained[0] {
+            Command::UpdateSkinConfig { id, config } => {
+                assert_eq!(*id, skin_type.id() as usize);
+                let boxed_config = config.as_ref().expect("config should be Some");
+                assert_eq!(
+                    boxed_config.path(),
+                    Some("/skins/test.json"),
+                    "config path should match skin path"
+                );
+            }
+            other => panic!("expected UpdateSkinConfig, got {:?}", std::mem::discriminant(other)),
+        }
     }
 
     #[test]
     fn save_current_config_pushes_update_skin_history_for_different_skin() {
         let _guard = SkinMenuStaticsGuard;
 
-        let outbox = Arc::new(ModmenuOutbox::new());
+        let queue = Arc::new(Mutex::new(Vec::<Command>::new()));
         let pc = PlayerConfig::default();
         let skin_type = SkinType::Play7Keys;
 
         {
             let mut state = lock_or_recover(&SKIN_MENU_STATE);
             state.player_config = Some(pc);
-            state.outbox = Some(outbox.clone());
+            state.commands = Some(queue.clone());
         }
         *lock_or_recover(&CURRENT_SKIN_TYPE) = Some(skin_type);
 
@@ -868,15 +873,19 @@ mod tests {
         // Switching to a different skin name triggers the skin_history path
         config::save_current_config(&next);
 
-        let drained = outbox.drain();
+        let drained: Vec<_> = std::mem::take(&mut *queue.lock().unwrap());
         assert_eq!(
-            drained.skin_history_updates.len(),
+            drained.len(),
             1,
             "expected exactly one skin history update"
         );
-        let (ref skin_path, ref boxed_config) = drained.skin_history_updates[0];
-        assert_eq!(skin_path, "/skins/a.json");
-        assert_eq!(boxed_config.path(), Some("/skins/a.json"));
+        match &drained[0] {
+            Command::UpdateSkinHistory { path, config } => {
+                assert_eq!(path, "/skins/a.json");
+                assert_eq!(config.path(), Some("/skins/a.json"));
+            }
+            other => panic!("expected UpdateSkinHistory, got {:?}", std::mem::discriminant(other)),
+        }
     }
 
     #[test]
@@ -887,13 +896,13 @@ mod tests {
         let skin_type = SkinType::Play7Keys;
 
         lock_or_recover(&SKIN_MENU_STATE).player_config = Some(pc);
-        // outbox deliberately left as None
+        // commands deliberately left as None
         *lock_or_recover(&CURRENT_SKIN_TYPE) = Some(skin_type);
 
         let header = make_test_skin_header("TestSkin", "/skins/test.json", skin_type);
         *lock_or_recover(&CURRENT_SKIN) = Some(header.clone());
 
-        // Should not panic when outbox is None
+        // Should not panic when commands is None
         config::save_current_config(&header);
     }
 }

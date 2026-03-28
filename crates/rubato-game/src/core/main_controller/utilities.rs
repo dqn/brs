@@ -432,11 +432,7 @@ impl MainController {
     /// `set_state_references_callback()` to wire these references.
     pub fn update_state_references(&self) {
         if let Some(ref callback) = self.state_references_callback {
-            callback.update_references(
-                &self.ctx.config,
-                &self.ctx.player,
-                &self.ctx.modmenu_outbox,
-            );
+            callback.update_references(&self.ctx.config, &self.ctx.player, &self.ctx.commands);
         }
     }
 

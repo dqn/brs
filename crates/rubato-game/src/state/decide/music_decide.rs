@@ -1872,9 +1872,8 @@ mod tests {
             lifecycle: LifecycleState::new(),
             exit_requested: AtomicBool::new(false),
             resource: None,
-            modmenu_outbox: std::sync::Arc::new(crate::state::modmenu::ModmenuOutbox::new()),
             transition: None,
-            commands: Vec::new(),
+            commands: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
         }
     }
 
