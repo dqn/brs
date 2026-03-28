@@ -279,7 +279,10 @@ impl LauncherUi {
                     // `as usize`, but .get() returns None and falls through to the default.
                     let analog_modes = ["Ver 2", "Ver 1"];
                     let selected_label = analog_modes
-                        .get(controller.analog_scratch_mode as usize)
+                        .get(clamped_option_index(
+                            controller.analog_scratch_mode,
+                            analog_modes.len(),
+                        ))
                         .unwrap_or(&"Ver 2");
                     ui.label("Analog Mode:");
                     egui::ComboBox::from_id_salt(format!("analog_mode_{}", i))
@@ -318,7 +321,10 @@ impl LauncherUi {
 
                 let scratch_modes = ["Ver 2", "Ver 1"];
                 let selected_label = scratch_modes
-                    .get(ms.mouse_scratch_mode as usize)
+                    .get(clamped_option_index(
+                        ms.mouse_scratch_mode,
+                        scratch_modes.len(),
+                    ))
                     .unwrap_or(&"Ver 2");
                 ui.label("Mode:");
                 egui::ComboBox::from_id_salt("mouse_scratch_mode")
