@@ -2,8 +2,7 @@ use super::*;
 use crate::core::config::SelectConfig;
 use crate::core::config_pkg::key_configuration::KeyConfiguration;
 use crate::core::config_pkg::skin_configuration::SkinConfiguration;
-use crate::core::main_state::MainStateData;
-use crate::game_screen::GameScreen;
+use crate::core::main_state::{MainState, MainStateData};
 use rubato_types::test_support::CurrentDirGuard;
 
 /// A minimal test state that implements MainState for testing state dispatch.
@@ -319,15 +318,13 @@ fn test_music_select_with_bmsfile_calls_exit() {
 #[test]
 fn test_get_state_type_static() {
     let state = TestState::new(MainStateType::Play);
-    assert_eq!(
-        MainController::state_type(Some(&state as &dyn MainState)),
-        Some(MainStateType::Play)
-    );
+    assert_eq!(state.state_type(), Some(MainStateType::Play));
 }
 
 #[test]
 fn test_get_state_type_none() {
-    assert_eq!(MainController::state_type(None), None);
+    let state: Option<&GameScreen> = None;
+    assert_eq!(state.and_then(|s| s.state_type()), None);
 }
 
 #[test]

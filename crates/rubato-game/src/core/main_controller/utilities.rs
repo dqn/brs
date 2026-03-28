@@ -188,28 +188,18 @@ impl MainController {
     /// Returns the current state.
     ///
     /// Translated from: MainController.getCurrentState()
-    pub fn current_state(&self) -> Option<&dyn MainState> {
-        self.current.as_ref().map(|s| s as &dyn MainState)
+    pub fn current_state(&self) -> Option<&GameScreen> {
+        self.current.as_ref()
     }
 
     /// Returns a mutable reference to the current state.
-    pub fn current_state_mut(&mut self) -> Option<&mut dyn MainState> {
-        self.current.as_mut().map(|s| s as &mut dyn MainState)
-    }
-
-    /// Returns the state type for the current state.
-    ///
-    /// Translated from: MainController.getStateType(MainState)
-    ///
-    /// In Java this uses instanceof checks. In Rust, each concrete state
-    /// implements state_type() on the MainState trait.
-    pub fn state_type(state: Option<&dyn MainState>) -> Option<MainStateType> {
-        state.and_then(|s| s.state_type())
+    pub fn current_state_mut(&mut self) -> Option<&mut GameScreen> {
+        self.current.as_mut()
     }
 
     /// Returns the current state's type.
     pub fn current_state_type(&self) -> Option<MainStateType> {
-        Self::state_type(self.current_state())
+        self.current.as_ref().and_then(|s| s.state_type())
     }
 
     /// Returns the input processor.
