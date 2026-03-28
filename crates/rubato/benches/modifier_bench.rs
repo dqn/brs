@@ -7,13 +7,13 @@ use bms::model::bms_model::BMSModel;
 use bms::model::mode::Mode;
 use bms::model::note::Note;
 use bms::model::time_line::TimeLine;
-use rubato_game::core::pattern::lane_shuffle_modifier::{
+use rubato::core::pattern::lane_shuffle_modifier::{
     LaneMirrorShuffleModifier, LaneRandomShuffleModifier, LaneRotateShuffleModifier,
 };
-use rubato_game::core::pattern::note_shuffle_modifier::NoteShuffleModifier;
-use rubato_game::core::pattern::pattern_modifier::PatternModifier;
-use rubato_game::core::pattern::random::Random;
-use rubato_game::core::player_config::PlayerConfig;
+use rubato::core::pattern::note_shuffle_modifier::NoteShuffleModifier;
+use rubato::core::pattern::pattern_modifier::PatternModifier;
+use rubato::core::pattern::random::Random;
+use rubato::core::player_config::PlayerConfig;
 
 fn make_test_model(mode: &Mode, timelines: Vec<TimeLine>) -> BMSModel {
     let mut model = BMSModel::new();

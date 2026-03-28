@@ -13,7 +13,7 @@ use std::time::Duration;
 
 use rubato::state_factory::LauncherStateFactory;
 use rubato_audio::recording_audio_driver::AudioEvent;
-use rubato_e2e::{E2eHarness, MainStateType};
+use crate::e2e_support::{E2eHarness, MainStateType};
 use rubato_skin::timer_id::TimerId;
 
 fn test_bms_dir() -> PathBuf {

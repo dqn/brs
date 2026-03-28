@@ -8,7 +8,7 @@ use rubato::core::bms_player_mode::BMSPlayerMode;
 use std::path::PathBuf;
 
 use rubato::state_factory::LauncherStateFactory;
-use rubato_e2e::{E2eHarness, MainStateType};
+use crate::e2e_support::{E2eHarness, MainStateType};
 
 fn test_bms_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -158,7 +158,7 @@ fn test_large_frame_count() {
     // Verify time advanced correctly (500 frames * 16667us per frame)
     // render_frame() calls step_frame() then render(), so time = (500 + 0) * 16667
     // Note: change_state does not step time, only render_frames does.
-    let expected_time = 500 * rubato_e2e::FRAME_DURATION_US;
+    let expected_time = 500 * crate::e2e_support::FRAME_DURATION_US;
     assert_eq!(
         harness.current_time_us(),
         expected_time,

@@ -1,4 +1,4 @@
-//! Test support utilities for rubato-game.
+//! Test support utilities for rubato.
 //!
 //! Provides shared test doubles moved from rubato-types.
 

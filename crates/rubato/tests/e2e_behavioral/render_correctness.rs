@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use rubato::core::config::Config;
 use rubato::core::main_loader::MainLoader;
 use rubato::state_factory::LauncherStateFactory;
-use rubato_e2e::{E2eHarness, MainStateType};
+use crate::e2e_support::{E2eHarness, MainStateType};
 use rubato_skin::player_config::PlayerConfig;
 use rubato_skin::skin_config::SkinConfig;
 use rubato_skin::skin_type::SkinType;

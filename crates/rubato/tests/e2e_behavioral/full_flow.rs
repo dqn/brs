@@ -8,7 +8,7 @@ use rubato::core::bms_player_mode::BMSPlayerMode;
 use std::path::PathBuf;
 
 use rubato::state_factory::LauncherStateFactory;
-use rubato_e2e::{E2eHarness, MainStateType, StateEvent};
+use crate::e2e_support::{E2eHarness, MainStateType, StateEvent};
 
 fn test_bms_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))

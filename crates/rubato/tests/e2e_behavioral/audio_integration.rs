@@ -3,7 +3,7 @@
 //! Tests that audio events are correctly captured through the full pipeline.
 
 use rubato_audio::audio_driver::AudioDriver;
-use rubato_e2e::{AudioEvent, E2eHarness};
+use crate::e2e_support::{AudioEvent, E2eHarness};
 
 #[test]
 fn play_path_events_captured_through_controller() {

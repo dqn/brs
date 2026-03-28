@@ -1,4 +1,4 @@
-use rubato_e2e::E2eHarness;
+use crate::e2e_support::E2eHarness;
 
 #[test]
 fn initial_state_is_none_without_factory() {

@@ -41,8 +41,8 @@ pub mod song_information_db;
 pub mod stream_controller_access;
 pub mod table_update_source;
 
-// Test support (moved from rubato-types)
-#[cfg(any(test, feature = "test-support"))]
+// Test support -- always compiled so integration tests can use it without feature flags.
+// Contains only lightweight test doubles (TestSongDb, etc.).
 pub mod test_support;
 
 pub use launcher_ui::LauncherUi;

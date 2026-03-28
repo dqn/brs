@@ -3,7 +3,7 @@
 //! Tests deterministic timer control and time accumulation
 //! via the E2eHarness frozen timer infrastructure.
 
-use rubato_e2e::{E2eHarness, FRAME_DURATION_US};
+use crate::e2e_support::{E2eHarness, FRAME_DURATION_US};
 
 // ============================================================
 // 1. Frozen timer stays at zero without explicit steps

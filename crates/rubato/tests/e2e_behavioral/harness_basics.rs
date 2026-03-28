@@ -1,4 +1,4 @@
-use rubato_e2e::{E2eHarness, FRAME_DURATION_US};
+use crate::e2e_support::{E2eHarness, FRAME_DURATION_US};
 
 #[test]
 fn harness_timer_starts_at_zero() {

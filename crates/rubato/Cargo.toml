@@ -107,6 +107,10 @@ criterion = { workspace = true }
 proptest = { workspace = true }
 rubato-skin = { workspace = true, features = ["test-support"] }
 
+[[test]]
+name = "e2e_behavioral"
+required-features = ["test-support"]
+
 [[bench]]
 name = "modifier_bench"
 harness = false

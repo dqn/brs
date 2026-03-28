@@ -2,7 +2,7 @@
 //!
 //! Demonstrates the fluent `E2eScenario` builder for concise test authoring.
 
-use rubato_e2e::{E2eScenario, MainStateType};
+use crate::e2e_support::{E2eScenario, MainStateType};
 
 #[test]
 fn scenario_play_renders_without_panic() {

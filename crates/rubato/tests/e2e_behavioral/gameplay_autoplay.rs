@@ -7,7 +7,7 @@ use rubato::core::bms_player_mode::BMSPlayerMode;
 use std::path::PathBuf;
 
 use rubato::state_factory::LauncherStateFactory;
-use rubato_e2e::{E2eHarness, MainStateType};
+use crate::e2e_support::{E2eHarness, MainStateType};
 
 fn test_bms_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -104,7 +104,7 @@ fn audio_events_recorded_during_play_state_creation() {
     let events = harness.audio_events();
     let has_set_model = events
         .iter()
-        .any(|e| matches!(e, rubato_e2e::AudioEvent::SetModel));
+        .any(|e| matches!(e, crate::e2e_support::AudioEvent::SetModel));
     assert!(
         has_set_model,
         "audio driver should receive SetModel event during play state creation"

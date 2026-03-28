@@ -1,4 +1,7 @@
-mod behavioral {
+#[path = "e2e_support/mod.rs"]
+mod e2e_support;
+
+mod e2e_behavioral {
     mod harness_basics;
     mod state_transitions;
 

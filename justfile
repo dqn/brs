@@ -3,11 +3,11 @@ run *ARGS:
     cargo run -p rubato-bin -- {{ARGS}}
 
 check:
-    cargo check --workspace --exclude rubato-bin
+    cargo check --workspace --exclude rubato-bin --exclude rubato-e2e
 
 # Run tests (exclude rubato-bin which requires ffmpeg system library)
 test:
-    cargo nextest run --workspace --exclude rubato-bin -E 'not (test(render_snapshot_parity) | test(ecfn))'
+    cargo nextest run --workspace --exclude rubato-bin --exclude rubato-e2e -E 'not (test(render_snapshot_parity) | test(ecfn))'
 
 # Run all tests including rubato-bin (requires ffmpeg system library)
 test-all:
@@ -15,7 +15,7 @@ test-all:
 
 # Run clippy (exclude rubato-bin which requires ffmpeg system library)
 clippy:
-    cargo clippy --workspace --exclude rubato-bin -- -D warnings
+    cargo clippy --workspace --exclude rubato-bin --exclude rubato-e2e -- -D warnings
 
 # Run clippy on all crates including rubato-bin (requires ffmpeg system library)
 clippy-all:
@@ -113,11 +113,11 @@ golden-master-ecfn-timepoint-update:
 
 # Behavioral E2E tests (GPU not required, structural assertions only)
 e2e:
-    cargo nextest run -p rubato-e2e
+    cargo nextest run -p rubato --features test-support -E 'test(e2e_behavioral)'
 
 # Update E2E snapshot fixtures (when render output intentionally changes)
 e2e-update-snapshots:
-    UPDATE_E2E_SNAPSHOTS=1 cargo nextest run -p rubato-e2e
+    UPDATE_E2E_SNAPSHOTS=1 cargo nextest run -p rubato --features test-support -E 'test(e2e_behavioral)'
 
 # MusicSelect text/number/bitmap alignment regression suite.
 select-render-regression:
