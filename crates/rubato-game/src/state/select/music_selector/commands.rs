@@ -75,9 +75,7 @@ impl MusicSelector {
     #[allow(clippy::too_many_arguments)]
     pub fn set_dependencies(
         &mut self,
-        ranking_data_cache: Box<
-            dyn crate::ranking_data_cache_access::RankingDataCacheAccess,
-        >,
+        ranking_data_cache: Box<dyn crate::ranking_data_cache_access::RankingDataCacheAccess>,
         ir_connection: Option<
             std::sync::Arc<dyn crate::ir::ir_connection::IRConnection + Send + Sync>,
         >,

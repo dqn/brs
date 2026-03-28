@@ -107,8 +107,7 @@ impl MainController {
 
     pub fn clone_http_download_processor(
         &self,
-    ) -> Option<std::sync::Arc<dyn crate::http_download_submitter::HttpDownloadSubmitter>>
-    {
+    ) -> Option<std::sync::Arc<dyn crate::http_download_submitter::HttpDownloadSubmitter>> {
         self.ctx.integration.http_download_processor.clone()
     }
 
@@ -320,9 +319,7 @@ impl MainController {
         self.shared_music_selector = Some(selector);
     }
 
-    pub fn ir_resend_service(
-        &self,
-    ) -> Option<&dyn crate::ir_resend_service::IrResendService> {
+    pub fn ir_resend_service(&self) -> Option<&dyn crate::ir_resend_service::IrResendService> {
         self.ctx.integration.ir_resend_service.as_deref()
     }
 
@@ -558,10 +555,7 @@ impl MainController {
     /// Update difficulty table data in a background thread.
     ///
     /// Translated from: MainController.updateTable(TableBar)
-    pub fn update_table(
-        &mut self,
-        source: Box<dyn crate::table_update_source::TableUpdateSource>,
-    ) {
+    pub fn update_table(&mut self, source: Box<dyn crate::table_update_source::TableUpdateSource>) {
         let name = source.source_name();
         crate::imgui_notify::ImGuiNotify::info(&format!("updating table : {name}"));
         let handle = std::thread::spawn(move || {

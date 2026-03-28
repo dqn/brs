@@ -1,9 +1,9 @@
 use crate::core::pattern::java_random::JavaRandom;
 use crate::core::pattern::pattern_modifier::{AssistLevel, PatternModifier, PatternModifierBase};
+use crate::random_history::{RandomHistoryEntry, add_random_history};
 use bms::model::bms_model::BMSModel;
 use bms::model::mode::Mode;
 use bms::model::note::Note;
-use crate::random_history::{RandomHistoryEntry, add_random_history};
 
 fn get_random_pattern_impl(
     random: &[i32],

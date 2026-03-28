@@ -3,9 +3,9 @@
 // Re-exports
 pub use crate::core::pattern::lr2_random::LR2Random;
 pub use crate::core::pattern::random::Random;
+pub use crate::imgui_notify::ImGuiNotify;
 pub use crate::song::song_data::SongData;
 pub use bms::model::bms_decoder::convert_hex_string;
-pub use crate::imgui_notify::ImGuiNotify;
 
 // IR data types
 pub mod ir_account;

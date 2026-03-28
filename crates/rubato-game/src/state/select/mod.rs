@@ -86,8 +86,8 @@ pub use rubato_types::skin_type::SkinType;
 pub type SkinRegion = Rectangle;
 
 // beatoraja.skin.property types
-pub use rubato_skin::skin_property;
 pub use crate::event_type::EventType;
+pub use rubato_skin::skin_property;
 
 // SoundType
 pub use crate::core::system_sound_manager::SoundType;

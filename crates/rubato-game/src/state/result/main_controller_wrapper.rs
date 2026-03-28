@@ -24,9 +24,7 @@ pub struct MainController {
 impl MainController {
     pub fn new(
         config: Config,
-        ranking_data_cache: Box<
-            dyn crate::ranking_data_cache_access::RankingDataCacheAccess,
-        >,
+        ranking_data_cache: Box<dyn crate::ranking_data_cache_access::RankingDataCacheAccess>,
     ) -> Self {
         let play_data_accessor = PlayDataAccessor::new(&config);
         Self {
@@ -41,9 +39,7 @@ impl MainController {
 
     pub fn with_ir_statuses(
         config: Config,
-        ranking_data_cache: Box<
-            dyn crate::ranking_data_cache_access::RankingDataCacheAccess,
-        >,
+        ranking_data_cache: Box<dyn crate::ranking_data_cache_access::RankingDataCacheAccess>,
         ir_statuses: Vec<IRStatus>,
     ) -> Self {
         let play_data_accessor = PlayDataAccessor::new(&config);
@@ -110,8 +106,7 @@ mod tests {
     use crate::ir::ranking_data::RankingData;
     use rubato_types::song_data::SongData;
 
-    fn make_ranking_cache()
-    -> Box<dyn crate::ranking_data_cache_access::RankingDataCacheAccess> {
+    fn make_ranking_cache() -> Box<dyn crate::ranking_data_cache_access::RankingDataCacheAccess> {
         Box::new(crate::ir::ranking_data_cache::RankingDataCache::new())
     }
 

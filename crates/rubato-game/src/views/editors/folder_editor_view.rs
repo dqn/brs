@@ -4,9 +4,9 @@ use std::path::PathBuf;
 
 use crate::core::course_data::CourseData;
 use crate::core::table_data::TableFolder;
+use crate::song_database_accessor::SongDatabaseAccessor;
 use egui;
 use rubato_types::song_data::SongData;
-use crate::song_database_accessor::SongDatabaseAccessor;
 
 use crate::views::editors::table_editor_view::TableEditorView;
 

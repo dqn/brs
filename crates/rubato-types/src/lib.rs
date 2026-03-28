@@ -112,7 +112,6 @@ pub mod input_processor_access;
 // Target property trait (core↔play bridge for score target)
 pub mod target_property_access;
 
-
 // Offset capabilities (shared boolean group for custom skin offsets)
 pub mod offset_capabilities;
 

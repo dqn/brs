@@ -1,7 +1,7 @@
 use std::path::Path;
 
-use rubato_types::player_information::PlayerInformation;
 use crate::score_data_cache::ScoreDataCache;
+use rubato_types::player_information::PlayerInformation;
 
 use crate::core::main_controller::MainController;
 use crate::core::score_data_importer::ScoreDataImporter;

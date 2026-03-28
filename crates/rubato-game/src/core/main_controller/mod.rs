@@ -4,13 +4,13 @@ pub(crate) use std::time::Instant;
 
 pub(crate) use log::info;
 
-pub(crate) use rubato_audio::audio_system::AudioSystem;
 pub(crate) use crate::imgui_notify::ImGuiNotify;
 pub(crate) use crate::main_state_access::MainStateAccess;
 pub(crate) use crate::ranking_data_cache_access::RankingDataCacheAccess;
-pub(crate) use rubato_types::screen_type::ScreenType;
 pub(crate) use crate::song_database_accessor::SongDatabaseAccessor as SongDatabaseAccessorTrait;
 pub(crate) use crate::song_information_db::SongInformationDb;
+pub(crate) use rubato_audio::audio_system::AudioSystem;
+pub(crate) use rubato_types::screen_type::ScreenType;
 
 pub(crate) use crate::core::app_context::GameContext;
 pub(crate) use crate::core::bms_player_mode::BMSPlayerMode;
@@ -197,8 +197,7 @@ pub struct IntegrationState {
     pub download: Option<Box<dyn crate::music_download_access::MusicDownloadAccess>>,
     pub http_download_processor:
         Option<std::sync::Arc<dyn crate::http_download_submitter::HttpDownloadSubmitter>>,
-    pub stream_controller:
-        Option<Box<dyn crate::stream_controller_access::StreamControllerAccess>>,
+    pub stream_controller: Option<Box<dyn crate::stream_controller_access::StreamControllerAccess>>,
 }
 
 /// MainController - root class of the application

@@ -8,11 +8,11 @@ use serde::Deserialize;
 use crate::core::score_data::ScoreData;
 use bms::model::mode::Mode;
 
+use crate::imgui_notify::ImGuiNotify;
 use crate::ir::ir_chart_data::IRChartData;
 use crate::ir::ir_score_data::IRScoreData;
 use crate::ir::leaderboard_entry::LeaderboardEntry;
 use crate::ir::lr2_ghost_data::LR2GhostData;
-use crate::imgui_notify::ImGuiNotify;
 
 /// LR2 IR connection
 ///

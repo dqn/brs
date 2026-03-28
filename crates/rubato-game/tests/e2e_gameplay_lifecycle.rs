@@ -509,7 +509,7 @@ fn e2e_music_select_standalone_default_json_skin_draws_runtime_numeric_value_qua
             &[],
         )
         .expect("song db should open");
-    rubato_types::song_database_accessor::SongDatabaseAccessor::set_song_datas(
+    rubato_game::song_database_accessor::SongDatabaseAccessor::set_song_datas(
         &song_db,
         &[song.clone()],
     )
