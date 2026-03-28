@@ -58,6 +58,10 @@ pub struct GdxAudioDeviceDriver {
     loading_thread: Option<std::thread::JoinHandle<()>>,
     // Path sound cache for preloaded sounds (avoids blocking I/O on play_path)
     path_sound_cache: HashMap<String, StaticSoundData>,
+    // Paths explicitly preloaded via preload_path() (system/UI sounds).
+    // During eviction, only these entries are retained in path_sound_cache;
+    // entries from deferred play_path() cache misses are cleared.
+    preloaded_paths: HashSet<String>,
     // Deferred path loader for non-blocking cache-miss loads
     deferred_path_loader: crate::audio::deferred_path_loader::DeferredPathLoader,
     // Gradual loading progress counter (incremented per file in background thread)
@@ -98,6 +102,7 @@ impl GdxAudioDeviceDriver {
             pending_load_tasks: None,
             loading_thread: None,
             path_sound_cache: HashMap::new(),
+            preloaded_paths: HashSet::new(),
             deferred_path_loader: crate::audio::deferred_path_loader::DeferredPathLoader::new(),
             loading_progress: Arc::new(AtomicUsize::new(0)),
             loading_total: 0,
@@ -425,6 +430,8 @@ impl AudioDriver for GdxAudioDeviceDriver {
         if path.is_empty() || self.path_sound_cache.contains_key(path) {
             return;
         }
+        // Track explicitly preloaded paths so evict_old_cache() preserves them.
+        self.preloaded_paths.insert(path.to_string());
         // Route through DeferredPathLoader to avoid blocking the main thread.
         // The sound will be cached on the next poll_loading() cycle.
         self.deferred_path_loader.request_preload(path);
@@ -570,6 +577,7 @@ impl AudioDriver for GdxAudioDeviceDriver {
         self.additional_key_sounds = Default::default();
         self.additional_key_sound_handles = Default::default();
         self.path_sound_cache.clear();
+        self.preloaded_paths.clear();
     }
 }
 
@@ -688,10 +696,14 @@ impl GdxAudioDeviceDriver {
         }
 
         // Clear sound_cache (from set_additional_key_sound / getSound) to prevent
-        // unbounded growth across songs. path_sound_cache is intentionally preserved:
-        // it holds system/preview sounds preloaded via preload_path() that should
-        // survive song switches to avoid synchronous file I/O on the render thread.
+        // unbounded growth across songs.
         self.sound_cache.clear();
+
+        // Evict path_sound_cache entries from deferred play_path() cache misses
+        // (e.g. preview sounds for every browsed song). Only retain entries that
+        // were explicitly preloaded via preload_path() (system/UI sounds).
+        self.path_sound_cache
+            .retain(|path, _| self.preloaded_paths.contains(path));
     }
 
     /// Play a single note's keysound (without layered notes).

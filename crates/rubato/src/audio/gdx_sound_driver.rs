@@ -98,6 +98,10 @@ pub struct GdxSoundDriver {
     loading_thread: Option<std::thread::JoinHandle<()>>,
     // Path sound cache for preloaded sounds (avoids blocking I/O on play_path)
     path_sound_cache: HashMap<String, StaticSoundData>,
+    // Paths explicitly preloaded via preload_path() (system/UI sounds).
+    // During eviction, only these entries are retained in path_sound_cache;
+    // entries from deferred play_path() cache misses are cleared.
+    preloaded_paths: HashSet<String>,
     // Deferred path loader for non-blocking cache-miss loads
     deferred_path_loader: crate::audio::deferred_path_loader::DeferredPathLoader,
     // Gradual loading progress counter (incremented per file in background thread)
@@ -129,6 +133,7 @@ impl GdxSoundDriver {
             pending_load_tasks: None,
             loading_thread: None,
             path_sound_cache: HashMap::new(),
+            preloaded_paths: HashSet::new(),
             deferred_path_loader: crate::audio::deferred_path_loader::DeferredPathLoader::new(),
             loading_progress: Arc::new(AtomicUsize::new(0)),
             loading_total: 0,
@@ -455,6 +460,8 @@ impl AudioDriver for GdxSoundDriver {
         if path.is_empty() || self.path_sound_cache.contains_key(path) {
             return;
         }
+        // Track explicitly preloaded paths so evict_old_cache() preserves them.
+        self.preloaded_paths.insert(path.to_string());
         // Route through DeferredPathLoader to avoid blocking the main thread.
         // The sound will be cached on the next poll_loading() cycle.
         self.deferred_path_loader.request_preload(path);
@@ -597,6 +604,7 @@ impl AudioDriver for GdxSoundDriver {
         self.additional_key_sounds = Default::default();
         self.additional_key_sound_handles = Default::default();
         self.path_sound_cache.clear();
+        self.preloaded_paths.clear();
     }
 }
 
@@ -722,10 +730,14 @@ impl GdxSoundDriver {
         }
 
         // Clear sound_cache (from set_additional_key_sound / getSound) to prevent
-        // unbounded growth across songs. path_sound_cache is intentionally preserved:
-        // it holds system/preview sounds preloaded via preload_path() that should
-        // survive song switches to avoid synchronous file I/O on the render thread.
+        // unbounded growth across songs.
         self.sound_cache.clear();
+
+        // Evict path_sound_cache entries from deferred play_path() cache misses
+        // (e.g. preview sounds for every browsed song). Only retain entries that
+        // were explicitly preloaded via preload_path() (system/UI sounds).
+        self.path_sound_cache
+            .retain(|path, _| self.preloaded_paths.contains(path));
     }
 
     /// Play a single note's keysound (without layered notes).
@@ -1622,13 +1634,10 @@ mod tests {
         assert_eq!(slice_handles[&key].len(), 1);
     }
 
-    /// Regression: evict_old_cache must clear sound_cache but preserve
-    /// path_sound_cache. sound_cache lacks generational eviction and accumulates
-    /// entries from set_additional_key_sound/getSound. path_sound_cache holds
-    /// system/preview sounds preloaded via preload_path() that must survive
-    /// song switches to avoid synchronous file I/O on the render thread.
+    /// evict_old_cache must clear sound_cache, retain preloaded entries in
+    /// path_sound_cache, and evict deferred-load entries from path_sound_cache.
     #[test]
-    fn evict_old_cache_clears_sound_cache_preserves_path_sound_cache() {
+    fn evict_old_cache_retains_only_preloaded_path_sound_cache_entries() {
         let sound = make_silent_sound();
         let song_resource_gen = 2;
         let maxgen = song_resource_gen.max(1);
@@ -1638,11 +1647,20 @@ mod tests {
         sound_cache.insert("/preview/song1.ogg".to_string(), sound.clone());
         sound_cache.insert("/preview/song2.ogg".to_string(), sound.clone());
 
-        // Simulate path_sound_cache with preloaded system sounds
+        // Simulate preloaded_paths (system sounds registered via preload_path)
+        let mut preloaded_paths: HashSet<String> = HashSet::new();
+        preloaded_paths.insert("/sfx/click.wav".to_string());
+        preloaded_paths.insert("/sfx/decide.wav".to_string());
+
+        // Simulate path_sound_cache: mix of preloaded + deferred-load entries
         let mut path_sound_cache: HashMap<String, StaticSoundData> = HashMap::new();
+        // These came from preload_path() -- should survive
         path_sound_cache.insert("/sfx/click.wav".to_string(), sound.clone());
         path_sound_cache.insert("/sfx/decide.wav".to_string(), sound.clone());
-        path_sound_cache.insert("/sfx/cancel.wav".to_string(), sound.clone());
+        // These came from deferred play_path() cache misses -- should be evicted
+        path_sound_cache.insert("/preview/song1.ogg".to_string(), sound.clone());
+        path_sound_cache.insert("/preview/song2.ogg".to_string(), sound.clone());
+        path_sound_cache.insert("/preview/song3.ogg".to_string(), sound.clone());
 
         // Simulate file_cache (should use generational eviction, not full clear)
         let mut file_cache: HashMap<String, FileCacheEntry> = HashMap::new();
@@ -1671,7 +1689,7 @@ mod tests {
             }
         });
         sound_cache.clear();
-        // path_sound_cache is intentionally NOT cleared
+        path_sound_cache.retain(|path, _| preloaded_paths.contains(path));
 
         // file_cache uses generational eviction: fresh entry survives, old is evicted
         assert_eq!(file_cache.len(), 1);
@@ -1680,11 +1698,14 @@ mod tests {
         // sound_cache must be fully cleared
         assert!(sound_cache.is_empty());
 
-        // path_sound_cache must be preserved across song switches
-        assert_eq!(path_sound_cache.len(), 3);
+        // Only preloaded entries survive in path_sound_cache
+        assert_eq!(path_sound_cache.len(), 2);
         assert!(path_sound_cache.contains_key("/sfx/click.wav"));
         assert!(path_sound_cache.contains_key("/sfx/decide.wav"));
-        assert!(path_sound_cache.contains_key("/sfx/cancel.wav"));
+        // Deferred-load entries must be evicted
+        assert!(!path_sound_cache.contains_key("/preview/song1.ogg"));
+        assert!(!path_sound_cache.contains_key("/preview/song2.ogg"));
+        assert!(!path_sound_cache.contains_key("/preview/song3.ogg"));
     }
 
     /// Regression: cleanup_stopped_handles must remove stopped handles across

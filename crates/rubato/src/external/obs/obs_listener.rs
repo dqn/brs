@@ -52,12 +52,17 @@ impl ObsListener {
         let scheduled_stop_task = Arc::new(Mutex::new(None));
         let scheduled_stop_clone = Arc::clone(&scheduled_stop_task);
 
-        let bridge_handle = std::thread::Builder::new()
+        let bridge_handle = match std::thread::Builder::new()
             .name("obs-bridge".to_string())
             .spawn(move || {
                 Self::bridge_loop(app_rx, config_clone, client_clone, scheduled_stop_clone);
-            })
-            .ok();
+            }) {
+            Ok(h) => Some(h),
+            Err(e) => {
+                log::warn!("Failed to spawn OBS bridge thread: {}", e);
+                None
+            }
+        };
 
         (
             app_tx,

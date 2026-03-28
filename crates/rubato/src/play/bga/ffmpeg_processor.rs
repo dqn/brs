@@ -547,19 +547,20 @@ impl MovieProcessor for FFmpegProcessor {
     fn dispose(&mut self) {
         #[cfg(feature = "ffmpeg")]
         {
-            // Set disposed status first
-            if let Some(ref handle) = self.handle {
+            if let Some(mut handle) = self.handle.take() {
+                // Set disposed status so the background thread stops producing frames.
                 {
                     let mut s = crate::skin::sync_utils::lock_or_recover(&handle.shared);
                     s.status = ProcessorStatus::Disposed;
                 }
+                // Send Halt command so the thread exits its main loop.
                 let _ = handle.cmd_tx.send(Command::Halt);
-            }
-            // Join thread for clean shutdown
-            if let Some(mut handle) = self.handle.take() {
-                if let Some(thread) = handle.thread.take() {
-                    let _ = thread.join();
-                }
+                // Drop the thread handle to detach instead of joining.
+                // The thread will exit when it sees Halt or when the channel
+                // disconnects. Joining risks blocking indefinitely if the
+                // thread is stuck in a blocking ffmpeg decode.
+                // (AGENTS.md: "drop handle, don't join")
+                drop(handle.thread.take());
             }
             self._showing_tex = None;
         }
