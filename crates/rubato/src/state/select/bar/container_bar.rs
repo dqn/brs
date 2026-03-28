@@ -1,0 +1,29 @@
+use super::bar::Bar;
+use super::directory_bar::DirectoryBarData;
+
+/// Bar containing specified child bars
+/// Translates: bms.player.beatoraja.select.bar.ContainerBar
+#[derive(Clone)]
+pub struct ContainerBar {
+    pub directory: DirectoryBarData,
+    pub title: String,
+    pub childbar: Vec<Bar>,
+}
+
+impl ContainerBar {
+    pub fn new(title: String, bar: Vec<Bar>) -> Self {
+        Self {
+            directory: DirectoryBarData::default(),
+            title,
+            childbar: bar,
+        }
+    }
+
+    pub fn title(&self) -> &str {
+        &self.title
+    }
+
+    pub fn children(&self) -> &[Bar] {
+        &self.childbar
+    }
+}

@@ -4,11 +4,11 @@
 //! panicking, including empty BMS files, rapid state transitions,
 //! double renders, and high frame counts.
 
-use rubato_game::core::bms_player_mode::BMSPlayerMode;
+use rubato::core::bms_player_mode::BMSPlayerMode;
 use std::path::PathBuf;
 
 use rubato_e2e::{E2eHarness, MainStateType};
-use rubato_game::state_factory::LauncherStateFactory;
+use rubato::state_factory::LauncherStateFactory;
 
 fn test_bms_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))

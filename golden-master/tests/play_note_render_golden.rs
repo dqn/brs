@@ -10,10 +10,10 @@
 use bms::model::bms_model::{BMSModel, LNTYPE_LONGNOTE};
 use bms::model::note::Note;
 use bms::model::time_line::TimeLine;
-use rubato_game::play::lane_renderer::{
+use rubato::play::lane_renderer::{
     DrawCommand, DrawLaneContext, LaneRenderer, NoteImageType, TimelinesRef,
 };
-use rubato_game::play::skin::note::SkinLane;
+use rubato::play::skin::note::SkinLane;
 use serde::{Deserialize, Serialize};
 
 const FIXTURE_PATH: &str = "golden-master/fixtures/play_note_draw_commands.json";

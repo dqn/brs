@@ -5,10 +5,10 @@ use std::sync::{Arc, Mutex};
 
 use rubato_audio::recording_audio_driver::{AudioEvent, RecordingAudioDriver};
 use rubato_audio::shared_recording_audio_driver::SharedRecordingAudioDriver;
-use rubato_game::core::config::Config;
-use rubato_game::core::main_controller::{MainController, StateCreator};
-use rubato_game::core::player_config::PlayerConfig;
-use rubato_game::core::player_resource::PlayerResource;
+use rubato::core::config::Config;
+use rubato::core::main_controller::{MainController, StateCreator};
+use rubato::core::player_config::PlayerConfig;
+use rubato::core::player_resource::PlayerResource;
 use rubato_render::sprite_batch::CapturedDrawQuad;
 use rubato_skin::app_event::AppEvent;
 use rubato_skin::main_state_type::MainStateType;
@@ -545,10 +545,10 @@ impl Default for E2eHarness {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rubato_game::core::main_controller::StateCreateResult;
-    use rubato_game::core::main_state::MainStateData;
-    use rubato_game::core::timer_manager::TimerManager;
-    use rubato_game::game_screen::GameScreen;
+    use rubato::core::main_controller::StateCreateResult;
+    use rubato::core::main_state::MainStateData;
+    use rubato::core::timer_manager::TimerManager;
+    use rubato::game_screen::GameScreen;
 
     struct TimerSyncState {
         data: MainStateData,
@@ -564,7 +564,7 @@ mod tests {
         }
     }
 
-    impl rubato_game::core::main_state::MainState for TimerSyncState {
+    impl rubato::core::main_state::MainState for TimerSyncState {
         fn state_type(&self) -> Option<MainStateType> {
             Some(self.state_type)
         }

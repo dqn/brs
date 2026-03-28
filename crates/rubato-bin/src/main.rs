@@ -17,10 +17,10 @@ use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::keyboard::PhysicalKey;
 use winit::window::{Window, WindowId};
 
-use rubato_game::core::bms_player_mode::BMSPlayerMode;
-use rubato_game::core::config::DisplayMode;
-use rubato_game::core::main_controller::MainController;
-use rubato_game::core::version;
+use rubato::core::bms_player_mode::BMSPlayerMode;
+use rubato::core::config::DisplayMode;
+use rubato::core::main_controller::MainController;
+use rubato::core::version;
 use rubato_render::egui_integration::EguiIntegration;
 use rubato_render::gpu_context::GpuContext;
 use rubato_render::gpu_texture_manager::GpuTextureManager;
@@ -131,14 +131,14 @@ fn main() -> Result<()> {
 /// then launches the eframe launcher window via run_launcher().
 /// If the user clicks "Start", delegates to play() to launch the game.
 fn launch() -> Result<()> {
-    use rubato_game::core::main_loader::MainLoader;
+    use rubato::core::main_loader::MainLoader;
 
     // Java: MainLoader.start(Stage) — reads config, creates PlayConfigurationView
     let (config, player, title) = MainLoader::start();
 
     // Java: primaryStage.setScene(scene); primaryStage.show();
     // eframe::run_native() blocks until the window is closed.
-    let result = rubato_game::run_launcher(config, player, &title)?;
+    let result = rubato::run_launcher(config, player, &title)?;
 
     // Known limitation: launcher actions (Load All BMS, etc.) are one-shot and exit the
     // process instead of returning to the launcher UI.
@@ -178,7 +178,7 @@ fn launch() -> Result<()> {
 /// PlayerConfig reading, and MainController creation. Then creates the winit
 /// EventLoop + wgpu context for the render loop.
 fn play(bms_path: Option<PathBuf>, player_mode: Option<BMSPlayerMode>) -> Result<()> {
-    use rubato_game::core::main_loader::MainLoader;
+    use rubato::core::main_loader::MainLoader;
 
     subsystem_init::init_song_database();
 
@@ -195,7 +195,7 @@ fn play(bms_path: Option<PathBuf>, player_mode: Option<BMSPlayerMode>) -> Result
     subsystem_init::init_stream_controller(&mut main_controller);
 
     // Wire modmenu with real PlayerConfig and command queue so UI changes propagate back
-    rubato_game::state::modmenu::misc_setting_menu::MiscSettingMenu::set_player_config(
+    rubato::state::modmenu::misc_setting_menu::MiscSettingMenu::set_player_config(
         main_controller.player_config().clone(),
         main_controller.config().clone(),
         main_controller.controller_command_queue(),
@@ -299,16 +299,16 @@ impl ApplicationHandler for RubatoApp {
     /// Java: ApplicationListener.create() — called when the application is first created.
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         // Populate monitor cache for VideoConfigurationView
-        rubato_game::platform::update_monitors_from_winit(event_loop);
+        rubato::platform::update_monitors_from_winit(event_loop);
 
         // Sync display mode cache to core MainLoader
         {
-            use rubato_game::core::main_loader::MainLoader;
-            let modes = rubato_game::platform::cached_display_modes();
+            use rubato::core::main_loader::MainLoader;
+            let modes = rubato::platform::cached_display_modes();
             if !modes.is_empty() {
                 MainLoader::set_display_modes(modes);
             }
-            let desktop = rubato_game::platform::cached_desktop_display_mode();
+            let desktop = rubato::platform::cached_desktop_display_mode();
             if desktop != (0, 0) {
                 MainLoader::set_desktop_display_mode(desktop);
             }
@@ -669,7 +669,7 @@ impl RubatoApp {
         // take/put-back in lifecycle.rs).
         match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             // Process window commands from MainController
-            if rubato_game::core::window_command::take_fullscreen_toggle() {
+            if rubato::core::window_command::take_fullscreen_toggle() {
                 if window.fullscreen().is_some() {
                     window.set_fullscreen(None);
                 } else {
@@ -677,7 +677,7 @@ impl RubatoApp {
                     window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(monitor)));
                 }
             }
-            let screenshot_requested = rubato_game::core::window_command::take_screenshot_request();
+            let screenshot_requested = rubato::core::window_command::take_screenshot_request();
 
             let full_output = self.run_egui_frame(&window);
 
@@ -715,7 +715,7 @@ impl RubatoApp {
         // Java: ImGuiRenderer.start() → ImGuiRenderer.render() → ImGuiRenderer.end()
         let raw_input = egui_state.take_egui_input(window);
         let full_output = egui_integration.ctx.run(raw_input, |ctx| {
-            rubato_game::state::modmenu::imgui_renderer::ImGuiRenderer::render_ui(ctx);
+            rubato::state::modmenu::imgui_renderer::ImGuiRenderer::render_ui(ctx);
 
             // Diagnostic overlay: show current state and skin status
             egui::Area::new(egui::Id::new("diag_overlay"))
@@ -1046,7 +1046,7 @@ impl RubatoApp {
 
         // Clipboard copy
         if config.integration.set_clipboard_screenshot {
-            match rubato_game::external::clipboard_helper::ClipboardHelper::copy_image_to_clipboard(
+            match rubato::external::clipboard_helper::ClipboardHelper::copy_image_to_clipboard(
                 path,
             ) {
                 Ok(()) => info!("Screenshot copied to clipboard"),
@@ -1073,7 +1073,7 @@ impl RubatoApp {
             let path = path.to_string();
 
             std::thread::spawn(move || {
-                let handler = rubato_game::external::webhook_handler::WebhookHandler::new();
+                let handler = rubato::external::webhook_handler::WebhookHandler::new();
                 for webhook_url in &webhook_urls {
                     handler.send_webhook_with_image(&payload_str, &path, webhook_url);
                 }
@@ -1084,13 +1084,13 @@ impl RubatoApp {
 
 // -- Download processor adapter structs --
 
-/// Adapter: bridges `SQLiteSongDatabaseAccessor` to `rubato_game::song::md_processor::MusicDatabaseAccessor`.
+/// Adapter: bridges `SQLiteSongDatabaseAccessor` to `rubato::song::md_processor::MusicDatabaseAccessor`.
 ///
 /// Java equivalent: the inline lambda `(md5) -> { SongData[] s = getSongDatabase().getSongDatas(md5); ... }`
 /// in MainController.create() line 497. Opens its own SQLite connection so the IPFS download
 /// background thread can query the song DB without borrowing MainController.
 pub(crate) struct SongDbMusicDatabaseAdapter {
-    pub(crate) songdb: rubato_game::song::sqlite_song_database_accessor::SQLiteSongDatabaseAccessor,
+    pub(crate) songdb: rubato::song::sqlite_song_database_accessor::SQLiteSongDatabaseAccessor,
     pub(crate) bmsroot: Vec<String>,
 }
 
@@ -1099,11 +1099,11 @@ pub(crate) struct SongDbMusicDatabaseAdapter {
 // serializes all access, making it safe to share across threads.
 unsafe impl Sync for SongDbMusicDatabaseAdapter {}
 
-impl rubato_game::song::md_processor::music_database_accessor::MusicDatabaseAccessor
+impl rubato::song::md_processor::music_database_accessor::MusicDatabaseAccessor
     for SongDbMusicDatabaseAdapter
 {
     fn get_music_paths(&self, md5: &[String]) -> Vec<String> {
-        use rubato_game::song_database_accessor::SongDatabaseAccessor;
+        use rubato::song_database_accessor::SongDatabaseAccessor;
         let songs = self.songdb.song_datas_by_hashes(md5);
         songs
             .iter()
@@ -1118,15 +1118,15 @@ impl rubato_game::song::md_processor::music_database_accessor::MusicDatabaseAcce
     }
 }
 
-/// Adapter: bridges a standalone song DB connection to `rubato_game::song::md_processor::MainControllerRef`.
+/// Adapter: bridges a standalone song DB connection to `rubato::song::md_processor::MainControllerRef`.
 ///
 /// Java equivalent: `this` (MainController) passed to HttpDownloadProcessor constructor.
 /// The only method called is `update_song(path, force)` which ultimately calls
 /// `songdb.updateSongDatas()`. We call it directly on our own connection.
 pub(crate) struct SongDbMainControllerRef {
-    pub(crate) songdb: rubato_game::song::sqlite_song_database_accessor::SQLiteSongDatabaseAccessor,
+    pub(crate) songdb: rubato::song::sqlite_song_database_accessor::SQLiteSongDatabaseAccessor,
     pub(crate) bmsroot: Vec<String>,
-    pub(crate) info_db: Option<Box<dyn rubato_game::song_information_db::SongInformationDb>>,
+    pub(crate) info_db: Option<Box<dyn rubato::song_information_db::SongInformationDb>>,
 }
 
 // SAFETY: SongDbMainControllerRef contains SQLiteSongDatabaseAccessor which wraps
@@ -1135,7 +1135,7 @@ pub(crate) struct SongDbMainControllerRef {
 // The Mutex serializes all DB access, making it safe to share across threads.
 unsafe impl Sync for SongDbMainControllerRef {}
 
-impl rubato_game::song::md_processor::MainControllerRef for SongDbMainControllerRef {
+impl rubato::song::md_processor::MainControllerRef for SongDbMainControllerRef {
     fn update_song(&self, path: &str, _force: bool) {
         let update_path = if path.is_empty() { None } else { Some(path) };
         self.songdb.update_song_datas(
@@ -1154,10 +1154,10 @@ impl rubato_game::song::md_processor::MainControllerRef for SongDbMainController
 /// `MainController::set_http_download_processor` needs `Box<dyn HttpDownloadSubmitter>`.
 /// This wrapper bridges the two ownership models.
 pub(crate) struct HttpDownloadProcessorWrapper(
-    pub(crate) Arc<rubato_game::song::md_processor::http_download_processor::HttpDownloadProcessor>,
+    pub(crate) Arc<rubato::song::md_processor::http_download_processor::HttpDownloadProcessor>,
 );
 
-impl rubato_game::http_download_submitter::HttpDownloadSubmitter for HttpDownloadProcessorWrapper {
+impl rubato::http_download_submitter::HttpDownloadSubmitter for HttpDownloadProcessorWrapper {
     fn submit_md5_task(&self, md5: &str, task_name: &str) {
         self.0.submit_md5_task(md5, task_name);
     }

@@ -10,7 +10,7 @@ use std::path::Path;
 
 use serde::Deserialize;
 
-use rubato_game::core::pattern::lr2_random::LR2Random;
+use rubato::core::pattern::lr2_random::LR2Random;
 use rubato_skin::KeyInputLog;
 use rubato_skin::replay_data::ReplayData;
 use rubato_skin::validatable::Validatable;

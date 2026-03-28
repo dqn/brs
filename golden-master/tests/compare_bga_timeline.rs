@@ -12,7 +12,7 @@
 use std::path::{Path, PathBuf};
 
 use bms::model::bms_decoder::BMSDecoder;
-use rubato_game::play::bga::bga_processor::BGAProcessor;
+use rubato::play::bga::bga_processor::BGAProcessor;
 
 // ---------------------------------------------------------------------------
 // Helpers

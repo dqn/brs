@@ -11,8 +11,8 @@
 //! ```
 
 use crate::E2eHarness;
-use rubato_game::core::main_controller::StateCreator;
-use rubato_game::state_factory::LauncherStateFactory;
+use rubato::core::main_controller::StateCreator;
+use rubato::state_factory::LauncherStateFactory;
 use rubato_skin::main_state_type::MainStateType;
 
 /// A step in the scenario execution pipeline.

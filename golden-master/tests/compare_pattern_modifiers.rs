@@ -10,10 +10,10 @@ use bms::model::note::{Note, TYPE_CHARGENOTE, TYPE_HELLCHARGENOTE, TYPE_LONGNOTE
 use golden_master::pattern_modifier_detail_fixtures::{
     ModifierNote, PatternModifierDetailFixture, PatternModifierTestCase,
 };
-use rubato_game::core::pattern::autoplay_modifier::AutoplayModifier;
-use rubato_game::core::pattern::pattern_modifier::{AssistLevel, PatternModifier};
-use rubato_game::core::pattern::practice_modifier::PracticeModifier;
-use rubato_game::core::pattern::scroll_speed_modifier::ScrollSpeedModifier;
+use rubato::core::pattern::autoplay_modifier::AutoplayModifier;
+use rubato::core::pattern::pattern_modifier::{AssistLevel, PatternModifier};
+use rubato::core::pattern::practice_modifier::PracticeModifier;
+use rubato::core::pattern::scroll_speed_modifier::ScrollSpeedModifier;
 
 fn fixtures_dir() -> &'static Path {
     Path::new(env!("CARGO_MANIFEST_DIR"))

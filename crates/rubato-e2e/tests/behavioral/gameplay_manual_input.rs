@@ -7,13 +7,13 @@
 //! 2. Key state changes are visible through the input processor
 //! 3. Multiple keys can be pressed simultaneously
 
-use rubato_game::core::bms_player_mode::BMSPlayerMode;
+use rubato::core::bms_player_mode::BMSPlayerMode;
 use std::path::PathBuf;
 use std::time::Duration;
 
 use rubato_audio::recording_audio_driver::AudioEvent;
 use rubato_e2e::{E2eHarness, MainStateType};
-use rubato_game::state_factory::LauncherStateFactory;
+use rubato::state_factory::LauncherStateFactory;
 use rubato_skin::timer_id::TimerId;
 
 fn test_bms_dir() -> PathBuf {

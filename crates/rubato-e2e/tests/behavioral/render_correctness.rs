@@ -3,13 +3,13 @@
 //! Tests SpriteBatch capture infrastructure for draw quad output
 //! verification without GPU.
 
-use rubato_game::core::bms_player_mode::BMSPlayerMode;
+use rubato::core::bms_player_mode::BMSPlayerMode;
 use std::path::PathBuf;
 
 use rubato_e2e::{E2eHarness, MainStateType};
-use rubato_game::core::config::Config;
-use rubato_game::core::main_loader::MainLoader;
-use rubato_game::state_factory::LauncherStateFactory;
+use rubato::core::config::Config;
+use rubato::core::main_loader::MainLoader;
+use rubato::state_factory::LauncherStateFactory;
 use rubato_skin::player_config::PlayerConfig;
 use rubato_skin::skin_config::SkinConfig;
 use rubato_skin::skin_type::SkinType;

@@ -13,11 +13,11 @@ use bms::model::judge_note::{
     JUDGE_BD, JUDGE_GD, JUDGE_GR, JUDGE_MS, JUDGE_PG, JUDGE_PR, JudgeNote,
 };
 use bms::model::mode::Mode;
-use rubato_game::core::score_data::ScoreData;
-use rubato_game::play::bms_player_rule::BMSPlayerRule;
-use rubato_game::play::judge_algorithm::JudgeAlgorithm;
-use rubato_game::play::judge_manager::{JudgeConfig, JudgeManager};
-use rubato_game::play::lane_property::LaneProperty;
+use rubato::core::score_data::ScoreData;
+use rubato::play::bms_player_rule::BMSPlayerRule;
+use rubato::play::judge_algorithm::JudgeAlgorithm;
+use rubato::play::judge_manager::{JudgeConfig, JudgeManager};
+use rubato::play::lane_property::LaneProperty;
 use rubato_input::key_input_log::KeyInputLog;
 use rubato_skin::groove_gauge::GrooveGauge;
 

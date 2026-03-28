@@ -3,7 +3,7 @@ members = [
     "crates/bms",
     "crates/rubato-input",
     "crates/rubato-audio",
-    "crates/rubato-game",
+    "crates/rubato",
     "crates/rubato-skin",
     "crates/rubato-bin",
     "crates/rubato-render",
@@ -21,7 +21,7 @@ edition = "2024"
 bms = { path = "crates/bms" }
 rubato-input = { path = "crates/rubato-input" }
 rubato-audio = { path = "crates/rubato-audio" }
-rubato-game = { path = "crates/rubato-game" }
+rubato = { path = "crates/rubato" }
 rubato-skin = { path = "crates/rubato-skin" }
 
 # Error handling

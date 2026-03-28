@@ -1930,8 +1930,8 @@ dependencies = [
  "anyhow",
  "bms",
  "image",
+ "rubato",
  "rubato-audio",
- "rubato-game",
  "rubato-input",
  "rubato-render",
  "rubato-skin",
@@ -4101,63 +4101,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7204ed6420f698836b76d4d5c2ec5dec7585fd5c3a788fd1cde855d1de598239"
 
 [[package]]
-name = "rubato-audio"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bms",
- "ebur128",
- "kira",
- "lewton",
- "log",
- "proptest",
- "rayon",
- "symphonia",
- "tempfile",
-]
-
-[[package]]
-name = "rubato-bin"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bytemuck",
- "chrono",
- "clap",
- "dhat",
- "egui",
- "egui-wgpu",
- "egui-winit",
- "env_logger",
- "image",
- "log",
- "pollster",
- "rubato-audio",
- "rubato-game",
- "rubato-input",
- "rubato-render",
- "rubato-skin",
- "serde_json",
- "tempfile",
- "wgpu",
- "winit",
-]
-
-[[package]]
-name = "rubato-e2e"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bms",
- "rubato-audio",
- "rubato-game",
- "rubato-input",
- "rubato-render",
- "rubato-skin",
-]
-
-[[package]]
-name = "rubato-game"
+name = "rubato"
 version = "0.1.0"
 dependencies = [
  "aes",
@@ -4203,6 +4147,62 @@ dependencies = [
  "urlencoding",
  "uuid",
  "winit",
+]
+
+[[package]]
+name = "rubato-audio"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bms",
+ "ebur128",
+ "kira",
+ "lewton",
+ "log",
+ "proptest",
+ "rayon",
+ "symphonia",
+ "tempfile",
+]
+
+[[package]]
+name = "rubato-bin"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bytemuck",
+ "chrono",
+ "clap",
+ "dhat",
+ "egui",
+ "egui-wgpu",
+ "egui-winit",
+ "env_logger",
+ "image",
+ "log",
+ "pollster",
+ "rubato",
+ "rubato-audio",
+ "rubato-input",
+ "rubato-render",
+ "rubato-skin",
+ "serde_json",
+ "tempfile",
+ "wgpu",
+ "winit",
+]
+
+[[package]]
+name = "rubato-e2e"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bms",
+ "rubato",
+ "rubato-audio",
+ "rubato-input",
+ "rubato-render",
+ "rubato-skin",
 ]
 
 [[package]]

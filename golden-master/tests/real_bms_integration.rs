@@ -10,12 +10,12 @@ use std::path::{Path, PathBuf};
 use bms::model::bms_decoder::BMSDecoder;
 use bms::model::bms_model::BMSModel;
 use bms::model::note::Note;
-use rubato_game::core::pattern::lane_shuffle_modifier::LaneMirrorShuffleModifier;
-use rubato_game::core::pattern::note_shuffle_modifier::NoteShuffleModifier;
-use rubato_game::core::pattern::pattern_modifier::PatternModifier;
-use rubato_game::core::pattern::random::Random;
-use rubato_game::core::pattern::scroll_speed_modifier::ScrollSpeedModifier;
-use rubato_game::core::player_config::PlayerConfig;
+use rubato::core::pattern::lane_shuffle_modifier::LaneMirrorShuffleModifier;
+use rubato::core::pattern::note_shuffle_modifier::NoteShuffleModifier;
+use rubato::core::pattern::pattern_modifier::PatternModifier;
+use rubato::core::pattern::random::Random;
+use rubato::core::pattern::scroll_speed_modifier::ScrollSpeedModifier;
+use rubato::core::player_config::PlayerConfig;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
