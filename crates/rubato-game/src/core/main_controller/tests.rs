@@ -3,6 +3,7 @@ use crate::core::config::SelectConfig;
 use crate::core::config_pkg::key_configuration::KeyConfiguration;
 use crate::core::config_pkg::skin_configuration::SkinConfiguration;
 use crate::core::main_state::MainStateData;
+use crate::game_screen::GameScreen;
 use rubato_types::test_support::CurrentDirGuard;
 
 /// A minimal test state that implements MainState for testing state dispatch.
@@ -79,7 +80,7 @@ fn test_state_creator() -> StateCreator {
     Box::new(
         |state_type: MainStateType, _controller: &mut MainController| {
             Some(StateCreateResult {
-                state: Box::new(TestState::new(state_type)),
+                state: GameScreen::Mock(Box::new(TestState::new(state_type))),
                 target_score: None,
             })
         },
@@ -165,11 +166,11 @@ fn audio_sync_state_creator(
     Box::new(
         move |state_type: MainStateType, _controller: &mut MainController| {
             Some(StateCreateResult {
-                state: Box::new(AudioSyncTestState::new(
+                state: GameScreen::Mock(Box::new(AudioSyncTestState::new(
                     state_type,
                     Arc::clone(&render_sync_calls),
                     Arc::clone(&shutdown_sync_calls),
-                )),
+                ))),
                 target_score: None,
             })
         },
@@ -645,7 +646,9 @@ fn test_render_calls_skin_draw_methods() {
 
     // Manually set current state with a mock skin
     let mock_skin = Box::new(MockSkinDrawable::new());
-    mc.current = Some(Box::new(SkinTestState::new_with_skin(mock_skin)));
+    mc.current = Some(GameScreen::Mock(Box::new(SkinTestState::new_with_skin(
+        mock_skin,
+    ))));
 
     // Render should call update and draw on the skin
     mc.render();
@@ -667,7 +670,7 @@ fn test_render_without_skin_does_not_panic() {
     let mut data = MainStateData::new(TimerManager::new());
     data.skin = None;
     let state = SkinTestState { state_data: data };
-    mc.current = Some(Box::new(state));
+    mc.current = Some(GameScreen::Mock(Box::new(state)));
 
     // Should not panic when skin is None
     mc.render();
@@ -859,7 +862,9 @@ fn test_render_skin_called_once_per_frame() {
 
     let mut mc = make_test_controller();
     mc.sprite = Some(SpriteBatch::new());
-    mc.current = Some(Box::new(SkinTestState::new_with_skin(skin)));
+    mc.current = Some(GameScreen::Mock(Box::new(SkinTestState::new_with_skin(
+        skin,
+    ))));
 
     // Render 3 frames
     mc.render();
@@ -979,7 +984,9 @@ fn test_render_produces_vertices_via_skin() {
     mc.create();
 
     let skin = Box::new(VertexGeneratingSkinDrawable::new());
-    mc.current = Some(Box::new(SkinTestState::new_with_skin(skin)));
+    mc.current = Some(GameScreen::Mock(Box::new(SkinTestState::new_with_skin(
+        skin,
+    ))));
 
     // Before render, sprite batch should be empty
     let batch = mc.sprite_batch().unwrap();
@@ -1237,12 +1244,12 @@ fn tick_based_preview_state_creator(preview_path: String) -> StateCreator {
         move |state_type: MainStateType, _controller: &mut MainController| {
             if state_type == MainStateType::MusicSelect {
                 Some(StateCreateResult {
-                    state: Box::new(TickBasedPreviewState::new(&preview_path)),
+                    state: GameScreen::Mock(Box::new(TickBasedPreviewState::new(&preview_path))),
                     target_score: None,
                 })
             } else {
                 Some(StateCreateResult {
-                    state: Box::new(TestState::new(state_type)),
+                    state: GameScreen::Mock(Box::new(TestState::new(state_type))),
                     target_score: None,
                 })
             }
@@ -1917,7 +1924,7 @@ fn model_test_state_creator() -> StateCreator {
     Box::new(
         |_state_type: MainStateType, _controller: &mut MainController| {
             Some(StateCreateResult {
-                state: Box::new(ModelTestState::new()),
+                state: GameScreen::Mock(Box::new(ModelTestState::new())),
                 target_score: None,
             })
         },
@@ -2028,8 +2035,8 @@ fn test_handoff_update_score_false_when_assist_nonzero() {
     );
 
     // Install a state that produces a handoff with assist=1
-    mc.current = Some(Box::new(HandoffTestState::new(make_handoff(
-        1, false, false,
+    mc.current = Some(GameScreen::Mock(Box::new(HandoffTestState::new(
+        make_handoff(1, false, false),
     ))));
 
     mc.render();
@@ -2050,8 +2057,8 @@ fn test_handoff_update_score_true_when_assist_zero() {
         PlayerConfig::default(),
     ));
 
-    mc.current = Some(Box::new(HandoffTestState::new(make_handoff(
-        0, false, false,
+    mc.current = Some(GameScreen::Mock(Box::new(HandoffTestState::new(
+        make_handoff(0, false, false),
     ))));
 
     mc.render();
@@ -2077,7 +2084,9 @@ fn test_handoff_transfers_freq_on_and_force_no_ir_send() {
     assert!(!res.freq_on);
     assert!(!res.force_no_ir_send);
 
-    mc.current = Some(Box::new(HandoffTestState::new(make_handoff(0, true, true))));
+    mc.current = Some(GameScreen::Mock(Box::new(HandoffTestState::new(
+        make_handoff(0, true, true),
+    ))));
 
     mc.render();
 
@@ -2097,8 +2106,8 @@ fn test_handoff_freq_flags_false_by_default() {
         PlayerConfig::default(),
     ));
 
-    mc.current = Some(Box::new(HandoffTestState::new(make_handoff(
-        0, false, false,
+    mc.current = Some(GameScreen::Mock(Box::new(HandoffTestState::new(
+        make_handoff(0, false, false),
     ))));
 
     mc.render();
@@ -2125,8 +2134,8 @@ fn test_handoff_update_course_score_cleared_when_assist_nonzero() {
     );
 
     // Handoff with assist=1 should clear update_course_score
-    mc.current = Some(Box::new(HandoffTestState::new(make_handoff(
-        1, false, false,
+    mc.current = Some(GameScreen::Mock(Box::new(HandoffTestState::new(
+        make_handoff(1, false, false),
     ))));
 
     mc.render();
@@ -2148,8 +2157,8 @@ fn test_handoff_update_course_score_preserved_when_assist_zero() {
         PlayerConfig::default(),
     ));
 
-    mc.current = Some(Box::new(HandoffTestState::new(make_handoff(
-        0, false, false,
+    mc.current = Some(GameScreen::Mock(Box::new(HandoffTestState::new(
+        make_handoff(0, false, false),
     ))));
 
     mc.render();
@@ -2170,8 +2179,8 @@ fn test_handoff_update_course_score_not_restored_when_already_false() {
     resource.update_course_score = false;
     mc.restore_player_resource(resource);
 
-    mc.current = Some(Box::new(HandoffTestState::new(make_handoff(
-        0, false, false,
+    mc.current = Some(GameScreen::Mock(Box::new(HandoffTestState::new(
+        make_handoff(0, false, false),
     ))));
 
     mc.render();
@@ -2258,7 +2267,7 @@ fn disposable_skin_state_creator(dispose_count: Arc<Mutex<usize>>) -> StateCreat
                 state_type,
             };
             Some(StateCreateResult {
-                state: Box::new(state),
+                state: GameScreen::Mock(Box::new(state)),
                 target_score: None,
             })
         },
@@ -2384,7 +2393,7 @@ fn test_handoff_updated_model_propagates_to_resource() {
     let mut handoff = make_handoff(0, false, false);
     handoff.updated_model = Some(updated_model);
 
-    mc.current = Some(Box::new(HandoffTestState::new(handoff)));
+    mc.current = Some(GameScreen::Mock(Box::new(HandoffTestState::new(handoff))));
     mc.render();
 
     // After handoff, the resource model should have the updated note states
@@ -2454,7 +2463,10 @@ fn input_counting_creator(input_count: Arc<Mutex<usize>>) -> StateCreator {
     Box::new(
         move |state_type: MainStateType, _controller: &mut MainController| {
             Some(StateCreateResult {
-                state: Box::new(InputCountingState::new(state_type, input_count.clone())),
+                state: GameScreen::Mock(Box::new(InputCountingState::new(
+                    state_type,
+                    input_count.clone(),
+                ))),
                 target_score: None,
             })
         },
@@ -2678,10 +2690,10 @@ fn test_transition_registers_stagefile_and_banner_into_skin() {
     let creator: StateCreator = Box::new(
         move |_state_type: MainStateType, _controller: &mut MainController| {
             Some(StateCreateResult {
-                state: Box::new(SharedImageCaptureState {
+                state: GameScreen::Mock(Box::new(SharedImageCaptureState {
                     state_data: MainStateData::new(TimerManager::new()),
                     registered: Arc::clone(&registered_for_factory),
-                }),
+                })),
                 target_score: None,
             })
         },
@@ -2828,10 +2840,10 @@ fn test_transition_without_bms_images_does_not_register() {
     let registered_for_factory = Arc::clone(&registered);
     let creator: StateCreator = Box::new(move |_: MainStateType, _: &mut MainController| {
         Some(StateCreateResult {
-            state: Box::new(NoImageState {
+            state: GameScreen::Mock(Box::new(NoImageState {
                 state_data: MainStateData::new(TimerManager::new()),
                 registered: Arc::clone(&registered_for_factory),
-            }),
+            })),
             target_score: None,
         })
     });

@@ -43,7 +43,7 @@ pub type StateCreator =
 /// Result from `StateCreator` containing the state and optional
 /// metadata that `MainController::change_state` should apply after creation.
 pub struct StateCreateResult {
-    pub state: Box<dyn MainState>,
+    pub state: crate::game_screen::GameScreen,
     /// Target score data to set on PlayerResource (for result screen access).
     /// Java: resource.setTargetScoreData(targetScore)
     pub target_score: Option<rubato_types::score_data::ScoreData>,
@@ -223,7 +223,7 @@ pub struct MainController {
     /// Current state
     ///
     /// Translated from: MainController.current (MainState)
-    current: Option<Box<dyn MainState>>,
+    current: Option<crate::game_screen::GameScreen>,
 
     /// State creator for creating concrete state instances.
     /// Set by the application entry point (e.g. launcher) before state transitions.

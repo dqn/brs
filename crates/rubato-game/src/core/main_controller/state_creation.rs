@@ -93,7 +93,7 @@ impl MainController {
                 if let Some(arc) = self.shared_music_selector() {
                     let wrapper = SharedMusicSelectorState::new(Arc::clone(arc));
                     return Some(StateCreateResult {
-                        state: Box::new(GameScreen::SharedSelect(Box::new(wrapper))),
+                        state: GameScreen::SharedSelect(Box::new(wrapper)),
                         target_score: None,
                     });
                 }
@@ -116,7 +116,7 @@ impl MainController {
                 selector.config = self.player_config().clone();
                 selector.app_config = config;
                 Some(StateCreateResult {
-                    state: Box::new(GameScreen::Select(Box::new(selector))),
+                    state: GameScreen::Select(Box::new(selector)),
                     target_score: None,
                 })
             }
@@ -127,7 +127,7 @@ impl MainController {
                         let decide =
                             MusicDecide::new(self.config().clone(), resource, TimerManager::new());
                         Some(StateCreateResult {
-                            state: Box::new(GameScreen::Decide(Box::new(decide))),
+                            state: GameScreen::Decide(Box::new(decide)),
                             target_score: None,
                         })
                     }
@@ -344,7 +344,7 @@ impl MainController {
                 }
 
                 Some(StateCreateResult {
-                    state: Box::new(GameScreen::Play(Box::new(player))),
+                    state: GameScreen::Play(Box::new(player)),
                     target_score,
                 })
             }
@@ -387,7 +387,7 @@ impl MainController {
                 result_main.set_sound_paths(sound_paths);
                 let result = MusicResult::new(result_main, rr, TimerManager::new());
                 Some(StateCreateResult {
-                    state: Box::new(GameScreen::Result(Box::new(result))),
+                    state: GameScreen::Result(Box::new(result)),
                     target_score: None,
                 })
             }
@@ -430,7 +430,7 @@ impl MainController {
                 course_main.set_sound_paths(sound_paths);
                 let course_result = CourseResult::new(course_main, rr, TimerManager::new());
                 Some(StateCreateResult {
-                    state: Box::new(GameScreen::CourseResult(Box::new(course_result))),
+                    state: GameScreen::CourseResult(Box::new(course_result)),
                     target_score: None,
                 })
             }
@@ -438,7 +438,7 @@ impl MainController {
                 // Java: keyconfig = new KeyConfiguration(this);
                 let keyconfig = KeyConfiguration::new(self);
                 Some(StateCreateResult {
-                    state: Box::new(GameScreen::Config(Box::new(keyconfig))),
+                    state: GameScreen::Config(Box::new(keyconfig)),
                     target_score: None,
                 })
             }
@@ -446,7 +446,7 @@ impl MainController {
                 // Java: skinconfig = new SkinConfiguration(this, player);
                 let skinconfig = SkinConfiguration::new(self, self.player_config());
                 Some(StateCreateResult {
-                    state: Box::new(GameScreen::SkinConfig(Box::new(skinconfig))),
+                    state: GameScreen::SkinConfig(Box::new(skinconfig)),
                     target_score: None,
                 })
             }

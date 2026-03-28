@@ -144,7 +144,7 @@ impl MainController {
     /// current.prepare();
     /// updateMainStateListener(0);
     /// ```
-    fn transition_to_state(&mut self, mut new_state: Box<dyn MainState>) {
+    fn transition_to_state(&mut self, mut new_state: crate::game_screen::GameScreen) {
         // Prune finished background threads before the transition so their Arc
         // references to shared resources (DB handles, IR caches, etc.) are released
         // before the old state shuts down and the new state is created.

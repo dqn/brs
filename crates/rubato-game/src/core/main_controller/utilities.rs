@@ -189,14 +189,12 @@ impl MainController {
     ///
     /// Translated from: MainController.getCurrentState()
     pub fn current_state(&self) -> Option<&dyn MainState> {
-        self.current.as_deref()
+        self.current.as_ref().map(|s| s as &dyn MainState)
     }
 
     /// Returns a mutable reference to the current state.
     pub fn current_state_mut(&mut self) -> Option<&mut dyn MainState> {
-        self.current
-            .as_mut()
-            .map(|b| &mut **b as &mut dyn MainState)
+        self.current.as_mut().map(|s| s as &mut dyn MainState)
     }
 
     /// Returns the state type for the current state.

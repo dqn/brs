@@ -548,6 +548,7 @@ mod tests {
     use rubato_game::core::main_controller::StateCreateResult;
     use rubato_game::core::main_state::MainStateData;
     use rubato_game::core::timer_manager::TimerManager;
+    use rubato_game::game_screen::GameScreen;
 
     struct TimerSyncState {
         data: MainStateData,
@@ -584,7 +585,7 @@ mod tests {
     fn timer_sync_creator() -> StateCreator {
         Box::new(|state_type, _controller| {
             Some(StateCreateResult {
-                state: Box::new(TimerSyncState::new(state_type)),
+                state: GameScreen::Mock(Box::new(TimerSyncState::new(state_type))),
                 target_score: None,
             })
         })

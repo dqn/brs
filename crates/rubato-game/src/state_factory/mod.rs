@@ -186,7 +186,7 @@ impl LauncherStateFactory {
                 if let Some(arc) = controller.shared_music_selector() {
                     let wrapper = SharedMusicSelectorState::new(Arc::clone(arc));
                     return Some(StateCreateResult {
-                        state: Box::new(GameScreen::SharedSelect(Box::new(wrapper))),
+                        state: GameScreen::SharedSelect(Box::new(wrapper)),
                         target_score: None,
                     });
                 }
@@ -209,7 +209,7 @@ impl LauncherStateFactory {
                 selector.config = controller.player_config().clone();
                 selector.app_config = config;
                 Some(StateCreateResult {
-                    state: Box::new(GameScreen::Select(Box::new(selector))),
+                    state: GameScreen::Select(Box::new(selector)),
                     target_score: None,
                 })
             }
@@ -223,7 +223,7 @@ impl LauncherStateFactory {
                             TimerManager::new(),
                         );
                         Some(StateCreateResult {
-                            state: Box::new(GameScreen::Decide(Box::new(decide))),
+                            state: GameScreen::Decide(Box::new(decide)),
                             target_score: None,
                         })
                     }
@@ -440,7 +440,7 @@ impl LauncherStateFactory {
                 }
 
                 Some(StateCreateResult {
-                    state: Box::new(GameScreen::Play(Box::new(player))),
+                    state: GameScreen::Play(Box::new(player)),
                     target_score,
                 })
             }
@@ -483,7 +483,7 @@ impl LauncherStateFactory {
                 result_main.set_sound_paths(sound_paths);
                 let result = MusicResult::new(result_main, rr, TimerManager::new());
                 Some(StateCreateResult {
-                    state: Box::new(GameScreen::Result(Box::new(result))),
+                    state: GameScreen::Result(Box::new(result)),
                     target_score: None,
                 })
             }
@@ -526,7 +526,7 @@ impl LauncherStateFactory {
                 course_main.set_sound_paths(sound_paths);
                 let course_result = CourseResult::new(course_main, rr, TimerManager::new());
                 Some(StateCreateResult {
-                    state: Box::new(GameScreen::CourseResult(Box::new(course_result))),
+                    state: GameScreen::CourseResult(Box::new(course_result)),
                     target_score: None,
                 })
             }
@@ -534,7 +534,7 @@ impl LauncherStateFactory {
                 // Java: keyconfig = new KeyConfiguration(this);
                 let keyconfig = KeyConfiguration::new(controller);
                 Some(StateCreateResult {
-                    state: Box::new(GameScreen::Config(Box::new(keyconfig))),
+                    state: GameScreen::Config(Box::new(keyconfig)),
                     target_score: None,
                 })
             }
@@ -542,7 +542,7 @@ impl LauncherStateFactory {
                 // Java: skinconfig = new SkinConfiguration(this, player);
                 let skinconfig = SkinConfiguration::new(controller, controller.player_config());
                 Some(StateCreateResult {
-                    state: Box::new(GameScreen::SkinConfig(Box::new(skinconfig))),
+                    state: GameScreen::SkinConfig(Box::new(skinconfig)),
                     target_score: None,
                 })
             }

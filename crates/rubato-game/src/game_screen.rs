@@ -19,20 +19,6 @@ use rubato_render::sprite_batch::SpriteBatch;
 
 use crate::state_factory::shared_selector::SharedMusicSelectorState;
 
-/// Attempt to downcast a `&dyn MainState` to `&GameScreen`.
-///
-/// Returns `Some(&GameScreen)` when the trait object's concrete type is
-/// `GameScreen` (i.e. it was produced by `LauncherStateFactory`), or
-/// `None` otherwise (e.g. test-only mock states).
-pub fn downcast_game_screen(state: &dyn MainState) -> Option<&GameScreen> {
-    state.as_any()?.downcast_ref::<GameScreen>()
-}
-
-/// Attempt to downcast a `&mut dyn MainState` to `&mut GameScreen`.
-pub fn downcast_game_screen_mut(state: &mut dyn MainState) -> Option<&mut GameScreen> {
-    state.as_any_mut()?.downcast_mut::<GameScreen>()
-}
-
 /// Concrete enum of all production game screens.
 ///
 /// Each variant holds the state struct that implements `MainState`.
@@ -49,6 +35,9 @@ pub enum GameScreen {
     CourseResult(Box<CourseResult>),
     Config(Box<KeyConfiguration>),
     SkinConfig(Box<SkinConfiguration>),
+    /// Test-only variant for mock states used in unit tests.
+    #[cfg(any(test, feature = "test-support"))]
+    Mock(Box<dyn MainState>),
 }
 
 // Note: GameScreen is not Send because some inner states hold non-Send trait
@@ -70,6 +59,8 @@ macro_rules! delegate {
             GameScreen::CourseResult(s) => s.$method(),
             GameScreen::Config(s) => s.$method(),
             GameScreen::SkinConfig(s) => s.$method(),
+            #[cfg(any(test, feature = "test-support"))]
+            GameScreen::Mock(s) => s.$method(),
         }
     };
     // &mut self method, no extra args, with return type
@@ -83,6 +74,8 @@ macro_rules! delegate {
             GameScreen::CourseResult(s) => s.$method(),
             GameScreen::Config(s) => s.$method(),
             GameScreen::SkinConfig(s) => s.$method(),
+            #[cfg(any(test, feature = "test-support"))]
+            GameScreen::Mock(s) => s.$method(),
         }
     };
     // &self method, with args, with return type
@@ -96,6 +89,8 @@ macro_rules! delegate {
             GameScreen::CourseResult(s) => s.$method($($arg),+),
             GameScreen::Config(s) => s.$method($($arg),+),
             GameScreen::SkinConfig(s) => s.$method($($arg),+),
+            #[cfg(any(test, feature = "test-support"))]
+            GameScreen::Mock(s) => s.$method($($arg),+),
         }
     };
     // &mut self method, with args, with return type
@@ -109,6 +104,8 @@ macro_rules! delegate {
             GameScreen::CourseResult(s) => s.$method($($arg),+),
             GameScreen::Config(s) => s.$method($($arg),+),
             GameScreen::SkinConfig(s) => s.$method($($arg),+),
+            #[cfg(any(test, feature = "test-support"))]
+            GameScreen::Mock(s) => s.$method($($arg),+),
         }
     };
     // &mut self method, no extra args, no return
@@ -122,6 +119,8 @@ macro_rules! delegate {
             GameScreen::CourseResult(s) => s.$method(),
             GameScreen::Config(s) => s.$method(),
             GameScreen::SkinConfig(s) => s.$method(),
+            #[cfg(any(test, feature = "test-support"))]
+            GameScreen::Mock(s) => s.$method(),
         }
     };
     // &mut self method, with args, no return
@@ -135,6 +134,8 @@ macro_rules! delegate {
             GameScreen::CourseResult(s) => s.$method($($arg),+),
             GameScreen::Config(s) => s.$method($($arg),+),
             GameScreen::SkinConfig(s) => s.$method($($arg),+),
+            #[cfg(any(test, feature = "test-support"))]
+            GameScreen::Mock(s) => s.$method($($arg),+),
         }
     };
 }
@@ -325,13 +326,5 @@ impl MainState for GameScreen {
 
     fn bms_model(&self) -> Option<&bms::model::bms_model::BMSModel> {
         delegate!(self, bms_model() -> Option<&bms::model::bms_model::BMSModel>)
-    }
-
-    fn as_any(&self) -> Option<&dyn std::any::Any> {
-        Some(self)
-    }
-
-    fn as_any_mut(&mut self) -> Option<&mut dyn std::any::Any> {
-        Some(self)
     }
 }
