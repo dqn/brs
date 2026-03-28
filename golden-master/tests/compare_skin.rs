@@ -14,7 +14,7 @@ use rubato_skin::json::json_skin_loader::{
     JSONSkinLoader, SkinConfigProperty, SkinData, SkinHeaderData,
 };
 use rubato_skin::lr2::lr2_skin_header_loader::LR2SkinHeaderLoader;
-use rubato_types::skin_type::SkinType;
+use rubato_skin::skin_type::SkinType;
 
 // ---------------------------------------------------------------------------
 // Helpers

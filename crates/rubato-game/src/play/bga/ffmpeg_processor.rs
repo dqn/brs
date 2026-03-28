@@ -43,7 +43,7 @@ enum ProcessorStatus {
 mod ffmpeg_impl {
     use super::{Command, ProcessorStatus};
     use ffmpeg_next as ffmpeg;
-    use rubato_types::sync_utils::lock_or_recover;
+    use rubato_skin::sync_utils::lock_or_recover;
     use std::sync::atomic::{AtomicI64, Ordering};
     use std::sync::mpsc;
     use std::sync::{Arc, Mutex};
@@ -487,7 +487,7 @@ impl MovieProcessor for FFmpegProcessor {
                 // before building the Texture. The background thread will
                 // repopulate the frame on the next decode cycle.
                 let taken_frame = {
-                    let mut s = rubato_types::sync_utils::lock_or_recover(&handle.shared);
+                    let mut s = rubato_skin::sync_utils::lock_or_recover(&handle.shared);
                     if s.status == ProcessorStatus::TextureActive {
                         s.frame.take()
                     } else {
@@ -550,7 +550,7 @@ impl MovieProcessor for FFmpegProcessor {
             // Set disposed status first
             if let Some(ref handle) = self.handle {
                 {
-                    let mut s = rubato_types::sync_utils::lock_or_recover(&handle.shared);
+                    let mut s = rubato_skin::sync_utils::lock_or_recover(&handle.shared);
                     s.status = ProcessorStatus::Disposed;
                 }
                 let _ = handle.cmd_tx.send(Command::Halt);

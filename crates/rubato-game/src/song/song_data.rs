@@ -1,2 +1,2 @@
 // Re-export from beatoraja-types (canonical location)
-pub use rubato_types::song_data::*;
+pub use rubato_skin::song_data::*;

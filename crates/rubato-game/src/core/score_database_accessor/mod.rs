@@ -5,13 +5,13 @@ mod queries;
 use rusqlite::Connection;
 
 use crate::core::sqlite_database_accessor::{Column, SQLiteDatabaseAccessor, Table};
-use rubato_types::player_data::PlayerData;
-use rubato_types::score_data::ScoreData;
+use rubato_skin::player_data::PlayerData;
+use rubato_skin::score_data::ScoreData;
 
 use helpers::player_data_to_value;
 
 // Re-export SongData from rubato_types for use by other accessors
-pub use rubato_types::SongData;
+pub use rubato_skin::SongData;
 
 pub trait ScoreDataCollector {
     fn collect(&mut self, song: &SongData, score: Option<&ScoreData>);

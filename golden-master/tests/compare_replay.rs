@@ -11,9 +11,9 @@ use std::path::Path;
 use serde::Deserialize;
 
 use rubato_game::core::pattern::lr2_random::LR2Random;
-use rubato_types::KeyInputLog;
-use rubato_types::replay_data::ReplayData;
-use rubato_types::validatable::Validatable;
+use rubato_skin::KeyInputLog;
+use rubato_skin::replay_data::ReplayData;
+use rubato_skin::validatable::Validatable;
 
 // =========================================================================
 // LR2Random tests

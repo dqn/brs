@@ -1,6 +1,6 @@
 use crate::core::performance_metrics::{EventResult, PerformanceMetrics};
 
-use rubato_types::sync_utils::lock_or_recover;
+use rubato_skin::sync_utils::lock_or_recover;
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::Instant;

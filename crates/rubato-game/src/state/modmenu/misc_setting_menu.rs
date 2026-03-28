@@ -4,7 +4,7 @@ use super::imgui_notify::{ImGuiNotify, NOTIFICATION_POSITIONS};
 use super::{Config, PlayConfig, PlayerConfig, read_all_player_id};
 
 use crate::core::command::Command;
-use rubato_types::sync_utils::lock_or_recover;
+use rubato_skin::sync_utils::lock_or_recover;
 use std::sync::{Arc, Mutex};
 use std::thread::ThreadId;
 

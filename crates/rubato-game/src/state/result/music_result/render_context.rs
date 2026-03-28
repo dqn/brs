@@ -1,5 +1,5 @@
 use crate::core::timer_manager::TimerManager;
-use rubato_types::audio_config::DEFAULT_AUDIO_VOLUME;
+use rubato_skin::audio_config::DEFAULT_AUDIO_VOLUME;
 
 use super::MusicResult;
 use crate::state::result::abstract_result::AbstractResultData;
@@ -13,33 +13,33 @@ pub(super) struct ResultRenderContext<'a> {
     pub(super) data: &'a AbstractResultData,
     pub(super) resource: &'a PlayerResource,
     pub(super) main: &'a mut MainController,
-    pub(super) offsets: &'a std::collections::HashMap<i32, rubato_types::skin_offset::SkinOffset>,
+    pub(super) offsets: &'a std::collections::HashMap<i32, rubato_skin::skin_offset::SkinOffset>,
 }
 
-impl rubato_types::timer_access::TimerAccess for ResultRenderContext<'_> {
+impl rubato_skin::timer_access::TimerAccess for ResultRenderContext<'_> {
     fn now_time(&self) -> i64 {
         self.timer.now_time()
     }
     fn now_micro_time(&self) -> i64 {
         self.timer.now_micro_time()
     }
-    fn micro_timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
+    fn micro_timer(&self, timer_id: rubato_skin::timer_id::TimerId) -> i64 {
         self.timer.micro_timer(timer_id)
     }
-    fn timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
+    fn timer(&self, timer_id: rubato_skin::timer_id::TimerId) -> i64 {
         self.timer.timer(timer_id)
     }
-    fn now_time_for(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
+    fn now_time_for(&self, timer_id: rubato_skin::timer_id::TimerId) -> i64 {
         self.timer.now_time_for_id(timer_id)
     }
-    fn is_timer_on(&self, timer_id: rubato_types::timer_id::TimerId) -> bool {
+    fn is_timer_on(&self, timer_id: rubato_skin::timer_id::TimerId) -> bool {
         self.timer.is_timer_on(timer_id)
     }
 }
 
-impl rubato_types::skin_render_context::SkinRenderContext for ResultRenderContext<'_> {
-    fn current_state_type(&self) -> Option<rubato_types::main_state_type::MainStateType> {
-        Some(rubato_types::main_state_type::MainStateType::Result)
+impl rubato_skin::skin_render_context::SkinRenderContext for ResultRenderContext<'_> {
+    fn current_state_type(&self) -> Option<rubato_skin::main_state_type::MainStateType> {
+        Some(rubato_skin::main_state_type::MainStateType::Result)
     }
 
     fn boot_time_millis(&self) -> i64 {
@@ -54,15 +54,15 @@ impl rubato_types::skin_render_context::SkinRenderContext for ResultRenderContex
         self.timer.recent_judges_index()
     }
 
-    fn player_config_ref(&self) -> Option<&rubato_types::player_config::PlayerConfig> {
+    fn player_config_ref(&self) -> Option<&rubato_skin::player_config::PlayerConfig> {
         shared_render_context::player_config_ref(self.resource)
     }
 
-    fn config_ref(&self) -> Option<&rubato_types::config::Config> {
+    fn config_ref(&self) -> Option<&rubato_skin::config::Config> {
         shared_render_context::config_ref(self.main)
     }
 
-    fn replay_option_data(&self) -> Option<&rubato_types::replay_data::ReplayData> {
+    fn replay_option_data(&self) -> Option<&rubato_skin::replay_data::ReplayData> {
         shared_render_context::replay_option_data(self.resource)
     }
 
@@ -78,7 +78,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for ResultRenderContex
         shared_render_context::rival_score_data_ref(self.data)
     }
 
-    fn current_play_config_ref(&self) -> Option<&rubato_types::play_config::PlayConfig> {
+    fn current_play_config_ref(&self) -> Option<&rubato_skin::play_config::PlayConfig> {
         let mode = self
             .resource
             .songdata()
@@ -101,11 +101,11 @@ impl rubato_types::skin_render_context::SkinRenderContext for ResultRenderContex
         )
     }
 
-    fn song_data_ref(&self) -> Option<&rubato_types::song_data::SongData> {
+    fn song_data_ref(&self) -> Option<&rubato_skin::song_data::SongData> {
         shared_render_context::song_data_ref(self.resource)
     }
 
-    fn set_timer_micro(&mut self, timer_id: rubato_types::timer_id::TimerId, micro_time: i64) {
+    fn set_timer_micro(&mut self, timer_id: rubato_skin::timer_id::TimerId, micro_time: i64) {
         self.timer.set_micro_timer(timer_id, micro_time);
     }
 
@@ -165,7 +165,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for ResultRenderContex
             308 => {
                 if let Some(song) = self.resource.songdata()
                     && let Some(override_val) =
-                        rubato_types::skin_render_context::compute_lnmode_from_chart(&song.chart)
+                        rubato_skin::skin_render_context::compute_lnmode_from_chart(&song.chart)
                 {
                     return override_val;
                 }
@@ -344,11 +344,11 @@ impl rubato_types::skin_render_context::SkinRenderContext for ResultRenderContex
 
     fn get_timing_distribution(
         &self,
-    ) -> Option<&rubato_types::timing_distribution::TimingDistribution> {
+    ) -> Option<&rubato_skin::timing_distribution::TimingDistribution> {
         shared_render_context::get_timing_distribution(self.data)
     }
 
-    fn score_data_property(&self) -> &rubato_types::score_data_property::ScoreDataProperty {
+    fn score_data_property(&self) -> &rubato_skin::score_data_property::ScoreDataProperty {
         shared_render_context::score_data_property(self.data)
     }
 
@@ -360,7 +360,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for ResultRenderContex
         shared_render_context::gauge_element_borders(self.resource)
     }
 
-    fn get_offset_value(&self, id: i32) -> Option<&rubato_types::skin_offset::SkinOffset> {
+    fn get_offset_value(&self, id: i32) -> Option<&rubato_skin::skin_offset::SkinOffset> {
         self.offsets.get(&id)
     }
 }
@@ -373,7 +373,7 @@ pub(super) struct ResultMouseContext<'a> {
     pub(super) result: &'a mut MusicResult,
 }
 
-impl rubato_types::timer_access::TimerAccess for ResultMouseContext<'_> {
+impl rubato_skin::timer_access::TimerAccess for ResultMouseContext<'_> {
     fn now_time(&self) -> i64 {
         self.timer.now_time()
     }
@@ -382,26 +382,26 @@ impl rubato_types::timer_access::TimerAccess for ResultMouseContext<'_> {
         self.timer.now_micro_time()
     }
 
-    fn micro_timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
+    fn micro_timer(&self, timer_id: rubato_skin::timer_id::TimerId) -> i64 {
         self.timer.micro_timer(timer_id)
     }
 
-    fn timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
+    fn timer(&self, timer_id: rubato_skin::timer_id::TimerId) -> i64 {
         self.timer.timer(timer_id)
     }
 
-    fn now_time_for(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
+    fn now_time_for(&self, timer_id: rubato_skin::timer_id::TimerId) -> i64 {
         self.timer.now_time_for_id(timer_id)
     }
 
-    fn is_timer_on(&self, timer_id: rubato_types::timer_id::TimerId) -> bool {
+    fn is_timer_on(&self, timer_id: rubato_skin::timer_id::TimerId) -> bool {
         self.timer.is_timer_on(timer_id)
     }
 }
 
-impl rubato_types::skin_render_context::SkinRenderContext for ResultMouseContext<'_> {
-    fn current_state_type(&self) -> Option<rubato_types::main_state_type::MainStateType> {
-        Some(rubato_types::main_state_type::MainStateType::Result)
+impl rubato_skin::skin_render_context::SkinRenderContext for ResultMouseContext<'_> {
+    fn current_state_type(&self) -> Option<rubato_skin::main_state_type::MainStateType> {
+        Some(rubato_skin::main_state_type::MainStateType::Result)
     }
 
     fn boot_time_millis(&self) -> i64 {
@@ -416,11 +416,11 @@ impl rubato_types::skin_render_context::SkinRenderContext for ResultMouseContext
         self.timer.recent_judges_index()
     }
 
-    fn player_config_ref(&self) -> Option<&rubato_types::player_config::PlayerConfig> {
+    fn player_config_ref(&self) -> Option<&rubato_skin::player_config::PlayerConfig> {
         shared_render_context::player_config_ref(&self.result.resource)
     }
 
-    fn config_ref(&self) -> Option<&rubato_types::config::Config> {
+    fn config_ref(&self) -> Option<&rubato_skin::config::Config> {
         shared_render_context::config_ref(&self.result.main)
     }
 
@@ -432,11 +432,11 @@ impl rubato_types::skin_render_context::SkinRenderContext for ResultMouseContext
         shared_render_context::rival_score_data_ref(&self.result.data)
     }
 
-    fn song_data_ref(&self) -> Option<&rubato_types::song_data::SongData> {
+    fn song_data_ref(&self) -> Option<&rubato_skin::song_data::SongData> {
         shared_render_context::song_data_ref(&self.result.resource)
     }
 
-    fn current_play_config_ref(&self) -> Option<&rubato_types::play_config::PlayConfig> {
+    fn current_play_config_ref(&self) -> Option<&rubato_skin::play_config::PlayConfig> {
         let mode = self
             .result
             .resource
@@ -461,7 +461,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for ResultMouseContext
         )
     }
 
-    fn replay_option_data(&self) -> Option<&rubato_types::replay_data::ReplayData> {
+    fn replay_option_data(&self) -> Option<&rubato_skin::replay_data::ReplayData> {
         shared_render_context::replay_option_data(&self.result.resource)
     }
 
@@ -522,11 +522,11 @@ impl rubato_types::skin_render_context::SkinRenderContext for ResultMouseContext
 
     fn get_timing_distribution(
         &self,
-    ) -> Option<&rubato_types::timing_distribution::TimingDistribution> {
+    ) -> Option<&rubato_skin::timing_distribution::TimingDistribution> {
         shared_render_context::get_timing_distribution(&self.result.data)
     }
 
-    fn score_data_property(&self) -> &rubato_types::score_data_property::ScoreDataProperty {
+    fn score_data_property(&self) -> &rubato_skin::score_data_property::ScoreDataProperty {
         shared_render_context::score_data_property(&self.result.data)
     }
 
@@ -545,7 +545,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for ResultMouseContext
             308 => {
                 if let Some(song) = self.result.resource.songdata()
                     && let Some(override_val) =
-                        rubato_types::skin_render_context::compute_lnmode_from_chart(&song.chart)
+                        rubato_skin::skin_render_context::compute_lnmode_from_chart(&song.chart)
                 {
                     return override_val;
                 }
@@ -744,11 +744,11 @@ impl rubato_types::skin_render_context::SkinRenderContext for ResultMouseContext
         }
     }
 
-    fn change_state(&mut self, state: rubato_types::main_state_type::MainStateType) {
+    fn change_state(&mut self, state: rubato_skin::main_state_type::MainStateType) {
         self.result.pending_state_change = Some(state);
     }
 
-    fn set_timer_micro(&mut self, timer_id: rubato_types::timer_id::TimerId, micro_time: i64) {
+    fn set_timer_micro(&mut self, timer_id: rubato_skin::timer_id::TimerId, micro_time: i64) {
         self.timer.set_micro_timer(timer_id, micro_time);
     }
 
@@ -762,7 +762,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for ResultMouseContext
         self.result.pending_audio_path_stops.push(path.to_string());
     }
 
-    fn player_config_mut(&mut self) -> Option<&mut rubato_types::player_config::PlayerConfig> {
+    fn player_config_mut(&mut self) -> Option<&mut rubato_skin::player_config::PlayerConfig> {
         self.result.resource.player_config_mut()
     }
 
@@ -798,7 +798,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for ResultMouseContext
         ));
     }
 
-    fn get_offset_value(&self, id: i32) -> Option<&rubato_types::skin_offset::SkinOffset> {
+    fn get_offset_value(&self, id: i32) -> Option<&rubato_skin::skin_offset::SkinOffset> {
         self.result.main_data.offsets.get(&id)
     }
 }

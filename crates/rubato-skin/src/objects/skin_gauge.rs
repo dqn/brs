@@ -836,28 +836,28 @@ mod tests {
         border_max: Option<(f32, f32)>,
     }
 
-    impl rubato_types::timer_access::TimerAccess for GaugeMockState {
+    impl crate::timer_access::TimerAccess for GaugeMockState {
         fn now_time(&self) -> i64 {
             0
         }
         fn now_micro_time(&self) -> i64 {
             0
         }
-        fn micro_timer(&self, _: rubato_types::timer_id::TimerId) -> i64 {
+        fn micro_timer(&self, _: crate::timer_id::TimerId) -> i64 {
             i64::MIN
         }
-        fn timer(&self, _: rubato_types::timer_id::TimerId) -> i64 {
+        fn timer(&self, _: crate::timer_id::TimerId) -> i64 {
             i64::MIN
         }
-        fn now_time_for(&self, _: rubato_types::timer_id::TimerId) -> i64 {
+        fn now_time_for(&self, _: crate::timer_id::TimerId) -> i64 {
             0
         }
-        fn is_timer_on(&self, _: rubato_types::timer_id::TimerId) -> bool {
+        fn is_timer_on(&self, _: crate::timer_id::TimerId) -> bool {
             false
         }
     }
 
-    impl rubato_types::skin_render_context::SkinRenderContext for GaugeMockState {
+    impl crate::skin_render_context::SkinRenderContext for GaugeMockState {
         fn gauge_value(&self) -> f32 {
             self.gauge_value
         }
@@ -1042,28 +1042,28 @@ mod tests {
         element_borders: Vec<(f32, f32)>,
     }
 
-    impl rubato_types::timer_access::TimerAccess for ModeChangeMockState {
+    impl crate::timer_access::TimerAccess for ModeChangeMockState {
         fn now_time(&self) -> i64 {
             0
         }
         fn now_micro_time(&self) -> i64 {
             0
         }
-        fn micro_timer(&self, _: rubato_types::timer_id::TimerId) -> i64 {
+        fn micro_timer(&self, _: crate::timer_id::TimerId) -> i64 {
             i64::MIN
         }
-        fn timer(&self, _: rubato_types::timer_id::TimerId) -> i64 {
+        fn timer(&self, _: crate::timer_id::TimerId) -> i64 {
             i64::MIN
         }
-        fn now_time_for(&self, _: rubato_types::timer_id::TimerId) -> i64 {
+        fn now_time_for(&self, _: crate::timer_id::TimerId) -> i64 {
             0
         }
-        fn is_timer_on(&self, _: rubato_types::timer_id::TimerId) -> bool {
+        fn is_timer_on(&self, _: crate::timer_id::TimerId) -> bool {
             false
         }
     }
 
-    impl rubato_types::skin_render_context::SkinRenderContext for ModeChangeMockState {
+    impl crate::skin_render_context::SkinRenderContext for ModeChangeMockState {
         fn gauge_value(&self) -> f32 {
             self.gauge_value
         }
@@ -1468,28 +1468,28 @@ mod tests {
         gauge_transition_last: Option<f32>,
     }
 
-    impl rubato_types::timer_access::TimerAccess for ResultMockState {
+    impl crate::timer_access::TimerAccess for ResultMockState {
         fn now_time(&self) -> i64 {
             0
         }
         fn now_micro_time(&self) -> i64 {
             0
         }
-        fn micro_timer(&self, _: rubato_types::timer_id::TimerId) -> i64 {
+        fn micro_timer(&self, _: crate::timer_id::TimerId) -> i64 {
             i64::MIN
         }
-        fn timer(&self, _: rubato_types::timer_id::TimerId) -> i64 {
+        fn timer(&self, _: crate::timer_id::TimerId) -> i64 {
             i64::MIN
         }
-        fn now_time_for(&self, _: rubato_types::timer_id::TimerId) -> i64 {
+        fn now_time_for(&self, _: crate::timer_id::TimerId) -> i64 {
             0
         }
-        fn is_timer_on(&self, _: rubato_types::timer_id::TimerId) -> bool {
+        fn is_timer_on(&self, _: crate::timer_id::TimerId) -> bool {
             false
         }
     }
 
-    impl rubato_types::skin_render_context::SkinRenderContext for ResultMockState {
+    impl crate::skin_render_context::SkinRenderContext for ResultMockState {
         fn gauge_value(&self) -> f32 {
             self.gauge_value
         }
@@ -1502,8 +1502,8 @@ mod tests {
         fn gauge_min(&self) -> f32 {
             self.gauge_min
         }
-        fn current_state_type(&self) -> Option<rubato_types::main_state_type::MainStateType> {
-            Some(rubato_types::main_state_type::MainStateType::Result)
+        fn current_state_type(&self) -> Option<crate::main_state_type::MainStateType> {
+            Some(crate::main_state_type::MainStateType::Result)
         }
         fn gauge_transition_last_value(&self, _gauge_type: i32) -> Option<f32> {
             self.gauge_transition_last

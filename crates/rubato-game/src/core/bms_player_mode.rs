@@ -1,1 +1,1 @@
-pub use rubato_types::bms_player_mode::*;
+pub use rubato_skin::bms_player_mode::*;

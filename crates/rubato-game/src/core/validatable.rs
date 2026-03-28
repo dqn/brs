@@ -1,1 +1,1 @@
-pub use rubato_types::validatable::*;
+pub use rubato_skin::validatable::*;

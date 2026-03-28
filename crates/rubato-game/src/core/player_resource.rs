@@ -5,7 +5,7 @@ use bms::model::bms_model::BMSModel;
 use bms::model::bms_model_utils::set_start_note_time;
 use bms::model::chart_decoder;
 use bms::model::chart_information::ChartInformation;
-use rubato_types::player_resource_access::{
+use rubato_skin::player_resource_access::{
     ConfigAccess, CourseAccess, GaugeAccess, MediaAccess, PlayerResourceAccess, PlayerStateAccess,
     ReplayAccess, ScoreAccess, SessionMutation, SongAccess,
 };
@@ -20,8 +20,8 @@ use crate::core::player_config::PlayerConfig;
 use crate::core::player_data::PlayerData;
 use crate::core::replay_data::ReplayData;
 use crate::core::score_data::ScoreData;
-use rubato_types::groove_gauge::GrooveGauge;
-use rubato_types::song_data::SongData;
+use rubato_skin::groove_gauge::GrooveGauge;
+use rubato_skin::song_data::SongData;
 
 /// FloatArray stub (LibGDX equivalent)
 pub type FloatArray = Vec<f32>;
@@ -268,7 +268,7 @@ impl PlayerResource {
         );
         let mut model = decoder.decode(info)?;
         let margin_time = set_start_note_time(&mut model, 1000);
-        rubato_types::bms_player_rule::BMSPlayerRule::validate(&mut model);
+        rubato_skin::bms_player_rule::BMSPlayerRule::validate(&mut model);
         Some((model, margin_time))
     }
 
@@ -708,7 +708,7 @@ impl PlayerResource {
             replay.keylog = input
                 .key_input_log()
                 .iter()
-                .map(|k| rubato_types::KeyInputLog {
+                .map(|k| rubato_skin::KeyInputLog {
                     time: k.time(),
                     keycode: k.keycode(),
                     pressed: k.is_pressed(),
@@ -763,25 +763,25 @@ impl ScoreAccess for PlayerResource {
 }
 
 impl SongAccess for PlayerResource {
-    fn songdata(&self) -> Option<&rubato_types::song_data::SongData> {
+    fn songdata(&self) -> Option<&rubato_skin::song_data::SongData> {
         self.songdata.as_ref()
     }
 
-    fn songdata_mut(&mut self) -> Option<&mut rubato_types::song_data::SongData> {
+    fn songdata_mut(&mut self) -> Option<&mut rubato_skin::song_data::SongData> {
         self.songdata.as_mut()
     }
 
-    fn set_songdata(&mut self, data: Option<rubato_types::song_data::SongData>) {
+    fn set_songdata(&mut self, data: Option<rubato_skin::song_data::SongData>) {
         self.songdata = data;
     }
 
-    fn course_song_data(&self) -> Vec<rubato_types::song_data::SongData> {
+    fn course_song_data(&self) -> Vec<rubato_skin::song_data::SongData> {
         match self.course_bms_models() {
             Some(models) => models
                 .iter()
                 .map(|m| {
                     // Build SongData from model metadata without consuming the model
-                    let mut sd = rubato_types::song_data::SongData::default();
+                    let mut sd = rubato_skin::song_data::SongData::default();
                     sd.metadata.title = m.title.clone();
                     sd.metadata.set_subtitle(m.sub_title.clone());
                     sd.metadata.genre = m.genre.clone();
@@ -856,7 +856,7 @@ impl GaugeAccess for PlayerResource {
         self.gauge.as_ref()
     }
 
-    fn groove_gauge(&self) -> Option<&rubato_types::groove_gauge::GrooveGauge> {
+    fn groove_gauge(&self) -> Option<&rubato_skin::groove_gauge::GrooveGauge> {
         self.groove_gauge.as_ref()
     }
 
@@ -981,11 +981,11 @@ impl MediaAccess for PlayerResource {
         PlayerResource::bms_model(self)
     }
 
-    fn player_data(&self) -> Option<&rubato_types::player_data::PlayerData> {
+    fn player_data(&self) -> Option<&rubato_skin::player_data::PlayerData> {
         Some(&self.playerdata)
     }
 
-    fn set_player_data(&mut self, player_data: rubato_types::player_data::PlayerData) {
+    fn set_player_data(&mut self, player_data: rubato_skin::player_data::PlayerData) {
         self.playerdata = player_data;
     }
 

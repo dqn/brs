@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use rubato_types::offset_capabilities::OffsetCapabilities;
+use crate::offset_capabilities::OffsetCapabilities;
 
 use crate::lr2::lr2_skin_loader::LR2SkinLoaderState;
 use crate::reexports::{MainState, Resolution};

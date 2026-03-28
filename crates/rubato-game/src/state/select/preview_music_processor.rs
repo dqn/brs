@@ -4,8 +4,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use rubato_audio::audio_system::AudioSystem;
-use rubato_types::audio_config::DEFAULT_AUDIO_VOLUME;
-use rubato_types::sync_utils::lock_or_recover;
+use rubato_skin::audio_config::DEFAULT_AUDIO_VOLUME;
+use rubato_skin::sync_utils::lock_or_recover;
 
 use super::*;
 

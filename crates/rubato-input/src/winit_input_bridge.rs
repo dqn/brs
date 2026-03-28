@@ -12,7 +12,7 @@
 use std::sync::{Arc, Mutex};
 
 use crate::keys::Keys;
-use rubato_types::sync_utils::lock_or_recover;
+use rubato_skin::sync_utils::lock_or_recover;
 
 /// Number of key slots (matches Java Gdx.input key array size)
 const KEY_COUNT: usize = 256;

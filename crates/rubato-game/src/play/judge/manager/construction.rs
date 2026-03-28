@@ -231,12 +231,12 @@ impl JudgeManager {
         // Populate play_option fields so scores record which algorithm/rule was used.
         // Mirrors what init() does in accessors.rs.
         jm.score.play_option.judge_algorithm = Some(match config.algorithm {
-            JudgeAlgorithm::Combo => rubato_types::judge_algorithm::JudgeAlgorithm::Combo,
-            JudgeAlgorithm::Duration => rubato_types::judge_algorithm::JudgeAlgorithm::Duration,
-            JudgeAlgorithm::Lowest => rubato_types::judge_algorithm::JudgeAlgorithm::Lowest,
-            JudgeAlgorithm::Score => rubato_types::judge_algorithm::JudgeAlgorithm::Score,
+            JudgeAlgorithm::Combo => rubato_skin::judge_algorithm::JudgeAlgorithm::Combo,
+            JudgeAlgorithm::Duration => rubato_skin::judge_algorithm::JudgeAlgorithm::Duration,
+            JudgeAlgorithm::Lowest => rubato_skin::judge_algorithm::JudgeAlgorithm::Lowest,
+            JudgeAlgorithm::Score => rubato_skin::judge_algorithm::JudgeAlgorithm::Score,
         });
-        jm.score.play_option.rule = Some(rubato_types::bms_player_rule::BMSPlayerRule::LR2);
+        jm.score.play_option.rule = Some(rubato_skin::bms_player_rule::BMSPlayerRule::LR2);
 
         jm
     }

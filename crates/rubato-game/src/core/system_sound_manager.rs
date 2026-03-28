@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use log::info;
 
 // SoundType moved to beatoraja-types (Phase 59a)
-pub use rubato_types::sound_type::SoundType;
+pub use rubato_skin::sound_type::SoundType;
 
 /// SystemSoundManager - manages BGM and sound effect sets
 pub struct SystemSoundManager {

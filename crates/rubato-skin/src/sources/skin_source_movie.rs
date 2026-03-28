@@ -324,7 +324,7 @@ impl SkinSource for SkinSourceMovie {
             self.requested_time.store(time, Ordering::Release);
 
             // Pick up latest decoded frame
-            let guard = rubato_types::sync_utils::lock_or_recover(&self.shared_frame);
+            let guard = crate::sync_utils::lock_or_recover(&self.shared_frame);
             let frame = guard.as_ref()?;
 
             // Build a Texture with a stable key so the GPU texture manager reuses

@@ -7,7 +7,7 @@ use crate::core::main_state::{MainState, MainStateData, MainStateType, StateTran
 use crate::core::player_config::PlayerConfig;
 use crate::core::skin_config::{SkinConfig, SkinFilePath, SkinOffset, SkinOption, SkinProperty};
 use crate::core::timer_manager::TimerManager;
-use rubato_types::skin_type::SkinType;
+use rubato_skin::skin_type::SkinType;
 
 use super::SkinConfiguration;
 use super::types::*;
@@ -46,7 +46,7 @@ impl SkinConfiguration {
     /// Java: SkinConfiguration.input()
     pub fn input_internal(
         &mut self,
-        input: &mut dyn rubato_types::input_processor_access::InputProcessorAccess,
+        input: &mut dyn rubato_skin::input_processor_access::InputProcessorAccess,
     ) {
         let mov = -input.scroll();
         input.reset_scroll();

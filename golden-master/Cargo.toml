@@ -16,7 +16,6 @@ rubato-input.workspace = true
 rubato-audio.workspace = true
 rubato-skin.workspace = true
 rubato-render.workspace = true
-rubato-types.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

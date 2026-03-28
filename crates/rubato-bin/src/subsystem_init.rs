@@ -54,7 +54,7 @@ pub(crate) fn init_song_information_database(controller: &mut MainController) {
 fn init_song_database_impl(update_all: bool, set_accessor: bool) {
     use rubato_game::core::config::Config;
     use rubato_game::core::main_loader::MainLoader;
-    use rubato_types::validatable::Validatable;
+    use rubato_skin::validatable::Validatable;
 
     let mut config = Config::read().unwrap_or_default();
     config.validate();

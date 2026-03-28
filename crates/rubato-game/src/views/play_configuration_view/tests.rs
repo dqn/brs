@@ -50,7 +50,7 @@ fn test_update_delegates_to_video_controller() {
             ..Default::default()
         },
         render: crate::core::config::RenderConfig {
-            bga: rubato_types::config::BgaMode::Off,
+            bga: rubato_skin::config::BgaMode::Off,
             ..Default::default()
         },
         ..Default::default()
@@ -64,7 +64,7 @@ fn test_update_delegates_to_video_controller() {
     view.video_controller.commit(&mut out_config);
     assert!(out_config.display.vsync);
     assert_eq!(out_config.display.max_frame_per_second, 120);
-    assert_eq!(out_config.render.bga, rubato_types::config::BgaMode::Off);
+    assert_eq!(out_config.render.bga, rubato_skin::config::BgaMode::Off);
 }
 
 #[test]
@@ -598,7 +598,7 @@ fn test_update_player_commit_player_roundtrip() {
 
     let player = PlayerConfig {
         name: "TestPlayer".to_string(),
-        play_settings: rubato_types::player_config::PlaySettings {
+        play_settings: rubato_skin::player_config::PlaySettings {
             random: 3,
             random2: 5,
             doubleoption: 1,
@@ -608,13 +608,13 @@ fn test_update_player_commit_player_roundtrip() {
             mine_mode: 2,
             ..Default::default()
         },
-        judge_settings: rubato_types::player_config::JudgeSettings {
+        judge_settings: rubato_skin::player_config::JudgeSettings {
             judgetiming: 10,
             custom_judge: true,
             key_judge_window_rate_perfect_great: 500,
             ..Default::default()
         },
-        display_settings: rubato_types::player_config::DisplaySettings {
+        display_settings: rubato_skin::player_config::DisplaySettings {
             bpmguide: true,
             scroll_mode: 1,
             showjudgearea: true,
@@ -623,12 +623,12 @@ fn test_update_player_commit_player_roundtrip() {
             showpastnote: true,
             ..Default::default()
         },
-        note_modifier_settings: rubato_types::player_config::NoteModifierSettings {
+        note_modifier_settings: rubato_skin::player_config::NoteModifierSettings {
             longnote_mode: 3,
             longnote_rate: 1.5,
             ..Default::default()
         },
-        misc_settings: rubato_types::player_config::MiscSettings {
+        misc_settings: rubato_skin::player_config::MiscSettings {
             autosavereplay: vec![1, 2, 3, 4],
             ..Default::default()
         },
@@ -689,7 +689,7 @@ fn create_lr2_score_db(path: &str, rows: &[Lr2ScoreRow<'_>]) {
 
 /// Helper: populate a beatoraja song.db with songs that have the given md5/sha256/notes.
 fn populate_song_db(songdb_path: &str, bmsroot: &str, songs: &[(&str, &str, i32)]) {
-    use rubato_types::song_data::SongData;
+    use rubato_skin::song_data::SongData;
     let songdb = SQLiteSongDatabaseAccessor::new(songdb_path, &[bmsroot.to_string()]).unwrap();
     let song_datas: Vec<SongData> = songs
         .iter()

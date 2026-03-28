@@ -146,7 +146,7 @@ fn score_data_property_all_cases() {
         let score = ScoreData {
             mode: tc.mode,
             playmode,
-            judge_counts: rubato_types::score_data::JudgeCounts {
+            judge_counts: rubato_skin::score_data::JudgeCounts {
                 epg: tc.epg,
                 lpg: tc.lpg,
                 egr: tc.egr,

@@ -1,1 +1,1 @@
-pub use rubato_types::audio_config::*;
+pub use rubato_skin::audio_config::*;

@@ -9,7 +9,7 @@ use std::sync::Arc;
 use crate::ir::ir_account::IRAccount;
 use crate::ir::ir_connection::IRConnection;
 use crate::ir::ir_connection_manager::IRConnectionManager;
-use rubato_types::player_config::PlayerConfig;
+use rubato_skin::player_config::PlayerConfig;
 
 use super::ir_status::IRStatus;
 
@@ -137,7 +137,7 @@ mod tests {
 
     #[test]
     fn test_initialize_ir_config_empty_credentials() {
-        use rubato_types::ir_config::IRConfig;
+        use rubato_skin::ir_config::IRConfig;
         let mut player = PlayerConfig::default();
         let mut ir = IRConfig::default();
         ir.irname = "TestIR".to_string();
@@ -150,7 +150,7 @@ mod tests {
 
     #[test]
     fn test_initialize_ir_config_login_failure_returns_empty() {
-        use rubato_types::ir_config::IRConfig;
+        use rubato_skin::ir_config::IRConfig;
 
         // Register the mock IR connection in the global registry
         register_ir_connections(vec![IRConnectionEntry {

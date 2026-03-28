@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use mlua::prelude::*;
 
 use crate::reexports::MainState;
-use rubato_types::sync_utils::lock_or_recover;
+use crate::sync_utils::lock_or_recover;
 
 /// Timer utility for Lua
 ///
@@ -74,7 +74,7 @@ impl TimerUtility {
             // timer_function(timer_id) -> function() -> number
             let sp = self.state_ptr;
             let timer_function_func = lua.create_function(move |lua, timer_id: i32| {
-                let tid = rubato_types::timer_id::TimerId::new(timer_id);
+                let tid = crate::timer_id::TimerId::new(timer_id);
                 let timer_func = lua.create_function(move |_, ()| {
                     let state = unsafe { &*sp.0 };
                     Ok(state.micro_timer(tid))

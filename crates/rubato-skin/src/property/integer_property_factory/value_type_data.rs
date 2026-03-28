@@ -1,7 +1,7 @@
 // Static lookup tables for integer property factory.
 // Extracted from integer_property_factory.rs for navigability.
 
-use rubato_types::value_id::ValueId;
+use crate::value_id::ValueId;
 
 pub(super) struct ValueTypeEntry {
     pub(super) id: ValueId,

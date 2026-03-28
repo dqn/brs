@@ -10,7 +10,7 @@ use crate::property::integer_property::IntegerProperty;
 use crate::property::string_property::StringProperty;
 use crate::property::timer_property::TimerProperty;
 use crate::reexports::MainState;
-use rubato_types::sync_utils::lock_or_recover;
+use crate::sync_utils::lock_or_recover;
 
 // ============================================================
 // Lua-backed property implementations

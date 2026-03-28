@@ -15,7 +15,7 @@ use super::{
     SET_OFFSETS, SET_OPTIONS, SKIN_MENU_STATE,
 };
 use crate::core::command::Command;
-use rubato_types::sync_utils::lock_or_recover;
+use rubato_skin::sync_utils::lock_or_recover;
 
 pub(super) fn refresh() {
     *lock_or_recover(&SET_OPTIONS) = None;

@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use crate::reexports::{BitmapFont, BitmapFontData, TextureRegion};
-use rubato_types::sync_utils::lock_or_recover;
+use crate::sync_utils::lock_or_recover;
 
 /// BitmapFont cache
 ///

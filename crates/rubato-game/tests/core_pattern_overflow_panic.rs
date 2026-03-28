@@ -66,10 +66,10 @@ fn rotate_shuffle_empty_keys_returns_identity() {
 fn mode_modifier_hran_threshold_bpm_zero_handled() {
     use rubato_game::core::pattern::mode_modifier::ModeModifier;
     use rubato_game::core::pattern::pattern_modifier::PatternModifier;
-    use rubato_types::player_config::PlayerConfig;
+    use rubato_skin::player_config::PlayerConfig;
 
     let config = PlayerConfig {
-        play_settings: rubato_types::player_config::PlaySettings {
+        play_settings: rubato_skin::player_config::PlaySettings {
             hran_threshold_bpm: 0,
             ..Default::default()
         },
@@ -92,10 +92,10 @@ fn mode_modifier_hran_threshold_bpm_zero_handled() {
 fn mode_modifier_hran_threshold_bpm_negative_handled() {
     use rubato_game::core::pattern::mode_modifier::ModeModifier;
     use rubato_game::core::pattern::pattern_modifier::PatternModifier;
-    use rubato_types::player_config::PlayerConfig;
+    use rubato_skin::player_config::PlayerConfig;
 
     let config = PlayerConfig {
-        play_settings: rubato_types::player_config::PlaySettings {
+        play_settings: rubato_skin::player_config::PlaySettings {
             hran_threshold_bpm: -100,
             ..Default::default()
         },

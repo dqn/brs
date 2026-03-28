@@ -1,7 +1,7 @@
 use bms::model::bms_model::BMSModel;
 
-use rubato_types::song_data::SongData;
-use rubato_types::song_information::SongInformation;
+use rubato_skin::song_data::SongData;
+use rubato_skin::song_information::SongInformation;
 
 /// Song information database accessor interface.
 ///

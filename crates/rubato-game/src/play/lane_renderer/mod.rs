@@ -1,7 +1,7 @@
 use bms::model::bms_model::{BMSModel, LNTYPE_CHARGENOTE, LNTYPE_HELLCHARGENOTE, LNTYPE_LONGNOTE};
 use bms::model::note::{Note, TYPE_CHARGENOTE, TYPE_HELLCHARGENOTE, TYPE_LONGNOTE, TYPE_UNDEFINED};
 use bms::model::time_line::TimeLine;
-use rubato_types::play_config::{
+use rubato_skin::play_config::{
     FIX_HISPEED_MAINBPM, FIX_HISPEED_MAXBPM, FIX_HISPEED_MINBPM, FIX_HISPEED_OFF,
     FIX_HISPEED_STARTBPM, HISPEED_MAX, HISPEED_MIN, PlayConfig,
 };
@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use crate::play::skin::note::SkinLane;
 
 // Re-export shared draw command types from rubato-types (canonical location).
-pub use rubato_types::draw_command::{DrawCommand, NoteImageType};
+pub use rubato_skin::draw_command::{DrawCommand, NoteImageType};
 
 /// A borrowed slice of `TimeLine` values stored as a raw pointer + length.
 ///

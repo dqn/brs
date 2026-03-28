@@ -1,1 +1,1 @@
-pub use rubato_types::resolution::*;
+pub use rubato_skin::resolution::*;

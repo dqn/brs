@@ -15,7 +15,7 @@ use rubato_game::state::select::bar::song_bar::SongBar;
 use rubato_game::state::select::bar_manager::{BarManager, UpdateBarContext};
 use rubato_game::state::select::bar_sorter::BarSorter;
 use rubato_game::state::select::null_song_database_accessor::NullSongDatabaseAccessor;
-use rubato_types::song_data::SongData;
+use rubato_skin::song_data::SongData;
 
 // ---------------------------------------------------------------------------
 // Helpers

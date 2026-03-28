@@ -1,7 +1,7 @@
 // MainState concrete struct bridging external code to skin's property system.
 
 use crate::core::config::Config;
-use rubato_types::screen_type::ScreenType;
+use rubato_skin::screen_type::ScreenType;
 
 use crate::abstract_result_access::AbstractResultAccess;
 
@@ -26,15 +26,15 @@ impl crate::main_state_access::MainStateAccess for MainState {
         self.resource.config()
     }
 
-    fn songdata(&self) -> Option<&rubato_types::song_data::SongData> {
+    fn songdata(&self) -> Option<&rubato_skin::song_data::SongData> {
         self.resource.songdata()
     }
 
-    fn replay_data(&self) -> Option<&rubato_types::replay_data::ReplayData> {
+    fn replay_data(&self) -> Option<&rubato_skin::replay_data::ReplayData> {
         self.resource.replay_data()
     }
 
-    fn course_data(&self) -> Option<&rubato_types::course_data::CourseData> {
+    fn course_data(&self) -> Option<&rubato_skin::course_data::CourseData> {
         self.resource.inner.course_data()
     }
 
@@ -58,23 +58,23 @@ impl Default for MainState {
 // skin::MainState trait impl — bridges external's concrete MainState
 // to skin's property system (resolves type mismatch, not a circular dep)
 
-impl rubato_types::timer_access::TimerAccess for MainState {
+impl rubato_skin::timer_access::TimerAccess for MainState {
     fn now_time(&self) -> i64 {
         0
     }
     fn now_micro_time(&self) -> i64 {
         0
     }
-    fn micro_timer(&self, _: rubato_types::timer_id::TimerId) -> i64 {
+    fn micro_timer(&self, _: rubato_skin::timer_id::TimerId) -> i64 {
         i64::MIN
     }
-    fn timer(&self, _: rubato_types::timer_id::TimerId) -> i64 {
+    fn timer(&self, _: rubato_skin::timer_id::TimerId) -> i64 {
         i64::MIN
     }
-    fn now_time_for(&self, _: rubato_types::timer_id::TimerId) -> i64 {
+    fn now_time_for(&self, _: rubato_skin::timer_id::TimerId) -> i64 {
         0
     }
-    fn is_timer_on(&self, _: rubato_types::timer_id::TimerId) -> bool {
+    fn is_timer_on(&self, _: rubato_skin::timer_id::TimerId) -> bool {
         false
     }
 }
@@ -82,7 +82,7 @@ impl rubato_types::timer_access::TimerAccess for MainState {
 // Known limitation: screenshot/webhook MainState adapter returns default values for skin
 // properties. Song metadata and clear type will be missing until full SkinRenderContext
 // delegation is wired.
-impl rubato_types::skin_render_context::SkinRenderContext for MainState {}
+impl rubato_skin::skin_render_context::SkinRenderContext for MainState {}
 
 impl rubato_skin::reexports::MainState for MainState {}
 

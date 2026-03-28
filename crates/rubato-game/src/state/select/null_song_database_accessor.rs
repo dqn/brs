@@ -1,6 +1,6 @@
 use crate::song_database_accessor::SongDatabaseAccessor;
-use rubato_types::folder_data::FolderData;
-use rubato_types::song_data::SongData;
+use rubato_skin::folder_data::FolderData;
+use rubato_skin::song_data::SongData;
 
 /// Null object pattern — returns empty results for all queries.
 /// Used as default in MusicSelector when no real database is connected.

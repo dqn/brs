@@ -4,8 +4,8 @@
 
 use crate::bms_player_input_device::{BMSPlayerInputDevice, DeviceType};
 use crate::controller::gdx_controller::GdxController;
-use rubato_types::play_mode_config::ControllerConfig;
-use rubato_types::play_mode_config::{ANALOG_SCRATCH_VER_1, ANALOG_SCRATCH_VER_2};
+use rubato_skin::play_mode_config::ControllerConfig;
+use rubato_skin::play_mode_config::{ANALOG_SCRATCH_VER_1, ANALOG_SCRATCH_VER_2};
 
 /// BMKeys constants
 pub struct BMKeys;

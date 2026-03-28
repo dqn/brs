@@ -220,7 +220,7 @@ impl LR2SkinLoaderAccess for LR2PlaySkinLoaderState {
                 if let Some(rect) = lane_rect {
                     note_obj.inner.set_lane_region(
                         i,
-                        &rubato_types::skin_note::LaneRegion {
+                        &crate::skin_note::LaneRegion {
                             x: rect.x,
                             y: rect.y,
                             width: rect.width,

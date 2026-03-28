@@ -732,7 +732,7 @@ mod tests {
             custom_offsets: vec![LR2CustomOffset::new(
                 "All offset(%)",
                 0,
-                rubato_types::offset_capabilities::OffsetCapabilities {
+                rubato_skin::offset_capabilities::OffsetCapabilities {
                     x: true,
                     y: true,
                     w: true,

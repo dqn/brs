@@ -2,9 +2,9 @@ use std::path::Path;
 
 use bms::model::bms_model::BMSModel;
 
-use rubato_types::course_data::CourseDataConstraint;
-use rubato_types::replay_data::ReplayData;
-use rubato_types::score_data::ScoreData;
+use rubato_skin::course_data::CourseDataConstraint;
+use rubato_skin::replay_data::ReplayData;
+use rubato_skin::score_data::ScoreData;
 
 use super::{PlayDataAccessor, REPLAY};
 

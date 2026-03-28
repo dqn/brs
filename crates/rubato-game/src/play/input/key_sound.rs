@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use bms::model::bms_model::BMSModel;
 use bms::model::note::Note;
-use rubato_types::sync_utils::lock_or_recover;
+use rubato_skin::sync_utils::lock_or_recover;
 
 /// A BG note that needs to be played by the audio driver.
 ///

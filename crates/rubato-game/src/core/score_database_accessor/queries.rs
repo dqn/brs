@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
-use rubato_types::player_data::PlayerData;
-use rubato_types::player_information::PlayerInformation;
-use rubato_types::score_data::ScoreData;
-use rubato_types::validatable::Validatable;
+use rubato_skin::player_data::PlayerData;
+use rubato_skin::player_information::PlayerInformation;
+use rubato_skin::score_data::ScoreData;
+use rubato_skin::validatable::Validatable;
 
 use super::helpers::{row_to_player_data, row_to_score_data};
 use super::{LOAD_CHUNK_SIZE, ScoreDataCollector, ScoreDatabaseAccessor, SongData};

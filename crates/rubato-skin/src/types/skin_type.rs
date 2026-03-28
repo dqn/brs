@@ -1,2 +1,2 @@
-// SkinType moved to beatoraja-types (Phase 15b)
-pub use rubato_types::skin_type::SkinType;
+// SkinType definition (absorbed from rubato-types)
+pub use crate::skin_type_def::SkinType;

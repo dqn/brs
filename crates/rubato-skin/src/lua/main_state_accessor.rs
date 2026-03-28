@@ -1,7 +1,7 @@
 use mlua::prelude::*;
-use rubato_types::property_snapshot::PropertySnapshot;
-use rubato_types::skin_render_context::SkinRenderContext;
-use rubato_types::timer_access::TimerAccess;
+use crate::property_snapshot::PropertySnapshot;
+use crate::skin_render_context::SkinRenderContext;
+use crate::timer_access::TimerAccess;
 
 use crate::core::skin_property_mapper;
 use crate::property::boolean_property_factory;
@@ -127,7 +127,7 @@ impl MainStateAccessor {
             let sp = self.state_ptr;
             let timer_func = lua.create_function(move |_, id: i32| {
                 let state = unsafe { &*sp.0 };
-                Ok(state.micro_timer(rubato_types::timer_id::TimerId::new(id)))
+                Ok(state.micro_timer(crate::timer_id::TimerId::new(id)))
             })?;
             table.set("timer", timer_func)?;
 
@@ -148,7 +148,7 @@ impl MainStateAccessor {
             let set_timer_func =
                 lua.create_function(move |_, (timer_id, timer_value): (i32, i64)| {
                     if !skin_property_mapper::is_timer_writable_by_skin(
-                        rubato_types::timer_id::TimerId::new(timer_id),
+                        crate::timer_id::TimerId::new(timer_id),
                     ) {
                         return Err(LuaError::RuntimeError(
                             "The specified timer cannot be changed by skin".to_string(),
@@ -156,7 +156,7 @@ impl MainStateAccessor {
                     }
                     let state = unsafe { &mut *sp.0 };
                     state.set_timer_micro(
-                        rubato_types::timer_id::TimerId::new(timer_id),
+                        crate::timer_id::TimerId::new(timer_id),
                         timer_value,
                     );
                     Ok(true)
@@ -550,7 +550,7 @@ impl SnapshotAccessor {
             let sp = self.snapshot_ptr;
             let timer_func = lua.create_function(move |_, id: i32| {
                 let snapshot = unsafe { &*sp.0 };
-                Ok(snapshot.micro_timer(rubato_types::timer_id::TimerId::new(id)))
+                Ok(snapshot.micro_timer(crate::timer_id::TimerId::new(id)))
             })?;
             table.set("timer", timer_func)?;
 
@@ -571,7 +571,7 @@ impl SnapshotAccessor {
             let set_timer_func =
                 lua.create_function(move |_, (timer_id, timer_value): (i32, i64)| {
                     if !skin_property_mapper::is_timer_writable_by_skin(
-                        rubato_types::timer_id::TimerId::new(timer_id),
+                        crate::timer_id::TimerId::new(timer_id),
                     ) {
                         return Err(LuaError::RuntimeError(
                             "The specified timer cannot be changed by skin".to_string(),
@@ -579,7 +579,7 @@ impl SnapshotAccessor {
                     }
                     let snapshot = unsafe { &mut *sp.0 };
                     snapshot.set_timer_micro(
-                        rubato_types::timer_id::TimerId::new(timer_id),
+                        crate::timer_id::TimerId::new(timer_id),
                         timer_value,
                     );
                     Ok(true)
@@ -921,12 +921,12 @@ mod tests {
     struct LuaTestState {
         timer: Timer,
         offsets: HashMap<i32, SkinOffset>,
-        score_data_property: rubato_types::score_data_property::ScoreDataProperty,
+        score_data_property: crate::score_data_property::ScoreDataProperty,
         judge_counts: HashMap<(i32, bool), i32>,
         gauge_value: f32,
         gauge_type: i32,
         is_bms_player: bool,
-        config: rubato_types::config::Config,
+        config: crate::config::Config,
         /// Records audio_play calls: (path, volume, is_loop)
         audio_play_log: RefCell<Vec<(String, f32, bool)>>,
         /// Records audio_stop calls: path
@@ -942,13 +942,13 @@ mod tests {
             Self {
                 timer: Timer::default(),
                 offsets: HashMap::new(),
-                score_data_property: rubato_types::score_data_property::ScoreDataProperty::default(
+                score_data_property: crate::score_data_property::ScoreDataProperty::default(
                 ),
                 judge_counts: HashMap::new(),
                 gauge_value: 0.0,
                 gauge_type: 0,
                 is_bms_player: false,
-                config: rubato_types::config::Config::default(),
+                config: crate::config::Config::default(),
                 audio_play_log: RefCell::new(Vec::new()),
                 audio_stop_log: RefCell::new(Vec::new()),
                 event_log: RefCell::new(Vec::new()),
@@ -957,33 +957,33 @@ mod tests {
         }
     }
 
-    impl rubato_types::timer_access::TimerAccess for LuaTestState {
+    impl crate::timer_access::TimerAccess for LuaTestState {
         fn now_time(&self) -> i64 {
             self.timer.now_time()
         }
         fn now_micro_time(&self) -> i64 {
             self.timer.now_micro_time()
         }
-        fn micro_timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
+        fn micro_timer(&self, timer_id: crate::timer_id::TimerId) -> i64 {
             self.timer.micro_timer(timer_id)
         }
-        fn timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
+        fn timer(&self, timer_id: crate::timer_id::TimerId) -> i64 {
             self.timer.timer(timer_id)
         }
-        fn now_time_for(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
+        fn now_time_for(&self, timer_id: crate::timer_id::TimerId) -> i64 {
             self.timer.now_time_for(timer_id)
         }
-        fn is_timer_on(&self, timer_id: rubato_types::timer_id::TimerId) -> bool {
+        fn is_timer_on(&self, timer_id: crate::timer_id::TimerId) -> bool {
             self.timer.is_timer_on(timer_id)
         }
     }
 
-    impl rubato_types::skin_render_context::SkinRenderContext for LuaTestState {
-        fn get_offset_value(&self, id: i32) -> Option<&rubato_types::skin_offset::SkinOffset> {
+    impl crate::skin_render_context::SkinRenderContext for LuaTestState {
+        fn get_offset_value(&self, id: i32) -> Option<&crate::skin_offset::SkinOffset> {
             self.offsets.get(&id)
         }
 
-        fn score_data_property(&self) -> &rubato_types::score_data_property::ScoreDataProperty {
+        fn score_data_property(&self) -> &crate::score_data_property::ScoreDataProperty {
             &self.score_data_property
         }
 
@@ -1003,15 +1003,15 @@ mod tests {
             self.is_bms_player
         }
 
-        fn config_ref(&self) -> Option<&rubato_types::config::Config> {
+        fn config_ref(&self) -> Option<&crate::config::Config> {
             Some(&self.config)
         }
 
-        fn config_mut(&mut self) -> Option<&mut rubato_types::config::Config> {
+        fn config_mut(&mut self) -> Option<&mut crate::config::Config> {
             Some(&mut self.config)
         }
 
-        fn set_timer_micro(&mut self, timer_id: rubato_types::timer_id::TimerId, micro_time: i64) {
+        fn set_timer_micro(&mut self, timer_id: crate::timer_id::TimerId, micro_time: i64) {
             self.timer.set_timer_value(timer_id.as_i32(), micro_time);
         }
 
@@ -1155,7 +1155,7 @@ mod tests {
     #[test]
     fn test_volume_sys_returns_system_volume() {
         let mut state = LuaTestState::default();
-        state.config.audio = Some(rubato_types::audio_config::AudioConfig {
+        state.config.audio = Some(crate::audio_config::AudioConfig {
             systemvolume: 0.8,
             ..Default::default()
         });
@@ -1168,7 +1168,7 @@ mod tests {
     #[test]
     fn test_volume_key_returns_key_volume() {
         let mut state = LuaTestState::default();
-        state.config.audio = Some(rubato_types::audio_config::AudioConfig {
+        state.config.audio = Some(crate::audio_config::AudioConfig {
             keyvolume: 0.6,
             ..Default::default()
         });
@@ -1181,7 +1181,7 @@ mod tests {
     #[test]
     fn test_volume_bg_returns_bg_volume() {
         let mut state = LuaTestState::default();
-        state.config.audio = Some(rubato_types::audio_config::AudioConfig {
+        state.config.audio = Some(crate::audio_config::AudioConfig {
             bgvolume: 0.4,
             ..Default::default()
         });
@@ -1320,7 +1320,7 @@ mod tests {
         // Regression: Lua set_volume_sys must propagate changes to audio driver
         // via notify_audio_config_changed, not just modify the local config clone.
         let mut state = LuaTestState::default();
-        state.config.audio = Some(rubato_types::audio_config::AudioConfig::default());
+        state.config.audio = Some(crate::audio_config::AudioConfig::default());
         let (_lua, table) = setup_lua_with_state(&mut state);
         let func: mlua::Function = table.get("set_volume_sys").unwrap();
         let _: bool = func.call(0.75f32).unwrap();
@@ -1339,7 +1339,7 @@ mod tests {
     #[test]
     fn test_set_volume_key_calls_notify_audio_config_changed() {
         let mut state = LuaTestState::default();
-        state.config.audio = Some(rubato_types::audio_config::AudioConfig::default());
+        state.config.audio = Some(crate::audio_config::AudioConfig::default());
         let (_lua, table) = setup_lua_with_state(&mut state);
         let func: mlua::Function = table.get("set_volume_key").unwrap();
         let _: bool = func.call(0.5f32).unwrap();
@@ -1358,7 +1358,7 @@ mod tests {
     #[test]
     fn test_set_volume_bg_calls_notify_audio_config_changed() {
         let mut state = LuaTestState::default();
-        state.config.audio = Some(rubato_types::audio_config::AudioConfig::default());
+        state.config.audio = Some(crate::audio_config::AudioConfig::default());
         let (_lua, table) = setup_lua_with_state(&mut state);
         let func: mlua::Function = table.get("set_volume_bg").unwrap();
         let _: bool = func.call(0.25f32).unwrap();
@@ -1377,7 +1377,7 @@ mod tests {
     #[test]
     fn test_set_volume_sys_clamps_out_of_range() {
         let mut state = LuaTestState::default();
-        state.config.audio = Some(rubato_types::audio_config::AudioConfig::default());
+        state.config.audio = Some(crate::audio_config::AudioConfig::default());
         let (_lua, table) = setup_lua_with_state(&mut state);
         let func: mlua::Function = table.get("set_volume_sys").unwrap();
         let _: bool = func.call(99.0f32).unwrap();
@@ -1389,7 +1389,7 @@ mod tests {
     #[test]
     fn test_set_volume_key_clamps_out_of_range() {
         let mut state = LuaTestState::default();
-        state.config.audio = Some(rubato_types::audio_config::AudioConfig::default());
+        state.config.audio = Some(crate::audio_config::AudioConfig::default());
         let (_lua, table) = setup_lua_with_state(&mut state);
         let func: mlua::Function = table.get("set_volume_key").unwrap();
         let _: bool = func.call(2.0f32).unwrap();
@@ -1401,7 +1401,7 @@ mod tests {
     #[test]
     fn test_set_volume_bg_clamps_out_of_range() {
         let mut state = LuaTestState::default();
-        state.config.audio = Some(rubato_types::audio_config::AudioConfig::default());
+        state.config.audio = Some(crate::audio_config::AudioConfig::default());
         let (_lua, table) = setup_lua_with_state(&mut state);
         let func: mlua::Function = table.get("set_volume_bg").unwrap();
         let _: bool = func.call(1.5f32).unwrap();
@@ -1469,7 +1469,7 @@ mod tests {
         let mut snapshot = PropertySnapshot::new();
         snapshot
             .timers
-            .insert(rubato_types::timer_id::TimerId::new(5), 1_000_000);
+            .insert(crate::timer_id::TimerId::new(5), 1_000_000);
         let (_lua, table) = setup_lua_with_snapshot(&mut snapshot);
         let timer_fn: mlua::Function = table.get("timer").unwrap();
         let result: i64 = timer_fn.call(5).unwrap();
@@ -1491,7 +1491,7 @@ mod tests {
         let mut snapshot = PropertySnapshot::new();
         snapshot.offsets.insert(
             3,
-            rubato_types::skin_offset::SkinOffset {
+            crate::skin_offset::SkinOffset {
                 x: 10.0,
                 y: 20.0,
                 w: 30.0,
@@ -1534,8 +1534,8 @@ mod tests {
     #[test]
     fn snapshot_volume_sys_reads_from_config() {
         let mut snapshot = PropertySnapshot::new();
-        let mut config = rubato_types::config::Config::default();
-        config.audio = Some(rubato_types::audio_config::AudioConfig {
+        let mut config = crate::config::Config::default();
+        config.audio = Some(crate::audio_config::AudioConfig {
             systemvolume: 0.8,
             ..Default::default()
         });
@@ -1560,7 +1560,7 @@ mod tests {
     #[test]
     fn snapshot_gauge_reads_from_snapshot() {
         let mut snapshot = PropertySnapshot::new();
-        snapshot.state_type = Some(rubato_types::main_state_type::MainStateType::Play);
+        snapshot.state_type = Some(crate::main_state_type::MainStateType::Play);
         snapshot.gauge_value = 0.85;
         let (_lua, table) = setup_lua_with_snapshot(&mut snapshot);
         let gauge_fn: mlua::Function = table.get("gauge").unwrap();
@@ -1571,7 +1571,7 @@ mod tests {
     #[test]
     fn snapshot_gauge_returns_zero_when_not_play_state() {
         let mut snapshot = PropertySnapshot::new();
-        snapshot.state_type = Some(rubato_types::main_state_type::MainStateType::MusicSelect);
+        snapshot.state_type = Some(crate::main_state_type::MainStateType::MusicSelect);
         snapshot.gauge_value = 0.85;
         let (_lua, table) = setup_lua_with_snapshot(&mut snapshot);
         let gauge_fn: mlua::Function = table.get("gauge").unwrap();
@@ -1582,8 +1582,8 @@ mod tests {
     #[test]
     fn snapshot_set_volume_sys_queues_action() {
         let mut snapshot = PropertySnapshot::new();
-        let mut config = rubato_types::config::Config::default();
-        config.audio = Some(rubato_types::audio_config::AudioConfig::default());
+        let mut config = crate::config::Config::default();
+        config.audio = Some(crate::audio_config::AudioConfig::default());
         snapshot.config = Some(Box::new(config));
         let (_lua, table) = setup_lua_with_snapshot(&mut snapshot);
         let func: mlua::Function = table.get("set_volume_sys").unwrap();
@@ -1620,8 +1620,8 @@ mod tests {
     #[test]
     fn snapshot_audio_play_queues_action() {
         let mut snapshot = PropertySnapshot::new();
-        let mut config = rubato_types::config::Config::default();
-        config.audio = Some(rubato_types::audio_config::AudioConfig {
+        let mut config = crate::config::Config::default();
+        config.audio = Some(crate::audio_config::AudioConfig {
             systemvolume: 0.5,
             ..Default::default()
         });

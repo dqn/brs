@@ -4,9 +4,9 @@ use crate::reexports::Timer;
 /// Test implementation of MainState that provides mutable config access
 struct TestMainState {
     timer: Timer,
-    player_config: rubato_types::player_config::PlayerConfig,
-    config: rubato_types::config::Config,
-    play_config: rubato_types::play_config::PlayConfig,
+    player_config: crate::player_config::PlayerConfig,
+    config: crate::config::Config,
+    play_config: crate::play_config::PlayConfig,
     is_selector: bool,
     option_change_played: bool,
     bar_updated: bool,
@@ -19,9 +19,9 @@ impl TestMainState {
     fn new() -> Self {
         Self {
             timer: Timer::default(),
-            player_config: rubato_types::player_config::PlayerConfig::default(),
-            config: rubato_types::config::Config::default(),
-            play_config: rubato_types::play_config::PlayConfig::default(),
+            player_config: crate::player_config::PlayerConfig::default(),
+            config: crate::config::Config::default(),
+            play_config: crate::play_config::PlayConfig::default(),
             is_selector: true,
             option_change_played: false,
             bar_updated: false,
@@ -32,53 +32,53 @@ impl TestMainState {
     }
 }
 
-impl rubato_types::timer_access::TimerAccess for TestMainState {
+impl crate::timer_access::TimerAccess for TestMainState {
     fn now_time(&self) -> i64 {
         self.timer.now_time()
     }
     fn now_micro_time(&self) -> i64 {
         self.timer.now_micro_time()
     }
-    fn micro_timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
+    fn micro_timer(&self, timer_id: crate::timer_id::TimerId) -> i64 {
         self.timer.micro_timer(timer_id)
     }
-    fn timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
+    fn timer(&self, timer_id: crate::timer_id::TimerId) -> i64 {
         self.timer.timer(timer_id)
     }
-    fn now_time_for(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
+    fn now_time_for(&self, timer_id: crate::timer_id::TimerId) -> i64 {
         self.timer.now_time_for(timer_id)
     }
-    fn is_timer_on(&self, timer_id: rubato_types::timer_id::TimerId) -> bool {
+    fn is_timer_on(&self, timer_id: crate::timer_id::TimerId) -> bool {
         self.timer.is_timer_on(timer_id)
     }
 }
 
-impl rubato_types::skin_render_context::SkinRenderContext for TestMainState {
+impl crate::skin_render_context::SkinRenderContext for TestMainState {
     fn is_music_selector(&self) -> bool {
         self.is_selector
     }
 
-    fn player_config_mut(&mut self) -> Option<&mut rubato_types::player_config::PlayerConfig> {
+    fn player_config_mut(&mut self) -> Option<&mut crate::player_config::PlayerConfig> {
         Some(&mut self.player_config)
     }
 
-    fn player_config_ref(&self) -> Option<&rubato_types::player_config::PlayerConfig> {
+    fn player_config_ref(&self) -> Option<&crate::player_config::PlayerConfig> {
         Some(&self.player_config)
     }
 
-    fn config_mut(&mut self) -> Option<&mut rubato_types::config::Config> {
+    fn config_mut(&mut self) -> Option<&mut crate::config::Config> {
         Some(&mut self.config)
     }
 
-    fn config_ref(&self) -> Option<&rubato_types::config::Config> {
+    fn config_ref(&self) -> Option<&crate::config::Config> {
         Some(&self.config)
     }
 
-    fn selected_play_config_mut(&mut self) -> Option<&mut rubato_types::play_config::PlayConfig> {
+    fn selected_play_config_mut(&mut self) -> Option<&mut crate::play_config::PlayConfig> {
         Some(&mut self.play_config)
     }
 
-    fn current_play_config_ref(&self) -> Option<&rubato_types::play_config::PlayConfig> {
+    fn current_play_config_ref(&self) -> Option<&crate::play_config::PlayConfig> {
         Some(&self.play_config)
     }
 
@@ -289,21 +289,21 @@ fn test_constant_toggle() {
 #[test]
 fn test_bga_cycle() {
     let mut state = TestMainState::new();
-    state.config.render.bga = rubato_types::config::BgaMode::Off;
+    state.config.render.bga = crate::config::BgaMode::Off;
     let event = event_by_id(72).unwrap();
     event.exec(&mut state, 1, 0);
-    assert_eq!(state.config.render.bga, rubato_types::config::BgaMode::On); // wraps from Off
+    assert_eq!(state.config.render.bga, crate::config::BgaMode::On); // wraps from Off
 }
 
 #[test]
 fn test_bgaexpand_cycle() {
     let mut state = TestMainState::new();
-    state.config.render.bga_expand = rubato_types::config::BgaExpand::Full;
+    state.config.render.bga_expand = crate::config::BgaExpand::Full;
     let event = event_by_id(73).unwrap();
     event.exec(&mut state, 1, 0);
     assert_eq!(
         state.config.render.bga_expand,
-        rubato_types::config::BgaExpand::KeepAspectRatio
+        crate::config::BgaExpand::KeepAspectRatio
     );
 }
 
@@ -328,12 +328,12 @@ fn test_notes_display_timing_backward() {
 #[test]
 fn test_notes_display_timing_clamp_max() {
     let mut state = TestMainState::new();
-    state.player_config.judge_settings.judgetiming = rubato_types::player_config::JUDGETIMING_MAX;
+    state.player_config.judge_settings.judgetiming = crate::player_config::JUDGETIMING_MAX;
     let event = event_by_id(74).unwrap();
     event.exec(&mut state, 1, 0);
     assert_eq!(
         state.player_config.judge_settings.judgetiming,
-        rubato_types::player_config::JUDGETIMING_MAX
+        crate::player_config::JUDGETIMING_MAX
     );
 }
 

@@ -1,4 +1,4 @@
-use rubato_types::sync_utils::lock_or_recover;
+use rubato_skin::sync_utils::lock_or_recover;
 use std::sync::Mutex;
 
 static FREQ_TRAINER_ENABLED: Mutex<bool> = Mutex::new(false);

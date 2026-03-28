@@ -1,6 +1,6 @@
 //! Value/Float/Rate constants for skin property system.
 
-use rubato_types::value_id::ValueId;
+use crate::value_id::ValueId;
 
 pub const RATE_MUSICSELECT_POSITION: i32 = 1;
 

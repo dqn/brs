@@ -6,7 +6,7 @@
 
 use bms::model::judge_note::JUDGE_PG;
 use golden_master::e2e_helpers::*;
-use rubato_types::groove_gauge::{CLASS, EXCLASS, EXHARD, EXHARDCLASS, HARD, NORMAL};
+use rubato_skin::groove_gauge::{CLASS, EXCLASS, EXHARD, EXHARDCLASS, HARD, NORMAL};
 
 // ============================================================================
 // Course autoplay tests (with real gauge carryover)

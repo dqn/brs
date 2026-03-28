@@ -9,7 +9,7 @@ log.workspace = true
 midir.workspace = true
 gilrs.workspace = true
 bms.workspace = true
-rubato-types.workspace = true
+rubato-skin.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

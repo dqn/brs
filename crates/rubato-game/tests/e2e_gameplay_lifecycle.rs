@@ -32,12 +32,12 @@ use rubato_input::gdx_compat::set_shared_key_state;
 use rubato_input::keys::Keys;
 use rubato_input::winit_input_bridge::SharedKeyState;
 use rubato_render::sprite_batch::CapturedDrawQuad;
-use rubato_types::folder_data::FolderData;
-use rubato_types::skin_config::SkinConfig;
-use rubato_types::skin_type::SkinType;
-use rubato_types::song_data::SongData;
-use rubato_types::song_information::SongInformation;
-use rubato_types::timer_id::TimerId;
+use rubato_skin::folder_data::FolderData;
+use rubato_skin::skin_config::SkinConfig;
+use rubato_skin::skin_type::SkinType;
+use rubato_skin::song_data::SongData;
+use rubato_skin::song_information::SongInformation;
+use rubato_skin::timer_id::TimerId;
 
 fn test_bms_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))

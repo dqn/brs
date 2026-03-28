@@ -286,7 +286,7 @@ mod tests {
         let mut song = SongData::default();
         song.file.set_path("/some/path.bms".to_string());
         let score = ScoreData {
-            judge_counts: rubato_types::score_data::JudgeCounts {
+            judge_counts: rubato_skin::score_data::JudgeCounts {
                 epg: 40_000_000,
                 ..Default::default()
             },

@@ -100,7 +100,7 @@ fn main() -> Result<()> {
     // Java: if (Files.exists(Config.configpath) && (bmsPath != null || auto != null))
     let config_exists = {
         let cwd = std::env::current_dir().unwrap_or_default();
-        match rubato_types::config::resolve_config_dir(&cwd) {
+        match rubato_skin::config::resolve_config_dir(&cwd) {
             Some(config_dir) => {
                 // Anchor CWD to the resolved config root so all relative paths
                 // (songpath, skinpath, etc.) resolve correctly when launched
@@ -245,7 +245,7 @@ fn play(bms_path: Option<PathBuf>, player_mode: Option<BMSPlayerMode>) -> Result
         display_mode,
         max_fps,
         last_frame_time: Instant::now(),
-        fps_tracker: rubato_types::fps_counter::FpsTracker::new(),
+        fps_tracker: rubato_skin::fps_counter::FpsTracker::new(),
         initialized: false,
         key_state,
         disposed: false,
@@ -285,7 +285,7 @@ struct RubatoApp {
     /// Last frame time for FPS capping
     last_frame_time: Instant,
     /// FPS tracker for computing actual frame rate
-    fps_tracker: rubato_types::fps_counter::FpsTracker,
+    fps_tracker: rubato_skin::fps_counter::FpsTracker,
     initialized: bool,
     /// Shared key state bridging winit keyboard events to the input system
     key_state: rubato_input::winit_input_bridge::SharedKeyState,

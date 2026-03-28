@@ -2,7 +2,7 @@
 //!
 //! Translated from: bms.player.beatoraja.input.BMSPlayerInputProcessor
 
-use rubato_types::monotonic_clock::monotonic_micros;
+use rubato_skin::monotonic_clock::monotonic_micros;
 
 use crate::controller::lwjgl3_controller_manager::Lwjgl3ControllerManager;
 
@@ -20,11 +20,11 @@ use crate::keyboard_input_processor::{
 };
 use crate::midi_input_processor::MidiInputProcessor;
 use crate::winit_input_bridge::SharedKeyState;
-use rubato_types::config::Config;
-use rubato_types::play_mode_config::{
+use rubato_skin::config::Config;
+use rubato_skin::play_mode_config::{
     ControllerConfig, KeyboardConfig, MidiConfig, PlayModeConfig,
 };
-use rubato_types::player_config::PlayerConfig;
+use rubato_skin::player_config::PlayerConfig;
 
 pub const KEYSTATE_SIZE: usize = 256;
 
@@ -610,7 +610,7 @@ impl BMSPlayerInputProcessor {
     }
 
     pub fn poll(&mut self) {
-        let now = (rubato_types::monotonic_clock::monotonic_micros() - self.starttime).max(0);
+        let now = (rubato_skin::monotonic_clock::monotonic_micros() - self.starttime).max(0);
 
         // Poll keyboard
         // We need to use a temporary struct to act as callback since
@@ -994,8 +994,8 @@ mod tests {
     use super::*;
     use crate::keys::Keys;
     use crate::winit_input_bridge::SharedKeyState;
-    use rubato_types::config::Config;
-    use rubato_types::player_config::PlayerConfig;
+    use rubato_skin::config::Config;
+    use rubato_skin::player_config::PlayerConfig;
 
     fn make_input_processor() -> BMSPlayerInputProcessor {
         let config = Config::default();
@@ -1231,7 +1231,7 @@ mod tests {
 
     #[test]
     fn test_set_play_config_exclusive_keys_written_back_to_keyboard() {
-        use rubato_types::play_mode_config::PlayModeConfig;
+        use rubato_skin::play_mode_config::PlayModeConfig;
 
         let mut proc = make_input_processor();
         let mut playconfig = PlayModeConfig::default();
@@ -1261,7 +1261,7 @@ mod tests {
 
     #[test]
     fn test_set_play_config_clears_stale_game_key_state() {
-        use rubato_types::play_mode_config::PlayModeConfig;
+        use rubato_skin::play_mode_config::PlayModeConfig;
 
         let mut proc = make_input_processor();
         let mut playconfig = PlayModeConfig::default();
@@ -1293,7 +1293,7 @@ mod tests {
 
     #[test]
     fn test_set_play_config_exclusive_keys_written_back_to_midi() {
-        use rubato_types::play_mode_config::PlayModeConfig;
+        use rubato_skin::play_mode_config::PlayModeConfig;
 
         let mut proc = make_input_processor();
         let mut playconfig = PlayModeConfig::default();
@@ -1302,7 +1302,7 @@ mod tests {
         playconfig.keyboard.keys[0] = 42;
         // Set midi key[0] to Some
         if !playconfig.midi.keys.is_empty() {
-            playconfig.midi.keys[0] = Some(rubato_types::play_mode_config::MidiInput::default());
+            playconfig.midi.keys[0] = Some(rubato_skin::play_mode_config::MidiInput::default());
         }
 
         proc.set_play_config(&mut playconfig);
@@ -1322,7 +1322,7 @@ mod tests {
     /// device_type to be incorrectly set to Midi when no MIDI keys are bound.
     #[test]
     fn test_midi_dedup_does_not_count_none_slots() {
-        use rubato_types::play_mode_config::PlayModeConfig;
+        use rubato_skin::play_mode_config::PlayModeConfig;
 
         let mut proc = make_input_processor();
         let mut playconfig = PlayModeConfig::default();

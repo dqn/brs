@@ -4,7 +4,7 @@ mod mutators;
 #[cfg(test)]
 mod tests;
 
-use rubato_types::play_mode_config::{
+use rubato_skin::play_mode_config::{
     ControllerConfig, KeyboardConfig, MidiConfig, MidiInput, MouseScratchConfig,
 };
 

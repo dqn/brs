@@ -1,6 +1,6 @@
 use crate::core::clear_type::ClearType;
 use crate::core::score_data::ScoreData;
-use rubato_types::{BMSPlayerRule, JudgeAlgorithm, bms_player_input_device};
+use rubato_skin::{BMSPlayerRule, JudgeAlgorithm, bms_player_input_device};
 
 /// IR score data
 ///
@@ -104,7 +104,7 @@ impl IRScoreData {
     }
 
     pub fn convert_to_score_data(&self) -> ScoreData {
-        use rubato_types::score_data::{JudgeCounts, PlayOption, TimingStats};
+        use rubato_skin::score_data::{JudgeCounts, PlayOption, TimingStats};
         ScoreData {
             sha256: self.sha256.clone(),
             mode: self.lntype,

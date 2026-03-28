@@ -8,7 +8,7 @@ use rubato_skin::skin_data_converter;
 use rubato_skin::skin_text::SkinText;
 use rubato_skin::skin_text::SkinTextEnum;
 use rubato_skin::text::skin_text_bitmap::{SkinTextBitmap, SkinTextBitmapSource};
-use rubato_types::skin_type::SkinType;
+use rubato_skin::skin_type::SkinType;
 
 /// Create a test SkinImage with draw=true and specified region.
 /// Uses a default TextureRegion (no real texture, but valid for layout tests).
@@ -35,28 +35,28 @@ impl Default for MockMainState {
     }
 }
 
-impl rubato_types::timer_access::TimerAccess for MockMainState {
+impl rubato_skin::timer_access::TimerAccess for MockMainState {
     fn now_time(&self) -> i64 {
         self.timer.now_time()
     }
     fn now_micro_time(&self) -> i64 {
         self.timer.now_micro_time()
     }
-    fn micro_timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
+    fn micro_timer(&self, timer_id: rubato_skin::timer_id::TimerId) -> i64 {
         self.timer.micro_timer(timer_id)
     }
-    fn timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
+    fn timer(&self, timer_id: rubato_skin::timer_id::TimerId) -> i64 {
         self.timer.timer(timer_id)
     }
-    fn now_time_for(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
+    fn now_time_for(&self, timer_id: rubato_skin::timer_id::TimerId) -> i64 {
         self.timer.now_time_for(timer_id)
     }
-    fn is_timer_on(&self, timer_id: rubato_types::timer_id::TimerId) -> bool {
+    fn is_timer_on(&self, timer_id: rubato_skin::timer_id::TimerId) -> bool {
         self.timer.is_timer_on(timer_id)
     }
 }
 
-impl rubato_types::skin_render_context::SkinRenderContext for MockMainState {}
+impl rubato_skin::skin_render_context::SkinRenderContext for MockMainState {}
 
 impl MainState for MockMainState {}
 

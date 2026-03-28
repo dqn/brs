@@ -1,1 +1,1 @@
-pub use rubato_types::skin_config::*;
+pub use rubato_skin::skin_config::*;

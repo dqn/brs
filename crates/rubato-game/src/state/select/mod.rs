@@ -18,14 +18,14 @@ pub use crate::core::player_config::PlayerConfig;
 pub use crate::core::score_data::ScoreData;
 
 // beatoraja.song types
-pub use rubato_types::song_data::SongData;
-pub use rubato_types::song_data::{
+pub use rubato_skin::song_data::SongData;
+pub use rubato_skin::song_data::{
     FAVORITE_CHART, FAVORITE_SONG, FEATURE_CHARGENOTE, FEATURE_HELLCHARGENOTE, FEATURE_LONGNOTE,
     FEATURE_MINENOTE, FEATURE_RANDOM, FEATURE_UNDEFINEDLN, INVISIBLE_CHART, INVISIBLE_SONG,
 };
 
 // FolderData
-pub use rubato_types::folder_data::FolderData;
+pub use rubato_skin::folder_data::FolderData;
 
 // SongDatabaseAccessor
 pub use crate::song_database_accessor::SongDatabaseAccessor;
@@ -34,14 +34,14 @@ pub use crate::song_database_accessor::SongDatabaseAccessor;
 pub use rubato_skin::reexports::MainState;
 
 // MainStateType
-pub use rubato_types::main_state_type::MainStateType;
+pub use rubato_skin::main_state_type::MainStateType;
 
 // BMSPlayerMode
 pub use crate::core::bms_player_mode::BMSPlayerMode;
 pub use crate::core::bms_player_mode::Mode as BMSPlayerModeType;
 
 // CourseData / TrophyData / CourseDataConstraint
-pub use rubato_types::course_data::{CourseData, CourseDataConstraint, TrophyData};
+pub use rubato_skin::course_data::{CourseData, CourseDataConstraint, TrophyData};
 
 // RandomCourseData / RandomStageData
 pub use crate::core::random_course_data::RandomCourseData;
@@ -79,7 +79,7 @@ pub use rubato_skin::skin_image::SkinImage;
 pub use rubato_skin::skin_number::SkinNumber;
 pub use rubato_skin::skin_object::SkinObjectRenderer;
 pub use rubato_skin::skin_text::{SkinText, SkinTextData, SkinTextEnum};
-pub use rubato_types::skin_type::SkinType;
+pub use rubato_skin::skin_type::SkinType;
 
 /// SkinRegion -- alias for Rectangle (same fields: x, y, width, height).
 /// Kept as type alias to minimize churn in select crate code.
@@ -108,7 +108,7 @@ pub use crate::core::resolution::Resolution;
 pub use self::null_song_database_accessor::NullSongDatabaseAccessor;
 
 // MusicSelector -- SongSelectionAccess trait
-pub use rubato_types::song_selection_access::SongSelectionAccess;
+pub use rubato_skin::song_selection_access::SongSelectionAccess;
 
 // Download task types
 pub use crate::song::md_processor::download_task::{DownloadTask, DownloadTaskStatus};

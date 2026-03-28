@@ -4,7 +4,7 @@ use crate::core::sqlite_database_accessor::{Column, SQLiteDatabaseAccessor, Tabl
 use crate::core::validatable::remove_invalid_elements_vec;
 use crate::song_information_db::SongInformationDb;
 use bms::model::bms_model::BMSModel;
-use rubato_types::sync_utils::lock_or_recover;
+use rubato_skin::sync_utils::lock_or_recover;
 use rusqlite::Connection;
 use rusqlite::hooks::{AuthAction, AuthContext, Authorization};
 

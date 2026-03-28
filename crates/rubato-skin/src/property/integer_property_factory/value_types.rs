@@ -1,4 +1,4 @@
-use rubato_types::value_id::ValueId;
+use crate::value_id::ValueId;
 
 use super::value_type_data::ValueTypeEntry;
 

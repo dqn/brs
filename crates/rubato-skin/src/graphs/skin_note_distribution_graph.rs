@@ -761,34 +761,34 @@ mod tests {
         }
     }
 
-    impl rubato_types::timer_access::TimerAccess for MockState {
+    impl crate::timer_access::TimerAccess for MockState {
         fn now_time(&self) -> i64 {
             self.timer.now_time()
         }
         fn now_micro_time(&self) -> i64 {
             self.timer.now_micro_time()
         }
-        fn micro_timer(&self, id: rubato_types::timer_id::TimerId) -> i64 {
+        fn micro_timer(&self, id: crate::timer_id::TimerId) -> i64 {
             self.timer.micro_timer(id)
         }
-        fn timer(&self, id: rubato_types::timer_id::TimerId) -> i64 {
+        fn timer(&self, id: crate::timer_id::TimerId) -> i64 {
             self.timer.timer(id)
         }
-        fn now_time_for(&self, id: rubato_types::timer_id::TimerId) -> i64 {
+        fn now_time_for(&self, id: crate::timer_id::TimerId) -> i64 {
             self.timer.now_time_for(id)
         }
-        fn is_timer_on(&self, id: rubato_types::timer_id::TimerId) -> bool {
+        fn is_timer_on(&self, id: crate::timer_id::TimerId) -> bool {
             self.timer.is_timer_on(id)
         }
     }
 
-    impl rubato_types::skin_render_context::SkinRenderContext for MockState {
+    impl crate::skin_render_context::SkinRenderContext for MockState {
         fn get_offset_value(&self, _id: i32) -> Option<&SkinOffset> {
             None
         }
-        fn current_state_type(&self) -> Option<rubato_types::main_state_type::MainStateType> {
+        fn current_state_type(&self) -> Option<crate::main_state_type::MainStateType> {
             if self.is_player {
-                Some(rubato_types::main_state_type::MainStateType::Play)
+                Some(crate::main_state_type::MainStateType::Play)
             } else {
                 None
             }

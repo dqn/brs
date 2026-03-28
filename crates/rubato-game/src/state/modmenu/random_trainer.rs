@@ -5,7 +5,7 @@ use crate::random_history;
 pub use crate::random_history::RandomHistoryEntry;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
-use rubato_types::sync_utils::lock_or_recover;
+use rubato_skin::sync_utils::lock_or_recover;
 
 struct RandomTrainerState {
     lane_order: String,

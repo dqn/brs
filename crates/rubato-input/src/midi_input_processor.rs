@@ -5,7 +5,7 @@
 
 use crate::bms_player_input_device::{BMSPlayerInputDevice, DeviceType};
 use midir::{MidiInput as MidirInput, MidiInputConnection};
-use rubato_types::play_mode_config::{MidiConfig, MidiInput, MidiInputType};
+use rubato_skin::play_mode_config::{MidiConfig, MidiInput, MidiInputType};
 use std::sync::mpsc;
 
 const MAX_KEYS: usize = 128;
@@ -337,7 +337,7 @@ impl MidiInputProcessor {
 
     fn current_time(&self) -> i64 {
         // System.nanoTime() / 1000 - starttime
-        rubato_types::monotonic_clock::monotonic_micros() - self.starttime
+        rubato_skin::monotonic_clock::monotonic_micros() - self.starttime
     }
 
     pub fn has_last_pressed_key(&self) -> bool {

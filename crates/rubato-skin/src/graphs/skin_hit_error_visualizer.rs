@@ -354,28 +354,28 @@ mod tests {
         }
     }
 
-    impl rubato_types::timer_access::TimerAccess for MockPlayState {
+    impl crate::timer_access::TimerAccess for MockPlayState {
         fn now_time(&self) -> i64 {
             self.timer.now_time()
         }
         fn now_micro_time(&self) -> i64 {
             self.timer.now_micro_time()
         }
-        fn micro_timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
+        fn micro_timer(&self, timer_id: crate::timer_id::TimerId) -> i64 {
             self.timer.micro_timer(timer_id)
         }
-        fn timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
+        fn timer(&self, timer_id: crate::timer_id::TimerId) -> i64 {
             self.timer.timer(timer_id)
         }
-        fn now_time_for(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
+        fn now_time_for(&self, timer_id: crate::timer_id::TimerId) -> i64 {
             self.timer.now_time_for(timer_id)
         }
-        fn is_timer_on(&self, timer_id: rubato_types::timer_id::TimerId) -> bool {
+        fn is_timer_on(&self, timer_id: crate::timer_id::TimerId) -> bool {
             self.timer.is_timer_on(timer_id)
         }
     }
 
-    impl rubato_types::skin_render_context::SkinRenderContext for MockPlayState {
+    impl crate::skin_render_context::SkinRenderContext for MockPlayState {
         fn get_offset_value(&self, _id: i32) -> Option<&SkinOffset> {
             None
         }

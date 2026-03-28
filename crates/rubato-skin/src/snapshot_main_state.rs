@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use rubato_types::bms_player_mode::BMSPlayerMode;
-use rubato_types::property_snapshot::PropertySnapshot;
-use rubato_types::skin_render_context::SkinRenderContext;
-use rubato_types::timer_access::TimerAccess;
-use rubato_types::timer_id::TimerId;
+use crate::bms_player_mode::BMSPlayerMode;
+use crate::property_snapshot::PropertySnapshot;
+use crate::skin_render_context::SkinRenderContext;
+use crate::timer_access::TimerAccess;
+use crate::timer_id::TimerId;
 
 use crate::render_reexports::TextureRegion;
 
@@ -93,7 +93,7 @@ impl SkinRenderContext for SnapshotMainState<'_> {
         self.snapshot.execute_event(id, arg1, arg2);
     }
 
-    fn change_state(&mut self, state: rubato_types::main_state_type::MainStateType) {
+    fn change_state(&mut self, state: crate::main_state_type::MainStateType) {
         self.snapshot.change_state(state);
     }
 
@@ -109,7 +109,7 @@ impl SkinRenderContext for SnapshotMainState<'_> {
         self.snapshot.audio_stop(path);
     }
 
-    fn current_state_type(&self) -> Option<rubato_types::main_state_type::MainStateType> {
+    fn current_state_type(&self) -> Option<crate::main_state_type::MainStateType> {
         self.snapshot.current_state_type()
     }
 
@@ -149,19 +149,19 @@ impl SkinRenderContext for SnapshotMainState<'_> {
         self.snapshot.set_float_value(id, value);
     }
 
-    fn replay_option_data(&self) -> Option<&rubato_types::replay_data::ReplayData> {
+    fn replay_option_data(&self) -> Option<&crate::replay_data::ReplayData> {
         self.snapshot.replay_option_data()
     }
 
-    fn target_score_data(&self) -> Option<&rubato_types::score_data::ScoreData> {
+    fn target_score_data(&self) -> Option<&crate::score_data::ScoreData> {
         self.snapshot.target_score_data()
     }
 
-    fn score_data_ref(&self) -> Option<&rubato_types::score_data::ScoreData> {
+    fn score_data_ref(&self) -> Option<&crate::score_data::ScoreData> {
         self.snapshot.score_data_ref()
     }
 
-    fn rival_score_data_ref(&self) -> Option<&rubato_types::score_data::ScoreData> {
+    fn rival_score_data_ref(&self) -> Option<&crate::score_data::ScoreData> {
         self.snapshot.rival_score_data_ref()
     }
 
@@ -173,11 +173,11 @@ impl SkinRenderContext for SnapshotMainState<'_> {
         self.snapshot.ranking_offset()
     }
 
-    fn current_play_config_ref(&self) -> Option<&rubato_types::play_config::PlayConfig> {
+    fn current_play_config_ref(&self) -> Option<&crate::play_config::PlayConfig> {
         self.snapshot.current_play_config_ref()
     }
 
-    fn song_data_ref(&self) -> Option<&rubato_types::song_data::SongData> {
+    fn song_data_ref(&self) -> Option<&crate::song_data::SongData> {
         self.snapshot.song_data_ref()
     }
 
@@ -221,23 +221,23 @@ impl SkinRenderContext for SnapshotMainState<'_> {
         self.snapshot.now_combo(player)
     }
 
-    fn player_config_ref(&self) -> Option<&rubato_types::player_config::PlayerConfig> {
+    fn player_config_ref(&self) -> Option<&crate::player_config::PlayerConfig> {
         self.snapshot.player_config_ref()
     }
 
-    fn player_config_mut(&mut self) -> Option<&mut rubato_types::player_config::PlayerConfig> {
+    fn player_config_mut(&mut self) -> Option<&mut crate::player_config::PlayerConfig> {
         self.snapshot.player_config_mut()
     }
 
-    fn config_ref(&self) -> Option<&rubato_types::config::Config> {
+    fn config_ref(&self) -> Option<&crate::config::Config> {
         self.snapshot.config_ref()
     }
 
-    fn config_mut(&mut self) -> Option<&mut rubato_types::config::Config> {
+    fn config_mut(&mut self) -> Option<&mut crate::config::Config> {
         self.snapshot.config_mut()
     }
 
-    fn selected_play_config_mut(&mut self) -> Option<&mut rubato_types::play_config::PlayConfig> {
+    fn selected_play_config_mut(&mut self) -> Option<&mut crate::play_config::PlayConfig> {
         self.snapshot.selected_play_config_mut()
     }
 
@@ -257,7 +257,7 @@ impl SkinRenderContext for SnapshotMainState<'_> {
         self.snapshot.select_song_mode(event_id);
     }
 
-    fn get_offset_value(&self, id: i32) -> Option<&rubato_types::skin_offset::SkinOffset> {
+    fn get_offset_value(&self, id: i32) -> Option<&crate::skin_offset::SkinOffset> {
         self.snapshot.get_offset_value(id)
     }
 
@@ -275,7 +275,7 @@ impl SkinRenderContext for SnapshotMainState<'_> {
 
     fn get_timing_distribution(
         &self,
-    ) -> Option<&rubato_types::timing_distribution::TimingDistribution> {
+    ) -> Option<&crate::timing_distribution::TimingDistribution> {
         self.snapshot.get_timing_distribution()
     }
 
@@ -283,7 +283,7 @@ impl SkinRenderContext for SnapshotMainState<'_> {
         self.snapshot.judge_area()
     }
 
-    fn score_data_property(&self) -> &rubato_types::score_data_property::ScoreDataProperty {
+    fn score_data_property(&self) -> &crate::score_data_property::ScoreDataProperty {
         self.snapshot.score_data_property()
     }
 
@@ -323,7 +323,7 @@ impl SkinRenderContext for SnapshotMainState<'_> {
         self.snapshot.is_practice_mode()
     }
 
-    fn get_distribution_data(&self) -> Option<rubato_types::distribution_data::DistributionData> {
+    fn get_distribution_data(&self) -> Option<crate::distribution_data::DistributionData> {
         self.snapshot.get_distribution_data()
     }
 }
@@ -344,7 +344,7 @@ impl crate::main_state::MainState for SnapshotMainState<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rubato_types::main_state_type::MainStateType;
+    use crate::main_state_type::MainStateType;
 
     #[test]
     fn skin_image_returns_none_when_not_registered() {

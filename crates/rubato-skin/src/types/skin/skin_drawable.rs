@@ -4,16 +4,16 @@
 /// Holds a reference to the real `TimerAccess` (typically a `TimerManager`) so that
 /// per-timer-id queries return actual values instead of always 0.
 struct TimerOnlyMainState<'a> {
-    timer: Option<&'a dyn rubato_types::timer_access::TimerAccess>,
-    ctx: Option<&'a mut dyn rubato_types::skin_render_context::SkinRenderContext>,
-    state_type: Option<rubato_types::main_state_type::MainStateType>,
+    timer: Option<&'a dyn crate::timer_access::TimerAccess>,
+    ctx: Option<&'a mut dyn crate::skin_render_context::SkinRenderContext>,
+    state_type: Option<crate::main_state_type::MainStateType>,
     image_registry: &'a HashMap<i32, TextureRegion>,
 }
 
 impl<'a> TimerOnlyMainState<'a> {
     fn from_timer(
-        timer: &'a dyn rubato_types::timer_access::TimerAccess,
-        state_type: Option<rubato_types::main_state_type::MainStateType>,
+        timer: &'a dyn crate::timer_access::TimerAccess,
+        state_type: Option<crate::main_state_type::MainStateType>,
     ) -> Self {
         static EMPTY: std::sync::LazyLock<HashMap<i32, TextureRegion>> =
             std::sync::LazyLock::new(HashMap::new);
@@ -26,7 +26,7 @@ impl<'a> TimerOnlyMainState<'a> {
     }
 
     fn from_render_context_with_images(
-        ctx: &'a mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        ctx: &'a mut dyn crate::skin_render_context::SkinRenderContext,
         image_registry: &'a HashMap<i32, TextureRegion>,
     ) -> Self {
         let state_type = ctx.current_state_type();
@@ -39,7 +39,7 @@ impl<'a> TimerOnlyMainState<'a> {
     }
 }
 
-impl rubato_types::timer_access::TimerAccess for TimerOnlyMainState<'_> {
+impl crate::timer_access::TimerAccess for TimerOnlyMainState<'_> {
     fn now_time(&self) -> i64 {
         if let Some(ctx) = self.ctx.as_deref() {
             ctx.now_time()
@@ -58,7 +58,7 @@ impl rubato_types::timer_access::TimerAccess for TimerOnlyMainState<'_> {
                 .now_micro_time()
         }
     }
-    fn micro_timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
+    fn micro_timer(&self, timer_id: crate::timer_id::TimerId) -> i64 {
         if let Some(ctx) = self.ctx.as_deref() {
             ctx.micro_timer(timer_id)
         } else {
@@ -67,7 +67,7 @@ impl rubato_types::timer_access::TimerAccess for TimerOnlyMainState<'_> {
                 .micro_timer(timer_id)
         }
     }
-    fn timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
+    fn timer(&self, timer_id: crate::timer_id::TimerId) -> i64 {
         if let Some(ctx) = self.ctx.as_deref() {
             ctx.timer(timer_id)
         } else {
@@ -76,7 +76,7 @@ impl rubato_types::timer_access::TimerAccess for TimerOnlyMainState<'_> {
                 .timer(timer_id)
         }
     }
-    fn now_time_for(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
+    fn now_time_for(&self, timer_id: crate::timer_id::TimerId) -> i64 {
         if let Some(ctx) = self.ctx.as_deref() {
             ctx.now_time_for(timer_id)
         } else {
@@ -85,7 +85,7 @@ impl rubato_types::timer_access::TimerAccess for TimerOnlyMainState<'_> {
                 .now_time_for(timer_id)
         }
     }
-    fn is_timer_on(&self, timer_id: rubato_types::timer_id::TimerId) -> bool {
+    fn is_timer_on(&self, timer_id: crate::timer_id::TimerId) -> bool {
         if let Some(ctx) = self.ctx.as_deref() {
             ctx.is_timer_on(timer_id)
         } else {
@@ -96,33 +96,33 @@ impl rubato_types::timer_access::TimerAccess for TimerOnlyMainState<'_> {
     }
 }
 
-impl rubato_types::skin_render_context::SkinRenderContext for TimerOnlyMainState<'_> {
-    fn current_state_type(&self) -> Option<rubato_types::main_state_type::MainStateType> {
+impl crate::skin_render_context::SkinRenderContext for TimerOnlyMainState<'_> {
+    fn current_state_type(&self) -> Option<crate::main_state_type::MainStateType> {
         self.state_type
     }
 
     fn is_music_selector(&self) -> bool {
         self.ctx
             .as_deref()
-            .is_some_and(rubato_types::skin_render_context::SkinRenderContext::is_music_selector)
-            || self.state_type == Some(rubato_types::main_state_type::MainStateType::MusicSelect)
+            .is_some_and(crate::skin_render_context::SkinRenderContext::is_music_selector)
+            || self.state_type == Some(crate::main_state_type::MainStateType::MusicSelect)
     }
 
     fn is_result_state(&self) -> bool {
         self.ctx
             .as_deref()
-            .is_some_and(rubato_types::skin_render_context::SkinRenderContext::is_result_state)
+            .is_some_and(crate::skin_render_context::SkinRenderContext::is_result_state)
             || matches!(
                 self.state_type,
                 Some(
-                    rubato_types::main_state_type::MainStateType::Result
-                        | rubato_types::main_state_type::MainStateType::CourseResult
+                    crate::main_state_type::MainStateType::Result
+                        | crate::main_state_type::MainStateType::CourseResult
                 )
             )
     }
 
     fn is_bms_player(&self) -> bool {
-        self.state_type == Some(rubato_types::main_state_type::MainStateType::Play)
+        self.state_type == Some(crate::main_state_type::MainStateType::Play)
     }
 
     fn recent_judges(&self) -> &[i64] {
@@ -203,35 +203,35 @@ impl rubato_types::skin_render_context::SkinRenderContext for TimerOnlyMainState
         self.ctx.as_deref().map_or(0, |c| c.now_combo(player))
     }
 
-    fn player_config_ref(&self) -> Option<&rubato_types::player_config::PlayerConfig> {
+    fn player_config_ref(&self) -> Option<&crate::player_config::PlayerConfig> {
         self.ctx
             .as_deref()
-            .and_then(rubato_types::skin_render_context::SkinRenderContext::player_config_ref)
+            .and_then(crate::skin_render_context::SkinRenderContext::player_config_ref)
     }
 
-    fn config_ref(&self) -> Option<&rubato_types::config::Config> {
+    fn config_ref(&self) -> Option<&crate::config::Config> {
         self.ctx
             .as_deref()
-            .and_then(rubato_types::skin_render_context::SkinRenderContext::config_ref)
+            .and_then(crate::skin_render_context::SkinRenderContext::config_ref)
     }
 
-    fn player_config_mut(&mut self) -> Option<&mut rubato_types::player_config::PlayerConfig> {
+    fn player_config_mut(&mut self) -> Option<&mut crate::player_config::PlayerConfig> {
         self.ctx
             .as_deref_mut()
-            .and_then(rubato_types::skin_render_context::SkinRenderContext::player_config_mut)
+            .and_then(crate::skin_render_context::SkinRenderContext::player_config_mut)
     }
 
-    fn config_mut(&mut self) -> Option<&mut rubato_types::config::Config> {
+    fn config_mut(&mut self) -> Option<&mut crate::config::Config> {
         self.ctx
             .as_deref_mut()
-            .and_then(rubato_types::skin_render_context::SkinRenderContext::config_mut)
+            .and_then(crate::skin_render_context::SkinRenderContext::config_mut)
     }
 
     fn selected_play_config_mut(
         &mut self,
-    ) -> Option<&mut rubato_types::play_config::PlayConfig> {
+    ) -> Option<&mut crate::play_config::PlayConfig> {
         self.ctx.as_deref_mut().and_then(
-            rubato_types::skin_render_context::SkinRenderContext::selected_play_config_mut,
+            crate::skin_render_context::SkinRenderContext::selected_play_config_mut,
         )
     }
 
@@ -253,13 +253,13 @@ impl rubato_types::skin_render_context::SkinRenderContext for TimerOnlyMainState
         }
     }
 
-    fn change_state(&mut self, state_type: rubato_types::main_state_type::MainStateType) {
+    fn change_state(&mut self, state_type: crate::main_state_type::MainStateType) {
         if let Some(ctx) = self.ctx.as_deref_mut() {
             ctx.change_state(state_type);
         }
     }
 
-    fn set_timer_micro(&mut self, timer_id: rubato_types::timer_id::TimerId, micro_time: i64) {
+    fn set_timer_micro(&mut self, timer_id: crate::timer_id::TimerId, micro_time: i64) {
         if let Some(ctx) = self.ctx.as_deref_mut() {
             ctx.set_timer_micro(timer_id, micro_time);
         }
@@ -277,27 +277,27 @@ impl rubato_types::skin_render_context::SkinRenderContext for TimerOnlyMainState
         }
     }
 
-    fn score_data_property(&self) -> &rubato_types::score_data_property::ScoreDataProperty {
-        static DEFAULT: std::sync::OnceLock<rubato_types::score_data_property::ScoreDataProperty> =
+    fn score_data_property(&self) -> &crate::score_data_property::ScoreDataProperty {
+        static DEFAULT: std::sync::OnceLock<crate::score_data_property::ScoreDataProperty> =
             std::sync::OnceLock::new();
         self.ctx
             .as_deref()
             .map(|c| c.score_data_property())
             .unwrap_or_else(|| {
-                DEFAULT.get_or_init(rubato_types::score_data_property::ScoreDataProperty::default)
+                DEFAULT.get_or_init(crate::score_data_property::ScoreDataProperty::default)
             })
     }
 
     fn get_offset_value(
         &self,
         id: i32,
-    ) -> Option<&rubato_types::skin_offset::SkinOffset> {
+    ) -> Option<&crate::skin_offset::SkinOffset> {
         self.ctx.as_deref().and_then(|c| c.get_offset_value(id))
     }
 
     fn get_distribution_data(
         &self,
-    ) -> Option<rubato_types::distribution_data::DistributionData> {
+    ) -> Option<crate::distribution_data::DistributionData> {
         self.ctx.as_deref().and_then(|c| c.get_distribution_data())
     }
 
@@ -347,7 +347,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for TimerOnlyMainState
 
     fn get_timing_distribution(
         &self,
-    ) -> Option<&rubato_types::timing_distribution::TimingDistribution> {
+    ) -> Option<&crate::timing_distribution::TimingDistribution> {
         self.ctx
             .as_deref()
             .and_then(|c| c.get_timing_distribution())
@@ -373,19 +373,19 @@ impl rubato_types::skin_render_context::SkinRenderContext for TimerOnlyMainState
         self.ctx.as_deref().map_or(0.0, |c| c.mouse_y())
     }
 
-    fn replay_option_data(&self) -> Option<&rubato_types::replay_data::ReplayData> {
+    fn replay_option_data(&self) -> Option<&crate::replay_data::ReplayData> {
         self.ctx.as_deref().and_then(|c| c.replay_option_data())
     }
 
-    fn target_score_data(&self) -> Option<&rubato_types::score_data::ScoreData> {
+    fn target_score_data(&self) -> Option<&crate::score_data::ScoreData> {
         self.ctx.as_deref().and_then(|c| c.target_score_data())
     }
 
-    fn score_data_ref(&self) -> Option<&rubato_types::score_data::ScoreData> {
+    fn score_data_ref(&self) -> Option<&crate::score_data::ScoreData> {
         self.ctx.as_deref().and_then(|c| c.score_data_ref())
     }
 
-    fn rival_score_data_ref(&self) -> Option<&rubato_types::score_data::ScoreData> {
+    fn rival_score_data_ref(&self) -> Option<&crate::score_data::ScoreData> {
         self.ctx.as_deref().and_then(|c| c.rival_score_data_ref())
     }
 
@@ -399,13 +399,13 @@ impl rubato_types::skin_render_context::SkinRenderContext for TimerOnlyMainState
         self.ctx.as_deref().map_or(0, |c| c.ranking_offset())
     }
 
-    fn current_play_config_ref(&self) -> Option<&rubato_types::play_config::PlayConfig> {
+    fn current_play_config_ref(&self) -> Option<&crate::play_config::PlayConfig> {
         self.ctx
             .as_deref()
             .and_then(|c| c.current_play_config_ref())
     }
 
-    fn song_data_ref(&self) -> Option<&rubato_types::song_data::SongData> {
+    fn song_data_ref(&self) -> Option<&crate::song_data::SongData> {
         self.ctx.as_deref().and_then(|c| c.song_data_ref())
     }
 
@@ -442,15 +442,15 @@ impl crate::reexports::MainState for TimerOnlyMainState<'_> {
         self.image_registry.get(&id).cloned()
     }
 
-    fn select_song(&mut self, mode: rubato_types::bms_player_mode::BMSPlayerMode) {
+    fn select_song(&mut self, mode: crate::bms_player_mode::BMSPlayerMode) {
         let Some(ctx) = self.ctx.as_deref_mut() else {
             return;
         };
         let event_id = match mode.mode {
-            rubato_types::bms_player_mode::Mode::Play => 15,
-            rubato_types::bms_player_mode::Mode::Autoplay => 16,
-            rubato_types::bms_player_mode::Mode::Practice => 315,
-            rubato_types::bms_player_mode::Mode::Replay => return,
+            crate::bms_player_mode::Mode::Play => 15,
+            crate::bms_player_mode::Mode::Autoplay => 16,
+            crate::bms_player_mode::Mode::Practice => 315,
+            crate::bms_player_mode::Mode::Replay => return,
         };
         ctx.select_song_mode(event_id);
     }
@@ -519,15 +519,15 @@ impl Drop for ImageRegistryGuard {
 }
 
 impl crate::skin_drawable::SkinDrawable for Skin {
-    fn prepare_skin(&mut self, state_type: Option<rubato_types::main_state_type::MainStateType>) {
-        let null_timer = rubato_types::timer_access::NullTimer;
+    fn prepare_skin(&mut self, state_type: Option<crate::main_state_type::MainStateType>) {
+        let null_timer = crate::timer_access::NullTimer;
         let adapter = TimerOnlyMainState::from_timer(&null_timer, state_type);
         self.prepare(&adapter);
     }
 
     fn draw_all_objects_timed(
         &mut self,
-        ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        ctx: &mut dyn crate::skin_render_context::SkinRenderContext,
     ) {
         // SAFETY: `self` (and its `image_registry` field) outlives the guard.
         let guard = unsafe { ImageRegistryGuard::take(&mut self.image_registry) };
@@ -538,7 +538,7 @@ impl crate::skin_drawable::SkinDrawable for Skin {
 
     fn update_custom_objects_timed(
         &mut self,
-        ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        ctx: &mut dyn crate::skin_render_context::SkinRenderContext,
     ) {
         // SAFETY: `self` (and its `image_registry` field) outlives the guard.
         let guard = unsafe { ImageRegistryGuard::take(&mut self.image_registry) };
@@ -549,7 +549,7 @@ impl crate::skin_drawable::SkinDrawable for Skin {
 
     fn mouse_pressed_at(
         &mut self,
-        ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        ctx: &mut dyn crate::skin_render_context::SkinRenderContext,
         button: i32,
         x: i32,
         y: i32,
@@ -563,7 +563,7 @@ impl crate::skin_drawable::SkinDrawable for Skin {
 
     fn mouse_dragged_at(
         &mut self,
-        ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        ctx: &mut dyn crate::skin_render_context::SkinRenderContext,
         button: i32,
         x: i32,
         y: i32,
@@ -583,13 +583,13 @@ impl crate::skin_drawable::SkinDrawable for Skin {
         crate::bitmap_font_cache::clear();
     }
 
-    fn skin_offsets(&self) -> std::collections::HashMap<i32, rubato_types::skin_offset::SkinOffset> {
+    fn skin_offsets(&self) -> std::collections::HashMap<i32, crate::skin_offset::SkinOffset> {
         self.offset
             .iter()
             .map(|(&id, cfg)| {
                 (
                     id,
-                    rubato_types::skin_offset::SkinOffset {
+                    crate::skin_offset::SkinOffset {
                         x: cfg.x,
                         y: cfg.y,
                         w: cfg.w,
@@ -634,7 +634,7 @@ impl crate::skin_drawable::SkinDrawable for Skin {
 
     fn execute_custom_event(
         &mut self,
-        ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        ctx: &mut dyn crate::skin_render_context::SkinRenderContext,
         id: i32,
         arg1: i32,
         arg2: i32,
@@ -646,13 +646,13 @@ impl crate::skin_drawable::SkinDrawable for Skin {
         guard.restore();
     }
 
-    fn offset_entries(&self) -> Vec<(i32, rubato_types::skin_offset::SkinOffset)> {
+    fn offset_entries(&self) -> Vec<(i32, crate::skin_offset::SkinOffset)> {
         self.offset
             .iter()
             .map(|(&id, cfg)| {
                 (
                     id,
-                    rubato_types::skin_offset::SkinOffset {
+                    crate::skin_offset::SkinOffset {
                         x: cfg.x,
                         y: cfg.y,
                         w: cfg.w,
@@ -668,8 +668,8 @@ impl crate::skin_drawable::SkinDrawable for Skin {
     fn compute_note_draw_commands(
         &mut self,
         compute: &mut dyn FnMut(
-            &[rubato_types::skin_note::SkinLane],
-        ) -> Vec<rubato_types::draw_command::DrawCommand>,
+            &[crate::skin_note::SkinLane],
+        ) -> Vec<crate::draw_command::DrawCommand>,
     ) {
         use crate::objects::skin_note_object::SkinNoteObject;
         for obj in &mut self.objects {
@@ -706,37 +706,37 @@ impl crate::skin_drawable::SkinDrawable for Skin {
 #[cfg(test)]
 mod skin_drawable_delegation_tests {
     use super::*;
-    use rubato_types::main_state_type::MainStateType;
-    use rubato_types::skin_render_context::SkinRenderContext;
-    use rubato_types::timer_access::TimerAccess;
-    use rubato_types::timer_id::TimerId;
+    use crate::main_state_type::MainStateType;
+    use crate::skin_render_context::SkinRenderContext;
+    use crate::timer_access::TimerAccess;
+    use crate::timer_id::TimerId;
 
     /// A mock SkinRenderContext that returns distinctive non-default values
     /// for every method. Used to verify TimerOnlyMainState delegates each
     /// method to the wrapped context instead of silently returning trait defaults.
     struct FullMockContext {
-        score: rubato_types::score_data::ScoreData,
-        replay: rubato_types::replay_data::ReplayData,
-        song: rubato_types::song_data::SongData,
-        play_config: rubato_types::play_config::PlayConfig,
-        timing_dist: rubato_types::timing_distribution::TimingDistribution,
-        score_prop: rubato_types::score_data_property::ScoreDataProperty,
+        score: crate::score_data::ScoreData,
+        replay: crate::replay_data::ReplayData,
+        song: crate::song_data::SongData,
+        play_config: crate::play_config::PlayConfig,
+        timing_dist: crate::timing_distribution::TimingDistribution,
+        score_prop: crate::score_data_property::ScoreDataProperty,
         gauge_hist: Vec<Vec<f32>>,
         course_gauge_hist: Vec<Vec<Vec<f32>>>,
     }
 
     impl FullMockContext {
         fn new() -> Self {
-            let mut score = rubato_types::score_data::ScoreData::default();
+            let mut score = crate::score_data::ScoreData::default();
             score.clear = 7;
 
             Self {
                 score,
-                replay: rubato_types::replay_data::ReplayData::default(),
-                song: rubato_types::song_data::SongData::default(),
-                play_config: rubato_types::play_config::PlayConfig::default(),
-                timing_dist: rubato_types::timing_distribution::TimingDistribution::default(),
-                score_prop: rubato_types::score_data_property::ScoreDataProperty::default(),
+                replay: crate::replay_data::ReplayData::default(),
+                song: crate::song_data::SongData::default(),
+                play_config: crate::play_config::PlayConfig::default(),
+                timing_dist: crate::timing_distribution::TimingDistribution::default(),
+                score_prop: crate::score_data_property::ScoreDataProperty::default(),
                 gauge_hist: vec![vec![0.5, 0.6]],
                 course_gauge_hist: vec![vec![vec![0.1, 0.2]]],
             }
@@ -769,19 +769,19 @@ mod skin_drawable_delegation_tests {
             Some(MainStateType::Result)
         }
 
-        fn replay_option_data(&self) -> Option<&rubato_types::replay_data::ReplayData> {
+        fn replay_option_data(&self) -> Option<&crate::replay_data::ReplayData> {
             Some(&self.replay)
         }
 
-        fn target_score_data(&self) -> Option<&rubato_types::score_data::ScoreData> {
+        fn target_score_data(&self) -> Option<&crate::score_data::ScoreData> {
             Some(&self.score)
         }
 
-        fn score_data_ref(&self) -> Option<&rubato_types::score_data::ScoreData> {
+        fn score_data_ref(&self) -> Option<&crate::score_data::ScoreData> {
             Some(&self.score)
         }
 
-        fn rival_score_data_ref(&self) -> Option<&rubato_types::score_data::ScoreData> {
+        fn rival_score_data_ref(&self) -> Option<&crate::score_data::ScoreData> {
             Some(&self.score)
         }
 
@@ -793,11 +793,11 @@ mod skin_drawable_delegation_tests {
             5
         }
 
-        fn current_play_config_ref(&self) -> Option<&rubato_types::play_config::PlayConfig> {
+        fn current_play_config_ref(&self) -> Option<&crate::play_config::PlayConfig> {
             Some(&self.play_config)
         }
 
-        fn song_data_ref(&self) -> Option<&rubato_types::song_data::SongData> {
+        fn song_data_ref(&self) -> Option<&crate::song_data::SongData> {
             Some(&self.song)
         }
 
@@ -831,7 +831,7 @@ mod skin_drawable_delegation_tests {
 
         fn get_timing_distribution(
             &self,
-        ) -> Option<&rubato_types::timing_distribution::TimingDistribution> {
+        ) -> Option<&crate::timing_distribution::TimingDistribution> {
             Some(&self.timing_dist)
         }
 
@@ -839,7 +839,7 @@ mod skin_drawable_delegation_tests {
             Some(vec![vec![10, 20, 30]])
         }
 
-        fn score_data_property(&self) -> &rubato_types::score_data_property::ScoreDataProperty {
+        fn score_data_property(&self) -> &crate::score_data_property::ScoreDataProperty {
             &self.score_prop
         }
 
@@ -877,8 +877,8 @@ mod skin_drawable_delegation_tests {
 
         fn get_distribution_data(
             &self,
-        ) -> Option<rubato_types::distribution_data::DistributionData> {
-            Some(rubato_types::distribution_data::DistributionData::default())
+        ) -> Option<crate::distribution_data::DistributionData> {
+            Some(crate::distribution_data::DistributionData::default())
         }
 
         fn gauge_transition_last_value(&self, gauge_type: i32) -> Option<f32> {
@@ -1028,7 +1028,7 @@ mod skin_drawable_delegation_tests {
     /// their trait defaults and do not panic.
     #[test]
     fn test_timer_only_mode_returns_defaults_for_all_methods() {
-        let timer = rubato_types::timer_access::NullTimer;
+        let timer = crate::timer_access::NullTimer;
         let adapter = TimerOnlyMainState::from_timer(&timer, None);
 
         assert!(adapter.replay_option_data().is_none());

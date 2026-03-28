@@ -4,7 +4,7 @@ use super::*;
 // SongSelectionAccess trait implementation
 // ============================================================
 
-impl rubato_types::song_selection_access::SongSelectionAccess for MusicSelector {
+impl rubato_skin::song_selection_access::SongSelectionAccess for MusicSelector {
     fn selected_song_data(&self) -> Option<SongData> {
         let bar = self.selected_bar()?;
         bar.as_song_bar().map(|sb| sb.song_data().clone())
@@ -294,7 +294,7 @@ impl MainState for MusicSelector {
         self.load_skin(SkinType::MusicSelect.id());
         if let Some(skin) = self.main_state_data.skin.as_mut() {
             skin.prepare_skin(Some(
-                rubato_types::main_state_type::MainStateType::MusicSelect,
+                rubato_skin::main_state_type::MainStateType::MusicSelect,
             ));
         }
 
@@ -642,7 +642,7 @@ impl MainState for MusicSelector {
                 .and_then(|b| b.as_grade_bar())
                 .map(|gb| gb.course_data().clone());
             if let Some(res) = self.player_resource.as_mut() {
-                rubato_types::player_resource_access::SongAccess::set_songdata(res, song_data);
+                rubato_skin::player_resource_access::SongAccess::set_songdata(res, song_data);
                 if let Some(cd) = course_data {
                     res.set_course_data(cd);
                 } else {

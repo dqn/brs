@@ -5,13 +5,13 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use rubato_render::pixmap_resource_pool::PixmapResourcePool;
-use rubato_types::config::Config;
-use rubato_types::player_config::PlayerConfig;
+use crate::config::Config;
+use crate::player_config::PlayerConfig;
 
 use crate::reexports::{MainState, Texture};
 use crate::types::skin::Skin;
 use crate::types::skin_type::SkinType;
-use rubato_types::sync_utils::lock_or_recover;
+use crate::sync_utils::lock_or_recover;
 
 /// Skin image resource pool
 /// Translated from SkinLoader.java
@@ -100,7 +100,7 @@ pub fn skin_path_from_player_config(
         .get(skin_type_id as usize)
         .and_then(|sc| sc.as_ref())
         .and_then(|sc| sc.path.clone())
-        .or_else(|| rubato_types::skin_config::SkinConfig::default_for_id(skin_type_id).path)
+        .or_else(|| crate::skin_config::SkinConfig::default_for_id(skin_type_id).path)
 }
 
 /// Copies user-configured offset values from PlayerConfig into the Skin's offset map.
@@ -533,8 +533,8 @@ pub fn texture_with_mipmaps(path: &str, usecim: bool, use_mip_maps: bool) -> Opt
 mod tests {
     use super::*;
 
-    use rubato_types::player_config::PlayerConfig;
-    use rubato_types::test_support::CurrentDirGuard;
+    use crate::player_config::PlayerConfig;
+    use crate::test_support::CurrentDirGuard;
 
     static CWD_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
@@ -631,7 +631,7 @@ mod tests {
 
     #[test]
     fn apply_player_config_offsets_copies_values_by_name() {
-        use rubato_types::skin_config::{SkinConfig, SkinOffset, SkinProperty};
+        use crate::skin_config::{SkinConfig, SkinOffset, SkinProperty};
 
         let mut skin = make_skin_with_offset(crate::skin_property::OFFSET_ALL, "All offset(%)");
 
@@ -672,7 +672,7 @@ mod tests {
 
     #[test]
     fn apply_player_config_offsets_no_match_leaves_defaults() {
-        use rubato_types::skin_config::{SkinConfig, SkinOffset, SkinProperty};
+        use crate::skin_config::{SkinConfig, SkinOffset, SkinProperty};
 
         let mut skin = make_skin_with_offset(crate::skin_property::OFFSET_ALL, "All offset(%)");
 

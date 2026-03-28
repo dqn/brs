@@ -11,7 +11,7 @@ use bms::model::bms_model::{BMSModel, LNTYPE_LONGNOTE};
 use bms::model::bmson_decoder::BMSONDecoder;
 use bms::model::osu_decoder::OSUDecoder;
 use rayon::prelude::*;
-use rubato_types::sync_utils::lock_or_recover;
+use rubato_skin::sync_utils::lock_or_recover;
 use rusqlite::Connection;
 use rusqlite::hooks::{AuthAction, AuthContext, Authorization};
 

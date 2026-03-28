@@ -7,7 +7,7 @@ use regex::Regex;
 use crate::core::table_data::TableData;
 use crate::song_database_accessor::SongDatabaseAccessor;
 use egui;
-use rubato_types::song_data::SongData;
+use rubato_skin::song_data::SongData;
 
 use crate::views::editors::course_editor_view::CourseEditorView;
 use crate::views::editors::folder_editor_view::FolderEditorView;

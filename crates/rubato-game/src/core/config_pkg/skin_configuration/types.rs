@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use rubato_types::skin_type::SkinType;
+use rubato_skin::skin_type::SkinType;
 
 pub(super) const OPTION_RANDOM_VALUE: i32 = -1;
 
@@ -76,7 +76,7 @@ pub struct CustomFileDef {
 #[derive(Clone, Debug)]
 pub struct CustomOffsetDef {
     pub name: String,
-    pub caps: rubato_types::offset_capabilities::OffsetCapabilities,
+    pub caps: rubato_skin::offset_capabilities::OffsetCapabilities,
 }
 
 /// UI item for skin configuration (replaces Java inner classes CustomItemBase hierarchy).

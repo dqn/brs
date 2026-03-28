@@ -11,7 +11,7 @@
 use bms::model::judge_note::{JUDGE_BD, JUDGE_GD, JUDGE_GR, JUDGE_MS, JUDGE_PG, JUDGE_PR};
 use bms::model::mode::Mode;
 use golden_master::e2e_helpers::*;
-use rubato_types::groove_gauge::{ASSISTEASY, EASY, EXHARD, HARD, HAZARD, NORMAL};
+use rubato_skin::groove_gauge::{ASSISTEASY, EASY, EXHARD, HARD, HAZARD, NORMAL};
 
 // ============================================================================
 // Group A: Autoplay tests -- perfect play invariants (normal notes only)

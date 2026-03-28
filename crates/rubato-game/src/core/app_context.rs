@@ -11,7 +11,7 @@ use crate::core::player_resource::PlayerResource;
 use crate::core::system_sound_manager::SystemSoundManager;
 use crate::core::timer_manager::TimerManager;
 use rubato_input::bms_player_input_processor::BMSPlayerInputProcessor;
-use rubato_types::sound_type::SoundType;
+use rubato_skin::sound_type::SoundType;
 
 /// Backward-compatible type alias for `GameContext`.
 ///
@@ -182,14 +182,14 @@ impl GameContext {
 
     // --- Config convenience methods ---
 
-    pub fn update_audio_config(&mut self, audio: rubato_types::audio_config::AudioConfig) {
+    pub fn update_audio_config(&mut self, audio: rubato_skin::audio_config::AudioConfig) {
         self.config.audio = Some(audio);
     }
 
     pub fn update_skin_config(
         &mut self,
         id: usize,
-        skin_config: Option<rubato_types::skin_config::SkinConfig>,
+        skin_config: Option<rubato_skin::skin_config::SkinConfig>,
     ) {
         if id < self.player.skin.len() {
             self.player.skin[id] = skin_config;
@@ -199,7 +199,7 @@ impl GameContext {
     pub fn update_skin_history(
         &mut self,
         skin_path: &str,
-        skin_config: rubato_types::skin_config::SkinConfig,
+        skin_config: rubato_skin::skin_config::SkinConfig,
     ) {
         if let Some(entry) = self
             .player
@@ -274,7 +274,7 @@ impl GameContext {
         }
     }
 
-    pub fn start_ipfs_download(&self, song: &rubato_types::song_data::SongData) -> bool {
+    pub fn start_ipfs_download(&self, song: &rubato_skin::song_data::SongData) -> bool {
         if let Some(ref dl) = self.integration.download {
             dl.start_download(song);
             true

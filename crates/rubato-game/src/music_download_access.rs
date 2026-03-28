@@ -7,7 +7,7 @@
 /// Translated from: bms.player.beatoraja.md.MusicDownloadProcessor
 pub trait MusicDownloadAccess: Send + Sync {
     /// Start the download daemon, optionally queueing a song for download.
-    fn start_download(&self, song: &rubato_types::song_data::SongData);
+    fn start_download(&self, song: &rubato_skin::song_data::SongData);
 
     /// Dispose of the download daemon.
     fn dispose(&self);

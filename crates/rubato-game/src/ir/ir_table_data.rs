@@ -1,5 +1,5 @@
 use crate::core::table_data::TableData;
-use rubato_types::validatable::Validatable;
+use rubato_skin::validatable::Validatable;
 
 use crate::ir::ir_chart_data::IRChartData;
 use crate::ir::ir_course_data::IRCourseData;
@@ -35,7 +35,7 @@ impl IRTableData {
             .folders
             .iter()
             .map(|f| {
-                let songs: Vec<rubato_types::song_data::SongData> =
+                let songs: Vec<rubato_skin::song_data::SongData> =
                     f.charts.iter().map(|c| c.to_song_data()).collect();
                 TableFolder {
                     name: Some(f.name.clone()),
@@ -62,7 +62,7 @@ impl IRTableData {
         for tf in &table.folder {
             let mut charts = Vec::with_capacity(tf.songs.len());
             for song in &tf.songs {
-                // TableFolder songs are rubato_types::SongData
+                // TableFolder songs are rubato_skin::SongData
                 charts.push(create_ir_chart_data_from_core_song(song));
             }
             folders.push(IRTableFolder::new(
@@ -84,8 +84,8 @@ impl IRTableData {
     }
 }
 
-/// Create IRChartData from rubato_types::SongData
-fn create_ir_chart_data_from_core_song(song: &rubato_types::song_data::SongData) -> IRChartData {
+/// Create IRChartData from rubato_skin::SongData
+fn create_ir_chart_data_from_core_song(song: &rubato_skin::song_data::SongData) -> IRChartData {
     IRChartData {
         md5: song.file.md5.clone(),
         sha256: song.file.sha256.clone(),

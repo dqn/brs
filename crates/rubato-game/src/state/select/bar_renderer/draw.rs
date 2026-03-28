@@ -2,7 +2,7 @@ use super::super::skin_bar::SkinBar;
 use super::BarRenderer;
 use super::types::RenderContext;
 use crate::state::select::*;
-use rubato_types::sync_utils::lock_or_recover;
+use rubato_skin::sync_utils::lock_or_recover;
 
 impl BarRenderer {
     /// Refresh the bar text character set for font preparation when songs change.

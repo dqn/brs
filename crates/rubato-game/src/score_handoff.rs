@@ -1,9 +1,9 @@
 // ScoreHandoff - data transferred from BMSPlayer to PlayerResource via outbox pattern.
 // Used when transitioning from Play to Result state.
 
-use rubato_types::groove_gauge::GrooveGauge;
-use rubato_types::replay_data::ReplayData;
-use rubato_types::score_data::ScoreData;
+use rubato_skin::groove_gauge::GrooveGauge;
+use rubato_skin::replay_data::ReplayData;
+use rubato_skin::score_data::ScoreData;
 
 /// Data bundle produced by BMSPlayer at end of play for Result state consumption.
 ///

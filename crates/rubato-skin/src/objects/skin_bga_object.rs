@@ -3,10 +3,10 @@
 
 use std::sync::{Arc, Mutex};
 
-use rubato_types::sync_utils::lock_or_recover;
+use crate::sync_utils::lock_or_recover;
 
 use rubato_render::color::Color;
-use rubato_types::practice_draw_command::{PracticeColor, PracticeDrawCommand};
+use crate::practice_draw_command::{PracticeColor, PracticeDrawCommand};
 
 use crate::graphs::skin_note_distribution_graph::{
     NoteDistributionDrawParams, SkinNoteDistributionGraph, TYPE_EARLYLATE, TYPE_JUDGE, TYPE_NORMAL,
@@ -276,7 +276,7 @@ impl crate::types::skin_node::SkinNode for SkinBgaObject {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rubato_types::bga_types::{BGAEXPAND_FULL, BGAEXPAND_KEEP_ASPECT_RATIO, BGAEXPAND_OFF};
+    use crate::bga_types::{BGAEXPAND_FULL, BGAEXPAND_KEEP_ASPECT_RATIO, BGAEXPAND_OFF};
 
     // =========================================================================
     // Mock BgaDraw for testing

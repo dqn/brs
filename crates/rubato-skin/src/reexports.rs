@@ -17,11 +17,11 @@ pub use crate::skin_resolution::Resolution;
 pub use crate::skin_config_offset::SkinConfigOffset;
 
 // SkinOffset -- re-exported from rubato-types
-pub use rubato_types::skin_offset::SkinOffset;
+pub use crate::skin_offset::SkinOffset;
 
 // TimingDistribution -- re-exported from rubato-types
-pub use rubato_types::timing_distribution::TimingDistribution;
+pub use crate::timing_distribution::TimingDistribution;
 
 // beatoraja.song types (re-exports from rubato-types)
-pub use rubato_types::song_data::SongData;
-pub use rubato_types::song_information::SongInformation;
+pub use crate::song_data::SongData;
+pub use crate::song_information::SongInformation;

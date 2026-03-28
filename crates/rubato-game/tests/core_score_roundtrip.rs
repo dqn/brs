@@ -13,7 +13,7 @@ use rubato_game::core::score_database_accessor::ScoreDatabaseAccessor;
 /// `avg`, `total_avg`, `stddev`, `assist`, `gauge`, `device_type`, `playmode`,
 /// `judge_algorithm`, `rule`, and `skin` are NOT stored in the score table.
 fn make_test_score() -> ScoreData {
-    use rubato_types::score_data::{JudgeCounts, PlayOption, TimingStats};
+    use rubato_skin::score_data::{JudgeCounts, PlayOption, TimingStats};
     ScoreData {
         sha256: "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2".to_string(),
         mode: 0,

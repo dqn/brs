@@ -23,7 +23,7 @@ impl PlayConfigurationView {
             let mut version_checker = MainLoader::version_checker();
             let message = version_checker.message().to_string();
             let download_url = version_checker.download_url().map(|s| s.to_string());
-            let mut guard = rubato_types::sync_utils::lock_or_recover(&result_clone);
+            let mut guard = rubato_skin::sync_utils::lock_or_recover(&result_clone);
             *guard = Some((message, download_url));
         });
         self.pending_version_check = Some(result);

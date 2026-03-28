@@ -17,7 +17,7 @@ pub static MOV_EXTENSION: &[&str] = &[
 ];
 
 // Re-export shared BGA render type from rubato-types (canonical location).
-pub use rubato_types::bga_types::BgaRenderType;
+pub use rubato_skin::bga_types::BgaRenderType;
 
 /// Trait for BGA sprite rendering, abstracting SkinObjectRenderer.
 /// Implemented by the skin rendering system to draw BGA textures.

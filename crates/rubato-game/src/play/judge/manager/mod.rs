@@ -9,9 +9,9 @@ pub(crate) use bms::model::mode::Mode;
 pub(crate) use bms::model::note::{
     TYPE_CHARGENOTE, TYPE_HELLCHARGENOTE, TYPE_LONGNOTE, TYPE_UNDEFINED,
 };
-pub(crate) use rubato_types::course_data::CourseDataConstraint;
-pub(crate) use rubato_types::groove_gauge::GrooveGauge;
-pub(crate) use rubato_types::player_config::PlayerConfig;
+pub(crate) use rubato_skin::course_data::CourseDataConstraint;
+pub(crate) use rubato_skin::groove_gauge::GrooveGauge;
+pub(crate) use rubato_skin::player_config::PlayerConfig;
 
 /// HCN gauge change interval (microseconds)
 const HCN_MDURATION: i64 = 200000;

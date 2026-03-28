@@ -22,7 +22,7 @@ use crate::state::result::PlayerResource as ResultPlayerResource;
 use crate::state::result::course_result::CourseResult;
 use crate::state::result::music_result::MusicResult;
 use crate::state::select::music_selector::MusicSelector;
-use rubato_types::score_data::ScoreData;
+use rubato_skin::score_data::ScoreData;
 
 use shared_selector::SharedMusicSelectorState;
 
@@ -287,7 +287,7 @@ impl LauncherStateFactory {
                 // Java: IntegerPropertyFactory ID 308 checks SongData LN types on BMSPlayer.
                 if let Some(songdata) = resource.and_then(|r| r.songdata()) {
                     player.set_lnmode_override(
-                        rubato_types::skin_render_context::compute_lnmode_from_chart(
+                        rubato_skin::skin_render_context::compute_lnmode_from_chart(
                             &songdata.chart,
                         ),
                     );
@@ -386,7 +386,7 @@ impl LauncherStateFactory {
                         .config()
                         .audio_config()
                         .map(|a| a.freq_option)
-                        .unwrap_or(rubato_types::audio_config::FrequencyType::UNPROCESSED);
+                        .unwrap_or(rubato_skin::audio_config::FrequencyType::UNPROCESSED);
                     player.apply_freq_trainer(freq, is_play_mode, is_course_mode, &freq_option);
                 }
 
@@ -559,11 +559,11 @@ mod tests {
     use crate::song::song_information_accessor::SongInformationAccessor;
     use crate::state::select::preview_music_processor::PreviewMusicProcessor;
     use rubato_audio::audio_system::AudioSystem;
-    use rubato_types::skin_config::SkinConfig;
-    use rubato_types::skin_render_context::SkinRenderContext;
-    use rubato_types::skin_type::SkinType;
-    use rubato_types::song_data::SongData;
-    use rubato_types::song_information::SongInformation;
+    use rubato_skin::skin_config::SkinConfig;
+    use rubato_skin::skin_render_context::SkinRenderContext;
+    use rubato_skin::skin_type::SkinType;
+    use rubato_skin::song_data::SongData;
+    use rubato_skin::song_information::SongInformation;
     use std::path::PathBuf;
     use std::sync::{Arc, Mutex};
 
@@ -590,7 +590,7 @@ mod tests {
         }
         fn prepare_skin(
             &mut self,
-            _state_type: Option<rubato_types::main_state_type::MainStateType>,
+            _state_type: Option<rubato_skin::main_state_type::MainStateType>,
         ) {
         }
         fn dispose_skin(&mut self) {}
@@ -670,7 +670,7 @@ mod tests {
 
         fn prepare_skin(
             &mut self,
-            _state_type: Option<rubato_types::main_state_type::MainStateType>,
+            _state_type: Option<rubato_skin::main_state_type::MainStateType>,
         ) {
         }
         fn dispose_skin(&mut self) {}

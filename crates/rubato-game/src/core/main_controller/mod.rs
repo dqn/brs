@@ -10,7 +10,7 @@ pub(crate) use crate::ranking_data_cache_access::RankingDataCacheAccess;
 pub(crate) use crate::song_database_accessor::SongDatabaseAccessor as SongDatabaseAccessorTrait;
 pub(crate) use crate::song_information_db::SongInformationDb;
 pub(crate) use rubato_audio::audio_system::AudioSystem;
-pub(crate) use rubato_types::screen_type::ScreenType;
+pub(crate) use rubato_skin::screen_type::ScreenType;
 
 pub(crate) use crate::core::app_context::GameContext;
 pub(crate) use crate::core::bms_player_mode::BMSPlayerMode;
@@ -47,7 +47,7 @@ pub struct StateCreateResult {
     pub state: crate::game_screen::GameScreen,
     /// Target score data to set on PlayerResource (for result screen access).
     /// Java: resource.setTargetScoreData(targetScore)
-    pub target_score: Option<rubato_types::score_data::ScoreData>,
+    pub target_score: Option<rubato_skin::score_data::ScoreData>,
 }
 
 /// StateReferencesCallback - callback for updating cross-state references.
@@ -78,7 +78,7 @@ pub trait StateReferencesCallback: Send {
 }
 
 /// Re-export SkinOffset from rubato-types (single source of truth for the runtime type).
-pub use rubato_types::skin_offset::SkinOffset;
+pub use rubato_skin::skin_offset::SkinOffset;
 
 /// SkinProperty constants
 pub const OFFSET_MAX: usize = 255;
@@ -133,15 +133,15 @@ impl MainStateAccess for StateAccessAdapter<'_> {
         self.config
     }
 
-    fn songdata(&self) -> Option<&rubato_types::song_data::SongData> {
+    fn songdata(&self) -> Option<&rubato_skin::song_data::SongData> {
         self.resource.and_then(|r| r.songdata())
     }
 
-    fn replay_data(&self) -> Option<&rubato_types::replay_data::ReplayData> {
+    fn replay_data(&self) -> Option<&rubato_skin::replay_data::ReplayData> {
         self.resource.and_then(|r| r.replay_data())
     }
 
-    fn course_data(&self) -> Option<&rubato_types::course_data::CourseData> {
+    fn course_data(&self) -> Option<&rubato_skin::course_data::CourseData> {
         self.resource.and_then(|r| r.course_data())
     }
 }
@@ -232,7 +232,7 @@ pub struct MainController {
     state_listener: Vec<Box<dyn MainStateListener>>,
 
     /// Channel-based event senders for external listeners and test harnesses.
-    event_senders: Vec<std::sync::mpsc::SyncSender<rubato_types::app_event::AppEvent>>,
+    event_senders: Vec<std::sync::mpsc::SyncSender<rubato_skin::app_event::AppEvent>>,
 
     /// Shared music selector.
     /// Java shares the same MusicSelector between StreamController and MusicSelect state.
@@ -252,7 +252,7 @@ pub struct MainController {
     /// Optional event log for state machine observability (E2E testing).
     /// When set, state transition / lifecycle / handoff events are pushed here.
     state_event_log:
-        Option<std::sync::Arc<std::sync::Mutex<Vec<rubato_types::state_event::StateEvent>>>>,
+        Option<std::sync::Arc<std::sync::Mutex<Vec<rubato_skin::state_event::StateEvent>>>>,
 }
 
 /// Offset count (SkinProperty.OFFSET_MAX + 1)

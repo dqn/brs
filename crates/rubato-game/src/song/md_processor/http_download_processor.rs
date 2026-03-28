@@ -8,7 +8,7 @@ use std::thread;
 use std::time::Duration;
 
 use regex::Regex;
-use rubato_types::sync_utils::lock_or_recover;
+use rubato_skin::sync_utils::lock_or_recover;
 
 use super::download_task::{DownloadTask, DownloadTaskStatus};
 use super::http_download_source::HttpDownloadSource;

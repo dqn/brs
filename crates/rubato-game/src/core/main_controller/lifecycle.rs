@@ -268,7 +268,7 @@ impl MainController {
 
         // Emit OutboxDrained event when state changes were processed.
         if has_state_change {
-            self.emit_state_event(rubato_types::state_event::StateEvent::OutboxDrained {
+            self.emit_state_event(rubato_skin::state_event::StateEvent::OutboxDrained {
                 state_change: has_state_change,
             });
         }

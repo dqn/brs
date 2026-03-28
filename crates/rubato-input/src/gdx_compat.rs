@@ -1,7 +1,7 @@
 // GdxInput/GdxGraphics replacements using SharedKeyState from winit_input_bridge.
 
 use crate::winit_input_bridge::SharedKeyState;
-use rubato_types::sync_utils::lock_or_recover;
+use rubato_skin::sync_utils::lock_or_recover;
 use std::sync::Mutex;
 
 /// Global shared key state. When set (via `set_shared_key_state()`),

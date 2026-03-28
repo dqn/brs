@@ -16,7 +16,7 @@ use rubato_game::play::groove_gauge::create_groove_gauge;
 use rubato_game::play::judge_algorithm::JudgeAlgorithm;
 use rubato_game::play::judge_manager::{JudgeConfig, JudgeManager};
 use rubato_input::key_input_log::KeyInputLog;
-use rubato_types::groove_gauge::{HARD, NORMAL};
+use rubato_skin::groove_gauge::{HARD, NORMAL};
 
 // ---------------------------------------------------------------------------
 // Helpers

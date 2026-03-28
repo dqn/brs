@@ -10,7 +10,7 @@
 
 use bms::model::judge_note::JUDGE_PG;
 use golden_master::e2e_helpers::*;
-use rubato_types::groove_gauge::NORMAL;
+use rubato_skin::groove_gauge::NORMAL;
 
 // ============================================================================
 // Autoplay invariant tests for edge case BMS files

@@ -10,8 +10,8 @@ use rubato_game::core::config::{
     BGA_OFF, BGAEXPAND_FULL, Config, DisplayConfig, DisplayMode, IntegrationConfig, NetworkConfig,
     ObsConfig, PathConfig, RenderConfig, SelectConfig, SongPreview,
 };
-use rubato_types::audio_config::AudioConfig;
-use rubato_types::resolution::Resolution;
+use rubato_skin::audio_config::AudioConfig;
+use rubato_skin::resolution::Resolution;
 
 /// Create a Config with non-default values for all fields.
 fn make_custom_config() -> Config {

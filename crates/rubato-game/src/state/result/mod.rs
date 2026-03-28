@@ -23,8 +23,8 @@ pub use rubato_skin::skin::Skin;
 pub use rubato_skin::skin_header::SkinHeader;
 pub use rubato_skin::skin_object::SkinObjectData;
 pub use rubato_skin::skin_object::SkinObjectRenderer;
-pub use rubato_types::groove_gauge::GrooveGauge;
-pub use rubato_types::player_resource_access::PlayerResourceAccess;
+pub use rubato_skin::groove_gauge::GrooveGauge;
+pub use rubato_skin::player_resource_access::PlayerResourceAccess;
 
 // Convenience re-exports for the wrapper types
 pub use main_controller_wrapper::MainController;
@@ -217,7 +217,7 @@ macro_rules! impl_result_main_state {
                 .get(skin_type as usize)
                 .and_then(|skin| skin.as_ref())
                 .and_then(|skin| skin.path.clone())
-                .or_else(|| rubato_types::skin_config::SkinConfig::default_for_id(skin_type).path);
+                .or_else(|| rubato_skin::skin_config::SkinConfig::default_for_id(skin_type).path);
             let mut timer = std::mem::take(&mut self.main_data.timer);
             let loaded = {
                 let mut snapshot = self.build_snapshot(&timer);

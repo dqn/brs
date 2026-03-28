@@ -1,6 +1,6 @@
 use super::timer_property::{TimerProperty, TimerPropertyEnum};
 use crate::reexports::MainState;
-use rubato_types::timer_id::TimerId;
+use crate::timer_id::TimerId;
 
 /// Returns a TimerProperty for the given timer ID.
 /// Returns None if timer_id is negative.

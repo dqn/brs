@@ -265,23 +265,23 @@ impl GameScreen {
         delegate!(self, get_image(imageid) -> Option<rubato_render::texture::TextureRegion>)
     }
 
-    pub fn sound(&self, sound: rubato_types::sound_type::SoundType) -> Option<String> {
+    pub fn sound(&self, sound: rubato_skin::sound_type::SoundType) -> Option<String> {
         delegate!(self, sound(sound) -> Option<String>)
     }
 
-    pub fn play_sound(&mut self, sound: rubato_types::sound_type::SoundType) {
+    pub fn play_sound(&mut self, sound: rubato_skin::sound_type::SoundType) {
         delegate!(mut self, play_sound(sound))
     }
 
     pub fn play_sound_loop(
         &mut self,
-        sound: rubato_types::sound_type::SoundType,
+        sound: rubato_skin::sound_type::SoundType,
         loop_sound: bool,
     ) {
         delegate!(mut self, play_sound_loop(sound, loop_sound))
     }
 
-    pub fn stop_sound(&mut self, sound: rubato_types::sound_type::SoundType) {
+    pub fn stop_sound(&mut self, sound: rubato_skin::sound_type::SoundType) {
         delegate!(mut self, stop_sound(sound))
     }
 
@@ -308,7 +308,7 @@ impl GameScreen {
     pub fn receive_updated_play_config(
         &mut self,
         mode: bms::model::mode::Mode,
-        play_config: rubato_types::play_config::PlayConfig,
+        play_config: rubato_skin::play_config::PlayConfig,
     ) {
         delegate!(mut self, receive_updated_play_config(mode, play_config))
     }

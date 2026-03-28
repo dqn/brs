@@ -5,8 +5,8 @@ pub(crate) use crate::core::pixmap_resource_pool::PixmapResourcePool;
 pub(crate) use crate::core::timer_manager::TimerManager;
 pub(crate) use crate::ir::ranking_data;
 pub(crate) use rubato_audio::audio_system::AudioSystem;
-pub(crate) use rubato_types::audio_config::DEFAULT_AUDIO_VOLUME;
-pub(crate) use rubato_types::player_resource_access::{
+pub(crate) use rubato_skin::audio_config::DEFAULT_AUDIO_VOLUME;
+pub(crate) use rubato_skin::player_resource_access::{
     CourseAccess, MediaAccess, SessionMutation, SongAccess,
 };
 
@@ -75,23 +75,23 @@ struct SelectSkinContext<'a> {
     selector: &'a mut MusicSelector,
 }
 
-impl rubato_types::timer_access::TimerAccess for SelectSkinContext<'_> {
+impl rubato_skin::timer_access::TimerAccess for SelectSkinContext<'_> {
     fn now_time(&self) -> i64 {
         self.timer.now_time()
     }
     fn now_micro_time(&self) -> i64 {
         self.timer.now_micro_time()
     }
-    fn micro_timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
+    fn micro_timer(&self, timer_id: rubato_skin::timer_id::TimerId) -> i64 {
         self.timer.micro_timer(timer_id)
     }
-    fn timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
+    fn timer(&self, timer_id: rubato_skin::timer_id::TimerId) -> i64 {
         self.timer.timer(timer_id)
     }
-    fn now_time_for(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
+    fn now_time_for(&self, timer_id: rubato_skin::timer_id::TimerId) -> i64 {
         self.timer.now_time_for_id(timer_id)
     }
-    fn is_timer_on(&self, timer_id: rubato_types::timer_id::TimerId) -> bool {
+    fn is_timer_on(&self, timer_id: rubato_skin::timer_id::TimerId) -> bool {
         self.timer.is_timer_on(timer_id)
     }
 }
@@ -108,11 +108,11 @@ impl SelectSkinContext<'_> {
         self.selected_bar()?.as_directory_bar()
     }
 
-    fn selected_song_data(&self) -> Option<&rubato_types::song_data::SongData> {
+    fn selected_song_data(&self) -> Option<&rubato_skin::song_data::SongData> {
         self.selected_bar()?.as_song_bar().map(|sb| sb.song_data())
     }
 
-    fn selected_score(&self) -> Option<&rubato_types::score_data::ScoreData> {
+    fn selected_score(&self) -> Option<&rubato_skin::score_data::ScoreData> {
         self.selected_bar()?.score()
     }
 
@@ -125,11 +125,11 @@ impl SelectSkinContext<'_> {
         Some(property)
     }
 
-    fn selected_rival_score(&self) -> Option<&rubato_types::score_data::ScoreData> {
+    fn selected_rival_score(&self) -> Option<&rubato_skin::score_data::ScoreData> {
         self.selected_bar()?.rival_score()
     }
 
-    fn player_data(&self) -> Option<&rubato_types::player_data::PlayerData> {
+    fn player_data(&self) -> Option<&rubato_skin::player_data::PlayerData> {
         self.selector
             .player_resource
             .as_ref()
@@ -178,28 +178,28 @@ impl SelectSkinContext<'_> {
     }
 }
 
-impl rubato_types::skin_render_context::SkinRenderContext for SelectSkinContext<'_> {
-    fn current_state_type(&self) -> Option<rubato_types::main_state_type::MainStateType> {
-        Some(rubato_types::main_state_type::MainStateType::MusicSelect)
+impl rubato_skin::skin_render_context::SkinRenderContext for SelectSkinContext<'_> {
+    fn current_state_type(&self) -> Option<rubato_skin::main_state_type::MainStateType> {
+        Some(rubato_skin::main_state_type::MainStateType::MusicSelect)
     }
 
     fn boot_time_millis(&self) -> i64 {
         self.timer.boot_time_millis()
     }
 
-    fn player_config_ref(&self) -> Option<&rubato_types::player_config::PlayerConfig> {
+    fn player_config_ref(&self) -> Option<&rubato_skin::player_config::PlayerConfig> {
         Some(&self.selector.config)
     }
 
-    fn player_config_mut(&mut self) -> Option<&mut rubato_types::player_config::PlayerConfig> {
+    fn player_config_mut(&mut self) -> Option<&mut rubato_skin::player_config::PlayerConfig> {
         Some(&mut self.selector.config)
     }
 
-    fn config_ref(&self) -> Option<&rubato_types::config::Config> {
+    fn config_ref(&self) -> Option<&rubato_skin::config::Config> {
         Some(&self.selector.app_config)
     }
 
-    fn config_mut(&mut self) -> Option<&mut rubato_types::config::Config> {
+    fn config_mut(&mut self) -> Option<&mut rubato_skin::config::Config> {
         Some(&mut self.selector.app_config)
     }
 
@@ -209,15 +209,15 @@ impl rubato_types::skin_render_context::SkinRenderContext for SelectSkinContext<
         }
     }
 
-    fn selected_play_config_mut(&mut self) -> Option<&mut rubato_types::play_config::PlayConfig> {
+    fn selected_play_config_mut(&mut self) -> Option<&mut rubato_skin::play_config::PlayConfig> {
         self.selector.get_selected_play_config_mut()
     }
 
-    fn current_play_config_ref(&self) -> Option<&rubato_types::play_config::PlayConfig> {
+    fn current_play_config_ref(&self) -> Option<&rubato_skin::play_config::PlayConfig> {
         self.selector.get_selected_play_config_ref()
     }
 
-    fn target_score_data(&self) -> Option<&rubato_types::score_data::ScoreData> {
+    fn target_score_data(&self) -> Option<&rubato_skin::score_data::ScoreData> {
         let targetid = &self.selector.config.select_settings.targetid;
         if targetid.starts_with("RIVAL_RANK_") || targetid.starts_with("RIVAL_NEXT_") {
             // RIVAL_RANK_* and RIVAL_NEXT_* require ranked rival data which is
@@ -236,15 +236,15 @@ impl rubato_types::skin_render_context::SkinRenderContext for SelectSkinContext<
         }
     }
 
-    fn score_data_ref(&self) -> Option<&rubato_types::score_data::ScoreData> {
+    fn score_data_ref(&self) -> Option<&rubato_skin::score_data::ScoreData> {
         self.selected_score()
     }
 
-    fn rival_score_data_ref(&self) -> Option<&rubato_types::score_data::ScoreData> {
+    fn rival_score_data_ref(&self) -> Option<&rubato_skin::score_data::ScoreData> {
         self.selected_rival_score()
     }
 
-    fn song_data_ref(&self) -> Option<&rubato_types::song_data::SongData> {
+    fn song_data_ref(&self) -> Option<&rubato_skin::song_data::SongData> {
         self.selected_song_data()
     }
 
@@ -266,7 +266,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for SelectSkinContext<
         Some(self.selector.sort())
     }
 
-    fn set_timer_micro(&mut self, timer_id: rubato_types::timer_id::TimerId, micro_time: i64) {
+    fn set_timer_micro(&mut self, timer_id: rubato_skin::timer_id::TimerId, micro_time: i64) {
         self.timer.set_micro_timer(timer_id, micro_time);
     }
 
@@ -625,17 +625,17 @@ impl rubato_types::skin_render_context::SkinRenderContext for SelectSkinContext<
         }
     }
 
-    fn score_data_property(&self) -> &rubato_types::score_data_property::ScoreDataProperty {
+    fn score_data_property(&self) -> &rubato_skin::score_data_property::ScoreDataProperty {
         &self.selector.cached_score_data_property
     }
 
-    fn get_offset_value(&self, id: i32) -> Option<&rubato_types::skin_offset::SkinOffset> {
+    fn get_offset_value(&self, id: i32) -> Option<&rubato_skin::skin_offset::SkinOffset> {
         self.selector.main_state_data.offsets.get(&id)
     }
 
-    fn get_distribution_data(&self) -> Option<rubato_types::distribution_data::DistributionData> {
+    fn get_distribution_data(&self) -> Option<rubato_skin::distribution_data::DistributionData> {
         let dir = self.selected_directory_data()?;
-        Some(rubato_types::distribution_data::DistributionData {
+        Some(rubato_skin::distribution_data::DistributionData {
             lamps: *dir.lamps(),
             ranks: *dir.ranks(),
         })
@@ -656,28 +656,28 @@ impl<'a> MinimalSkinMainState<'a> {
     }
 }
 
-impl rubato_types::timer_access::TimerAccess for MinimalSkinMainState<'_> {
+impl rubato_skin::timer_access::TimerAccess for MinimalSkinMainState<'_> {
     fn now_time(&self) -> i64 {
         self.timer.now_time()
     }
     fn now_micro_time(&self) -> i64 {
         self.timer.now_micro_time()
     }
-    fn micro_timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
+    fn micro_timer(&self, timer_id: rubato_skin::timer_id::TimerId) -> i64 {
         self.timer.micro_timer(timer_id)
     }
-    fn timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
+    fn timer(&self, timer_id: rubato_skin::timer_id::TimerId) -> i64 {
         self.timer.timer(timer_id)
     }
-    fn now_time_for(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
+    fn now_time_for(&self, timer_id: rubato_skin::timer_id::TimerId) -> i64 {
         self.timer.now_time_for(timer_id)
     }
-    fn is_timer_on(&self, timer_id: rubato_types::timer_id::TimerId) -> bool {
+    fn is_timer_on(&self, timer_id: rubato_skin::timer_id::TimerId) -> bool {
         self.timer.is_timer_on(timer_id)
     }
 }
 
-impl rubato_types::skin_render_context::SkinRenderContext for MinimalSkinMainState<'_> {}
+impl rubato_skin::skin_render_context::SkinRenderContext for MinimalSkinMainState<'_> {}
 
 impl rubato_skin::reexports::MainState for MinimalSkinMainState<'_> {}
 
@@ -798,9 +798,9 @@ pub struct MusicSelector {
     /// Song information database.
     pub info_database: Option<Box<dyn crate::song_information_db::SongInformationDb>>,
     /// Rival player information.
-    pub rivals: Vec<rubato_types::player_information::PlayerInformation>,
+    pub rivals: Vec<rubato_skin::player_information::PlayerInformation>,
     /// Sound paths (SoundType -> path).
-    pub sound_paths: std::collections::HashMap<rubato_types::sound_type::SoundType, String>,
+    pub sound_paths: std::collections::HashMap<rubato_skin::sound_type::SoundType, String>,
     /// HTTP download submitter for chart download tasks.
     pub http_downloader:
         Option<std::sync::Arc<dyn crate::http_download_submitter::HttpDownloadSubmitter>>,
@@ -814,9 +814,9 @@ pub struct MusicSelector {
     /// Outbox: pending shuffle sounds request.
     pending_shuffle_sounds: bool,
     /// Outbox: pending IPFS download requests.
-    pub(crate) pending_start_ipfs: Vec<rubato_types::song_data::SongData>,
+    pub(crate) pending_start_ipfs: Vec<rubato_skin::song_data::SongData>,
     /// Outbox: pending load new profile.
-    pending_load_new_profile: Option<rubato_types::player_config::PlayerConfig>,
+    pending_load_new_profile: Option<rubato_skin::player_config::PlayerConfig>,
     /// Outbox: pending save config request.
     pending_save_config: bool,
     /// Outbox: pending exit request.
@@ -838,7 +838,7 @@ pub struct MusicSelector {
     /// Outbox: pending audio path stops.
     pending_audio_path_stops: Vec<String>,
     /// Outbox: pending audio config update.
-    pending_audio_config: Option<rubato_types::audio_config::AudioConfig>,
+    pending_audio_config: Option<rubato_skin::audio_config::AudioConfig>,
 
     /// Dirty flag for PlayerConfig changes made on the select screen.
     /// Set by play_option_change() and cleared by take_pending_player_config_update().
@@ -850,13 +850,13 @@ pub struct MusicSelector {
 
     /// Cached target score for skin property display on the select screen.
     /// Recomputed each frame based on config.select_settings.targetid and selected song notes.
-    cached_target_score: Option<rubato_types::score_data::ScoreData>,
+    cached_target_score: Option<rubato_skin::score_data::ScoreData>,
 
     /// Cached ScoreDataProperty for skin property delegation on the select screen.
     /// Updated before each render from the currently selected bar's score data.
     /// Java: MusicSelector inherits MainState.getScoreDataProperty() which Lua skins
     /// call for main_state.rate()/exscore() etc.
-    cached_score_data_property: rubato_types::score_data_property::ScoreDataProperty,
+    cached_score_data_property: rubato_skin::score_data_property::ScoreDataProperty,
 
     /// Pending IR ranking fetch result (song).
     /// Stores (requested SongData, lnmode, receiver) so the result is cached under the correct key.

@@ -3,7 +3,7 @@ use super::gdx_key_name::gdx_key_name;
 use crate::core::main_state::MainStateData;
 use crate::core::timer_manager::TimerManager;
 use bms::model::mode::Mode;
-use rubato_types::play_mode_config::{
+use rubato_skin::play_mode_config::{
     KeyboardConfig, MidiConfig, MidiInput, MidiInputType, PlayModeConfig,
 };
 

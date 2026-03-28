@@ -114,9 +114,9 @@ impl VideoConfigurationView {
             config.integration.monitor_name = m.clone();
         }
         // config.setBga(bgaOp.getSelectionModel().getSelectedIndex());
-        config.render.bga = rubato_types::config::BgaMode::from(self.bga_op);
+        config.render.bga = rubato_skin::config::BgaMode::from(self.bga_op);
         // config.setBgaExpand(bgaExpand.getSelectionModel().getSelectedIndex());
-        config.render.bga_expand = rubato_types::config::BgaExpand::from(self.bga_expand);
+        config.render.bga_expand = rubato_skin::config::BgaExpand::from(self.bga_expand);
         // config.setMaxFramePerSecond(maxFps.getValue());
         config.display.max_frame_per_second = self.max_fps;
     }
@@ -422,7 +422,7 @@ mod tests {
     fn update_and_commit_player_roundtrip() {
         let mut view = VideoConfigurationView::default();
         let mut player = PlayerConfig {
-            display_settings: rubato_types::player_config::DisplaySettings {
+            display_settings: rubato_skin::player_config::DisplaySettings {
                 misslayer_duration: 500,
                 ..Default::default()
             },

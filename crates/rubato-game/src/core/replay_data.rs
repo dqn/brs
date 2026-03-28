@@ -1,10 +1,10 @@
-pub use rubato_types::replay_data::*;
+pub use rubato_skin::replay_data::*;
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::core::validatable::Validatable;
-    use rubato_types::KeyInputLog;
+    use rubato_skin::KeyInputLog;
 
     #[test]
     fn test_replay_data_new() {
@@ -176,7 +176,7 @@ mod tests {
 
     #[test]
     fn test_replay_data_with_pattern() {
-        use rubato_types::PatternModifyLog;
+        use rubato_skin::PatternModifyLog;
 
         let mut rd = ReplayData::new();
         rd.pattern = Some(vec![

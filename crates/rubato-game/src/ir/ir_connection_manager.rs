@@ -3,7 +3,7 @@ use std::sync::Mutex;
 use log::warn;
 
 use crate::ir::ir_connection::IRConnection;
-use rubato_types::sync_utils::lock_or_recover;
+use rubato_skin::sync_utils::lock_or_recover;
 
 /// Registry entry for an IR connection implementation
 pub struct IRConnectionEntry {

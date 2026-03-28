@@ -10,9 +10,9 @@ use rubato_game::core::main_controller::{MainController, StateCreator};
 use rubato_game::core::player_config::PlayerConfig;
 use rubato_game::core::player_resource::PlayerResource;
 use rubato_render::sprite_batch::CapturedDrawQuad;
-use rubato_types::app_event::AppEvent;
-use rubato_types::main_state_type::MainStateType;
-use rubato_types::state_event::StateEvent;
+use rubato_skin::app_event::AppEvent;
+use rubato_skin::main_state_type::MainStateType;
+use rubato_skin::state_event::StateEvent;
 
 /// One frame at 60 fps in microseconds (1_000_000 / 60 = 16_667, truncated).
 pub const FRAME_DURATION_US: i64 = 16_667;
@@ -271,7 +271,7 @@ impl E2eHarness {
     ///
     /// During Play/Result states, player_resource() is None because the resource
     /// is owned by the active state. Fall back to the state's score_data_property.
-    pub fn score_data(&self) -> Option<&rubato_types::score_data::ScoreData> {
+    pub fn score_data(&self) -> Option<&rubato_skin::score_data::ScoreData> {
         if let Some(sd) = self
             .controller
             .player_resource()

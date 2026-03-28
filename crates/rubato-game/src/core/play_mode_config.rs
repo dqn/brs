@@ -1,1 +1,1 @@
-pub use rubato_types::play_mode_config::*;
+pub use rubato_skin::play_mode_config::*;

@@ -55,7 +55,7 @@ impl MainController {
         self.ctx.timer.now_time()
     }
 
-    pub fn now_time_for_id(&self, id: rubato_types::timer_id::TimerId) -> i64 {
+    pub fn now_time_for_id(&self, id: rubato_skin::timer_id::TimerId) -> i64 {
         self.ctx.timer.now_time_for_id(id)
     }
 
@@ -63,35 +63,35 @@ impl MainController {
         self.ctx.timer.now_micro_time()
     }
 
-    pub fn now_micro_time_for_id(&self, id: rubato_types::timer_id::TimerId) -> i64 {
+    pub fn now_micro_time_for_id(&self, id: rubato_skin::timer_id::TimerId) -> i64 {
         self.ctx.timer.now_micro_time_for_id(id)
     }
 
-    pub fn timer_value(&self, id: rubato_types::timer_id::TimerId) -> i64 {
+    pub fn timer_value(&self, id: rubato_skin::timer_id::TimerId) -> i64 {
         self.micro_timer(id) / 1000
     }
 
-    pub fn micro_timer(&self, id: rubato_types::timer_id::TimerId) -> i64 {
+    pub fn micro_timer(&self, id: rubato_skin::timer_id::TimerId) -> i64 {
         self.ctx.timer.micro_timer(id)
     }
 
-    pub fn is_timer_on(&self, id: rubato_types::timer_id::TimerId) -> bool {
+    pub fn is_timer_on(&self, id: rubato_skin::timer_id::TimerId) -> bool {
         self.micro_timer(id) != i64::MIN
     }
 
-    pub fn set_timer_on(&mut self, id: rubato_types::timer_id::TimerId) {
+    pub fn set_timer_on(&mut self, id: rubato_skin::timer_id::TimerId) {
         self.ctx.timer.set_timer_on(id);
     }
 
-    pub fn set_timer_off(&mut self, id: rubato_types::timer_id::TimerId) {
+    pub fn set_timer_off(&mut self, id: rubato_skin::timer_id::TimerId) {
         self.set_micro_timer(id, i64::MIN);
     }
 
-    pub fn set_micro_timer(&mut self, id: rubato_types::timer_id::TimerId, microtime: i64) {
+    pub fn set_micro_timer(&mut self, id: rubato_skin::timer_id::TimerId, microtime: i64) {
         self.ctx.timer.set_micro_timer(id, microtime);
     }
 
-    pub fn switch_timer(&mut self, id: rubato_types::timer_id::TimerId, on: bool) {
+    pub fn switch_timer(&mut self, id: rubato_skin::timer_id::TimerId, on: bool) {
         self.ctx.timer.switch_timer(id, on);
     }
 
@@ -498,7 +498,7 @@ impl MainController {
     /// Translated from: Java MainController.setTargetList()
     ///
     /// Builds target list from player config + rival targets, then resolves
-    /// display names via rubato_types::target_list.
+    /// display names via rubato_skin::target_list.
     pub fn set_target_list(&mut self) {
         // Build target list: player's target list + rival targets
         let mut targetlist: Vec<String> = self.ctx.player.select_settings.targetlist.clone();
@@ -507,17 +507,17 @@ impl MainController {
         }
 
         // Resolve display names for each target ID
-        let rivals: Vec<rubato_types::player_information::PlayerInformation> =
+        let rivals: Vec<rubato_skin::player_information::PlayerInformation> =
             (0..self.ctx.db.rivals.rival_count())
                 .filter_map(|i| self.ctx.db.rivals.rival_information(i).cloned())
                 .collect();
         let names: Vec<String> = targetlist
             .iter()
-            .map(|id| rubato_types::target_list::resolve_target_name(id, &rivals).into_owned())
+            .map(|id| rubato_skin::target_list::resolve_target_name(id, &rivals).into_owned())
             .collect();
 
-        rubato_types::target_list::set_target_ids(targetlist);
-        rubato_types::target_list::set_target_names(names);
+        rubato_skin::target_list::set_target_ids(targetlist);
+        rubato_skin::target_list::set_target_names(names);
     }
 
     /// Periodically save config if enough time has elapsed.

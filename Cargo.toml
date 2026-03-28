@@ -6,7 +6,6 @@ members = [
     "crates/rubato-game",
     "crates/rubato-skin",
     "crates/rubato-bin",
-    "crates/rubato-types",
     "crates/rubato-render",
     "crates/rubato-e2e",
     "golden-master",
@@ -24,7 +23,6 @@ rubato-input = { path = "crates/rubato-input" }
 rubato-audio = { path = "crates/rubato-audio" }
 rubato-game = { path = "crates/rubato-game" }
 rubato-skin = { path = "crates/rubato-skin" }
-rubato-types = { path = "crates/rubato-types" }
 
 # Error handling
 anyhow = "1"

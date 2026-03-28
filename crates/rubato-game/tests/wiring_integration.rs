@@ -14,7 +14,7 @@ use rubato_game::core::main_loader::MainLoader;
 use rubato_game::core::main_state::MainStateType;
 use rubato_game::core::player_config::PlayerConfig;
 use rubato_game::state_factory::LauncherStateFactory;
-use rubato_types::app_event::AppEvent;
+use rubato_skin::app_event::AppEvent;
 
 // ---------------------------------------------------------------------------
 // Helper: create controller via MainLoader::play() (production path)

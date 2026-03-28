@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use rubato_types::timer_id::TimerId;
+use rubato_skin::timer_id::TimerId;
 
 /// TimerManager - manages timing for the application
 ///
@@ -19,7 +19,7 @@ pub struct TimerManager {
     /// Timer array, indexed by timer ID
     timer: Vec<i64>,
     /// Current main state type, set by MainController before skin draw
-    pub state_type: Option<rubato_types::main_state_type::MainStateType>,
+    pub state_type: Option<rubato_skin::main_state_type::MainStateType>,
     /// Recent judge timing offsets (milliseconds), set by BMSPlayer::render()
     recent_judges: Vec<i64>,
     /// Current write index into recent_judges circular buffer
@@ -39,7 +39,7 @@ impl TimerManager {
         let timer = vec![i64::MIN; TIMER_COUNT];
         Self {
             starttime: Instant::now(),
-            start_mono_micros: rubato_types::monotonic_clock::monotonic_micros(),
+            start_mono_micros: rubato_skin::monotonic_clock::monotonic_micros(),
             nowmicrotime: 0,
             frozen: false,
             timer,
@@ -168,7 +168,7 @@ impl TimerManager {
             *t = i64::MIN;
         }
         self.starttime = Instant::now();
-        self.start_mono_micros = rubato_types::monotonic_clock::monotonic_micros();
+        self.start_mono_micros = rubato_skin::monotonic_clock::monotonic_micros();
         self.nowmicrotime = self.starttime.elapsed().as_micros() as i64;
     }
     pub fn recent_judges(&self) -> &[i64] {
@@ -197,7 +197,7 @@ impl Default for TimerManager {
     }
 }
 
-impl rubato_types::timer_access::TimerAccess for TimerManager {
+impl rubato_skin::timer_access::TimerAccess for TimerManager {
     fn now_time(&self) -> i64 {
         self.now_time()
     }
@@ -223,8 +223,8 @@ impl rubato_types::timer_access::TimerAccess for TimerManager {
     }
 }
 
-impl rubato_types::skin_render_context::SkinRenderContext for TimerManager {
-    fn current_state_type(&self) -> Option<rubato_types::main_state_type::MainStateType> {
+impl rubato_skin::skin_render_context::SkinRenderContext for TimerManager {
+    fn current_state_type(&self) -> Option<rubato_skin::main_state_type::MainStateType> {
         self.state_type
     }
 
@@ -392,7 +392,7 @@ mod tests {
 
     #[test]
     fn boot_time_millis_exposed_via_skin_render_context() {
-        use rubato_types::skin_render_context::SkinRenderContext;
+        use rubato_skin::skin_render_context::SkinRenderContext;
         let mut tm = TimerManager::new();
         tm.set_boot_time_millis(7_200_000); // 2 hours
         assert_eq!(SkinRenderContext::boot_time_millis(&tm), 7_200_000);

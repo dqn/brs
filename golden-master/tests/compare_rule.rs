@@ -13,9 +13,9 @@ use golden_master::rule_fixtures::{
     GaugePropertyFixture, GaugeSequenceFixture, JudgeWindowFixture,
 };
 use rubato_game::play::judge_property::{self, JudgeProperty, NoteType};
-use rubato_types::clear_type::ClearType;
-use rubato_types::gauge_property::GaugeProperty;
-use rubato_types::groove_gauge::Gauge;
+use rubato_skin::clear_type::ClearType;
+use rubato_skin::gauge_property::GaugeProperty;
+use rubato_skin::groove_gauge::Gauge;
 
 fn fixtures_dir() -> &'static Path {
     Path::new(env!("CARGO_MANIFEST_DIR"))

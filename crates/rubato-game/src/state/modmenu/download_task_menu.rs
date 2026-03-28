@@ -5,7 +5,7 @@ use crate::song::md_processor::http_download_processor::HttpDownloadProcessor;
 
 use super::imgui_renderer;
 use crate::song::md_processor::download_task_state::DownloadTaskState;
-use rubato_types::sync_utils::lock_or_recover;
+use rubato_skin::sync_utils::lock_or_recover;
 
 pub const MAXIMUM_TASK_NAME_LENGTH: usize = 10;
 

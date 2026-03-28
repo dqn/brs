@@ -3,7 +3,7 @@
 
 use std::path::PathBuf;
 
-use rubato_types::offset_capabilities::OffsetCapabilities;
+use crate::offset_capabilities::OffsetCapabilities;
 
 use crate::reexports::{Resolution, SkinConfigOffset};
 use crate::skin_property;

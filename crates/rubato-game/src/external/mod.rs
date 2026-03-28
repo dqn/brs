@@ -51,7 +51,7 @@ pub use crate::imgui_notify::ImGuiNotify;
 pub use crate::song::song_data::SongData;
 pub use crate::song_database_accessor::SongDatabaseAccessor;
 pub use bms::model::mode::Mode;
-pub use rubato_types::screen_type::ScreenType;
+pub use rubato_skin::screen_type::ScreenType;
 
 pub use crate::external::clipboard_helper::ClipboardHelper;
 pub use crate::external::main_state_adapter::MainState;

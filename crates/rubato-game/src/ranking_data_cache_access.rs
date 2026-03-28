@@ -1,7 +1,7 @@
 use std::any::Any;
 
-use rubato_types::course_data::CourseData;
-use rubato_types::song_data::SongData;
+use rubato_skin::course_data::CourseData;
+use rubato_skin::song_data::SongData;
 
 /// Trait bridge for IR ranking data cache operations.
 /// Implemented in beatoraja-ir (RankingDataCache), consumed by beatoraja-core and beatoraja-select.

@@ -5,8 +5,8 @@
 use crate::gdx_compat;
 use crate::keyboard_input_processor::KeyboardCallback;
 use crate::winit_input_bridge::SharedKeyState;
-use rubato_types::play_mode_config::KeyboardConfig;
-use rubato_types::play_mode_config::{MOUSE_SCRATCH_VER_1, MOUSE_SCRATCH_VER_2};
+use rubato_skin::play_mode_config::KeyboardConfig;
+use rubato_skin::play_mode_config::{MOUSE_SCRATCH_VER_1, MOUSE_SCRATCH_VER_2};
 
 const _MOUSESCRATCH_RIGHT: usize = 0;
 const _MOUSESCRATCH_LEFT: usize = 1;

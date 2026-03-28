@@ -1,9 +1,9 @@
 use super::event::Event;
 use crate::skin_property;
 
-use rubato_types::bms_player_mode::BMSPlayerMode;
-use rubato_types::event_id::EventId;
-use rubato_types::main_state_type::MainStateType;
+use crate::bms_player_mode::BMSPlayerMode;
+use crate::event_id::EventId;
+use crate::main_state_type::MainStateType;
 
 // ============================================================
 // Public factory API
@@ -264,7 +264,7 @@ static EVENT_TYPES: &[EventTypeEntry] = &[
             Box::new(ConfigCycleEvent {
                 event_id: EventId(72),
                 get: |c| c.render.bga as i32,
-                set: |c, v| c.render.bga = rubato_types::config::BgaMode::from(v),
+                set: |c, v| c.render.bga = crate::config::BgaMode::from(v),
                 count: 3,
             })
         },
@@ -276,7 +276,7 @@ static EVENT_TYPES: &[EventTypeEntry] = &[
             Box::new(ConfigCycleEvent {
                 event_id: EventId(73),
                 get: |c| c.render.bga_expand as i32,
-                set: |c, v| c.render.bga_expand = rubato_types::config::BgaExpand::from(v),
+                set: |c, v| c.render.bga_expand = crate::config::BgaExpand::from(v),
                 count: 3,
             })
         },
@@ -830,7 +830,7 @@ use event_impls::*;
 #[cfg(test)]
 use crate::reexports::MainState;
 #[cfg(test)]
-use rubato_types::play_config;
+use crate::play_config;
 
 #[cfg(test)]
 mod tests;

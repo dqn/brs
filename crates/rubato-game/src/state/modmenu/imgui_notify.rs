@@ -1,7 +1,7 @@
 use super::font_awesome_icons;
 use super::imgui_renderer;
 
-use rubato_types::sync_utils::lock_or_recover;
+use rubato_skin::sync_utils::lock_or_recover;
 use std::fmt;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};

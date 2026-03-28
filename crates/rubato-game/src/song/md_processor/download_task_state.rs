@@ -5,7 +5,7 @@ use std::time::Instant;
 use super::download_task::{DownloadTask, DownloadTaskStatus};
 use super::http_download_processor::HttpDownloadProcessor;
 
-use rubato_types::sync_utils::lock_or_recover;
+use rubato_skin::sync_utils::lock_or_recover;
 use std::sync::OnceLock;
 
 /// Global state for running and expired download tasks.

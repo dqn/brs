@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use rubato_render::sprite_batch::SpriteBatch;
-use rubato_types::skin_offset::SkinOffset;
+use crate::skin_offset::SkinOffset;
 
 /// Abstracts the beatoraja-skin Skin type so that beatoraja-core can call
 /// skin drawing methods without depending on the skin crate (circular dep).
@@ -15,19 +15,19 @@ pub trait SkinDrawable: Send {
     /// (event execution, state changes, audio, timer writes).
     fn draw_all_objects_timed(
         &mut self,
-        ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        ctx: &mut dyn crate::skin_render_context::SkinRenderContext,
     );
 
     /// Update custom timers and events.
     fn update_custom_objects_timed(
         &mut self,
-        ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        ctx: &mut dyn crate::skin_render_context::SkinRenderContext,
     );
 
     /// Handle mouse press events (reverse order iteration).
     fn mouse_pressed_at(
         &mut self,
-        ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        ctx: &mut dyn crate::skin_render_context::SkinRenderContext,
         button: i32,
         x: i32,
         y: i32,
@@ -36,14 +36,14 @@ pub trait SkinDrawable: Send {
     /// Handle mouse drag events (slider objects only).
     fn mouse_dragged_at(
         &mut self,
-        ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        ctx: &mut dyn crate::skin_render_context::SkinRenderContext,
         button: i32,
         x: i32,
         y: i32,
     );
 
     /// Prepare skin for rendering: validate objects, build draw list, load resources.
-    fn prepare_skin(&mut self, state_type: Option<rubato_types::main_state_type::MainStateType>);
+    fn prepare_skin(&mut self, state_type: Option<crate::main_state_type::MainStateType>);
 
     /// Dispose all skin objects and release resources.
     fn dispose_skin(&mut self);
@@ -63,8 +63,8 @@ pub trait SkinDrawable: Send {
     fn compute_note_draw_commands(
         &mut self,
         _compute: &mut dyn FnMut(
-            &[rubato_types::skin_note::SkinLane],
-        ) -> Vec<rubato_types::draw_command::DrawCommand>,
+            &[crate::skin_note::SkinLane],
+        ) -> Vec<crate::draw_command::DrawCommand>,
     ) {
         // default no-op
     }
@@ -91,7 +91,7 @@ pub trait SkinDrawable: Send {
     /// Returns the skin's offset config entries as (id, SkinOffset) pairs.
     /// Used by MainController to copy skin config offsets into the runtime offset array
     /// after skin loading (Java: MainState.setSkin() copies skin.getOffset() into main.offset[]).
-    fn offset_entries(&self) -> Vec<(i32, rubato_types::skin_offset::SkinOffset)> {
+    fn offset_entries(&self) -> Vec<(i32, crate::skin_offset::SkinOffset)> {
         Vec::new()
     }
 
@@ -101,7 +101,7 @@ pub trait SkinDrawable: Send {
     /// where the skin was borrowed and could not dispatch events directly.
     fn execute_custom_event(
         &mut self,
-        _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin_render_context::SkinRenderContext,
         _id: i32,
         _arg1: i32,
         _arg2: i32,

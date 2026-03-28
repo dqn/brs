@@ -17,15 +17,15 @@ pub use rubato_skin::skin_header::{
     SkinHeader, TYPE_LR2SKIN,
 };
 pub use rubato_skin::skin_property::OPTION_RANDOM_VALUE;
-pub use rubato_types::player_config::PlayerConfig;
-pub use rubato_types::player_config::read_all_player_id;
-pub use rubato_types::skin_config::{
+pub use rubato_skin::player_config::PlayerConfig;
+pub use rubato_skin::player_config::read_all_player_id;
+pub use rubato_skin::skin_config::{
     SkinConfig, SkinFilePath, SkinOffset, SkinOption, SkinProperty,
 };
-pub use rubato_types::skin_type::SkinType;
-pub use rubato_types::song_data::SongData;
-pub use rubato_types::song_selection_access::SongSelectionAccess;
-pub use rubato_types::validatable::Validatable;
+pub use rubato_skin::skin_type::SkinType;
+pub use rubato_skin::song_data::SongData;
+pub use rubato_skin::song_selection_access::SongSelectionAccess;
+pub use rubato_skin::validatable::Validatable;
 
 // Skin loaders
 pub use rubato_skin::json::json_skin_loader::JSONSkinLoader;

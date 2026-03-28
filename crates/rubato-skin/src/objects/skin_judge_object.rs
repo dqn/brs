@@ -14,7 +14,7 @@ use crate::types::skin_object::{DestinationParams, SkinObjectData, SkinObjectRen
 /// judge image and combo number based on the current judge state.
 pub struct SkinJudgeObject {
     pub data: SkinObjectData,
-    pub inner: rubato_types::skin_judge::SkinJudge,
+    pub inner: crate::skin_judge::SkinJudge,
     /// Judge images (7 types: PG, GR, GD, BD, PR, MS, PG+MAX)
     judge_images: [Option<SkinImage>; 7],
     /// Judge count numbers (7 types)
@@ -52,7 +52,7 @@ impl SkinJudgeObject {
         );
         Self {
             data,
-            inner: rubato_types::skin_judge::SkinJudge::new(player, shift),
+            inner: crate::skin_judge::SkinJudge::new(player, shift),
             judge_images: Default::default(),
             judge_counts: Default::default(),
             now_judge_idx: None,
@@ -253,28 +253,28 @@ mod tests {
         }
     }
 
-    impl rubato_types::timer_access::TimerAccess for JudgeMockState {
+    impl crate::timer_access::TimerAccess for JudgeMockState {
         fn now_time(&self) -> i64 {
             self.timer.now_time()
         }
         fn now_micro_time(&self) -> i64 {
             self.timer.now_micro_time()
         }
-        fn micro_timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
+        fn micro_timer(&self, timer_id: crate::timer_id::TimerId) -> i64 {
             self.timer.micro_timer(timer_id)
         }
-        fn timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
+        fn timer(&self, timer_id: crate::timer_id::TimerId) -> i64 {
             self.timer.timer(timer_id)
         }
-        fn now_time_for(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
+        fn now_time_for(&self, timer_id: crate::timer_id::TimerId) -> i64 {
             self.timer.now_time_for(timer_id)
         }
-        fn is_timer_on(&self, timer_id: rubato_types::timer_id::TimerId) -> bool {
+        fn is_timer_on(&self, timer_id: crate::timer_id::TimerId) -> bool {
             self.timer.is_timer_on(timer_id)
         }
     }
 
-    impl rubato_types::skin_render_context::SkinRenderContext for JudgeMockState {
+    impl crate::skin_render_context::SkinRenderContext for JudgeMockState {
         fn now_judge(&self, _player: i32) -> i32 {
             self.now_judge
         }

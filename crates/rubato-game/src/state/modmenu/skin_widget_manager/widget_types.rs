@@ -2,7 +2,7 @@ use super::super::imgui_notify::ImGuiNotify;
 use super::super::{SkinObject, SkinObjectDestination};
 use super::{EPS, EVENT_HISTORY};
 
-use rubato_types::sync_utils::lock_or_recover;
+use rubato_skin::sync_utils::lock_or_recover;
 use std::collections::HashMap;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

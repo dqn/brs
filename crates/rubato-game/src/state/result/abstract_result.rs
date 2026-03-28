@@ -190,7 +190,7 @@ pub struct AbstractResultData {
     pub score: ScoreDataProperty,
     /// Cached rubato_types version of timing_distribution for SkinRenderContext.
     /// Updated via `sync_timing_distribution_cache()` after statistics are calculated.
-    pub timing_distribution_cache: rubato_types::timing_distribution::TimingDistribution,
+    pub timing_distribution_cache: rubato_skin::timing_distribution::TimingDistribution,
 }
 
 impl AbstractResultData {
@@ -210,14 +210,14 @@ impl AbstractResultData {
             oldscore: ScoreData::default(),
             score: ScoreDataProperty::new(),
             timing_distribution_cache:
-                rubato_types::timing_distribution::TimingDistribution::default(),
+                rubato_skin::timing_distribution::TimingDistribution::default(),
         }
     }
 
     /// Synchronize the rubato_types TimingDistribution cache from the local
     /// TimingDistribution data. Call this after `statistic_value_calculate()`.
     pub fn sync_timing_distribution_cache(&mut self) {
-        self.timing_distribution_cache = rubato_types::timing_distribution::TimingDistribution {
+        self.timing_distribution_cache = rubato_skin::timing_distribution::TimingDistribution {
             distribution: self.timing_distribution.timing_distribution().to_vec(),
             array_center: self.timing_distribution.array_center(),
             average: self.timing_distribution.average(),

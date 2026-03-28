@@ -8,9 +8,9 @@ use crate::state::select::skin_bar::SkinBar;
 use crate::test_support::TestSongDb;
 use rubato_audio::recording_audio_driver::RecordingAudioDriver;
 use rubato_skin::skin_text::SkinTextEnum;
-use rubato_types::skin_config::SkinConfig;
-use rubato_types::skin_render_context::SkinRenderContext;
-use rubato_types::skin_type::SkinType;
+use rubato_skin::skin_config::SkinConfig;
+use rubato_skin::skin_render_context::SkinRenderContext;
+use rubato_skin::skin_type::SkinType;
 
 fn make_song_data(sha256: &str, path: Option<&str>) -> SongData {
     let mut sd = SongData::default();
@@ -44,15 +44,15 @@ fn ecfn_player_config() -> PlayerConfig {
 
 #[derive(Default)]
 struct MockSongInfoDb {
-    info: Option<rubato_types::song_information::SongInformation>,
+    info: Option<rubato_skin::song_information::SongInformation>,
 }
 
 impl crate::song_information_db::SongInformationDb for MockSongInfoDb {
-    fn informations(&self, _sql: &str) -> Vec<rubato_types::song_information::SongInformation> {
+    fn informations(&self, _sql: &str) -> Vec<rubato_skin::song_information::SongInformation> {
         self.info.clone().into_iter().collect()
     }
 
-    fn information(&self, sha256: &str) -> Option<rubato_types::song_information::SongInformation> {
+    fn information(&self, sha256: &str) -> Option<rubato_skin::song_information::SongInformation> {
         self.info
             .as_ref()
             .filter(|info| info.sha256 == sha256)
@@ -350,7 +350,7 @@ fn test_create_loads_selected_song_score_and_info_from_main_access() {
     score.playcount = 4;
     score.clearcount = 2;
 
-    let info = rubato_types::song_information::SongInformation {
+    let info = rubato_skin::song_information::SongInformation {
         sha256: song.file.sha256.clone(),
         mainbpm: 150.0,
         ..Default::default()
@@ -436,7 +436,7 @@ fn test_set_panel_state_timers() {
         selector
             .main_state_data
             .timer
-            .is_timer_on(rubato_types::timer_id::TimerId::new(
+            .is_timer_on(rubato_skin::timer_id::TimerId::new(
                 skin_property::TIMER_PANEL1_ON.as_i32() + 1
             ))
     );
@@ -448,7 +448,7 @@ fn test_set_panel_state_timers() {
         selector
             .main_state_data
             .timer
-            .is_timer_on(rubato_types::timer_id::TimerId::new(
+            .is_timer_on(rubato_skin::timer_id::TimerId::new(
                 skin_property::TIMER_PANEL1_OFF.as_i32() + 1
             ))
     );
@@ -657,7 +657,7 @@ fn test_render_skin_draws_ecfn_songlist_bitmap_bartext_quads() {
         .as_mut()
         .expect("ECFN select skin should load")
         .prepare_skin(Some(
-            rubato_types::main_state_type::MainStateType::MusicSelect,
+            rubato_skin::main_state_type::MainStateType::MusicSelect,
         ));
     assert!(
         matches!(
@@ -1001,19 +1001,19 @@ struct ChangeStateSkin;
 impl crate::core::main_state::SkinDrawable for ChangeStateSkin {
     fn draw_all_objects_timed(
         &mut self,
-        _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
     ) {
     }
 
     fn update_custom_objects_timed(
         &mut self,
-        _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
     ) {
     }
 
     fn mouse_pressed_at(
         &mut self,
-        ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
         _button: i32,
         _x: i32,
         _y: i32,
@@ -1023,14 +1023,14 @@ impl crate::core::main_state::SkinDrawable for ChangeStateSkin {
 
     fn mouse_dragged_at(
         &mut self,
-        _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
         _button: i32,
         _x: i32,
         _y: i32,
     ) {
     }
 
-    fn prepare_skin(&mut self, _state_type: Option<rubato_types::main_state_type::MainStateType>) {}
+    fn prepare_skin(&mut self, _state_type: Option<rubato_skin::main_state_type::MainStateType>) {}
     fn dispose_skin(&mut self) {}
     fn fadeout(&self) -> i32 {
         0
@@ -1957,7 +1957,7 @@ fn float_value_unmatched_id_delegates_to_default_float_value() {
     let mut selector = MusicSelector::new();
 
     let mut song = make_song_data("density-test", Some("/test/density.bms"));
-    let mut info = rubato_types::song_information::SongInformation::default();
+    let mut info = rubato_skin::song_information::SongInformation::default();
     info.peakdensity = 5.25;
     info.enddensity = 3.75;
     info.density = 4.0;
@@ -2133,7 +2133,7 @@ fn integer_value_92_mainbpm_returns_value_when_info_present() {
     let mut selector = MusicSelector::new();
     let mut song = make_song_data("mainbpm-test2", Some("/test/mainbpm2.bms"));
     song.chart.maxbpm = 180;
-    song.info = Some(rubato_types::song_information::SongInformation {
+    song.info = Some(rubato_skin::song_information::SongInformation {
         mainbpm: 150.0,
         ..Default::default()
     });
@@ -2610,7 +2610,7 @@ fn set_float_value_volume_propagates_to_pending_audio_config() {
     // Regression: volume slider changes (IDs 17/18/19) on select screen must propagate
     // via the outbox pattern (pending_audio_config), not just modify the local clone.
     let mut selector = MusicSelector::new();
-    selector.app_config.audio = Some(rubato_types::audio_config::AudioConfig::default());
+    selector.app_config.audio = Some(rubato_skin::audio_config::AudioConfig::default());
 
     let mut timer = TimerManager::new();
     {

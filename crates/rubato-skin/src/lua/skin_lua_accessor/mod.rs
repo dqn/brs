@@ -9,7 +9,7 @@ use std::sync::Arc;
 use mlua::StdLib;
 use mlua::prelude::*;
 
-use rubato_types::property_snapshot::PropertySnapshot;
+use crate::property_snapshot::PropertySnapshot;
 
 use crate::lua::event_utility::EventUtility;
 use crate::lua::main_state_accessor::{MainStateAccessor, SnapshotAccessor};

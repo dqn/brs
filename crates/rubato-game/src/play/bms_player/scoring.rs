@@ -1,5 +1,5 @@
 use super::*;
-use rubato_types::sync_utils::lock_or_recover;
+use rubato_skin::sync_utils::lock_or_recover;
 
 impl BMSPlayer {
     /// Sync judge states from JudgeManager's internal note_states back to the
@@ -109,7 +109,7 @@ impl BMSPlayer {
             if self.media_load_finished {
                 self.pending.pending_stop_all_notes = true;
             }
-            self.queue_sound(rubato_types::sound_type::SoundType::PlayStop);
+            self.queue_sound(rubato_skin::sound_type::SoundType::PlayStop);
             log::info!("PlayState::Failed");
         }
     }
@@ -268,13 +268,13 @@ impl BMSPlayer {
         // Java: score.setDeviceType(main.getInputProcessor().getDeviceType());
         score.play_option.device_type = Some(match device_type {
             rubato_input::bms_player_input_device::DeviceType::Keyboard => {
-                rubato_types::bms_player_input_device::Type::KEYBOARD
+                rubato_skin::bms_player_input_device::Type::KEYBOARD
             }
             rubato_input::bms_player_input_device::DeviceType::BmController => {
-                rubato_types::bms_player_input_device::Type::BM_CONTROLLER
+                rubato_skin::bms_player_input_device::Type::BM_CONTROLLER
             }
             rubato_input::bms_player_input_device::DeviceType::Midi => {
-                rubato_types::bms_player_input_device::Type::MIDI
+                rubato_skin::bms_player_input_device::Type::MIDI
             }
         });
         score.play_option.skin = self.skin_name.clone();
@@ -424,7 +424,7 @@ impl BMSPlayer {
         let pc = &mut self.player_config.play_config(mode).playconfig;
 
         // 4. If fixhispeed != OFF: save duration; else save hispeed
-        if pc.fixhispeed != rubato_types::play_config::FIX_HISPEED_OFF {
+        if pc.fixhispeed != rubato_skin::play_config::FIX_HISPEED_OFF {
             pc.duration = duration;
         } else {
             pc.hispeed = hispeed;

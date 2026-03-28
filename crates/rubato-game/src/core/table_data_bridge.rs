@@ -11,8 +11,8 @@ use bms::table::difficulty_table::DifficultyTable;
 use bms::table::difficulty_table_element::DifficultyTableElement;
 
 use crate::core::table_data::{TableData, TableFolder};
-use rubato_types::SongData;
-use rubato_types::course_data::{CourseData, CourseDataConstraint, TrophyData};
+use rubato_skin::SongData;
+use rubato_skin::course_data::{CourseData, CourseDataConstraint, TrophyData};
 
 /// Convert a BmsTableElement to SongData.
 ///

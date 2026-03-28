@@ -1,6 +1,6 @@
 use super::{ScoreData, SongData, SongSelectionAccess};
-use rubato_types::last_played_sort;
-use rubato_types::sync_utils::lock_or_recover;
+use rubato_skin::last_played_sort;
+use rubato_skin::sync_utils::lock_or_recover;
 
 use std::sync::Mutex;
 

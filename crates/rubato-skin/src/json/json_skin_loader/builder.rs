@@ -87,7 +87,7 @@ impl JSONSkinLoader {
     }
 
     /// Constructor for skin body loading
-    pub fn with_config(config: &rubato_types::config::Config) -> Self {
+    pub fn with_config(config: &crate::config::Config) -> Self {
         Self {
             dstr: Resolution {
                 width: config.display.window_width as f32,
@@ -284,7 +284,7 @@ impl JSONSkinLoader {
             let offset = CustomOffsetData {
                 name: pr.name.clone().unwrap_or_default(),
                 id: pr.id,
-                caps: rubato_types::offset_capabilities::OffsetCapabilities {
+                caps: crate::offset_capabilities::OffsetCapabilities {
                     x: pr.x,
                     y: pr.y,
                     w: pr.w,
@@ -314,7 +314,7 @@ impl JSONSkinLoader {
             offsets.push(CustomOffsetData {
                 name: "All offset(%)".to_string(),
                 id: OFFSET_ALL,
-                caps: rubato_types::offset_capabilities::OffsetCapabilities {
+                caps: crate::offset_capabilities::OffsetCapabilities {
                     x: true,
                     y: true,
                     w: true,
@@ -325,7 +325,7 @@ impl JSONSkinLoader {
             offsets.push(CustomOffsetData {
                 name: "Notes offset".to_string(),
                 id: OFFSET_NOTES_1P,
-                caps: rubato_types::offset_capabilities::OffsetCapabilities {
+                caps: crate::offset_capabilities::OffsetCapabilities {
                     h: true,
                     ..Default::default()
                 },
@@ -333,7 +333,7 @@ impl JSONSkinLoader {
             offsets.push(CustomOffsetData {
                 name: "Judge offset".to_string(),
                 id: OFFSET_JUDGE_1P,
-                caps: rubato_types::offset_capabilities::OffsetCapabilities {
+                caps: crate::offset_capabilities::OffsetCapabilities {
                     x: true,
                     y: true,
                     w: true,
@@ -345,7 +345,7 @@ impl JSONSkinLoader {
             offsets.push(CustomOffsetData {
                 name: "Judge Detail offset".to_string(),
                 id: OFFSET_JUDGEDETAIL_1P,
-                caps: rubato_types::offset_capabilities::OffsetCapabilities {
+                caps: crate::offset_capabilities::OffsetCapabilities {
                     x: true,
                     y: true,
                     w: true,

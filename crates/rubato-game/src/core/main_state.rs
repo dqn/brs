@@ -8,11 +8,11 @@ use rubato_audio::audio_system::AudioSystem;
 use rubato_input::bms_player_input_processor::BMSPlayerInputProcessor;
 use rubato_input::input_snapshot::InputSnapshot;
 use rubato_render::sprite_batch::SpriteBatch;
-use rubato_types::skin_offset::SkinOffset;
-use rubato_types::sound_type::SoundType;
+use rubato_skin::skin_offset::SkinOffset;
+use rubato_skin::sound_type::SoundType;
 
 // MainStateType moved to beatoraja-types (Phase 15d)
-pub use rubato_types::main_state_type::MainStateType;
+pub use rubato_skin::main_state_type::MainStateType;
 
 /// Result of a state's render cycle, indicating what should happen next.
 ///
@@ -290,7 +290,7 @@ pub trait MainState {
     fn receive_updated_play_config(
         &mut self,
         _mode: bms::model::mode::Mode,
-        _play_config: rubato_types::play_config::PlayConfig,
+        _play_config: rubato_skin::play_config::PlayConfig,
     ) {
         // Default no-op — only BMSPlayer uses this.
     }

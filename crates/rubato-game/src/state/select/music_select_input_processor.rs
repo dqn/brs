@@ -66,7 +66,7 @@ impl MusicSelectInputProcessor {
 
         // NUM2: sort switch
         if input.is_control_key_pressed(ControlKeys::Num2) {
-            rubato_types::last_played_sort::force_disable();
+            rubato_skin::last_played_sort::force_disable();
             ctx.events.push(InputEvent::ExecuteEvent(EventType::Sort));
         }
 
@@ -651,7 +651,7 @@ mod tests {
 
     #[test]
     fn test_bar_type_classify_grade() {
-        use rubato_types::course_data::CourseData;
+        use rubato_skin::course_data::CourseData;
         let bar = Bar::Grade(Box::new(
             crate::state::select::bar::grade_bar::GradeBar::new(CourseData::default()),
         ));

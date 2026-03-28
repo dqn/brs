@@ -1,1 +1,1 @@
-pub use rubato_types::course_data::*;
+pub use rubato_skin::course_data::*;

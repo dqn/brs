@@ -51,7 +51,7 @@ impl MusicSelector {
             pending_player_config_dirty: false,
             player_resource: None,
             cached_target_score: None,
-            cached_score_data_property: rubato_types::score_data_property::ScoreDataProperty::new(),
+            cached_score_data_property: rubato_skin::score_data_property::ScoreDataProperty::new(),
             pending_ir_song_fetch: None,
             pending_ir_course_fetch: None,
             pending_note_graph: None,
@@ -81,8 +81,8 @@ impl MusicSelector {
         >,
         play_data_accessor: crate::core::play_data_accessor::PlayDataAccessor,
         info_database: Option<Box<dyn crate::song_information_db::SongInformationDb>>,
-        rivals: Vec<rubato_types::player_information::PlayerInformation>,
-        sound_paths: std::collections::HashMap<rubato_types::sound_type::SoundType, String>,
+        rivals: Vec<rubato_skin::player_information::PlayerInformation>,
+        sound_paths: std::collections::HashMap<rubato_skin::sound_type::SoundType, String>,
         http_downloader: Option<
             std::sync::Arc<dyn crate::http_download_submitter::HttpDownloadSubmitter>,
         >,
@@ -435,20 +435,20 @@ impl MusicSelector {
                 if let Some(songbar) = self.manager.selected().and_then(|b| b.as_song_bar()) {
                     let mut sd = songbar.song_data().clone();
                     let fav = sd.favorite;
-                    let current = if fav & rubato_types::song_data::FAVORITE_SONG != 0 {
+                    let current = if fav & rubato_skin::song_data::FAVORITE_SONG != 0 {
                         1
-                    } else if fav & rubato_types::song_data::INVISIBLE_SONG != 0 {
+                    } else if fav & rubato_skin::song_data::INVISIBLE_SONG != 0 {
                         2
                     } else {
                         0
                     };
                     let new_type = (current + if next { 1 } else { 2 }) % 3;
                     sd.favorite = (fav
-                        & !(rubato_types::song_data::FAVORITE_SONG
-                            | rubato_types::song_data::INVISIBLE_SONG))
+                        & !(rubato_skin::song_data::FAVORITE_SONG
+                            | rubato_skin::song_data::INVISIBLE_SONG))
                         | match new_type {
-                            1 => rubato_types::song_data::FAVORITE_SONG,
-                            2 => rubato_types::song_data::INVISIBLE_SONG,
+                            1 => rubato_skin::song_data::FAVORITE_SONG,
+                            2 => rubato_skin::song_data::INVISIBLE_SONG,
                             _ => 0,
                         };
                     if let Err(e) = self.songdb.set_song_datas(&[sd]) {
@@ -462,20 +462,20 @@ impl MusicSelector {
                 if let Some(songbar) = self.manager.selected().and_then(|b| b.as_song_bar()) {
                     let mut sd = songbar.song_data().clone();
                     let fav = sd.favorite;
-                    let current = if fav & rubato_types::song_data::FAVORITE_CHART != 0 {
+                    let current = if fav & rubato_skin::song_data::FAVORITE_CHART != 0 {
                         1
-                    } else if fav & rubato_types::song_data::INVISIBLE_CHART != 0 {
+                    } else if fav & rubato_skin::song_data::INVISIBLE_CHART != 0 {
                         2
                     } else {
                         0
                     };
                     let new_type = (current + if next { 1 } else { 2 }) % 3;
                     sd.favorite = (fav
-                        & !(rubato_types::song_data::FAVORITE_CHART
-                            | rubato_types::song_data::INVISIBLE_CHART))
+                        & !(rubato_skin::song_data::FAVORITE_CHART
+                            | rubato_skin::song_data::INVISIBLE_CHART))
                         | match new_type {
-                            1 => rubato_types::song_data::FAVORITE_CHART,
-                            2 => rubato_types::song_data::INVISIBLE_CHART,
+                            1 => rubato_skin::song_data::FAVORITE_CHART,
+                            2 => rubato_skin::song_data::INVISIBLE_CHART,
                             _ => 0,
                         };
                     if let Err(e) = self.songdb.set_song_datas(&[sd]) {

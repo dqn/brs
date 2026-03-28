@@ -8,8 +8,8 @@ use crate::gdx_compat;
 use crate::keys::Keys;
 use crate::mouse_scratch_input::MouseScratchInput;
 use crate::winit_input_bridge::SharedKeyState;
-use rubato_types::play_mode_config::KeyboardConfig;
-use rubato_types::resolution::Resolution;
+use rubato_skin::play_mode_config::KeyboardConfig;
+use rubato_skin::resolution::Resolution;
 
 pub const MASK_SHIFT: i32 = 1 << 0;
 pub const MASK_CTRL: i32 = 1 << 1;
@@ -301,7 +301,7 @@ impl KeyBoardInputProcesseor {
     pub fn poll(&mut self, microtime: i64, callback: &mut dyn KeyboardCallback) {
         // NOTE: For further dev came here, it's better to wrap this variable instead of
         // accessing imgui menu's field directly
-        let accept_input = !rubato_types::skin_widget_focus::focus();
+        let accept_input = !rubato_skin::skin_widget_focus::focus();
         if accept_input && !self.textmode {
             for (i, &key) in self.keys.iter().enumerate() {
                 if key < 0 || key as usize >= self.keystate.len() {
@@ -539,7 +539,7 @@ impl BMSPlayerInputDevice for KeyBoardInputProcesseor {
 mod tests {
     use super::*;
     use crate::winit_input_bridge::SharedKeyState;
-    use rubato_types::play_mode_config::KeyboardConfig;
+    use rubato_skin::play_mode_config::KeyboardConfig;
 
     fn make_processor() -> KeyBoardInputProcesseor {
         let config = KeyboardConfig::default();

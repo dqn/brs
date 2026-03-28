@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use rubato_types::score_data::ScoreData;
-use rubato_types::song_data::SongData;
+use rubato_skin::score_data::ScoreData;
+use rubato_skin::song_data::SongData;
 
 type ReadSingleFn = Box<dyn Fn(&SongData, i32) -> Option<ScoreData> + Send + Sync>;
 type ReadMultiFn =

@@ -82,7 +82,7 @@ fn test_convert_header_with_offsets() {
     header_data.custom_offsets = vec![CustomOffsetData {
         name: "Offset1".to_string(),
         id: 900,
-        caps: rubato_types::offset_capabilities::OffsetCapabilities {
+        caps: crate::offset_capabilities::OffsetCapabilities {
             x: true,
             y: true,
             ..Default::default()
@@ -224,7 +224,7 @@ fn test_offset_wiring() {
     header_data.custom_offsets = vec![CustomOffsetData {
         name: "TestOffset".to_string(),
         id: 42,
-        caps: rubato_types::offset_capabilities::OffsetCapabilities {
+        caps: crate::offset_capabilities::OffsetCapabilities {
             x: true,
             y: true,
             ..Default::default()

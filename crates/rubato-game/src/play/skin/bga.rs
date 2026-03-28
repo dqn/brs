@@ -17,7 +17,7 @@ pub struct SkinBGA {
 }
 
 // Re-export shared BGA types from rubato-types (canonical location).
-pub use rubato_types::bga_types::{
+pub use rubato_skin::bga_types::{
     BGAEXPAND_FULL, BGAEXPAND_KEEP_ASPECT_RATIO, BGAEXPAND_OFF, StretchType,
 };
 

@@ -1,5 +1,114 @@
 //! Skin format loaders (LR2 CSV, JSON, Lua), property system,
-//! and rendering object hierarchy.
+//! rendering object hierarchy, and shared type definitions
+//! (absorbed from rubato-types).
+
+// ================================================================
+// Modules absorbed from rubato-types
+// ================================================================
+
+// Semantic newtypes
+pub mod event_id;
+pub mod timer_id;
+pub mod value_id;
+
+// Enums and foundational types
+pub mod bms_player_mode;
+pub mod clear_type;
+pub mod main_state_type;
+pub mod screen_type;
+pub mod skin_type_def;
+/// Backwards-compatible alias for skin_type_def
+pub use skin_type_def as skin_type;
+pub mod sound_type;
+
+// Config types
+pub mod audio_config;
+pub mod config;
+pub mod ir_config;
+pub mod play_config;
+pub mod play_mode_config;
+pub mod player_config;
+pub mod skin_config;
+
+// Data models
+pub mod course_data;
+pub mod folder_data;
+pub mod player_data;
+pub mod player_information;
+pub mod replay_data;
+pub mod score_data;
+pub mod score_data_property;
+pub mod song_data;
+pub mod song_information;
+
+// Skin contract types
+pub mod distribution_data;
+pub mod offset_capabilities;
+pub mod property_snapshot;
+pub mod skin_action_queue;
+pub mod skin_main_state;
+pub mod skin_offset;
+pub mod skin_render_context;
+pub mod skin_widget_focus;
+pub mod timer_access;
+
+// Play-side shared types
+pub mod bga_types;
+pub mod draw_command;
+pub mod practice_draw_command;
+pub mod skin_judge;
+pub mod skin_note;
+
+// Gameplay types
+pub mod bar_sorter;
+pub mod bm_keys;
+pub mod bms_player_input_device;
+pub mod bms_player_rule;
+pub mod gauge_property;
+pub mod groove_gauge;
+pub mod judge_algorithm;
+pub mod key_input_log;
+pub mod last_played_sort;
+pub mod long_note_modifier;
+pub mod mine_note_modifier;
+pub mod pattern_modify_log;
+pub mod scroll_speed_modifier;
+pub mod target_list;
+pub mod timing_distribution;
+
+// State and lifecycle
+pub mod app_event;
+pub mod fps_counter;
+pub mod input_processor_access;
+pub mod ipfs_information;
+pub mod ir_connection_registry;
+pub mod monotonic_clock;
+pub mod player_resource_access;
+pub mod resolution;
+pub mod song_selection_access;
+pub mod state_event;
+pub mod sync_utils;
+pub mod target_property_access;
+pub mod validatable;
+
+// Test support (behind feature gate)
+#[cfg(any(test, feature = "test-support"))]
+pub mod test_support;
+
+// Top-level re-exports (matching rubato-types public API)
+pub use bar_sorter::{BarSorter, BarSorterEntry};
+pub use bms_player_rule::BMSPlayerRule;
+pub use groove_gauge::GrooveGauge;
+pub use ir_connection_registry::IRConnectionManager;
+pub use judge_algorithm::JudgeAlgorithm;
+pub use key_input_log::KeyInputLog;
+pub use pattern_modify_log::PatternModifyLog;
+pub use skin_type_def::SkinType;
+pub use song_data::SongData;
+
+// ================================================================
+// Original rubato-skin modules
+// ================================================================
 
 // Property submodule (interfaces + factories)
 pub mod property;
@@ -63,7 +172,6 @@ pub use types::skin_bar_object;
 pub use types::skin_header;
 pub use types::skin_node;
 pub use types::skin_object;
-pub use types::skin_type;
 
 // text/
 pub use text::skin_text;

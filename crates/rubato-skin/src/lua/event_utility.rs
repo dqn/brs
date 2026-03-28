@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use mlua::prelude::*;
 
 use crate::reexports::MainState;
-use rubato_types::sync_utils::lock_or_recover;
+use crate::sync_utils::lock_or_recover;
 
 /// Event utility for Lua
 ///

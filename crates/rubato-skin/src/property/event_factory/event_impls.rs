@@ -1,11 +1,11 @@
 use super::super::event::Event;
 use crate::reexports::MainState;
 
-use rubato_types::bms_player_mode::BMSPlayerMode;
-use rubato_types::event_id::EventId;
-use rubato_types::judge_algorithm::DEFAULT_ALGORITHM;
-use rubato_types::main_state_type::MainStateType;
-use rubato_types::play_config;
+use crate::bms_player_mode::BMSPlayerMode;
+use crate::event_id::EventId;
+use crate::judge_algorithm::DEFAULT_ALGORITHM;
+use crate::main_state_type::MainStateType;
+use crate::play_config;
 
 // ============================================================
 // Delegate Event: forwards to state.execute_event()
@@ -164,7 +164,7 @@ impl Event for SortEvent {
         if !state.is_music_selector() {
             return;
         }
-        let len = rubato_types::bar_sorter::BarSorter::DEFAULT_SORTER.len() as i32;
+        let len = crate::bar_sorter::BarSorter::DEFAULT_SORTER.len() as i32;
         let Some(config) = state.player_config_mut() else {
             return;
         };
@@ -176,7 +176,7 @@ impl Event for SortEvent {
         };
         config.select_settings.sort = next;
         config.select_settings.sortid = Some(
-            rubato_types::bar_sorter::BarSorter::DEFAULT_SORTER[next as usize]
+            crate::bar_sorter::BarSorter::DEFAULT_SORTER[next as usize]
                 .name()
                 .to_string(),
         );
@@ -200,7 +200,7 @@ impl Event for SongbarSortEvent {
         if !state.is_music_selector() {
             return;
         }
-        let all = &rubato_types::bar_sorter::BarSorter::ALL_SORTER;
+        let all = &crate::bar_sorter::BarSorter::ALL_SORTER;
         let len = all.len();
         let Some(config) = state.player_config_mut() else {
             return;
@@ -237,8 +237,8 @@ impl Event for SongbarSortEvent {
 
 pub(super) struct PlayerConfigCycleEvent {
     pub(super) event_id: EventId,
-    pub(super) get: fn(&rubato_types::player_config::PlayerConfig) -> i32,
-    pub(super) set: fn(&mut rubato_types::player_config::PlayerConfig, i32),
+    pub(super) get: fn(&crate::player_config::PlayerConfig) -> i32,
+    pub(super) set: fn(&mut crate::player_config::PlayerConfig, i32),
     pub(super) count: i32,
     pub(super) music_selector_only: bool,
 }
@@ -338,8 +338,8 @@ impl Event for PlayConfigToggleEvent {
 
 pub(super) struct ConfigCycleEvent {
     pub(super) event_id: EventId,
-    pub(super) get: fn(&rubato_types::config::Config) -> i32,
-    pub(super) set: fn(&mut rubato_types::config::Config, i32),
+    pub(super) get: fn(&crate::config::Config) -> i32,
+    pub(super) set: fn(&mut crate::config::Config, i32),
     pub(super) count: i32,
 }
 
@@ -458,8 +458,8 @@ impl Event for NotesDisplayTimingEvent {
         let Some(config) = state.player_config_mut() else {
             return;
         };
-        let max = rubato_types::player_config::JUDGETIMING_MAX;
-        let min = rubato_types::player_config::JUDGETIMING_MIN;
+        let max = crate::player_config::JUDGETIMING_MAX;
+        let min = crate::player_config::JUDGETIMING_MIN;
         let inc = if arg1 >= 0 {
             if config.judge_settings.judgetiming < max {
                 1
@@ -519,7 +519,7 @@ impl Event for TargetEvent {
             return;
         };
         let targets = {
-            let targets = rubato_types::target_list::targets();
+            let targets = crate::target_list::targets();
             if targets.is_empty() {
                 config.select_settings.targetlist.clone()
             } else {

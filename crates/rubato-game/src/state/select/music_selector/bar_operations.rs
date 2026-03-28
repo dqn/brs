@@ -90,7 +90,7 @@ impl MusicSelector {
         };
         let path = std::path::Path::new(&path_str);
 
-        let load_success = rubato_types::player_resource_access::SessionMutation::set_bms_file(
+        let load_success = rubato_skin::player_resource_access::SessionMutation::set_bms_file(
             res, path, mode_type, mode_id,
         );
 
@@ -216,12 +216,12 @@ impl MusicSelector {
         pda: &crate::core::play_data_accessor::PlayDataAccessor,
         songdata: Option<&SongData>,
         replay_index: i32,
-    ) -> Option<rubato_types::replay_data::ReplayData> {
+    ) -> Option<rubato_skin::replay_data::ReplayData> {
         let mode = ChartReplicationMode::get(&config.play_settings.chart_replication_mode);
         match mode {
             ChartReplicationMode::None => None,
             ChartReplicationMode::RivalChart => rival_score.map(|rival| {
-                let mut opt = rubato_types::replay_data::ReplayData::new();
+                let mut opt = rubato_skin::replay_data::ReplayData::new();
                 opt.randomoption = rival.play_option.option % 10;
                 opt.randomoption2 = (rival.play_option.option / 10) % 10;
                 opt.doubleoption = rival.play_option.option / 100;
@@ -235,7 +235,7 @@ impl MusicSelector {
                 opt
             }),
             ChartReplicationMode::RivalOption => rival_score.map(|rival| {
-                let mut opt = rubato_types::replay_data::ReplayData::new();
+                let mut opt = rubato_skin::replay_data::ReplayData::new();
                 opt.randomoption = rival.play_option.option % 10;
                 opt.randomoption2 = (rival.play_option.option / 10) % 10;
                 opt.doubleoption = rival.play_option.option / 100;
@@ -251,7 +251,7 @@ impl MusicSelector {
                     config.play_settings.lnmode,
                     replay_index,
                 )?;
-                let mut opt = rubato_types::replay_data::ReplayData::new();
+                let mut opt = rubato_skin::replay_data::ReplayData::new();
                 opt.randomoption = replay.randomoption;
                 opt.randomoption2 = replay.randomoption2;
                 opt.doubleoption = replay.doubleoption;
@@ -308,7 +308,7 @@ impl MusicSelector {
                 .map(|total_notes| {
                     // Same formula as StaticTargetProperty::target()
                     let exscore = (total_notes as f64 * 2.0 * rate / 100.0).ceil() as i32;
-                    let mut score = rubato_types::score_data::ScoreData::default();
+                    let mut score = rubato_skin::score_data::ScoreData::default();
                     score.judge_counts.epg = exscore / 2;
                     score.judge_counts.egr = exscore % 2;
                     score
@@ -339,7 +339,7 @@ impl MusicSelector {
                                 break;
                             }
                         }
-                        let mut score = rubato_types::score_data::ScoreData::default();
+                        let mut score = rubato_skin::score_data::ScoreData::default();
                         score.judge_counts.epg = targetscore / 2;
                         score.judge_counts.egr = targetscore % 2;
                         score
@@ -363,7 +363,7 @@ impl MusicSelector {
         let score = self.manager.selected().and_then(|b| b.score());
         let rival = self.manager.selected().and_then(|b| b.rival_score());
         self.cached_score_data_property =
-            rubato_types::score_data_property::ScoreDataProperty::new();
+            rubato_skin::score_data_property::ScoreDataProperty::new();
         self.cached_score_data_property
             .update_score_and_rival(score, rival);
     }
@@ -372,7 +372,7 @@ impl MusicSelector {
     fn resolve_ir_target_score(
         &self,
         targetid: &str,
-    ) -> Option<rubato_types::score_data::ScoreData> {
+    ) -> Option<rubato_skin::score_data::ScoreData> {
         let rd = self.ranking.currentir.as_ref()?;
         if rd.state() != crate::ir::ranking_data::FINISH || rd.total_player() == 0 {
             return None;
@@ -420,7 +420,7 @@ impl MusicSelector {
 
         let ir_score = rd.score(target_index)?;
         let exscore = ir_score.exscore();
-        let mut score = rubato_types::score_data::ScoreData::default();
+        let mut score = rubato_skin::score_data::ScoreData::default();
         score.judge_counts.epg = exscore / 2;
         score.judge_counts.egr = exscore % 2;
         Some(score)
@@ -448,24 +448,24 @@ impl MusicSelector {
             if self.panelstate != 0 {
                 self.main_state_data
                     .timer
-                    .set_timer_on(rubato_types::timer_id::TimerId::new(
+                    .set_timer_on(rubato_skin::timer_id::TimerId::new(
                         skin_property::TIMER_PANEL1_OFF.as_i32() + self.panelstate - 1,
                     ));
                 self.main_state_data
                     .timer
-                    .set_timer_off(rubato_types::timer_id::TimerId::new(
+                    .set_timer_off(rubato_skin::timer_id::TimerId::new(
                         skin_property::TIMER_PANEL1_ON.as_i32() + self.panelstate - 1,
                     ));
             }
             if panelstate != 0 {
                 self.main_state_data
                     .timer
-                    .set_timer_on(rubato_types::timer_id::TimerId::new(
+                    .set_timer_on(rubato_skin::timer_id::TimerId::new(
                         skin_property::TIMER_PANEL1_ON.as_i32() + panelstate - 1,
                     ));
                 self.main_state_data
                     .timer
-                    .set_timer_off(rubato_types::timer_id::TimerId::new(
+                    .set_timer_off(rubato_skin::timer_id::TimerId::new(
                         skin_property::TIMER_PANEL1_OFF.as_i32() + panelstate - 1,
                     ));
             }

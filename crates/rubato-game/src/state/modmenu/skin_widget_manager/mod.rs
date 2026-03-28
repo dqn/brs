@@ -6,7 +6,7 @@ use super::{Rectangle, SkinObject, SkinObjectDestination};
 use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
 
-use rubato_types::sync_utils::lock_or_recover;
+use rubato_skin::sync_utils::lock_or_recover;
 
 const EPS: f64 = 1e-5;
 
@@ -92,11 +92,11 @@ pub struct SkinWidgetManager;
 
 impl SkinWidgetManager {
     pub fn focus() -> bool {
-        rubato_types::skin_widget_focus::focus()
+        rubato_skin::skin_widget_focus::focus()
     }
 
     pub fn set_focus(focus: bool) {
-        rubato_types::skin_widget_focus::set_focus(focus);
+        rubato_skin::skin_widget_focus::set_focus(focus);
     }
 
     pub fn change_skin(skin: &Skin) {

@@ -437,28 +437,28 @@ mod tests {
         }
     }
 
-    impl rubato_types::timer_access::TimerAccess for MockBpmState {
+    impl crate::timer_access::TimerAccess for MockBpmState {
         fn now_time(&self) -> i64 {
             self.timer.now_time()
         }
         fn now_micro_time(&self) -> i64 {
             self.timer.now_micro_time()
         }
-        fn micro_timer(&self, id: rubato_types::timer_id::TimerId) -> i64 {
+        fn micro_timer(&self, id: crate::timer_id::TimerId) -> i64 {
             self.timer.micro_timer(id)
         }
-        fn timer(&self, id: rubato_types::timer_id::TimerId) -> i64 {
+        fn timer(&self, id: crate::timer_id::TimerId) -> i64 {
             self.timer.timer(id)
         }
-        fn now_time_for(&self, id: rubato_types::timer_id::TimerId) -> i64 {
+        fn now_time_for(&self, id: crate::timer_id::TimerId) -> i64 {
             self.timer.now_time_for(id)
         }
-        fn is_timer_on(&self, id: rubato_types::timer_id::TimerId) -> bool {
+        fn is_timer_on(&self, id: crate::timer_id::TimerId) -> bool {
             self.timer.is_timer_on(id)
         }
     }
 
-    impl rubato_types::skin_render_context::SkinRenderContext for MockBpmState {
+    impl crate::skin_render_context::SkinRenderContext for MockBpmState {
         fn get_offset_value(&self, _id: i32) -> Option<&SkinOffset> {
             None
         }

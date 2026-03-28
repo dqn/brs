@@ -4,9 +4,9 @@ use crate::property::event_factory;
 use crate::skin_header::SkinHeader;
 use crate::skin_image::SkinImage;
 use crate::skin_drawable::SkinDrawable;
-use rubato_types::main_state_type::MainStateType;
-use rubato_types::skin_render_context::SkinRenderContext;
-use rubato_types::timer_access::TimerAccess;
+use crate::main_state_type::MainStateType;
+use crate::skin_render_context::SkinRenderContext;
+use crate::timer_access::TimerAccess;
 
 struct AlwaysTrue;
 
@@ -106,19 +106,19 @@ impl TimerAccess for RecordingSkinRenderContext {
         self.timer.now_micro_time()
     }
 
-    fn micro_timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
+    fn micro_timer(&self, timer_id: crate::timer_id::TimerId) -> i64 {
         self.timer.micro_timer(timer_id)
     }
 
-    fn timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
+    fn timer(&self, timer_id: crate::timer_id::TimerId) -> i64 {
         self.timer.timer(timer_id)
     }
 
-    fn now_time_for(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
+    fn now_time_for(&self, timer_id: crate::timer_id::TimerId) -> i64 {
         self.timer.now_time_for(timer_id)
     }
 
-    fn is_timer_on(&self, timer_id: rubato_types::timer_id::TimerId) -> bool {
+    fn is_timer_on(&self, timer_id: crate::timer_id::TimerId) -> bool {
         self.timer.is_timer_on(timer_id)
     }
 }
@@ -132,7 +132,7 @@ impl SkinRenderContext for RecordingSkinRenderContext {
         self.changed_states.push(state);
     }
 
-    fn set_timer_micro(&mut self, timer_id: rubato_types::timer_id::TimerId, micro_time: i64) {
+    fn set_timer_micro(&mut self, timer_id: crate::timer_id::TimerId, micro_time: i64) {
         self.timer_writes.push((timer_id.as_i32(), micro_time));
     }
 
@@ -174,33 +174,33 @@ fn test_timer_only_main_state_returns_expected_values() {
 /// so all offset queries returned None even when the underlying context had offset data.
 #[test]
 fn test_offset_value_delegates_through_timer_only_adapter() {
-    use rubato_types::skin_offset::SkinOffset;
+    use crate::skin_offset::SkinOffset;
 
     // Create a SkinRenderContext that has offset data
     struct OffsetContext {
         offsets: std::collections::HashMap<i32, SkinOffset>,
     }
-    impl rubato_types::timer_access::TimerAccess for OffsetContext {
+    impl crate::timer_access::TimerAccess for OffsetContext {
         fn now_time(&self) -> i64 {
             0
         }
         fn now_micro_time(&self) -> i64 {
             0
         }
-        fn micro_timer(&self, _: rubato_types::timer_id::TimerId) -> i64 {
+        fn micro_timer(&self, _: crate::timer_id::TimerId) -> i64 {
             0
         }
-        fn timer(&self, _: rubato_types::timer_id::TimerId) -> i64 {
+        fn timer(&self, _: crate::timer_id::TimerId) -> i64 {
             0
         }
-        fn now_time_for(&self, _: rubato_types::timer_id::TimerId) -> i64 {
+        fn now_time_for(&self, _: crate::timer_id::TimerId) -> i64 {
             0
         }
-        fn is_timer_on(&self, _: rubato_types::timer_id::TimerId) -> bool {
+        fn is_timer_on(&self, _: crate::timer_id::TimerId) -> bool {
             false
         }
     }
-    impl rubato_types::skin_render_context::SkinRenderContext for OffsetContext {
+    impl crate::skin_render_context::SkinRenderContext for OffsetContext {
         fn get_offset_value(&self, id: i32) -> Option<&SkinOffset> {
             self.offsets.get(&id)
         }
@@ -254,42 +254,64 @@ fn test_offset_value_delegates_through_timer_only_adapter() {
     assert!(state.get_offset_value(99).is_none());
 }
 
-/// Verify that TimerManager timer values flow through SkinDrawable to the skin adapter.
+/// Verify that timer values flow through SkinDrawable to the skin adapter.
 /// Before the fix, all per-timer-id queries returned 0 (frozen animations).
 #[test]
 fn test_timer_manager_values_flow_through_to_skin_adapter() {
-    use rubato_game::core::timer_manager::TimerManager;
-    let mut tm = TimerManager::new();
-    tm.update(); // Advance nowmicrotime from Instant::now()
-    tm.set_timer_on(rubato_types::timer_id::TimerId::new(10)); // Timer 10 = ON at current micro time
+    use std::collections::HashMap;
+    use crate::timer_id::TimerId;
 
-    // Verify TimerManager implements TimerAccess correctly
-    assert!(tm.is_timer_on(rubato_types::timer_id::TimerId::new(10)));
-    assert!(!tm.is_timer_on(rubato_types::timer_id::TimerId::new(20))); // Timer 20 was never set
+    // Simple mock implementing TimerAccess (replaces rubato-game TimerManager)
+    struct MockTimer {
+        timers: HashMap<TimerId, i64>,
+    }
+    impl TimerAccess for MockTimer {
+        fn now_time(&self) -> i64 { 1000 }
+        fn now_micro_time(&self) -> i64 { 1_000_000 }
+        fn micro_timer(&self, id: TimerId) -> i64 {
+            *self.timers.get(&id).unwrap_or(&i64::MIN)
+        }
+        fn timer(&self, id: TimerId) -> i64 {
+            let v = self.micro_timer(id);
+            if v == i64::MIN { i64::MIN } else { v / 1000 }
+        }
+        fn now_time_for(&self, _id: TimerId) -> i64 { self.now_time() }
+        fn is_timer_on(&self, id: TimerId) -> bool {
+            self.timers.get(&id).is_some_and(|&v| v != i64::MIN)
+        }
+    }
 
-    // Create adapter from TimerManager (the path SkinDrawable takes)
+    let mut timers = HashMap::new();
+    timers.insert(TimerId::new(10), 500_000i64); // Timer 10 ON
+    let tm = MockTimer { timers };
+
+    // Verify mock implements TimerAccess correctly
+    assert!(tm.is_timer_on(TimerId::new(10)));
+    assert!(!tm.is_timer_on(TimerId::new(20))); // Timer 20 was never set
+
+    // Create adapter from mock timer (the path SkinDrawable takes)
     let adapter = TimerOnlyMainState::from_timer(&tm, None);
     let state: &dyn MainState = &adapter;
 
     // Timer 10 should be ON through the adapter
     assert!(
-        state.is_timer_on(rubato_types::timer_id::TimerId::new(10)),
+        state.is_timer_on(crate::timer_id::TimerId::new(10)),
         "Timer 10 should be ON through adapter"
     );
     // Timer 20 should be OFF
     assert!(
-        !state.is_timer_on(rubato_types::timer_id::TimerId::new(20)),
+        !state.is_timer_on(crate::timer_id::TimerId::new(20)),
         "Timer 20 should be OFF through adapter"
     );
     // micro_timer for ON timer should not be i64::MIN
     assert_ne!(
-        state.micro_timer(rubato_types::timer_id::TimerId::new(10)),
+        state.micro_timer(crate::timer_id::TimerId::new(10)),
         i64::MIN,
         "ON timer should return its activation time, not i64::MIN"
     );
     // micro_timer for OFF timer should be i64::MIN
     assert_eq!(
-        state.micro_timer(rubato_types::timer_id::TimerId::new(20)),
+        state.micro_timer(crate::timer_id::TimerId::new(20)),
         i64::MIN,
         "OFF timer should return i64::MIN"
     );
@@ -314,7 +336,7 @@ fn test_skin_drawable_getter_delegation() {
 #[test]
 fn test_draw_all_objects_timed_empty_skin() {
     let mut skin = make_test_skin();
-    let mut null_timer = rubato_types::timer_access::NullTimer;
+    let mut null_timer = crate::timer_access::NullTimer;
     // Should not panic with no objects
     skin.draw_all_objects_timed(&mut null_timer);
 }
@@ -353,7 +375,7 @@ fn test_dispose_skin_empty() {
 #[test]
 fn test_mouse_pressed_at_empty_skin() {
     let mut skin = make_test_skin();
-    let mut timer = rubato_types::timer_access::NullTimer;
+    let mut timer = crate::timer_access::NullTimer;
     // Should not panic with no objects
     skin.mouse_pressed_at(&mut timer, 0, 100, 200);
 }
@@ -361,7 +383,7 @@ fn test_mouse_pressed_at_empty_skin() {
 #[test]
 fn test_mouse_dragged_at_empty_skin() {
     let mut skin = make_test_skin();
-    let mut timer = rubato_types::timer_access::NullTimer;
+    let mut timer = crate::timer_access::NullTimer;
     // Should not panic with no objects
     skin.mouse_dragged_at(&mut timer, 0, 100, 200);
 }
@@ -374,7 +396,7 @@ fn test_timer_only_main_state_delegates_mutating_context_methods() {
 
     adapter.execute_event(55, 1, 2);
     adapter.change_state(MainStateType::Config);
-    adapter.set_timer_micro(rubato_types::timer_id::TimerId::new(9), 12_345);
+    adapter.set_timer_micro(crate::timer_id::TimerId::new(9), 12_345);
     adapter.audio_play("test.wav", 0.75, true);
     adapter.audio_stop("test.wav");
     adapter.set_float_value(42, 0.5);
@@ -483,7 +505,7 @@ fn test_skin_is_send() {
 // offset_all() regression tests
 // =========================================================================
 
-fn make_play_skin(skin_type: rubato_types::skin_type::SkinType) -> Skin {
+fn make_play_skin(skin_type: crate::skin_type::SkinType) -> Skin {
     let mut header = SkinHeader::new();
     header.set_skin_type(skin_type);
     Skin::new(header)
@@ -491,7 +513,7 @@ fn make_play_skin(skin_type: rubato_types::skin_type::SkinType) -> Skin {
 
 #[test]
 fn test_offset_all_returns_none_for_non_play_skin() {
-    let mut skin = make_play_skin(rubato_types::skin_type::SkinType::MusicSelect);
+    let mut skin = make_play_skin(crate::skin_type::SkinType::MusicSelect);
     skin.offset.insert(
         crate::skin_property::OFFSET_ALL,
         crate::skin_config_offset::SkinConfigOffset {
@@ -511,7 +533,7 @@ fn test_offset_all_returns_none_for_non_play_skin() {
 
 #[test]
 fn test_offset_all_returns_none_for_battle_skin() {
-    let mut skin = make_play_skin(rubato_types::skin_type::SkinType::Play7KeysBattle);
+    let mut skin = make_play_skin(crate::skin_type::SkinType::Play7KeysBattle);
     skin.offset.insert(
         crate::skin_property::OFFSET_ALL,
         crate::skin_config_offset::SkinConfigOffset {
@@ -531,7 +553,7 @@ fn test_offset_all_returns_none_for_battle_skin() {
 
 #[test]
 fn test_offset_all_returns_none_when_all_values_zero() {
-    let mut skin = make_play_skin(rubato_types::skin_type::SkinType::Play7Keys);
+    let mut skin = make_play_skin(crate::skin_type::SkinType::Play7Keys);
     skin.offset.insert(
         crate::skin_property::OFFSET_ALL,
         crate::skin_config_offset::SkinConfigOffset {
@@ -547,7 +569,7 @@ fn test_offset_all_returns_none_when_all_values_zero() {
 
 #[test]
 fn test_offset_all_returns_some_for_play_skin_with_nonzero_offset() {
-    let mut skin = make_play_skin(rubato_types::skin_type::SkinType::Play7Keys);
+    let mut skin = make_play_skin(crate::skin_type::SkinType::Play7Keys);
     skin.offset.insert(
         crate::skin_property::OFFSET_ALL,
         crate::skin_config_offset::SkinConfigOffset {
@@ -578,13 +600,13 @@ fn test_offset_all_returns_some_for_play_skin_with_nonzero_offset() {
 #[test]
 fn test_offset_all_works_for_all_non_battle_play_types() {
     let play_types = [
-        rubato_types::skin_type::SkinType::Play5Keys,
-        rubato_types::skin_type::SkinType::Play7Keys,
-        rubato_types::skin_type::SkinType::Play9Keys,
-        rubato_types::skin_type::SkinType::Play10Keys,
-        rubato_types::skin_type::SkinType::Play14Keys,
-        rubato_types::skin_type::SkinType::Play24Keys,
-        rubato_types::skin_type::SkinType::Play24KeysDouble,
+        crate::skin_type::SkinType::Play5Keys,
+        crate::skin_type::SkinType::Play7Keys,
+        crate::skin_type::SkinType::Play9Keys,
+        crate::skin_type::SkinType::Play10Keys,
+        crate::skin_type::SkinType::Play14Keys,
+        crate::skin_type::SkinType::Play24Keys,
+        crate::skin_type::SkinType::Play24KeysDouble,
     ];
     for st in &play_types {
         let mut skin = make_play_skin(*st);
@@ -607,7 +629,7 @@ fn test_offset_all_works_for_all_non_battle_play_types() {
 #[test]
 fn test_offset_all_returns_none_when_offset_not_registered() {
     // Play skin without OFFSET_ALL in the offset map
-    let skin = make_play_skin(rubato_types::skin_type::SkinType::Play7Keys);
+    let skin = make_play_skin(crate::skin_type::SkinType::Play7Keys);
     assert!(
         skin.offset_all().is_none(),
         "skin without OFFSET_ALL entry should return None"
@@ -620,7 +642,7 @@ fn test_offset_all_returns_none_when_offset_not_registered() {
 /// because swap_sprite_batch() always creates the renderer first.
 #[test]
 fn test_offset_all_transform_applied_after_swap_sprite_batch() {
-    let mut skin = make_play_skin(rubato_types::skin_type::SkinType::Play7Keys);
+    let mut skin = make_play_skin(crate::skin_type::SkinType::Play7Keys);
     // Default header resolution is 640x480
     let width = skin.width;
     let height = skin.height;
@@ -1059,7 +1081,7 @@ fn test_skin_object_enum_two_phase_note() {
 /// check -> draw) does not skip the note object.
 #[test]
 fn test_draw_all_objects_includes_note_object() {
-    use rubato_types::draw_command::{DrawCommand, NoteImageType};
+    use crate::draw_command::{DrawCommand, NoteImageType};
 
     let mut skin = make_test_skin();
 

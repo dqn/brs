@@ -17,7 +17,7 @@ use rubato_game::play::bms_player_rule::BMSPlayerRule;
 use rubato_game::play::judge_algorithm::JudgeAlgorithm;
 use rubato_game::play::judge_manager::{JudgeConfig, JudgeManager};
 use rubato_game::play::lane_property::LaneProperty;
-use rubato_types::groove_gauge::GrooveGauge;
+use rubato_skin::groove_gauge::GrooveGauge;
 
 #[path = "support/random_seeds.rs"]
 mod random_seeds;

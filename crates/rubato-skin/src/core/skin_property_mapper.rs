@@ -1,5 +1,5 @@
-use rubato_types::timer_id::TimerId;
-use rubato_types::value_id::ValueId;
+use crate::timer_id::TimerId;
+use crate::value_id::ValueId;
 
 use crate::skin_property::*;
 use crate::types::skin_type::SkinType;

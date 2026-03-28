@@ -1,6 +1,6 @@
 //! Timer ID constants for skin property system.
 
-use rubato_types::timer_id::TimerId;
+use crate::timer_id::TimerId;
 
 pub const TIMER_STARTINPUT: TimerId = TimerId(1);
 
