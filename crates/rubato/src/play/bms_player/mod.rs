@@ -437,6 +437,12 @@ pub struct BMSPlayer {
     /// Whether we are in course mode (resource.getCourseBMSModels() != null).
     /// Set by the caller. Quick retry is disabled during courses.
     is_course_mode: bool,
+    /// Current course stage index (0-based). Set by the caller from PlayerResource.course_index().
+    /// Used for skin boolean properties 280-283 (OPTION_COURSE_STAGE1-4).
+    course_index: usize,
+    /// Total number of songs in the course. Set by the caller from course_bms_models().len().
+    /// Used for skin boolean property 289 (OPTION_FINAL_STAGE).
+    course_song_count: usize,
     /// Input device type (for create_score_data). Set by the caller.
     device_type: crate::input::bms_player_input_device::DeviceType,
     /// Whether frequency training is active (set when freq != 100 in practice mode).

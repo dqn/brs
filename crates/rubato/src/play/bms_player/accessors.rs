@@ -53,6 +53,8 @@ impl BMSPlayer {
             bga_progress: 0.0,
             bga_enabled: false,
             is_course_mode: false,
+            course_index: 0,
+            course_song_count: 0,
             device_type: crate::input::bms_player_input_device::DeviceType::Keyboard,
             freq_on: false,
             force_no_ir_send: false,
@@ -176,6 +178,13 @@ impl BMSPlayer {
     /// Set whether we are in course mode.
     pub fn set_course_mode(&mut self, is_course: bool) {
         self.is_course_mode = is_course;
+    }
+
+    /// Set the course index and song count for skin property queries (IDs 280-283, 289, 290).
+    /// Called by the launcher from PlayerResource before create().
+    pub fn set_course_info(&mut self, course_index: usize, course_song_count: usize) {
+        self.course_index = course_index;
+        self.course_song_count = course_song_count;
     }
 
     /// Set the initial course combo/maxcombo carried from a previous course stage.

@@ -160,9 +160,15 @@ impl MainController {
                 // Wire global config for skin property queries (BGA mode, etc.)
                 player.set_config(self.config().clone());
 
-                // Wire course mode flag
+                // Wire course mode flag and course info (index, song count)
                 let is_course_mode = resource.and_then(|r| r.course_data()).is_some();
                 player.set_course_mode(is_course_mode);
+                if let Some(res) = resource {
+                    let course_index = res.course_index();
+                    let course_song_count =
+                        res.course_bms_models().map_or(0, |models| models.len());
+                    player.set_course_info(course_index, course_song_count);
+                }
 
                 // Wire play mode from PlayerResource
                 if let Some(mode) = resource.and_then(|r| r.play_mode()).copied() {

@@ -817,7 +817,7 @@ impl MusicResult {
         s.course_index = self
             .resource
             .course_bms_models()
-            .map_or(0, |_| self.resource.course_gauge().len());
+            .map_or(0, |_| self.resource.course_index());
         s.course_song_count = self
             .resource
             .course_bms_models()

@@ -78,6 +78,20 @@ impl BMSPlayer {
         s.is_practice_mode = self.play_mode.mode == crate::core::bms_player_mode::Mode::Practice;
 
         // ================================================================
+        // Course mode
+        // ================================================================
+        s.is_course_mode = self.is_course_mode;
+        s.course_index = self.course_index;
+        s.course_song_count = self.course_song_count;
+
+        // ================================================================
+        // Score saving (is_update_score)
+        // ================================================================
+        // Java: resource.isUpdateScore() is set from assist == 0 after play finishes.
+        // During gameplay, assist is known immediately, so we derive it here.
+        s.is_update_score = self.assist == 0;
+
+        // ================================================================
         // Gauge data
         // ================================================================
         s.gauge_value = self.gauge.as_ref().map_or(0.0, |g| g.value());

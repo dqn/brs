@@ -1920,13 +1920,17 @@ mod tests {
     #[test]
     fn test_integer_value_totalnotes() {
         let data = make_data_with_score();
-        // IDs 74, 106 should return totalnotes
+        // IDs 74, 106, 350 should return totalnotes
         assert_eq!(
             integer_value(&data, 0, 0, None, None, 74),
             data.score.totalnotes
         );
         assert_eq!(
             integer_value(&data, 0, 0, None, None, 106),
+            data.score.totalnotes
+        );
+        assert_eq!(
+            integer_value(&data, 0, 0, None, None, 350),
             data.score.totalnotes
         );
         assert_eq!(data.score.totalnotes, 223);
