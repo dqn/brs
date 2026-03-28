@@ -185,6 +185,9 @@ impl ShortPCM {
     ///
     /// Translated from: ShortPCM.changeChannels
     pub fn change_channels(&self, channels: i32) -> ShortPCM {
+        if channels <= 0 {
+            return ShortPCM::new(channels, self.sample_rate, 0, 0, Vec::new());
+        }
         if self.channels == 0 {
             return ShortPCM::new(channels, self.sample_rate, 0, 0, Vec::new());
         }
@@ -200,8 +203,8 @@ impl ShortPCM {
         ShortPCM::new(
             channels,
             self.sample_rate,
-            self.start * channels / self.channels,
-            self.len * channels / self.channels,
+            (self.start as i64 * channels as i64 / self.channels as i64) as i32,
+            (self.len as i64 * channels as i64 / self.channels as i64) as i32,
             samples,
         )
     }
@@ -493,6 +496,35 @@ mod tests {
         assert_eq!(result.sample.len(), 2);
         assert_eq!(result.sample[0], 100);
         assert_eq!(result.sample[1], 500);
+    }
+
+    #[test]
+    fn change_channels_zero_returns_empty() {
+        let pcm = ShortPCM::new(1, 44100, 0, 3, vec![100, 500, 900]);
+        let result = pcm.change_channels(0);
+        assert_eq!(result.channels, 0);
+        assert!(result.sample.is_empty());
+        assert_eq!(result.start, 0);
+        assert_eq!(result.len, 0);
+    }
+
+    #[test]
+    fn change_channels_negative_returns_empty() {
+        let pcm = ShortPCM::new(1, 44100, 0, 3, vec![100, 500, 900]);
+        let result = pcm.change_channels(-1);
+        assert_eq!(result.channels, -1);
+        assert!(result.sample.is_empty());
+        assert_eq!(result.start, 0);
+        assert_eq!(result.len, 0);
+    }
+
+    #[test]
+    fn change_channels_large_start_no_i32_overflow() {
+        // start=1_000_000, channels conversion 1->2: 1_000_000 * 2 = 2_000_000
+        // This fits in i32 but verifies i64 intermediates are used.
+        let pcm = ShortPCM::new(1, 44100, 1_000_000, 0, Vec::new());
+        let result = pcm.change_channels(2);
+        assert_eq!(result.start, 2_000_000);
     }
 
     // --- slice tests ---
