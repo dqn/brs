@@ -430,7 +430,15 @@ impl LR2SkinCSVLoaderState {
                     let mut images_2d: Vec<Vec<TextureRegion>> = Vec::with_capacity(count);
                     let mut valid = true;
                     for i in 0..count {
-                        let idx = values[5 + i] as usize;
+                        let raw_idx = values[5 + i];
+                        if raw_idx < 0 {
+                            warn!(
+                                "SRC_IMAGESET: negative index at position {}: {}",
+                                i, raw_idx
+                            );
+                            continue;
+                        }
+                        let idx = raw_idx as usize;
                         if idx < self.imagesetarray.len() {
                             images_2d.push(self.imagesetarray[idx].clone());
                         } else {

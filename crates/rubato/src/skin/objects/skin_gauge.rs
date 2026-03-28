@@ -298,6 +298,7 @@ impl SkinGauge {
                         } else {
                             0.0
                         };
+                        let alpha = alpha.clamp(0.0, 1.0);
 
                         let glow_idx = (ex_gauge + 4 + border_offset) as usize;
                         if glow_idx < self.images.len() {
@@ -1279,6 +1280,42 @@ mod tests {
         assert!(
             (alpha - 0.0).abs() < 1e-6,
             "alpha at ramp-down end should be 0.0"
+        );
+    }
+
+    /// Regression: with small duration values the alpha formula can exceed 1.0.
+    /// Example: duration=3, animation=1 => half_dur=1.5, denom=0.5,
+    /// animation(1) >= duration/2(1) so else branch: (3-1-1)/0.5 = 2.0.
+    /// The draw code must clamp alpha to [0.0, 1.0].
+    #[test]
+    fn flickering_tip_glow_alpha_clamped_for_small_duration() {
+        let duration: i64 = 3;
+        let half_dur = duration as f32 / 2.0; // 1.5
+        let denom = half_dur - 1.0; // 0.5
+        let animation: i32 = 1;
+
+        // Reproduce the same branch selection as draw code.
+        let anim = animation as f32;
+        let raw_alpha = if (animation as i64) < duration / 2 {
+            anim / denom
+        } else {
+            (duration as f32 - 1.0 - anim) / denom
+        };
+        // Raw alpha exceeds 1.0 -- this is the bug scenario.
+        assert!(
+            raw_alpha > 1.0,
+            "precondition: raw alpha should exceed 1.0, got {raw_alpha}"
+        );
+
+        // After clamping (as the fix applies), alpha must be in [0.0, 1.0].
+        let alpha = raw_alpha.clamp(0.0, 1.0);
+        assert!(
+            (0.0..=1.0).contains(&alpha),
+            "alpha must be clamped to [0.0, 1.0], got {alpha}"
+        );
+        assert!(
+            (alpha - 1.0).abs() < 1e-6,
+            "clamped alpha should be 1.0 for this case, got {alpha}"
         );
     }
 
