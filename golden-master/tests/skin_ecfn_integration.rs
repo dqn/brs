@@ -11,13 +11,13 @@ use std::path::{Path, PathBuf};
 
 use golden_master::render_snapshot::capture_render_snapshot;
 use golden_master::state_provider::{StaticMainStateAdapter, StaticStateProvider};
-use rubato_render::font::BitmapFontData;
-use rubato_skin::json::json_skin_loader::{JSONSkinLoader, SkinConfigProperty};
-use rubato_skin::lua::lua_skin_loader::LuaSkinLoader;
-use rubato_skin::reexports::{MainState, Resolution as SkinResolution};
-use rubato_skin::skin::Skin;
-use rubato_skin::skin_data_converter;
-use rubato_skin::skin_type::SkinType;
+use rubato::render::font::BitmapFontData;
+use rubato::skin::json::json_skin_loader::{JSONSkinLoader, SkinConfigProperty};
+use rubato::skin::lua::lua_skin_loader::LuaSkinLoader;
+use rubato::skin::reexports::{MainState, Resolution as SkinResolution};
+use rubato::skin::skin::Skin;
+use rubato::skin::skin_data_converter;
+use rubato::skin::skin_type::SkinType;
 
 // ---------------------------------------------------------------------------
 // Helpers

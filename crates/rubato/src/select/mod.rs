@@ -3,12 +3,12 @@ pub mod ir_status;
 // Re-exports
 
 // LibGDX types
-pub use rubato_skin::reexports::Color;
-pub use rubato_skin::reexports::Pixmap;
-pub use rubato_skin::reexports::PixmapFormat;
-pub use rubato_skin::reexports::Rectangle;
-pub use rubato_skin::reexports::Texture;
-pub use rubato_skin::reexports::TextureRegion;
+pub use crate::skin::reexports::Color;
+pub use crate::skin::reexports::Pixmap;
+pub use crate::skin::reexports::PixmapFormat;
+pub use crate::skin::reexports::Rectangle;
+pub use crate::skin::reexports::Texture;
+pub use crate::skin::reexports::TextureRegion;
 
 // beatoraja core types
 pub use crate::core::audio_config::AudioConfig;
@@ -18,30 +18,30 @@ pub use crate::core::player_config::PlayerConfig;
 pub use crate::core::score_data::ScoreData;
 
 // beatoraja.song types
-pub use rubato_skin::song_data::SongData;
-pub use rubato_skin::song_data::{
+pub use crate::skin::song_data::SongData;
+pub use crate::skin::song_data::{
     FAVORITE_CHART, FAVORITE_SONG, FEATURE_CHARGENOTE, FEATURE_HELLCHARGENOTE, FEATURE_LONGNOTE,
     FEATURE_MINENOTE, FEATURE_RANDOM, FEATURE_UNDEFINEDLN, INVISIBLE_CHART, INVISIBLE_SONG,
 };
 
 // FolderData
-pub use rubato_skin::folder_data::FolderData;
+pub use crate::skin::folder_data::FolderData;
 
 // SongDatabaseAccessor
 pub use crate::song_database_accessor::SongDatabaseAccessor;
 
 // MainState
-pub use rubato_skin::reexports::MainState;
+pub use crate::skin::reexports::MainState;
 
 // MainStateType
-pub use rubato_skin::main_state_type::MainStateType;
+pub use crate::skin::main_state_type::MainStateType;
 
 // BMSPlayerMode
 pub use crate::core::bms_player_mode::BMSPlayerMode;
 pub use crate::core::bms_player_mode::Mode as BMSPlayerModeType;
 
 // CourseData / TrophyData / CourseDataConstraint
-pub use rubato_skin::course_data::{CourseData, CourseDataConstraint, TrophyData};
+pub use crate::skin::course_data::{CourseData, CourseDataConstraint, TrophyData};
 
 // RandomCourseData / RandomStageData
 pub use crate::core::random_course_data::RandomCourseData;
@@ -64,9 +64,9 @@ pub use crate::ir::ranking_data_cache::RankingDataCache;
 pub use crate::ranking_data_cache_access::RankingDataCacheAccess;
 
 // beatoraja.input types
-pub use rubato_input::bms_player_input_processor::BMSPlayerInputProcessor;
-pub use rubato_input::key_command::KeyCommand;
-pub use rubato_input::keyboard_input_processor::ControlKeys;
+pub use crate::input::bms_player_input_processor::BMSPlayerInputProcessor;
+pub use crate::input::key_command::KeyCommand;
+pub use crate::input::keyboard_input_processor::ControlKeys;
 
 // beatoraja.ir types
 pub use crate::ir::ir_connection::IRConnection;
@@ -74,12 +74,12 @@ pub use crate::ir::ir_score_data::IRScoreData;
 pub use crate::ir::leaderboard_entry::LeaderboardEntry;
 
 // beatoraja.skin types
-pub use rubato_skin::skin_header::SkinHeader;
-pub use rubato_skin::skin_image::SkinImage;
-pub use rubato_skin::skin_number::SkinNumber;
-pub use rubato_skin::skin_object::SkinObjectRenderer;
-pub use rubato_skin::skin_text::{SkinText, SkinTextData, SkinTextEnum};
-pub use rubato_skin::skin_type::SkinType;
+pub use crate::skin::skin_header::SkinHeader;
+pub use crate::skin::skin_image::SkinImage;
+pub use crate::skin::skin_number::SkinNumber;
+pub use crate::skin::skin_object::SkinObjectRenderer;
+pub use crate::skin::skin_text::{SkinText, SkinTextData, SkinTextEnum};
+pub use crate::skin::skin_type::SkinType;
 
 /// SkinRegion -- alias for Rectangle (same fields: x, y, width, height).
 /// Kept as type alias to minimize churn in select crate code.
@@ -87,7 +87,7 @@ pub type SkinRegion = Rectangle;
 
 // beatoraja.skin.property types
 pub use crate::event_type::EventType;
-pub use rubato_skin::skin_property;
+pub use crate::skin::skin_property;
 
 // SoundType
 pub use crate::core::system_sound_manager::SoundType;
@@ -108,7 +108,7 @@ pub use crate::core::resolution::Resolution;
 pub use self::null_song_database_accessor::NullSongDatabaseAccessor;
 
 // MusicSelector -- SongSelectionAccess trait
-pub use rubato_skin::song_selection_access::SongSelectionAccess;
+pub use crate::skin::song_selection_access::SongSelectionAccess;
 
 // Download task types
 pub use crate::song::md_processor::download_task::{DownloadTask, DownloadTaskStatus};

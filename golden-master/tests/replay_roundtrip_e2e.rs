@@ -6,9 +6,9 @@
 use bms::model::judge_note::{JUDGE_MS, JUDGE_PG, JUDGE_PR};
 use bms::model::mode::Mode;
 use golden_master::e2e_helpers::*;
-use rubato_skin::KeyInputLog as ReplayKeyInputLog;
-use rubato_skin::groove_gauge::{EXHARD, HARD, NORMAL};
-use rubato_skin::replay_data::ReplayData;
+use rubato::skin::KeyInputLog as ReplayKeyInputLog;
+use rubato::skin::groove_gauge::{EXHARD, HARD, NORMAL};
+use rubato::skin::replay_data::ReplayData;
 
 /// Record autoplay key events from a simulation.
 ///
@@ -16,7 +16,7 @@ use rubato_skin::replay_data::ReplayData;
 /// every note perfectly (offset 0).
 fn record_autoplay_keylog(
     model: &bms::model::bms_model::BMSModel,
-) -> Vec<rubato_input::key_input_log::KeyInputLog> {
+) -> Vec<rubato::input::key_input_log::KeyInputLog> {
     let jn = model.build_judge_notes();
     let mode = model.mode().unwrap_or(&Mode::BEAT_7K);
     create_note_press_log(&jn, mode, 0)
@@ -149,11 +149,11 @@ fn replay_json_playback_matches() {
     let loaded: ReplayData = serde_json::from_str(&json).unwrap();
 
     // Convert loaded stub KeyInputLog back to rubato_input KeyInputLog
-    let loaded_keylog: Vec<rubato_input::key_input_log::KeyInputLog> = loaded
+    let loaded_keylog: Vec<rubato::input::key_input_log::KeyInputLog> = loaded
         .keylog
         .iter()
         .map(|entry| {
-            rubato_input::key_input_log::KeyInputLog::with_data(
+            rubato::input::key_input_log::KeyInputLog::with_data(
                 entry.time,
                 entry.keycode,
                 entry.pressed,

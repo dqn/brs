@@ -5,7 +5,7 @@ use crate::core::audio_config::{DriverType, FrequencyType};
 use crate::core::config::DisplayMode;
 use crate::core::ir_config::IRConfig;
 use crate::core::resolution::Resolution;
-use rubato_skin::skin_type::SkinType;
+use crate::skin::skin_type::SkinType;
 
 use crate::views::skin_configuration_view::{SkinConfigItem, SkinConfigurationView};
 

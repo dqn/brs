@@ -1,4 +1,4 @@
-use rubato_skin::timer_id::TimerId;
+use crate::skin::timer_id::TimerId;
 
 // SkinProperty timer constants for key beam on/off
 // Translated from SkinPropertyMapper.keyOnTimerId / keyOffTimerId

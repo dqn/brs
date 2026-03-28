@@ -2,10 +2,10 @@ use super::KeyConfiguration;
 use super::gdx_key_name::gdx_key_name;
 use crate::core::main_state::MainStateData;
 use crate::core::timer_manager::TimerManager;
-use bms::model::mode::Mode;
-use rubato_skin::play_mode_config::{
+use crate::skin::play_mode_config::{
     KeyboardConfig, MidiConfig, MidiInput, MidiInputType, PlayModeConfig,
 };
+use bms::model::mode::Mode;
 
 /// Creates a PlayModeConfig for 7K mode (mode index 1 in KEYSA).
 fn make_pmc() -> PlayModeConfig {

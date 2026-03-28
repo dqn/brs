@@ -13,11 +13,7 @@ ffmpeg = ["rubato/ffmpeg"]
 dhat-heap = ["dhat"]
 
 [dependencies]
-rubato-audio = { workspace = true }
 rubato = { workspace = true }
-rubato-input = { workspace = true }
-rubato-render = { workspace = true }
-rubato-skin = { workspace = true }
 anyhow = { workspace = true }
 log = { workspace = true }
 clap = { workspace = true }

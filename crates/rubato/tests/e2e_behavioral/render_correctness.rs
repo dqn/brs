@@ -9,11 +9,11 @@ use std::path::PathBuf;
 use crate::e2e_support::{E2eHarness, MainStateType};
 use rubato::core::config::Config;
 use rubato::core::main_loader::MainLoader;
+use rubato::skin::player_config::PlayerConfig;
+use rubato::skin::skin_config::SkinConfig;
+use rubato::skin::skin_type::SkinType;
+use rubato::skin::timer_id::TimerId;
 use rubato::state_factory::LauncherStateFactory;
-use rubato_skin::player_config::PlayerConfig;
-use rubato_skin::skin_config::SkinConfig;
-use rubato_skin::skin_type::SkinType;
-use rubato_skin::timer_id::TimerId;
 
 fn test_bms_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))

@@ -23,7 +23,7 @@ impl IRCourseData {
     /// Convert IRCourseData back to CourseData.
     /// Translated from: Java BarManager.java inline mapping (lines 157-186)
     pub fn to_course_data(&self) -> CourseData {
-        let songs: Vec<rubato_skin::song_data::SongData> =
+        let songs: Vec<crate::skin::song_data::SongData> =
             self.charts.iter().map(|c| c.to_song_data()).collect();
         let trophy: Vec<TrophyData> = self
             .trophy
@@ -72,8 +72,8 @@ impl IRCourseData {
     }
 }
 
-/// Create IRChartData from rubato_skin::SongData
-fn create_ir_chart_data_from_core_song(song: &rubato_skin::song_data::SongData) -> IRChartData {
+/// Create IRChartData from crate::skin::SongData
+fn create_ir_chart_data_from_core_song(song: &crate::skin::song_data::SongData) -> IRChartData {
     IRChartData {
         md5: song.file.md5.clone(),
         sha256: song.file.sha256.clone(),

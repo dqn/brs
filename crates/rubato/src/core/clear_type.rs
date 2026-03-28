@@ -1,4 +1,4 @@
-pub use rubato_skin::clear_type::*;
+pub use crate::skin::clear_type::*;
 
 #[cfg(test)]
 mod tests {

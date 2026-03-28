@@ -15,6 +15,8 @@ pub(crate) use crate::core::pattern::scroll_speed_modifier::ScrollSpeedModifier;
 pub(crate) use crate::core::player_config::PlayerConfig;
 pub(crate) use crate::core::score_data::ScoreData;
 pub(crate) use crate::core::timer_manager::TimerManager;
+pub(crate) use crate::input::bms_player_input_processor::{BMSPlayerInputProcessor, KEYSTATE_SIZE};
+pub(crate) use crate::input::keyboard_input_processor::ControlKeys;
 pub(crate) use crate::play::bga::bga_processor::BGAProcessor;
 pub(crate) use crate::play::bms_player_rule::BMSPlayerRule;
 pub(crate) use crate::play::groove_gauge::GrooveGauge;
@@ -28,18 +30,16 @@ pub(crate) use crate::play::lane_renderer::{LaneGroupRegion, LaneRenderer};
 pub(crate) use crate::play::play_skin::PlaySkin;
 pub(crate) use crate::play::practice_configuration::PracticeConfiguration;
 pub(crate) use crate::play::rhythm_timer_processor::RhythmTimerProcessor;
+pub(crate) use crate::skin::audio_config::FrequencyType;
+pub(crate) use crate::skin::clear_type::ClearType;
+pub(crate) use crate::skin::course_data::CourseDataConstraint;
+pub(crate) use crate::skin::play_config::PlayConfig;
+pub(crate) use crate::skin::replay_data::ReplayData;
+pub(crate) use crate::skin::skin_type::SkinType;
 pub(crate) use bms::model::bms_model::{BMSModel, LNTYPE_LONGNOTE};
 pub(crate) use bms::model::bms_model_utils;
 pub(crate) use bms::model::mode::Mode;
 pub(crate) use bms::model::note::{Note, TYPE_LONGNOTE, TYPE_UNDEFINED};
-pub(crate) use rubato_input::bms_player_input_processor::{BMSPlayerInputProcessor, KEYSTATE_SIZE};
-pub(crate) use rubato_input::keyboard_input_processor::ControlKeys;
-pub(crate) use rubato_skin::audio_config::FrequencyType;
-pub(crate) use rubato_skin::clear_type::ClearType;
-pub(crate) use rubato_skin::course_data::CourseDataConstraint;
-pub(crate) use rubato_skin::play_config::PlayConfig;
-pub(crate) use rubato_skin::replay_data::ReplayData;
-pub(crate) use rubato_skin::skin_type::SkinType;
 
 pub static TIME_MARGIN: i64 = 5000;
 
@@ -143,7 +143,7 @@ pub enum PlayState {
 }
 
 // SkinProperty timer constants used in BMSPlayer
-pub(crate) use rubato_skin::timer_id::TimerId;
+pub(crate) use crate::skin::timer_id::TimerId;
 
 const TIMER_STARTINPUT: TimerId = TimerId(1);
 const TIMER_FADEOUT: TimerId = TimerId(2);
@@ -172,7 +172,7 @@ pub struct PendingActions {
     /// Pending state change to request from MainController.
     pub pending_state_change: Option<MainStateType>,
     /// Pending system sound requests.
-    pub pending_sounds: Vec<(rubato_skin::sound_type::SoundType, bool)>,
+    pub pending_sounds: Vec<(crate::skin::sound_type::SoundType, bool)>,
     /// Pending score handoff for Result state.
     pub pending_score_handoff: Option<crate::score_handoff::ScoreHandoff>,
     /// Pending BMS file reload request (for quick retry).
@@ -208,18 +208,18 @@ pub struct PendingActions {
     /// Unlike the full `pending_score_handoff`, this only sets `resource.score_data`
     /// without modifying combo, gauge, or replay fields.
     /// Translated from: Java `resource.setScoreData(createScoreData())` in quick retry.
-    pub pending_quick_retry_score: Option<rubato_skin::score_data::ScoreData>,
+    pub pending_quick_retry_score: Option<crate::skin::score_data::ScoreData>,
     /// Pending replay data to store on PlayerResource during quick retry (SELECT key).
     ///
     /// Preserves the current session's lane_shuffle_pattern and randomoptionseed so the
     /// next play session inherits the correct replay data instead of stale data.
     /// Built via `build_replay_data()` in the SELECT quick-retry path.
-    pub pending_quick_retry_replay: Option<rubato_skin::replay_data::ReplayData>,
+    pub pending_quick_retry_replay: Option<crate::skin::replay_data::ReplayData>,
     /// Pending audio config update to propagate volume changes to MainController.
     ///
     /// Set by PlayMouseContext when volume sliders (set_float_value IDs 17-19) or
     /// notify_audio_config_changed() are called. Consumed directly via GameContext.
-    pub pending_audio_config: Option<rubato_skin::audio_config::AudioConfig>,
+    pub pending_audio_config: Option<crate::skin::audio_config::AudioConfig>,
     /// Pending audio path play requests from skin scripts (audio_play).
     ///
     /// Each entry is (path, volume, is_loop). Consumed directly via GameContext.
@@ -328,12 +328,12 @@ impl Default for PlayerInputState {
 /// Score, replay, and analysis state for the current play session.
 pub struct PlayerScoreState {
     pub playinfo: ReplayData,
-    pub replay_config: Option<rubato_skin::play_config::PlayConfig>,
+    pub replay_config: Option<crate::skin::play_config::PlayConfig>,
     pub active_replay: Option<ReplayData>,
     pub db_score: Option<ScoreData>,
     pub rival_score: Option<ScoreData>,
     pub target_score: Option<ScoreData>,
-    pub analysis_result: Option<rubato_audio::bms_loudness_analyzer::AnalysisResult>,
+    pub analysis_result: Option<crate::audio::bms_loudness_analyzer::AnalysisResult>,
     pub analysis_checked: bool,
 }
 
@@ -438,7 +438,7 @@ pub struct BMSPlayer {
     /// Set by the caller. Quick retry is disabled during courses.
     is_course_mode: bool,
     /// Input device type (for create_score_data). Set by the caller.
-    device_type: rubato_input::bms_player_input_device::DeviceType,
+    device_type: crate::input::bms_player_input_device::DeviceType,
     /// Whether frequency training is active (set when freq != 100 in practice mode).
     freq_on: bool,
     /// Whether IR score submission should be blocked (set when freq != 100 in practice mode).
@@ -468,18 +468,18 @@ pub struct BMSPlayer {
     previous_gauge_values: Option<Vec<Vec<f32>>>,
     /// Global config snapshot for skin property queries (e.g., BGA mode for image_index ID 72).
     /// Set by the caller before create() via `set_config()`.
-    config: rubato_skin::config::Config,
+    config: crate::skin::config::Config,
     /// Song metadata for skin string property queries (title, artist, etc.).
     /// Set by the caller before create() via `set_song_metadata()`.
-    song_metadata: rubato_skin::song_data::SongMetadata,
+    song_metadata: crate::skin::song_data::SongMetadata,
     /// Song data for boolean skin property queries (chart mode, LN, BGA, difficulty, etc.).
     /// Set by the caller before create() via `set_song_data()`.
     /// Java: SongDataBooleanProperty accesses state.resource.getSongdata().
-    song_data: Option<rubato_skin::song_data::SongData>,
+    song_data: Option<crate::skin::song_data::SongData>,
     /// Player statistics (playcount, clear, judge counts, etc.) from PlayerData.
     /// Set by the caller before create() via `set_player_data()`.
     /// Java: IntegerPropertyFactory reads state.resource.getPlayerData() for IDs 30-37, 333.
-    player_data: Option<rubato_skin::player_data::PlayerData>,
+    player_data: Option<crate::skin::player_data::PlayerData>,
     /// Cumulative playtime in seconds from PlayerData.
     /// Java: PlayerData.getPlaytime() -- total play time across all sessions.
     /// Set by the caller before create() via `set_cumulative_playtime()`.
@@ -487,7 +487,7 @@ pub struct BMSPlayer {
     /// Skin offset snapshot from MainController.
     /// Populated by the caller via `set_offset_snapshot()` before create().
     /// Java: MainState inherits MainController which holds offset[].
-    offset_snapshot: Vec<rubato_skin::skin_offset::SkinOffset>,
+    offset_snapshot: Vec<crate::skin::skin_offset::SkinOffset>,
     /// Replay key state for replay mode entry.
     /// Set by the caller via `set_replay_key_state()` before `prepare_pattern_pipeline()`.
     /// Used by `restore_replay_data` to determine replay pattern/option/HS mode.

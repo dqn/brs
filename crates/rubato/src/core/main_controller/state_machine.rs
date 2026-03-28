@@ -26,7 +26,7 @@ impl MainController {
     pub fn change_state(&mut self, state: MainStateType) {
         // Emit transition start event
         let from_state = self.current_state_type();
-        self.emit_state_event(rubato_skin::state_event::StateEvent::TransitionStart {
+        self.emit_state_event(crate::skin::state_event::StateEvent::TransitionStart {
             from: from_state,
             to: state,
         });
@@ -187,13 +187,13 @@ impl MainController {
             // borrowing all of `self` while `self.current` is mutably
             // borrowed as `old_state`.
             if let Some(st) = old_state.state_type() {
-                let event = rubato_skin::state_event::StateEvent::StateShutdown { state: st };
+                let event = crate::skin::state_event::StateEvent::StateShutdown { state: st };
                 if let Some(ref log) = self.state_event_log
                     && let Ok(mut guard) = log.lock()
                 {
                     guard.push(event.clone());
                 }
-                let app_event = rubato_skin::app_event::AppEvent::Lifecycle(event);
+                let app_event = crate::skin::app_event::AppEvent::Lifecycle(event);
                 for sender in &self.event_senders {
                     let _ = sender.try_send(app_event.clone());
                 }
@@ -220,7 +220,7 @@ impl MainController {
 
         // Emit state created event
         if let Some(st) = new_state.state_type() {
-            self.emit_state_event(rubato_skin::state_event::StateEvent::StateCreated { state: st });
+            self.emit_state_event(crate::skin::state_event::StateEvent::StateCreated { state: st });
         }
 
         // Apply create side effects (input mode, guide SE)
@@ -241,7 +241,7 @@ impl MainController {
             if let Some(ref mut audio) = self.ctx.audio {
                 if effects.guide_se {
                     if let Some(ref sm) = self.ctx.sound {
-                        use rubato_skin::sound_type::SoundType;
+                        use crate::skin::sound_type::SoundType;
                         let guide_se_types = [
                             SoundType::GuidesePg,
                             SoundType::GuideseGr,
@@ -341,7 +341,7 @@ impl MainController {
             let timer = &mut current.main_state_data_mut().timer;
             timer.set_main_state();
             timer.state_type = st;
-            timer.set_timer_on(rubato_skin::timer_id::TimerId(0));
+            timer.set_timer_on(crate::skin::timer_id::TimerId(0));
         }
 
         // Prepare the new state
@@ -353,7 +353,7 @@ impl MainController {
         if let Some(ref current) = self.current
             && let Some(st) = current.state_type()
         {
-            self.emit_state_event(rubato_skin::state_event::StateEvent::TransitionComplete {
+            self.emit_state_event(crate::skin::state_event::StateEvent::TransitionComplete {
                 state: st,
             });
         }

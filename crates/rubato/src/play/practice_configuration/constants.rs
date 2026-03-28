@@ -25,4 +25,4 @@ pub(super) static DPRANDOM: &[&str] = &["NORMAL", "FLIP"];
 pub(super) static GRAPHTYPESTR: &[&str] = &["NOTETYPE", "JUDGE", "EARLYLATE"];
 
 // Re-export shared practice draw command types from rubato-types (canonical location).
-pub use rubato_skin::practice_draw_command::{PracticeColor, PracticeDrawCommand};
+pub use crate::skin::practice_draw_command::{PracticeColor, PracticeDrawCommand};

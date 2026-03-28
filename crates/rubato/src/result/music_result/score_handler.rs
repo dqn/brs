@@ -227,16 +227,16 @@ mod tests {
     use crate::core::timer_manager::TimerManager;
     use crate::result::test_helpers::make_test_config;
     use crate::result::{BMSPlayerModeType, MainController, PlayerResource};
-    use rubato_skin::player_resource_access::PlayerResourceAccess;
+    use crate::skin::player_resource_access::PlayerResourceAccess;
     use std::path::{Path, PathBuf};
 
     /// Configurable mock resource for accumulate_course_score tests.
     struct CourseScoreResourceAccess {
-        config: rubato_skin::config::Config,
-        player_config: rubato_skin::player_config::PlayerConfig,
+        config: crate::skin::config::Config,
+        player_config: crate::skin::player_config::PlayerConfig,
         score_data: Option<ScoreData>,
         course_score_data: Option<ScoreData>,
-        groove_gauge: Option<rubato_skin::groove_gauge::GrooveGauge>,
+        groove_gauge: Option<crate::skin::groove_gauge::GrooveGauge>,
         gauge: Option<Vec<Vec<f32>>>,
         assist: i32,
         course_index: usize,
@@ -247,10 +247,10 @@ mod tests {
     }
 
     impl CourseScoreResourceAccess {
-        fn new(config: rubato_skin::config::Config) -> Self {
+        fn new(config: crate::skin::config::Config) -> Self {
             Self {
                 config,
-                player_config: rubato_skin::player_config::PlayerConfig::default(),
+                player_config: crate::skin::player_config::PlayerConfig::default(),
                 score_data: Some(ScoreData::default()),
                 course_score_data: None,
                 groove_gauge: None,
@@ -265,19 +265,19 @@ mod tests {
         }
     }
 
-    impl rubato_skin::player_resource_access::ConfigAccess for CourseScoreResourceAccess {
-        fn config(&self) -> &rubato_skin::config::Config {
+    impl crate::skin::player_resource_access::ConfigAccess for CourseScoreResourceAccess {
+        fn config(&self) -> &crate::skin::config::Config {
             &self.config
         }
-        fn player_config(&self) -> &rubato_skin::player_config::PlayerConfig {
+        fn player_config(&self) -> &crate::skin::player_config::PlayerConfig {
             &self.player_config
         }
-        fn player_config_mut(&mut self) -> Option<&mut rubato_skin::player_config::PlayerConfig> {
+        fn player_config_mut(&mut self) -> Option<&mut crate::skin::player_config::PlayerConfig> {
             Some(&mut self.player_config)
         }
     }
 
-    impl rubato_skin::player_resource_access::ScoreAccess for CourseScoreResourceAccess {
+    impl crate::skin::player_resource_access::ScoreAccess for CourseScoreResourceAccess {
         fn score_data(&self) -> Option<&ScoreData> {
             self.score_data.as_ref()
         }
@@ -298,20 +298,20 @@ mod tests {
         }
     }
 
-    impl rubato_skin::player_resource_access::SongAccess for CourseScoreResourceAccess {
-        fn songdata(&self) -> Option<&rubato_skin::song_data::SongData> {
+    impl crate::skin::player_resource_access::SongAccess for CourseScoreResourceAccess {
+        fn songdata(&self) -> Option<&crate::skin::song_data::SongData> {
             None
         }
-        fn songdata_mut(&mut self) -> Option<&mut rubato_skin::song_data::SongData> {
+        fn songdata_mut(&mut self) -> Option<&mut crate::skin::song_data::SongData> {
             None
         }
-        fn set_songdata(&mut self, _data: Option<rubato_skin::song_data::SongData>) {}
-        fn course_song_data(&self) -> Vec<rubato_skin::song_data::SongData> {
+        fn set_songdata(&mut self, _data: Option<crate::skin::song_data::SongData>) {}
+        fn course_song_data(&self) -> Vec<crate::skin::song_data::SongData> {
             vec![]
         }
     }
 
-    impl rubato_skin::player_resource_access::ReplayAccess for CourseScoreResourceAccess {
+    impl crate::skin::player_resource_access::ReplayAccess for CourseScoreResourceAccess {
         fn replay_data(&self) -> Option<&crate::core::replay_data::ReplayData> {
             self.replay_data.as_ref()
         }
@@ -329,8 +329,8 @@ mod tests {
         }
     }
 
-    impl rubato_skin::player_resource_access::CourseAccess for CourseScoreResourceAccess {
-        fn course_data(&self) -> Option<&rubato_skin::course_data::CourseData> {
+    impl crate::skin::player_resource_access::CourseAccess for CourseScoreResourceAccess {
+        fn course_data(&self) -> Option<&crate::skin::course_data::CourseData> {
             None
         }
         fn course_index(&self) -> usize {
@@ -339,18 +339,18 @@ mod tests {
         fn next_course(&mut self) -> bool {
             false
         }
-        fn constraint(&self) -> Vec<rubato_skin::course_data::CourseDataConstraint> {
+        fn constraint(&self) -> Vec<crate::skin::course_data::CourseDataConstraint> {
             vec![]
         }
-        fn set_course_data(&mut self, _data: rubato_skin::course_data::CourseData) {}
+        fn set_course_data(&mut self, _data: crate::skin::course_data::CourseData) {}
         fn clear_course_data(&mut self) {}
     }
 
-    impl rubato_skin::player_resource_access::GaugeAccess for CourseScoreResourceAccess {
+    impl crate::skin::player_resource_access::GaugeAccess for CourseScoreResourceAccess {
         fn gauge(&self) -> Option<&Vec<Vec<f32>>> {
             self.gauge.as_ref()
         }
-        fn groove_gauge(&self) -> Option<&rubato_skin::groove_gauge::GrooveGauge> {
+        fn groove_gauge(&self) -> Option<&crate::skin::groove_gauge::GrooveGauge> {
             self.groove_gauge.as_ref()
         }
         fn course_gauge(&self) -> &Vec<Vec<Vec<f32>>> {
@@ -364,7 +364,7 @@ mod tests {
         }
     }
 
-    impl rubato_skin::player_resource_access::PlayerStateAccess for CourseScoreResourceAccess {
+    impl crate::skin::player_resource_access::PlayerStateAccess for CourseScoreResourceAccess {
         fn maxcombo(&self) -> i32 {
             self.maxcombo
         }
@@ -389,7 +389,7 @@ mod tests {
         }
     }
 
-    impl rubato_skin::player_resource_access::SessionMutation for CourseScoreResourceAccess {
+    impl crate::skin::player_resource_access::SessionMutation for CourseScoreResourceAccess {
         fn clear(&mut self) {}
         fn set_bms_file(&mut self, _path: &Path, _mode_type: i32, _mode_id: i32) -> bool {
             false
@@ -404,7 +404,7 @@ mod tests {
         }
     }
 
-    impl rubato_skin::player_resource_access::MediaAccess for CourseScoreResourceAccess {
+    impl crate::skin::player_resource_access::MediaAccess for CourseScoreResourceAccess {
         fn reverse_lookup_data(&self) -> Vec<String> {
             vec![]
         }
@@ -439,7 +439,7 @@ mod tests {
         resource_access: CourseScoreResourceAccess,
         course_models: Vec<bms::model::bms_model::BMSModel>,
     ) -> MusicResult {
-        use rubato_skin::player_resource_access::{GaugeAccess, ReplayAccess, ScoreAccess};
+        use crate::skin::player_resource_access::{GaugeAccess, ReplayAccess, ScoreAccess};
         let config = resource_access.config.clone();
         let main = MainController::new(
             config.clone(),
@@ -483,12 +483,12 @@ mod tests {
     }
 
     /// Helper to create a GrooveGauge with a given gauge_type.
-    fn make_groove_gauge(gauge_type: i32) -> rubato_skin::groove_gauge::GrooveGauge {
+    fn make_groove_gauge(gauge_type: i32) -> crate::skin::groove_gauge::GrooveGauge {
         let model = make_model_with_notes(10);
-        rubato_skin::groove_gauge::GrooveGauge::new(
+        crate::skin::groove_gauge::GrooveGauge::new(
             &model,
             gauge_type,
-            &rubato_skin::gauge_property::GaugeProperty::SevenKeys,
+            &crate::skin::gauge_property::GaugeProperty::SevenKeys,
         )
     }
 
@@ -497,12 +497,12 @@ mod tests {
     fn make_groove_gauge_with_value(
         gauge_type: i32,
         value: f32,
-    ) -> rubato_skin::groove_gauge::GrooveGauge {
+    ) -> crate::skin::groove_gauge::GrooveGauge {
         let model = make_model_with_notes(10);
-        let mut gg = rubato_skin::groove_gauge::GrooveGauge::new(
+        let mut gg = crate::skin::groove_gauge::GrooveGauge::new(
             &model,
             gauge_type,
-            &rubato_skin::gauge_property::GaugeProperty::SevenKeys,
+            &crate::skin::gauge_property::GaugeProperty::SevenKeys,
         );
         gg.set_value(value);
         gg
@@ -565,10 +565,10 @@ mod tests {
         newscore.minbp = 0;
         newscore.play_option.option = 42;
         newscore.play_option.device_type =
-            Some(rubato_skin::bms_player_input_device::Type::KEYBOARD);
+            Some(crate::skin::bms_player_input_device::Type::KEYBOARD);
         newscore.play_option.judge_algorithm =
-            Some(rubato_skin::judge_algorithm::JudgeAlgorithm::Combo);
-        newscore.play_option.rule = Some(rubato_skin::bms_player_rule::BMSPlayerRule::LR2);
+            Some(crate::skin::judge_algorithm::JudgeAlgorithm::Combo);
+        newscore.play_option.rule = Some(crate::skin::bms_player_rule::BMSPlayerRule::LR2);
 
         mr.accumulate_course_score(&newscore);
 
@@ -589,15 +589,15 @@ mod tests {
         assert_eq!(cs.play_option.option, 42);
         assert_eq!(
             cs.play_option.device_type,
-            Some(rubato_skin::bms_player_input_device::Type::KEYBOARD)
+            Some(crate::skin::bms_player_input_device::Type::KEYBOARD)
         );
         assert_eq!(
             cs.play_option.judge_algorithm,
-            Some(rubato_skin::judge_algorithm::JudgeAlgorithm::Combo)
+            Some(crate::skin::judge_algorithm::JudgeAlgorithm::Combo)
         );
         assert_eq!(
             cs.play_option.rule,
-            Some(rubato_skin::bms_player_rule::BMSPlayerRule::LR2)
+            Some(crate::skin::bms_player_rule::BMSPlayerRule::LR2)
         );
     }
 

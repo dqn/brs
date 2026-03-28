@@ -2,7 +2,7 @@
 //!
 //! Tests SpriteBatch vertex output and rendering without GPU.
 
-use rubato_render::sprite_batch::SpriteBatch;
+use rubato::render::sprite_batch::SpriteBatch;
 
 #[test]
 fn sprite_batch_starts_with_zero_vertices() {

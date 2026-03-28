@@ -1,6 +1,6 @@
+use crate::skin::play_config::PlayConfig;
+use crate::skin::skin_config::SkinConfig;
 use bms::model::mode::Mode;
-use rubato_skin::play_config::PlayConfig;
-use rubato_skin::skin_config::SkinConfig;
 
 use crate::core::player_config::PlayerConfig;
 

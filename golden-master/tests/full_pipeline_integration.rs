@@ -6,9 +6,9 @@
 use bms::model::judge_note::{JUDGE_GR, JUDGE_PG};
 use bms::model::mode::Mode;
 use golden_master::e2e_helpers::*;
-use rubato_skin::KeyInputLog as ReplayKeyInputLog;
-use rubato_skin::groove_gauge::{ASSISTEASY, EASY, EXHARD, HARD, NORMAL};
-use rubato_skin::replay_data::ReplayData;
+use rubato::skin::KeyInputLog as ReplayKeyInputLog;
+use rubato::skin::groove_gauge::{ASSISTEASY, EASY, EXHARD, HARD, NORMAL};
+use rubato::skin::replay_data::ReplayData;
 
 // ============================================================================
 // Full pipeline: BMS → Judge → Score → Replay → Re-simulate
@@ -53,10 +53,10 @@ fn bms_to_replay_full_pipeline() {
     let loaded: ReplayData = serde_json::from_str(&json).unwrap();
 
     // Step 5: Convert loaded stub KeyInputLog back to rubato_input KeyInputLog
-    let loaded_keylog: Vec<rubato_input::key_input_log::KeyInputLog> = loaded
+    let loaded_keylog: Vec<rubato::input::key_input_log::KeyInputLog> = loaded
         .keylog
         .iter()
-        .map(|k| rubato_input::key_input_log::KeyInputLog::with_data(k.time, k.keycode, k.pressed))
+        .map(|k| rubato::input::key_input_log::KeyInputLog::with_data(k.time, k.keycode, k.pressed))
         .collect();
 
     // Step 6: Re-simulate with loaded keylog
@@ -113,11 +113,11 @@ fn full_pipeline_multiple_bms() {
         let json = serde_json::to_string(&replay).unwrap();
         let loaded: ReplayData = serde_json::from_str(&json).unwrap();
 
-        let loaded_keylog: Vec<rubato_input::key_input_log::KeyInputLog> = loaded
+        let loaded_keylog: Vec<rubato::input::key_input_log::KeyInputLog> = loaded
             .keylog
             .iter()
             .map(|k| {
-                rubato_input::key_input_log::KeyInputLog::with_data(k.time, k.keycode, k.pressed)
+                rubato::input::key_input_log::KeyInputLog::with_data(k.time, k.keycode, k.pressed)
             })
             .collect();
 

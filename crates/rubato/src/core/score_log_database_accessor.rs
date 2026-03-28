@@ -1,8 +1,8 @@
 use rusqlite::Connection;
 
 use crate::core::sqlite_database_accessor::{Column, SQLiteDatabaseAccessor, Table};
-use rubato_skin::clear_type::ClearType;
-use rubato_skin::validatable::Validatable;
+use crate::skin::clear_type::ClearType;
+use crate::skin::validatable::Validatable;
 
 /// Score log database accessor.
 /// Translated from Java: ScoreLogDatabaseAccessor extends SQLiteDatabaseAccessor

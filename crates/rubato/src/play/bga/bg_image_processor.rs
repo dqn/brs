@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use rubato_render::texture::Texture;
+use crate::render::texture::Texture;
 
 /// Image file extensions supported for BGA
 pub static PIC_EXTENSION: &[&str] = &["jpg", "jpeg", "gif", "bmp", "png", "tga"];

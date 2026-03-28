@@ -9,8 +9,8 @@ use std::path::PathBuf;
 use log::error;
 
 use crate::core::skin_config::{SkinOffset, SkinProperty};
-use rubato_skin::skin_header::{CustomItemEnum, SkinHeader};
-use rubato_skin::skin_property::OPTION_RANDOM_VALUE;
+use crate::skin::skin_header::{CustomItemEnum, SkinHeader};
+use crate::skin::skin_property::OPTION_RANDOM_VALUE;
 
 use super::{SkinConfigItem, SkinConfigurationView};
 

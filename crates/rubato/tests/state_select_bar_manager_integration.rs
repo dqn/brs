@@ -15,7 +15,7 @@ use rubato::select::bar::song_bar::SongBar;
 use rubato::select::bar_manager::{BarManager, UpdateBarContext};
 use rubato::select::bar_sorter::BarSorter;
 use rubato::select::null_song_database_accessor::NullSongDatabaseAccessor;
-use rubato_skin::song_data::SongData;
+use rubato::skin::song_data::SongData;
 
 // ---------------------------------------------------------------------------
 // Helpers

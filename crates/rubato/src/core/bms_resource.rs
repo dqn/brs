@@ -1,9 +1,9 @@
 use std::collections::VecDeque;
 use std::thread;
 
+use crate::render::pixmap::Pixmap;
+use crate::render::texture::Texture;
 use bms::model::bms_model::BMSModel;
-use rubato_render::pixmap::Pixmap;
-use rubato_render::texture::Texture;
 
 use crate::core::bms_player_mode::{BMSPlayerMode, Mode};
 use crate::core::config::{BgaMode, Config};
@@ -20,7 +20,7 @@ pub const IMAGE_BACKBMP: i32 = 101;
 pub const IMAGE_BANNER: i32 = 102;
 
 /// TextureRegion re-exported from beatoraja-render (LibGDX equivalent)
-pub use rubato_render::texture::TextureRegion;
+pub use crate::render::texture::TextureRegion;
 
 /// BMSResource manages BMS stagefile, backbmp, and banner image resources,
 /// and tracks background loader threads for audio and BGA.
@@ -87,7 +87,7 @@ impl BMSResource {
         self.banner_pix = None;
         if let Some(parent) = f.parent() {
             if !model.stagefile.is_empty()
-                && rubato_audio::audio_driver::is_bms_resource_path_safe(&model.stagefile)
+                && crate::audio::audio_driver::is_bms_resource_path_safe(&model.stagefile)
             {
                 let stagefile_path = parent.join(&model.stagefile);
                 if let Some(pix) =
@@ -99,7 +99,7 @@ impl BMSResource {
             }
 
             if !model.backbmp.is_empty()
-                && rubato_audio::audio_driver::is_bms_resource_path_safe(&model.backbmp)
+                && crate::audio::audio_driver::is_bms_resource_path_safe(&model.backbmp)
             {
                 let backbmp_path = parent.join(&model.backbmp);
                 if let Some(pix) = PixmapResourcePool::load_picture(&backbmp_path.to_string_lossy())
@@ -110,7 +110,7 @@ impl BMSResource {
             }
 
             if !model.banner.is_empty()
-                && rubato_audio::audio_driver::is_bms_resource_path_safe(&model.banner)
+                && crate::audio::audio_driver::is_bms_resource_path_safe(&model.banner)
             {
                 let banner_path = parent.join(&model.banner);
                 if let Some(pix) = PixmapResourcePool::load_picture(&banner_path.to_string_lossy())
@@ -238,7 +238,7 @@ impl BMSResource {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rubato_render::pixmap::PixmapFormat;
+    use crate::render::pixmap::PixmapFormat;
 
     fn make_test_pixmap(w: i32, h: i32) -> Pixmap {
         Pixmap::new(w, h, PixmapFormat::RGBA8888)

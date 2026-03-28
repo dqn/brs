@@ -1,5 +1,5 @@
-use rubato_skin::player_information::PlayerInformation;
-use rubato_skin::score_data::ScoreData;
+use crate::skin::player_information::PlayerInformation;
+use crate::skin::score_data::ScoreData;
 
 /// IR rival info (lightweight struct for passing across crate boundaries)
 #[derive(Clone, Debug)]

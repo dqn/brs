@@ -33,7 +33,7 @@ pub struct SkinGauge {
     /// Result mode end time (ms)
     pub endtime: i32,
     /// Whether 7to9 border check is done.
-    /// Note: the actual adjustment logic lives in rubato_skin::objects::skin_gauge::SkinGauge,
+    /// Note: the actual adjustment logic lives in crate::skin::objects::skin_gauge::SkinGauge,
     /// which is the rendering-side gauge that corresponds to Java's SkinGauge.
     _is_checked_seven_to_nine: bool,
 }
@@ -102,7 +102,7 @@ impl SkinGauge {
     }
 
     pub fn draw(&self) {
-        // Drawing is handled by rubato_skin::skin_gauge::SkinGauge.
+        // Drawing is handled by crate::skin::skin_gauge::SkinGauge.
         // The skin-level SkinGauge holds SkinSourceImageSet and implements
         // the full gauge rendering logic (segmented bar with animation).
         // This play-side struct exists for standalone gauge state only.

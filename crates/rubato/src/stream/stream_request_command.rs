@@ -10,7 +10,7 @@ use crate::select::music_selector::MusicSelector;
 
 use super::ImGuiNotify;
 use super::stream_command::StreamCommand;
-use rubato_skin::sync_utils::lock_or_recover;
+use crate::skin::sync_utils::lock_or_recover;
 
 /// Request command processing
 /// Translates: bms.player.beatoraja.stream.command.StreamRequestCommand
@@ -226,8 +226,8 @@ impl UpdateBar {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::skin::song_data::SongData;
     use crate::test_support::TestSongDb;
-    use rubato_skin::song_data::SongData;
 
     /// Helper: create a SongData with a given sha256 hash.
     fn make_song(sha256: &str) -> SongData {

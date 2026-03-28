@@ -20,11 +20,11 @@ impl TargetProperty {
     }
 
     pub fn targets() -> Vec<String> {
-        rubato_skin::target_list::targets()
+        crate::skin::target_list::targets()
     }
 
     pub fn target_name(target: &str) -> String {
-        rubato_skin::target_list::target_name(target)
+        crate::skin::target_list::target_name(target)
     }
 
     pub fn from_id(id: &str) -> Option<TargetProperty> {
@@ -309,7 +309,7 @@ impl RivalTargetProperty {
     #[allow(clippy::needless_range_loop)] // Index i used for method calls and parallel array access
     fn create_score_array_impl(
         main: &mut MainController,
-        songdata: &rubato_skin::song_data::SongData,
+        songdata: &crate::skin::song_data::SongData,
         lnmode: i32,
     ) -> Vec<ScoreData> {
         let rival_count = main.rival_data_accessor().rival_count();
@@ -745,7 +745,7 @@ impl NextRankTargetProperty {
 mod tests {
     use super::*;
     use crate::core::config::Config;
-    use rubato_skin::player_config::PlayerConfig;
+    use crate::skin::player_config::PlayerConfig;
 
     fn make_main() -> MainController {
         MainController::new(

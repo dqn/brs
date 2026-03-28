@@ -53,7 +53,7 @@ impl BMSPlayer {
             bga_progress: 0.0,
             bga_enabled: false,
             is_course_mode: false,
-            device_type: rubato_input::bms_player_input_device::DeviceType::Keyboard,
+            device_type: crate::input::bms_player_input_device::DeviceType::Keyboard,
             freq_on: false,
             force_no_ir_send: false,
             initial_course_combo: 0,
@@ -62,8 +62,8 @@ impl BMSPlayer {
             lnmode_override: None,
             judge_note_to_model: Vec::new(),
             previous_gauge_values: None,
-            config: rubato_skin::config::Config::default(),
-            song_metadata: rubato_skin::song_data::SongMetadata::default(),
+            config: crate::skin::config::Config::default(),
+            song_metadata: crate::skin::song_data::SongMetadata::default(),
             song_data: None,
             player_data: None,
             offset_snapshot: Vec::new(),
@@ -106,7 +106,7 @@ impl BMSPlayer {
     /// Set the loudness analysis result (from async task on PlayerResource).
     pub fn set_analysis_result(
         &mut self,
-        result: Option<rubato_audio::bms_loudness_analyzer::AnalysisResult>,
+        result: Option<crate::audio::bms_loudness_analyzer::AnalysisResult>,
     ) {
         self.score.analysis_result = result;
     }
@@ -158,7 +158,7 @@ impl BMSPlayer {
     }
 
     /// Set the global config. Used for BGA mode and other skin property queries.
-    pub fn set_config(&mut self, config: rubato_skin::config::Config) {
+    pub fn set_config(&mut self, config: crate::skin::config::Config) {
         self.config = config;
     }
 
@@ -201,7 +201,7 @@ impl BMSPlayer {
     }
 
     /// Queue a system sound to be played by MainController.
-    pub(super) fn queue_sound(&mut self, sound: rubato_skin::sound_type::SoundType) {
+    pub(super) fn queue_sound(&mut self, sound: crate::skin::sound_type::SoundType) {
         self.pending.pending_sounds.push((sound, false));
     }
 
@@ -239,37 +239,37 @@ impl BMSPlayer {
 
     /// Set the lnmode override from chart data (SongData).
     /// Should be called during initialization when SongData is available.
-    /// Use `rubato_skin::skin_render_context::compute_lnmode_from_chart()` to compute.
+    /// Use `crate::skin::skin_render_context::compute_lnmode_from_chart()` to compute.
     pub fn set_lnmode_override(&mut self, lnmode_override: Option<i32>) {
         self.lnmode_override = lnmode_override;
     }
 
     /// Get the song metadata used for skin string property queries (title, artist, etc.).
-    pub fn song_metadata(&self) -> &rubato_skin::song_data::SongMetadata {
+    pub fn song_metadata(&self) -> &crate::skin::song_data::SongMetadata {
         &self.song_metadata
     }
 
     /// Set the song metadata for skin string property queries (title, artist, etc.).
     /// Should be called during initialization when SongData is available.
-    pub fn set_song_metadata(&mut self, metadata: rubato_skin::song_data::SongMetadata) {
+    pub fn set_song_metadata(&mut self, metadata: crate::skin::song_data::SongMetadata) {
         self.song_metadata = metadata;
     }
 
     /// Get the song data used for boolean skin property queries.
-    pub fn song_data(&self) -> Option<&rubato_skin::song_data::SongData> {
+    pub fn song_data(&self) -> Option<&crate::skin::song_data::SongData> {
         self.song_data.as_ref()
     }
 
     /// Set the song data for boolean skin property queries (chart mode, LN, BGA, difficulty, etc.).
     /// Should be called during initialization when SongData is available.
     /// Java: SongDataBooleanProperty accesses state.resource.getSongdata().
-    pub fn set_song_data(&mut self, song_data: rubato_skin::song_data::SongData) {
+    pub fn set_song_data(&mut self, song_data: crate::skin::song_data::SongData) {
         self.song_data = Some(song_data);
     }
 
     /// Set player data for skin integer property IDs 30-37 (player statistics) and 333.
     /// Java: IntegerPropertyFactory reads state.resource.getPlayerData().
-    pub fn set_player_data(&mut self, data: rubato_skin::player_data::PlayerData) {
+    pub fn set_player_data(&mut self, data: crate::skin::player_data::PlayerData) {
         self.player_data = Some(data);
     }
 
@@ -283,18 +283,18 @@ impl BMSPlayer {
     /// Set the skin offset snapshot from MainController.
     /// Should be called during state creation when offset data is available.
     /// Java: MainState inherits MainController which holds offset[].
-    pub fn set_offset_snapshot(&mut self, offsets: Vec<rubato_skin::skin_offset::SkinOffset>) {
+    pub fn set_offset_snapshot(&mut self, offsets: Vec<crate::skin::skin_offset::SkinOffset>) {
         self.offset_snapshot = offsets;
     }
 
     /// Get a reference to the offset snapshot for read access.
-    pub fn offset_snapshot(&self) -> &[rubato_skin::skin_offset::SkinOffset] {
+    pub fn offset_snapshot(&self) -> &[crate::skin::skin_offset::SkinOffset] {
         &self.offset_snapshot
     }
 
     /// Get a mutable reference to the offset snapshot.
     /// Used by render_skin to write back lanecover/lift offsets.
-    pub fn offset_snapshot_mut(&mut self) -> &mut Vec<rubato_skin::skin_offset::SkinOffset> {
+    pub fn offset_snapshot_mut(&mut self) -> &mut Vec<crate::skin::skin_offset::SkinOffset> {
         &mut self.offset_snapshot
     }
 
@@ -443,7 +443,7 @@ impl BMSPlayer {
     /// Returns the adjusted volume (or -1.0 if analysis failed).
     pub fn apply_loudness_analysis(
         &mut self,
-        analysis_result: &rubato_audio::bms_loudness_analyzer::AnalysisResult,
+        analysis_result: &crate::audio::bms_loudness_analyzer::AnalysisResult,
         config_key_volume: f32,
     ) -> f32 {
         self.score.analysis_checked = true;

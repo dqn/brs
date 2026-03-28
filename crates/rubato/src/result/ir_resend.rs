@@ -49,13 +49,13 @@ impl IrResendService for IrResendServiceImpl {
             self.ir_send_count,
             &self.shutdown_flag,
         );
-        let mut guard = rubato_skin::sync_utils::lock_or_recover(&self.handle);
+        let mut guard = crate::skin::sync_utils::lock_or_recover(&self.handle);
         *guard = Some(handle);
     }
 
     fn stop(&self) {
         self.shutdown_flag.store(true, Ordering::Release);
-        let mut guard = rubato_skin::sync_utils::lock_or_recover(&self.handle);
+        let mut guard = crate::skin::sync_utils::lock_or_recover(&self.handle);
         if let Some(handle) = guard.take() {
             // The thread checks the shutdown flag every 100ms.
             // Join if already finished; otherwise detach to avoid
@@ -112,7 +112,7 @@ pub fn start_ir_resend_thread(
             // Phase 1: Take all entries out of the shared list so we can release the
             // lock before performing blocking HTTP sends.
             let mut snapshot: Vec<IRSendStatusMain> = {
-                let mut statuses = rubato_skin::sync_utils::lock_or_recover(&ir_send_status);
+                let mut statuses = crate::skin::sync_utils::lock_or_recover(&ir_send_status);
                 statuses.drain(..).collect()
             };
 
@@ -150,7 +150,7 @@ pub fn start_ir_resend_thread(
                     keep.push(score);
                 }
                 {
-                    let mut statuses = rubato_skin::sync_utils::lock_or_recover(&ir_send_status);
+                    let mut statuses = crate::skin::sync_utils::lock_or_recover(&ir_send_status);
                     // Prepend kept entries before any newly added ones.
                     let new_entries: Vec<IRSendStatusMain> = statuses.drain(..).collect();
                     statuses.extend(keep);
@@ -180,7 +180,7 @@ mod tests {
     use crate::ir::ir_response::IRResponse;
     use crate::ir::ir_score_data::IRScoreData;
     use crate::ir::ir_table_data::IRTableData;
-    use rubato_skin::song_data::SongData;
+    use crate::skin::song_data::SongData;
     use std::sync::atomic::{AtomicI32, Ordering};
 
     struct MockIRSuccess {

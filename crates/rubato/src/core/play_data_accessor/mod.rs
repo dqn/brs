@@ -2,11 +2,11 @@ use crate::core::score_data_log_database_accessor::ScoreDataLogDatabaseAccessor;
 use crate::core::score_database_accessor::ScoreDatabaseAccessor;
 use crate::core::score_log_database_accessor::ScoreLogDatabaseAccessor;
 #[cfg(test)]
-use rubato_skin::clear_type::ClearType;
+use crate::skin::clear_type::ClearType;
 #[cfg(test)]
-use rubato_skin::course_data::CourseDataConstraint;
+use crate::skin::course_data::CourseDataConstraint;
 #[cfg(test)]
-use rubato_skin::score_data::ScoreData;
+use crate::skin::score_data::ScoreData;
 static REPLAY: &[&str] = &["", "C", "H"];
 
 /// Play data accessor.
@@ -29,8 +29,8 @@ pub use self::core::{CourseScoreWriteContext, ScoreWriteContext};
 #[allow(clippy::field_reassign_with_default)]
 mod tests {
     use super::*;
-    use rubato_skin::config::Config;
-    use rubato_skin::score_data::SongTrophy;
+    use crate::skin::config::Config;
+    use crate::skin::score_data::SongTrophy;
 
     /// Helper: create a PlayDataAccessor backed by in-memory databases via a temp directory.
     fn create_test_accessor(dir: &std::path::Path) -> PlayDataAccessor {

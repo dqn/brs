@@ -9,7 +9,7 @@ use log::{info, warn};
 use crate::core::clear_type::ClearType;
 use crate::core::score_data::ScoreData;
 use crate::core::system_sound_manager::SoundType;
-use rubato_skin::skin_property::*;
+use crate::skin::skin_property::*;
 
 use super::abstract_result::{
     AbstractResultData, REPLAY_SIZE, ReplayAutoSaveConstraint, ReplayStatus, STATE_IR_FINISHED,
@@ -26,9 +26,9 @@ use crate::core::app_context::GameContext;
 use crate::core::ir_config::{IR_SEND_ALWAYS, IR_SEND_COMPLETE_SONG, IR_SEND_UPDATE_SCORE};
 use crate::core::main_state::{MainStateType, StateTransition};
 use crate::core::timer_manager::TimerManager;
-use rubato_skin::property_snapshot::PropertySnapshot;
-use rubato_skin::skin_action_queue::SkinActionQueue;
-use rubato_skin::timer_id::TimerId;
+use crate::skin::property_snapshot::PropertySnapshot;
+use crate::skin::skin_action_queue::SkinActionQueue;
+use crate::skin::timer_id::TimerId;
 
 use super::shared_render_context;
 
@@ -77,7 +77,7 @@ pub struct CourseResult {
     /// Outbox: pending audio path stops.
     pending_audio_path_stops: Vec<String>,
     /// Outbox: pending audio config update.
-    pending_audio_config: Option<rubato_skin::audio_config::AudioConfig>,
+    pending_audio_config: Option<crate::skin::audio_config::AudioConfig>,
     /// Outbox: pending stop-all-notes request (fadeout).
     pending_stop_all_notes: bool,
     /// Outbox: pending state change from skin callbacks / do_render.
@@ -85,7 +85,7 @@ pub struct CourseResult {
     /// Outbox: pending save_last_recording requests.
     pending_save_last_recording: Vec<String>,
     /// Read-only input snapshot for the current frame.
-    input_snapshot: Option<rubato_input::input_snapshot::InputSnapshot>,
+    input_snapshot: Option<crate::input::input_snapshot::InputSnapshot>,
 }
 
 impl CourseResult {
@@ -195,7 +195,7 @@ impl CourseResult {
         // loadSkin(SkinType.COURSE_RESULT)
         crate::core::main_state::MainState::load_skin(
             self,
-            rubato_skin::skin_type::SkinType::CourseResult.id(),
+            crate::skin::skin_type::SkinType::CourseResult.id(),
         );
     }
 
@@ -264,7 +264,7 @@ impl CourseResult {
         if !self.ir_send_status.is_empty() {
             self.main_data
                 .timer
-                .switch_timer(rubato_skin::skin_property::TIMER_IR_CONNECT_BEGIN, true);
+                .switch_timer(crate::skin::skin_property::TIMER_IR_CONNECT_BEGIN, true);
         }
 
         // Move statuses into the thread
@@ -381,11 +381,11 @@ impl CourseResult {
             if succeed {
                 self.main_data
                     .timer
-                    .switch_timer(rubato_skin::skin_property::TIMER_IR_CONNECT_SUCCESS, true);
+                    .switch_timer(crate::skin::skin_property::TIMER_IR_CONNECT_SUCCESS, true);
             } else {
                 self.main_data
                     .timer
-                    .switch_timer(rubato_skin::skin_property::TIMER_IR_CONNECT_FAIL, true);
+                    .switch_timer(crate::skin::skin_property::TIMER_IR_CONNECT_FAIL, true);
             }
             if let Some(ir_scores) = ranking_scores {
                 let use_newscore = ns_clone
@@ -829,7 +829,7 @@ impl CourseResult {
         s.recent_judges_index = timer.recent_judges_index();
 
         // State identity
-        s.state_type = Some(rubato_skin::main_state_type::MainStateType::CourseResult);
+        s.state_type = Some(crate::skin::main_state_type::MainStateType::CourseResult);
 
         // Config
         s.config = Some(Box::new(self.main.config().clone()));
@@ -1003,7 +1003,7 @@ impl CourseResult {
         // Image index: lnmode override (308)
         if let Some(song) = self.resource.songdata()
             && let Some(override_val) =
-                rubato_skin::skin_render_context::compute_lnmode_from_chart(&song.chart)
+                crate::skin::skin_render_context::compute_lnmode_from_chart(&song.chart)
         {
             s.image_indices.insert(308, override_val);
         }
@@ -1117,7 +1117,7 @@ impl Default for CourseResult {
     fn default() -> Self {
         Self::new(
             MainController::new(
-                rubato_skin::config::Config::default(),
+                crate::skin::config::Config::default(),
                 Box::new(crate::ir::ranking_data_cache::RankingDataCache::new()),
             ),
             PlayerResource::default(),
@@ -1249,7 +1249,7 @@ impl crate::core::main_state::MainState for CourseResult {
         StateTransition::Continue
     }
 
-    fn render_skin(&mut self, sprite: &mut rubato_render::sprite_batch::SpriteBatch) {
+    fn render_skin(&mut self, sprite: &mut crate::render::sprite_batch::SpriteBatch) {
         let mut skin = match self.main_data.skin.take() {
             Some(s) => s,
             None => return,
@@ -1407,7 +1407,7 @@ impl crate::core::main_state::MainState for CourseResult {
         self.do_input();
     }
 
-    fn sync_input_snapshot(&mut self, snapshot: &rubato_input::input_snapshot::InputSnapshot) {
+    fn sync_input_snapshot(&mut self, snapshot: &crate::input::input_snapshot::InputSnapshot) {
         self.input_snapshot = Some(snapshot.clone());
     }
 
@@ -1419,16 +1419,16 @@ impl crate::core::main_state::MainState for CourseResult {
             .get(skin_type as usize)
             .and_then(|skin| skin.as_ref())
             .and_then(|skin| skin.path.clone())
-            .or_else(|| rubato_skin::skin_config::SkinConfig::default_for_id(skin_type).path);
+            .or_else(|| crate::skin::skin_config::SkinConfig::default_for_id(skin_type).path);
         // Take timer out to avoid borrowing self.main_data and its fields simultaneously
         let timer = std::mem::take(&mut self.main_data.timer);
         let loaded = {
             let mut snapshot = self.build_snapshot(&timer);
             let registry = std::collections::HashMap::new();
             let mut state =
-                rubato_skin::snapshot_main_state::SnapshotMainState::new(&mut snapshot, &registry);
+                crate::skin::snapshot_main_state::SnapshotMainState::new(&mut snapshot, &registry);
             skin_path.as_deref().and_then(|path| {
-                rubato_skin::skin_loader::load_skin_from_path_with_state(
+                crate::skin::skin_loader::load_skin_from_path_with_state(
                     &mut state, skin_type, path,
                 )
             })
@@ -1465,9 +1465,9 @@ mod tests {
     use crate::result::test_helpers::{
         ExecuteEventSkin, PlayerConfigMutatingSkin, make_test_config,
     };
-    use rubato_skin::skin_property::TIMER_RESULTGRAPH_BEGIN;
-    use rubato_skin::skin_render_context::SkinRenderContext;
-    use rubato_skin::skin_type::SkinType;
+    use crate::skin::skin_property::TIMER_RESULTGRAPH_BEGIN;
+    use crate::skin::skin_render_context::SkinRenderContext;
+    use crate::skin::skin_type::SkinType;
 
     fn make_ranking_cache() -> Box<dyn crate::ranking_data_cache_access::RankingDataCacheAccess> {
         Box::new(crate::ir::ranking_data_cache::RankingDataCache::new())
@@ -1475,7 +1475,7 @@ mod tests {
 
     fn make_default() -> CourseResult {
         CourseResult::new(
-            MainController::new(rubato_skin::config::Config::default(), make_ranking_cache()),
+            MainController::new(crate::skin::config::Config::default(), make_ranking_cache()),
             PlayerResource::default(),
             crate::core::timer_manager::TimerManager::new(),
         )
@@ -1736,13 +1736,13 @@ mod tests {
 
     /// Mock PlayerResourceAccess that provides course data for IR testing
     struct MockPlayerResourceForIR {
-        player_config: rubato_skin::player_config::PlayerConfig,
+        player_config: crate::skin::player_config::PlayerConfig,
         course_score: Option<crate::core::score_data::ScoreData>,
         course_data: Option<crate::core::course_data::CourseData>,
         course_gauge: Vec<Vec<Vec<f32>>>,
         course_replay: Vec<crate::core::replay_data::ReplayData>,
         replay_data: Option<crate::core::replay_data::ReplayData>,
-        song_data: Option<rubato_skin::song_data::SongData>,
+        song_data: Option<crate::skin::song_data::SongData>,
     }
 
     impl MockPlayerResourceForIR {
@@ -1757,7 +1757,7 @@ mod tests {
                 ..Default::default()
             };
             Self {
-                player_config: rubato_skin::player_config::PlayerConfig::default(),
+                player_config: crate::skin::player_config::PlayerConfig::default(),
                 course_score: Some(score),
                 course_data: Some(course),
                 course_gauge: Vec::new(),
@@ -1768,21 +1768,21 @@ mod tests {
         }
     }
 
-    impl rubato_skin::player_resource_access::ConfigAccess for MockPlayerResourceForIR {
-        fn config(&self) -> &rubato_skin::config::Config {
-            static CONFIG: std::sync::OnceLock<rubato_skin::config::Config> =
+    impl crate::skin::player_resource_access::ConfigAccess for MockPlayerResourceForIR {
+        fn config(&self) -> &crate::skin::config::Config {
+            static CONFIG: std::sync::OnceLock<crate::skin::config::Config> =
                 std::sync::OnceLock::new();
-            CONFIG.get_or_init(rubato_skin::config::Config::default)
+            CONFIG.get_or_init(crate::skin::config::Config::default)
         }
-        fn player_config(&self) -> &rubato_skin::player_config::PlayerConfig {
+        fn player_config(&self) -> &crate::skin::player_config::PlayerConfig {
             &self.player_config
         }
-        fn player_config_mut(&mut self) -> Option<&mut rubato_skin::player_config::PlayerConfig> {
+        fn player_config_mut(&mut self) -> Option<&mut crate::skin::player_config::PlayerConfig> {
             Some(&mut self.player_config)
         }
     }
 
-    impl rubato_skin::player_resource_access::ScoreAccess for MockPlayerResourceForIR {
+    impl crate::skin::player_resource_access::ScoreAccess for MockPlayerResourceForIR {
         fn score_data(&self) -> Option<&crate::core::score_data::ScoreData> {
             None
         }
@@ -1803,20 +1803,20 @@ mod tests {
         }
     }
 
-    impl rubato_skin::player_resource_access::SongAccess for MockPlayerResourceForIR {
-        fn songdata(&self) -> Option<&rubato_skin::song_data::SongData> {
+    impl crate::skin::player_resource_access::SongAccess for MockPlayerResourceForIR {
+        fn songdata(&self) -> Option<&crate::skin::song_data::SongData> {
             self.song_data.as_ref()
         }
-        fn songdata_mut(&mut self) -> Option<&mut rubato_skin::song_data::SongData> {
+        fn songdata_mut(&mut self) -> Option<&mut crate::skin::song_data::SongData> {
             self.song_data.as_mut()
         }
-        fn set_songdata(&mut self, _data: Option<rubato_skin::song_data::SongData>) {}
-        fn course_song_data(&self) -> Vec<rubato_skin::song_data::SongData> {
+        fn set_songdata(&mut self, _data: Option<crate::skin::song_data::SongData>) {}
+        fn course_song_data(&self) -> Vec<crate::skin::song_data::SongData> {
             vec![]
         }
     }
 
-    impl rubato_skin::player_resource_access::ReplayAccess for MockPlayerResourceForIR {
+    impl crate::skin::player_resource_access::ReplayAccess for MockPlayerResourceForIR {
         fn replay_data(&self) -> Option<&crate::core::replay_data::ReplayData> {
             self.replay_data.as_ref()
         }
@@ -1834,7 +1834,7 @@ mod tests {
         }
     }
 
-    impl rubato_skin::player_resource_access::CourseAccess for MockPlayerResourceForIR {
+    impl crate::skin::player_resource_access::CourseAccess for MockPlayerResourceForIR {
         fn course_data(&self) -> Option<&crate::core::course_data::CourseData> {
             self.course_data.as_ref()
         }
@@ -1851,11 +1851,11 @@ mod tests {
         fn clear_course_data(&mut self) {}
     }
 
-    impl rubato_skin::player_resource_access::GaugeAccess for MockPlayerResourceForIR {
+    impl crate::skin::player_resource_access::GaugeAccess for MockPlayerResourceForIR {
         fn gauge(&self) -> Option<&Vec<Vec<f32>>> {
             None
         }
-        fn groove_gauge(&self) -> Option<&rubato_skin::groove_gauge::GrooveGauge> {
+        fn groove_gauge(&self) -> Option<&crate::skin::groove_gauge::GrooveGauge> {
             None
         }
         fn course_gauge(&self) -> &Vec<Vec<Vec<f32>>> {
@@ -1869,7 +1869,7 @@ mod tests {
         }
     }
 
-    impl rubato_skin::player_resource_access::PlayerStateAccess for MockPlayerResourceForIR {
+    impl crate::skin::player_resource_access::PlayerStateAccess for MockPlayerResourceForIR {
         fn maxcombo(&self) -> i32 {
             0
         }
@@ -1894,7 +1894,7 @@ mod tests {
         }
     }
 
-    impl rubato_skin::player_resource_access::SessionMutation for MockPlayerResourceForIR {
+    impl crate::skin::player_resource_access::SessionMutation for MockPlayerResourceForIR {
         fn clear(&mut self) {}
         fn set_bms_file(
             &mut self,
@@ -1917,7 +1917,7 @@ mod tests {
         fn set_chart_option_data(&mut self, _data: Option<crate::core::replay_data::ReplayData>) {}
     }
 
-    impl rubato_skin::player_resource_access::MediaAccess for MockPlayerResourceForIR {
+    impl crate::skin::player_resource_access::MediaAccess for MockPlayerResourceForIR {
         fn reverse_lookup_data(&self) -> Vec<String> {
             vec![]
         }
@@ -1926,12 +1926,12 @@ mod tests {
         }
     }
 
-    impl rubato_skin::player_resource_access::PlayerResourceAccess for MockPlayerResourceForIR {}
+    impl crate::skin::player_resource_access::PlayerResourceAccess for MockPlayerResourceForIR {}
 
     /// Convert a MockPlayerResourceForIR to a CorePlayerResource.
     fn mock_to_core(mock: MockPlayerResourceForIR) -> crate::core::player_resource::PlayerResource {
         let mut core = crate::core::player_resource::PlayerResource::new(
-            rubato_skin::config::Config::default(),
+            crate::skin::config::Config::default(),
             mock.player_config.clone(),
         );
         if let Some(cs) = mock.course_score {
@@ -1965,7 +1965,7 @@ mod tests {
             IRPlayerData::new(String::new(), String::new(), String::new()),
         );
         let main = MainController::with_ir_statuses(
-            rubato_skin::config::Config::default(),
+            crate::skin::config::Config::default(),
             make_ranking_cache(),
             vec![ir_status],
         );
@@ -2205,7 +2205,7 @@ mod tests {
         // on course result screens. Previously it fell through to the default
         // (None), causing those IDs to always return -1.
         let mut mock = MockPlayerResourceForIR::new_with_course_score();
-        let mut song = rubato_skin::song_data::SongData::default();
+        let mut song = crate::skin::song_data::SongData::default();
         song.metadata.title = "TestSong".to_string();
         mock.song_data = Some(song);
         let resource = PlayerResource::new(
@@ -2214,7 +2214,7 @@ mod tests {
         );
         let data = AbstractResultData::new();
         let mut main =
-            MainController::new(rubato_skin::config::Config::default(), make_ranking_cache());
+            MainController::new(crate::skin::config::Config::default(), make_ranking_cache());
         let mut timer = crate::core::timer_manager::TimerManager::new();
         let offsets = std::collections::HashMap::new();
         let ctx = CourseResultRenderContext {
@@ -2239,7 +2239,7 @@ mod tests {
         let resource = PlayerResource::default();
         let data = AbstractResultData::new();
         let mut main =
-            MainController::new(rubato_skin::config::Config::default(), make_ranking_cache());
+            MainController::new(crate::skin::config::Config::default(), make_ranking_cache());
         let mut timer = crate::core::timer_manager::TimerManager::new();
         let offsets = std::collections::HashMap::new();
         let ctx = CourseResultRenderContext {
@@ -2280,7 +2280,7 @@ mod tests {
         data.ranking_offset = 1;
 
         let mut main =
-            MainController::new(rubato_skin::config::Config::default(), make_ranking_cache());
+            MainController::new(crate::skin::config::Config::default(), make_ranking_cache());
         let mut timer = crate::core::timer_manager::TimerManager::new();
         let offsets = std::collections::HashMap::new();
         let ctx = CourseResultRenderContext {
@@ -2299,7 +2299,7 @@ mod tests {
 
     /// Helper: build a CourseResultRenderContext whose resource carries the given SongData.
     fn make_course_render_ctx_with_songdata(
-        song: rubato_skin::song_data::SongData,
+        song: crate::skin::song_data::SongData,
     ) -> (
         PlayerResource,
         AbstractResultData,
@@ -2314,14 +2314,14 @@ mod tests {
         );
         let data = AbstractResultData::new();
         let main =
-            MainController::new(rubato_skin::config::Config::default(), make_ranking_cache());
+            MainController::new(crate::skin::config::Config::default(), make_ranking_cache());
         let timer = crate::core::timer_manager::TimerManager::new();
         (resource, data, main, timer)
     }
 
     #[test]
     fn test_course_result_string_value_fulltitle_with_subtitle() {
-        let mut song = rubato_skin::song_data::SongData::default();
+        let mut song = crate::skin::song_data::SongData::default();
         song.metadata.title = "MainTitle".to_string();
         song.metadata.subtitle = "[HARD]".to_string();
         let (resource, data, mut main, mut timer) = make_course_render_ctx_with_songdata(song);
@@ -2338,7 +2338,7 @@ mod tests {
 
     #[test]
     fn test_course_result_string_value_fulltitle_without_subtitle() {
-        let mut song = rubato_skin::song_data::SongData::default();
+        let mut song = crate::skin::song_data::SongData::default();
         song.metadata.title = "OnlyTitle".to_string();
         let (resource, data, mut main, mut timer) = make_course_render_ctx_with_songdata(song);
         let offsets = std::collections::HashMap::new();
@@ -2354,7 +2354,7 @@ mod tests {
 
     #[test]
     fn test_course_result_string_value_genre() {
-        let mut song = rubato_skin::song_data::SongData::default();
+        let mut song = crate::skin::song_data::SongData::default();
         song.metadata.genre = "Techno".to_string();
         let (resource, data, mut main, mut timer) = make_course_render_ctx_with_songdata(song);
         let offsets = std::collections::HashMap::new();
@@ -2370,7 +2370,7 @@ mod tests {
 
     #[test]
     fn test_course_result_string_value_subartist() {
-        let mut song = rubato_skin::song_data::SongData::default();
+        let mut song = crate::skin::song_data::SongData::default();
         song.metadata.subartist = "feat. B".to_string();
         let (resource, data, mut main, mut timer) = make_course_render_ctx_with_songdata(song);
         let offsets = std::collections::HashMap::new();
@@ -2386,7 +2386,7 @@ mod tests {
 
     #[test]
     fn test_course_result_string_value_fullartist_with_subartist() {
-        let mut song = rubato_skin::song_data::SongData::default();
+        let mut song = crate::skin::song_data::SongData::default();
         song.metadata.artist = "ArtistA".to_string();
         song.metadata.subartist = "feat. B".to_string();
         let (resource, data, mut main, mut timer) = make_course_render_ctx_with_songdata(song);
@@ -2403,7 +2403,7 @@ mod tests {
 
     #[test]
     fn test_course_result_string_value_fullartist_without_subartist() {
-        let mut song = rubato_skin::song_data::SongData::default();
+        let mut song = crate::skin::song_data::SongData::default();
         song.metadata.artist = "OnlyArtist".to_string();
         let (resource, data, mut main, mut timer) = make_course_render_ctx_with_songdata(song);
         let offsets = std::collections::HashMap::new();
@@ -2422,7 +2422,7 @@ mod tests {
         let resource = PlayerResource::default();
         let data = AbstractResultData::new();
         let mut main =
-            MainController::new(rubato_skin::config::Config::default(), make_ranking_cache());
+            MainController::new(crate::skin::config::Config::default(), make_ranking_cache());
         let mut timer = crate::core::timer_manager::TimerManager::new();
         let offsets = std::collections::HashMap::new();
         let ctx = CourseResultRenderContext {
@@ -2446,9 +2446,9 @@ mod tests {
 
     #[test]
     fn test_course_result_lnmode_308_override_longnote() {
-        let mut song = rubato_skin::song_data::SongData::default();
+        let mut song = crate::skin::song_data::SongData::default();
         // Set feature to have LN but not undefined LN
-        song.chart.feature = rubato_skin::song_data::FEATURE_LONGNOTE;
+        song.chart.feature = crate::skin::song_data::FEATURE_LONGNOTE;
         let (resource, data, mut main, mut timer) = make_course_render_ctx_with_songdata(song);
         let offsets = std::collections::HashMap::new();
         let ctx = CourseResultRenderContext {
@@ -2467,8 +2467,8 @@ mod tests {
 
     #[test]
     fn test_course_result_lnmode_308_override_chargenote() {
-        let mut song = rubato_skin::song_data::SongData::default();
-        song.chart.feature = rubato_skin::song_data::FEATURE_CHARGENOTE;
+        let mut song = crate::skin::song_data::SongData::default();
+        song.chart.feature = crate::skin::song_data::FEATURE_CHARGENOTE;
         let (resource, data, mut main, mut timer) = make_course_render_ctx_with_songdata(song);
         let offsets = std::collections::HashMap::new();
         let ctx = CourseResultRenderContext {
@@ -2487,8 +2487,8 @@ mod tests {
 
     #[test]
     fn test_course_result_lnmode_308_override_hellchargenote() {
-        let mut song = rubato_skin::song_data::SongData::default();
-        song.chart.feature = rubato_skin::song_data::FEATURE_HELLCHARGENOTE;
+        let mut song = crate::skin::song_data::SongData::default();
+        song.chart.feature = crate::skin::song_data::FEATURE_HELLCHARGENOTE;
         let (resource, data, mut main, mut timer) = make_course_render_ctx_with_songdata(song);
         let offsets = std::collections::HashMap::new();
         let ctx = CourseResultRenderContext {
@@ -2509,7 +2509,7 @@ mod tests {
     fn test_course_result_lnmode_308_no_override_falls_through_to_config() {
         // Chart has no LN features -> should fall through to config's lnmode
         let mut mock = MockPlayerResourceForIR::new_with_course_score();
-        mock.song_data = Some(rubato_skin::song_data::SongData::default());
+        mock.song_data = Some(crate::skin::song_data::SongData::default());
         mock.player_config.play_settings.lnmode = 42;
         let resource = PlayerResource::new(
             mock_to_core(mock),
@@ -2517,7 +2517,7 @@ mod tests {
         );
         let data = AbstractResultData::new();
         let mut main =
-            MainController::new(rubato_skin::config::Config::default(), make_ranking_cache());
+            MainController::new(crate::skin::config::Config::default(), make_ranking_cache());
         let mut timer = crate::core::timer_manager::TimerManager::new();
         let offsets = std::collections::HashMap::new();
         let ctx = CourseResultRenderContext {
@@ -2752,8 +2752,8 @@ mod tests {
     fn course_result_mouse_context_set_float_value_propagates_volume() {
         // Regression: volume slider writes (IDs 17-19) on the course result screen
         // must propagate to pending_audio_config on the CourseResult, not be silently dropped.
-        let mut config = rubato_skin::config::Config::default();
-        config.audio = Some(rubato_skin::audio_config::AudioConfig::default());
+        let mut config = crate::skin::config::Config::default();
+        config.audio = Some(crate::skin::audio_config::AudioConfig::default());
         let main = MainController::new(config, make_ranking_cache());
         let mut resource = PlayerResource::new(
             mock_to_core(MockPlayerResourceForIR::new_with_course_score()),
@@ -2793,7 +2793,7 @@ mod tests {
     /// Create a CourseResult with pre-resolved sound paths for testing sound selection.
     fn make_sound_tracking_cr(available_sounds: Vec<SoundType>) -> CourseResult {
         let mut main =
-            MainController::new(rubato_skin::config::Config::default(), make_ranking_cache());
+            MainController::new(crate::skin::config::Config::default(), make_ranking_cache());
         let mut paths = std::collections::HashMap::new();
         for sound in &available_sounds {
             paths.insert(sound.clone(), format!("test/{:?}.wav", sound));
@@ -2924,7 +2924,7 @@ mod tests {
         // Provide an empty input snapshot (no keys pressed).
         // score_data() is None by default, state is STATE_OFFLINE by default,
         // so the TIMER_FADEOUT branch will trigger without needing key press simulation.
-        cr.input_snapshot = Some(rubato_input::input_snapshot::InputSnapshot::default());
+        cr.input_snapshot = Some(crate::input::input_snapshot::InputSnapshot::default());
 
         cr.do_input();
 
@@ -2953,7 +2953,7 @@ mod tests {
 
         cr.main_data.timer.update();
         cr.main_data.timer.switch_timer(TIMER_STARTINPUT, true);
-        cr.input_snapshot = Some(rubato_input::input_snapshot::InputSnapshot::default());
+        cr.input_snapshot = Some(crate::input::input_snapshot::InputSnapshot::default());
 
         cr.do_input();
 
@@ -3076,7 +3076,7 @@ mod tests {
             timer: &mut timer,
             result: &mut cr,
         };
-        use rubato_skin::skin_render_context::SkinRenderContext;
+        use crate::skin::skin_render_context::SkinRenderContext;
         // ID 27 = boot time hours: 7_200_000 / 3_600_000 = 2
         assert_eq!(
             ctx.integer_value(27),
@@ -3101,7 +3101,7 @@ mod tests {
             main: &mut cr.main,
             offsets: &cr.main_data.offsets,
         };
-        use rubato_skin::skin_render_context::SkinRenderContext;
+        use crate::skin::skin_render_context::SkinRenderContext;
         assert_eq!(ctx.result_gauge_type(), 4);
     }
 
@@ -3114,7 +3114,7 @@ mod tests {
             timer: &mut timer,
             result: &mut cr,
         };
-        use rubato_skin::skin_render_context::SkinRenderContext;
+        use crate::skin::skin_render_context::SkinRenderContext;
         assert_eq!(ctx.result_gauge_type(), 2);
     }
 
@@ -3133,7 +3133,7 @@ mod tests {
             main: &mut cr.main,
             offsets: &cr.main_data.offsets,
         };
-        use rubato_skin::skin_render_context::SkinRenderContext;
+        use crate::skin::skin_render_context::SkinRenderContext;
         // image_index 450 = lane_shuffle_pattern_value(0, 0) = 3
         assert_eq!(ctx.image_index_value(450), 3);
         assert_eq!(ctx.image_index_value(451), 1);
@@ -3153,7 +3153,7 @@ mod tests {
             timer: &mut timer,
             result: &mut cr,
         };
-        use rubato_skin::skin_render_context::SkinRenderContext;
+        use crate::skin::skin_render_context::SkinRenderContext;
         assert_eq!(ctx.image_index_value(450), 4);
         assert_eq!(ctx.image_index_value(451), 2);
     }

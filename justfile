@@ -3,11 +3,11 @@ run *ARGS:
     cargo run -p rubato-bin -- {{ARGS}}
 
 check:
-    cargo check --workspace --exclude rubato-bin --exclude rubato-e2e
+    cargo check --workspace --exclude rubato-bin
 
 # Run tests (exclude rubato-bin which requires ffmpeg system library)
 test:
-    cargo nextest run --workspace --exclude rubato-bin --exclude rubato-e2e -E 'not (test(render_snapshot_parity) | test(ecfn))'
+    cargo nextest run --workspace --exclude rubato-bin -E 'not (test(render_snapshot_parity) | test(ecfn))'
 
 # Run all tests including rubato-bin (requires ffmpeg system library)
 test-all:
@@ -15,7 +15,7 @@ test-all:
 
 # Run clippy (exclude rubato-bin which requires ffmpeg system library)
 clippy:
-    cargo clippy --workspace --exclude rubato-bin --exclude rubato-e2e -- -D warnings
+    cargo clippy --workspace --exclude rubato-bin -- -D warnings
 
 # Run clippy on all crates including rubato-bin (requires ffmpeg system library)
 clippy-all:
@@ -121,17 +121,17 @@ e2e-update-snapshots:
 
 # MusicSelect text/number/bitmap alignment regression suite.
 select-render-regression:
-    cargo test -p rubato-launcher --test e2e_gameplay_lifecycle \
+    cargo test -p rubato --test e2e_gameplay_lifecycle \
         e2e_music_select_standalone_default_json_skin_draws_runtime_numeric_value_quads \
         e2e_music_select_ecfn_skin_draws_japanese_title_bitmap_glyphs \
         e2e_music_select_ecfn_skin_draws_songlist_song_title_bitmap_glyphs \
         e2e_music_select_ecfn_skin_draws_songlist_folder_title_bitmap_glyphs \
         -- --nocapture
-    cargo test -p rubato-state test_bar_renderer_centers_ecfn_loaded_songlist_bitmap_bartext_vertically -- --nocapture
-    cargo test -p rubato-skin test_real_bitmap_font_lowercase_glyphs_do_not_top_align_with_uppercase -- --nocapture
+    cargo test -p rubato test_bar_renderer_centers_ecfn_loaded_songlist_bitmap_bartext_vertically -- --nocapture
+    cargo test -p rubato test_real_bitmap_font_lowercase_glyphs_do_not_top_align_with_uppercase -- --nocapture
 
 # Run all quality checks (excludes rubato-bin; use *-all variants for full coverage)
-all: check test clippy fmt-check
+all: check test clippy fmt
 
 # Run all quality checks including E2E
 all-e2e: check test e2e clippy fmt-check

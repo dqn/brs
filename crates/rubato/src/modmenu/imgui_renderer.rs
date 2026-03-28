@@ -9,7 +9,7 @@ use super::skin_menu::SkinMenu;
 use super::skin_widget_manager::SkinWidgetManager;
 use super::{Version, version};
 
-use rubato_skin::sync_utils::lock_or_recover;
+use crate::skin::sync_utils::lock_or_recover;
 use std::sync::Mutex;
 
 static WINDOW_WIDTH: Mutex<i32> = Mutex::new(0);

@@ -4,8 +4,8 @@ use super::super::{
     CustomCategory, CustomCategoryItem, CustomFile, CustomOffset, CustomOption, SkinHeader,
     SkinType,
 };
-use rubato_skin::json::json_skin_loader::{CustomItemData, SkinHeaderData};
-use rubato_skin::lr2::lr2_skin_header_loader::LR2SkinHeaderData;
+use crate::skin::json::json_skin_loader::{CustomItemData, SkinHeaderData};
+use crate::skin::lr2::lr2_skin_header_loader::LR2SkinHeaderData;
 
 #[allow(dead_code)]
 pub(super) fn skin_header_from_json_data(data: SkinHeaderData) -> SkinHeader {

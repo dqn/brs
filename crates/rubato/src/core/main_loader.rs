@@ -4,9 +4,9 @@ use std::sync::{Mutex, OnceLock};
 
 use log::{error, info};
 
+use crate::skin::sync_utils::lock_or_recover;
+use crate::skin::validatable::Validatable;
 use crate::song_database_accessor::SongDatabaseAccessor as SongDatabaseAccessorTrait;
-use rubato_skin::sync_utils::lock_or_recover;
-use rubato_skin::validatable::Validatable;
 
 use crate::core::bms_player_mode::BMSPlayerMode;
 use crate::core::config::Config;
@@ -119,7 +119,7 @@ impl MainLoader {
 
         let config_exists = {
             let cwd = std::env::current_dir().unwrap_or_default();
-            rubato_skin::config::resolve_config_dir(&cwd).is_some()
+            crate::skin::config::resolve_config_dir(&cwd).is_some()
         };
         let has_bms_path = bms_path.is_some();
         if config_exists && (has_bms_path || auto.is_some()) {
@@ -397,8 +397,8 @@ impl MainLoader {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rubato_skin::folder_data::FolderData;
-    use rubato_skin::song_data::SongData;
+    use crate::skin::folder_data::FolderData;
+    use crate::skin::song_data::SongData;
 
     /// Mock SongDatabaseAccessor for testing
     struct MockSongDb {

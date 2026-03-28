@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
-use rubato_skin::skin_type::SkinType;
+use crate::skin::skin_type::SkinType;
 
 pub(super) const OPTION_RANDOM_VALUE: i32 = -1;
 
-/// SkinProperty button constants (mirrors rubato_skin::skin_property).
+/// SkinProperty button constants (mirrors crate::skin::skin_property).
 /// Defined locally to avoid circular dependency on beatoraja-skin.
 pub(super) const BUTTON_CHANGE_SKIN: i32 = 190;
 pub(super) const BUTTON_SKIN_CUSTOMIZE1: i32 = 220;
@@ -14,7 +14,7 @@ pub(super) const BUTTON_SKINSELECT_COURSE_RESULT: i32 = 185;
 pub(super) const BUTTON_SKINSELECT_24KEY: i32 = 386;
 pub(super) const BUTTON_SKINSELECT_24KEY_BATTLE: i32 = 388;
 
-// Local SkinPropertyMapper helpers (mirrors rubato_skin::skin_property_mapper).
+// Local SkinPropertyMapper helpers (mirrors crate::skin::skin_property_mapper).
 // Defined locally to avoid circular dependency on beatoraja-skin.
 
 pub(super) fn is_skin_customize_button(id: i32) -> bool {
@@ -76,7 +76,7 @@ pub struct CustomFileDef {
 #[derive(Clone, Debug)]
 pub struct CustomOffsetDef {
     pub name: String,
-    pub caps: rubato_skin::offset_capabilities::OffsetCapabilities,
+    pub caps: crate::skin::offset_capabilities::OffsetCapabilities,
 }
 
 /// UI item for skin configuration (replaces Java inner classes CustomItemBase hierarchy).

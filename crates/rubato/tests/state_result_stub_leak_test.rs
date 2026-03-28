@@ -8,7 +8,7 @@ use rubato::result::MainController;
 
 fn make_mc() -> MainController {
     MainController::new(
-        rubato_skin::config::Config::default(),
+        rubato::skin::config::Config::default(),
         Box::new(rubato::ir::ranking_data_cache::RankingDataCache::new()),
     )
 }

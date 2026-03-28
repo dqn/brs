@@ -10,8 +10,8 @@
 //! - SQL query results
 //! - Flat "return all" song list
 
-use rubato_skin::folder_data::FolderData;
-use rubato_skin::song_data::SongData;
+use crate::skin::folder_data::FolderData;
+use crate::skin::song_data::SongData;
 
 use crate::song_database_accessor::SongDatabaseAccessor;
 

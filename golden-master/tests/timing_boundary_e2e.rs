@@ -9,7 +9,7 @@
 use bms::model::judge_note::{JUDGE_BD, JUDGE_GD, JUDGE_GR, JUDGE_MS, JUDGE_PG, JUDGE_PR};
 use bms::model::mode::Mode;
 use golden_master::e2e_helpers::*;
-use rubato_skin::groove_gauge::NORMAL;
+use rubato::skin::groove_gauge::NORMAL;
 
 // ============================================================================
 // PG/GR boundary tests (±18ms)

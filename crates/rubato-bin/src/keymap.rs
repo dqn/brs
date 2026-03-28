@@ -3,8 +3,8 @@
 /// Convert winit's KeyCode to the bridge's WinitKeyCode enum.
 pub(crate) fn winit_to_bridge_keycode(
     key: winit::keyboard::KeyCode,
-) -> rubato_input::winit_input_bridge::WinitKeyCode {
-    use rubato_input::winit_input_bridge::WinitKeyCode as B;
+) -> rubato::input::winit_input_bridge::WinitKeyCode {
+    use rubato::input::winit_input_bridge::WinitKeyCode as B;
     use winit::keyboard::KeyCode as W;
     match key {
         W::KeyA => B::KeyA,

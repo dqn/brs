@@ -3,8 +3,8 @@
 use std::path::Path;
 
 use golden_master::course_data_fixtures::{CourseDataFixture, CourseDataTestCase};
-use rubato_skin::course_data::{CourseData, CourseDataConstraint};
-use rubato_skin::validatable::Validatable;
+use rubato::skin::course_data::{CourseData, CourseDataConstraint};
+use rubato::skin::validatable::Validatable;
 
 fn fixtures_dir() -> &'static Path {
     Path::new(env!("CARGO_MANIFEST_DIR"))

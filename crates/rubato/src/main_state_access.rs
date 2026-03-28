@@ -1,9 +1,9 @@
 use crate::abstract_result_access::AbstractResultAccess;
-use rubato_skin::config::Config;
-use rubato_skin::course_data::CourseData;
-use rubato_skin::replay_data::ReplayData;
-use rubato_skin::screen_type::ScreenType;
-use rubato_skin::song_data::SongData;
+use crate::skin::config::Config;
+use crate::skin::course_data::CourseData;
+use crate::skin::replay_data::ReplayData;
+use crate::skin::screen_type::ScreenType;
+use crate::skin::song_data::SongData;
 
 /// Trait interface for MainState access by external listeners.
 ///

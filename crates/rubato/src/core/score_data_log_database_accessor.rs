@@ -1,7 +1,7 @@
 use rusqlite::Connection;
 
 use crate::core::sqlite_database_accessor::{Column, SQLiteDatabaseAccessor, Table};
-use rubato_skin::score_data::ScoreData;
+use crate::skin::score_data::ScoreData;
 
 /// Score data log database accessor.
 /// Translated from Java: ScoreDataLogDatabaseAccessor extends SQLiteDatabaseAccessor
@@ -126,7 +126,7 @@ fn score_data_to_value(score: &ScoreData, col_name: &str) -> rusqlite::types::Va
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rubato_skin::score_data::TimingStats;
+    use crate::skin::score_data::TimingStats;
 
     #[test]
     fn score_data_log_avgjudge_sentinel_normalized_to_i32_max() {

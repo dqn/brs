@@ -8,7 +8,7 @@ use crate::core::skin_config::SkinConfig;
 use crate::core::skin_config::{SkinOption, SkinProperty};
 #[cfg(test)]
 use crate::core::timer_manager::TimerManager;
-use rubato_skin::skin_type::SkinType;
+use crate::skin::skin_type::SkinType;
 
 mod applier;
 mod types;
@@ -438,7 +438,7 @@ mod tests {
         sc.selected_skin_header = Some(SkinHeaderInfo {
             custom_offsets: vec![CustomOffsetDef {
                 name: "judge_pos".to_string(),
-                caps: rubato_skin::offset_capabilities::OffsetCapabilities {
+                caps: crate::skin::offset_capabilities::OffsetCapabilities {
                     x: true,
                     y: true,
                     ..Default::default()

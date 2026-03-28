@@ -42,9 +42,9 @@ mod tests {
     use super::key_input_timers::*;
     use super::*;
     use crate::core::timer_manager::TimerManager;
+    use crate::skin::KeyInputLog as DtoKeyInputLog;
+    use crate::skin::timer_id::TimerId;
     use bms::model::mode::Mode;
-    use rubato_skin::KeyInputLog as DtoKeyInputLog;
-    use rubato_skin::timer_id::TimerId;
 
     use key_input_judge::JudgeThread;
 

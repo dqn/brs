@@ -10,10 +10,10 @@ use rubato::decide::music_decide::MusicDecide;
 #[test]
 fn construction_and_drop_is_safe() {
     let decide = MusicDecide::new(
-        rubato_skin::config::Config::default(),
+        rubato::skin::config::Config::default(),
         PlayerResource::new(
-            rubato_skin::config::Config::default(),
-            rubato_skin::player_config::PlayerConfig::default(),
+            rubato::skin::config::Config::default(),
+            rubato::skin::player_config::PlayerConfig::default(),
         ),
         rubato::core::timer_manager::TimerManager::new(),
     );

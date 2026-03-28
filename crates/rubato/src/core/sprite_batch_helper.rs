@@ -1,6 +1,6 @@
 // Re-export the real SpriteBatch from beatoraja-render.
 // The stub unit struct is no longer needed since Phase 22a provided the GPU implementation.
-pub use rubato_render::sprite_batch::SpriteBatch;
+pub use crate::render::sprite_batch::SpriteBatch;
 
 /// SpriteBatchHelper - creates SpriteBatch with macOS-compatible shader
 ///

@@ -1,6 +1,6 @@
 use crate::ir::ranking_data::RankingData;
-use rubato_skin::groove_gauge::GrooveGauge;
-use rubato_skin::player_resource_access::{
+use crate::skin::groove_gauge::GrooveGauge;
+use crate::skin::player_resource_access::{
     ConfigAccess, GaugeAccess, PlayerStateAccess, ReplayAccess, ScoreAccess, SessionMutation,
 };
 
@@ -68,7 +68,7 @@ impl PlayerResource {
         self.inner.set_course_score_data(score);
     }
 
-    pub fn songdata(&self) -> Option<&rubato_skin::song_data::SongData> {
+    pub fn songdata(&self) -> Option<&crate::skin::song_data::SongData> {
         self.inner.songdata()
     }
 
@@ -160,7 +160,7 @@ impl PlayerResource {
         self.inner.recent_judges_index()
     }
 
-    pub fn player_data(&self) -> &rubato_skin::player_data::PlayerData {
+    pub fn player_data(&self) -> &crate::skin::player_data::PlayerData {
         self.inner.player_data()
     }
 
@@ -197,8 +197,8 @@ impl PlayerResource {
     /// Used during state transition to return the resource to MainController.
     pub fn take_inner(&mut self) -> Option<CorePlayerResource> {
         let default = CorePlayerResource::new(
-            rubato_skin::config::Config::default(),
-            rubato_skin::player_config::PlayerConfig::default(),
+            crate::skin::config::Config::default(),
+            crate::skin::player_config::PlayerConfig::default(),
         );
         Some(std::mem::replace(&mut self.inner, default))
     }
@@ -220,8 +220,8 @@ impl Default for PlayerResource {
     fn default() -> Self {
         Self {
             inner: CorePlayerResource::new(
-                rubato_skin::config::Config::default(),
-                rubato_skin::player_config::PlayerConfig::default(),
+                crate::skin::config::Config::default(),
+                crate::skin::player_config::PlayerConfig::default(),
             ),
             bms_model: bms::model::bms_model::BMSModel::default(),
             course_bms_models: None,

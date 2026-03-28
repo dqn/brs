@@ -14,11 +14,11 @@ use super::{
 };
 use crate::core::command::Command;
 
+use crate::skin::sync_utils::lock_or_recover;
 use config::{
     dirty, get_file_setting, get_offset_setting, get_option_setting, refresh,
     reset_current_skin_config, switch_current_scene_skin,
 };
-use rubato_skin::sync_utils::lock_or_recover;
 
 /// Combined state for main controller, player config, and modmenu outbox.
 /// Previously player_config was a separate static with potential lock-ordering

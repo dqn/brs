@@ -12,8 +12,8 @@
 
 use super::E2eHarness;
 use rubato::core::main_controller::StateCreator;
+use rubato::skin::main_state_type::MainStateType;
 use rubato::state_factory::LauncherStateFactory;
-use rubato_skin::main_state_type::MainStateType;
 
 /// A step in the scenario execution pipeline.
 enum ScenarioStep {

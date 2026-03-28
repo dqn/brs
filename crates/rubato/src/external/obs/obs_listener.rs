@@ -5,8 +5,8 @@ use log::warn;
 
 use crate::core::config::Config;
 use crate::core::main_state::MainStateType;
-use rubato_skin::app_event::{AppEvent, StateChangedData};
-use rubato_skin::screen_type::ScreenType;
+use crate::skin::app_event::{AppEvent, StateChangedData};
+use crate::skin::screen_type::ScreenType;
 
 use super::lock_or_recover;
 use super::obs_ws_client::ObsWsClient;

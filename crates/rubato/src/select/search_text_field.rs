@@ -1,6 +1,6 @@
 use std::sync::Mutex;
 
-use rubato_skin::sync_utils::lock_or_recover;
+use crate::skin::sync_utils::lock_or_recover;
 
 use super::*;
 

@@ -1,8 +1,8 @@
-use rubato_skin::player_data::PlayerData;
-use rubato_skin::score_data::ScoreData;
+use crate::skin::player_data::PlayerData;
+use crate::skin::score_data::ScoreData;
 
 pub(super) fn row_to_score_data(row: &rusqlite::Row) -> ScoreData {
-    use rubato_skin::score_data::{JudgeCounts, PlayOption, TimingStats};
+    use crate::skin::score_data::{JudgeCounts, PlayOption, TimingStats};
     ScoreData {
         sha256: row.get::<_, String>("sha256").unwrap_or_default(),
         mode: row.get("mode").unwrap_or(0),

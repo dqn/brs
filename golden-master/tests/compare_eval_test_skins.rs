@@ -9,12 +9,12 @@
 use golden_master::render_snapshot::{DrawCommand, RenderSnapshot, capture_render_snapshot};
 use golden_master::state_provider::StaticStateProvider;
 
-use rubato_skin::reexports::TextureRegion;
-use rubato_skin::skin::Skin;
-use rubato_skin::skin_header::SkinHeader;
-use rubato_skin::skin_image::SkinImage;
-use rubato_skin::skin_object::DestinationParams;
-use rubato_skin::types::skin_node::SkinNode;
+use rubato::skin::reexports::TextureRegion;
+use rubato::skin::skin::Skin;
+use rubato::skin::skin_header::SkinHeader;
+use rubato::skin::skin_image::SkinImage;
+use rubato::skin::skin_object::DestinationParams;
+use rubato::skin::types::skin_node::SkinNode;
 
 // ---------------------------------------------------------------------------
 // Helpers

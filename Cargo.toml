@@ -1,12 +1,8 @@
 [workspace]
 members = [
     "crates/bms",
-    "crates/rubato-input",
-    "crates/rubato-audio",
     "crates/rubato",
-    "crates/rubato-skin",
     "crates/rubato-bin",
-    "crates/rubato-render",
     "golden-master",
 ]
 resolver = "2"
@@ -18,10 +14,7 @@ edition = "2024"
 [workspace.dependencies]
 # Internal crates
 bms = { path = "crates/bms" }
-rubato-input = { path = "crates/rubato-input" }
-rubato-audio = { path = "crates/rubato-audio" }
 rubato = { path = "crates/rubato" }
-rubato-skin = { path = "crates/rubato-skin" }
 
 # Error handling
 anyhow = "1"
@@ -131,7 +124,6 @@ ebur128 = "0.1"
 wgpu = "24"
 ab_glyph = "0.2"
 bytemuck = { version = "1", features = ["derive"] }
-rubato-render = { path = "crates/rubato-render" }
 
 # Lua scripting
 mlua = { version = "0.10", features = ["lua54", "vendored"] }

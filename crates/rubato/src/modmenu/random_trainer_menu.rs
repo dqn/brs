@@ -1,4 +1,4 @@
-use rubato_skin::sync_utils::lock_or_recover;
+use crate::skin::sync_utils::lock_or_recover;
 use std::sync::Mutex;
 
 static RANDOM_TRAINER_ENABLED: Mutex<bool> = Mutex::new(false);

@@ -1,6 +1,6 @@
 use super::*;
-use rubato_skin::property_snapshot::PropertySnapshot;
-use rubato_skin::skin_action_queue::SkinActionQueue;
+use crate::skin::property_snapshot::PropertySnapshot;
+use crate::skin::skin_action_queue::SkinActionQueue;
 
 impl BMSPlayer {
     /// Build a PropertySnapshot capturing all raw data needed for skin rendering.
@@ -28,7 +28,7 @@ impl BMSPlayer {
         // ================================================================
         // State identity
         // ================================================================
-        s.state_type = Some(rubato_skin::main_state_type::MainStateType::Play);
+        s.state_type = Some(crate::skin::main_state_type::MainStateType::Play);
 
         // ================================================================
         // Config
@@ -499,7 +499,7 @@ impl BMSPlayer {
     /// be propagated back after drain_actions.
     pub(super) fn propagate_snapshot_config(
         &mut self,
-        snapshot: &rubato_skin::property_snapshot::PropertySnapshot,
+        snapshot: &crate::skin::property_snapshot::PropertySnapshot,
     ) {
         if let Some(ref pc) = snapshot.player_config {
             self.player_config = (**pc).clone();

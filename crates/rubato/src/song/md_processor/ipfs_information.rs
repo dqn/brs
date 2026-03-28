@@ -1,2 +1,2 @@
 // Re-export from beatoraja-types (canonical location)
-pub use rubato_skin::ipfs_information::*;
+pub use crate::skin::ipfs_information::*;

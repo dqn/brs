@@ -1,6 +1,6 @@
 use super::judge_trainer::JudgeTrainer;
 
-use rubato_skin::sync_utils::lock_or_recover;
+use crate::skin::sync_utils::lock_or_recover;
 use std::sync::Mutex;
 
 static OVERRIDE_CHART_JUDGE: Mutex<bool> = Mutex::new(false);

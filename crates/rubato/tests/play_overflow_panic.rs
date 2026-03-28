@@ -8,9 +8,9 @@
 
 use bms::model::bms_model::BMSModel;
 use bms::model::mode::Mode;
-use rubato_skin::clear_type::ClearType;
-use rubato_skin::gauge_property::{GaugeElementProperty, GaugeProperty};
-use rubato_skin::groove_gauge::{Gauge, GrooveGauge, HARD, NORMAL};
+use rubato::skin::clear_type::ClearType;
+use rubato::skin::gauge_property::{GaugeElementProperty, GaugeProperty};
+use rubato::skin::groove_gauge::{Gauge, GrooveGauge, HARD, NORMAL};
 
 // ---------------------------------------------------------------------------
 // RhythmTimerProcessor: freq=0 causes integer division by zero

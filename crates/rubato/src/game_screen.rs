@@ -12,10 +12,10 @@ use crate::core::main_state::{
 };
 use crate::decide::music_decide::MusicDecide;
 use crate::play::bms_player::BMSPlayer;
+use crate::render::sprite_batch::SpriteBatch;
 use crate::result::course_result::CourseResult;
 use crate::result::music_result::MusicResult;
 use crate::select::music_selector::MusicSelector;
-use rubato_render::sprite_batch::SpriteBatch;
 
 use crate::state_factory::shared_selector::SharedMusicSelectorState;
 
@@ -183,23 +183,23 @@ impl GameScreen {
 
     pub fn sync_input_from(
         &mut self,
-        input: &rubato_input::bms_player_input_processor::BMSPlayerInputProcessor,
+        input: &crate::input::bms_player_input_processor::BMSPlayerInputProcessor,
     ) {
         delegate!(mut self, sync_input_from(input))
     }
 
     pub fn sync_input_back_to(
         &mut self,
-        input: &mut rubato_input::bms_player_input_processor::BMSPlayerInputProcessor,
+        input: &mut crate::input::bms_player_input_processor::BMSPlayerInputProcessor,
     ) {
         delegate!(mut self, sync_input_back_to(input))
     }
 
-    pub fn sync_input_snapshot(&mut self, snapshot: &rubato_input::input_snapshot::InputSnapshot) {
+    pub fn sync_input_snapshot(&mut self, snapshot: &crate::input::input_snapshot::InputSnapshot) {
         delegate!(mut self, sync_input_snapshot(snapshot))
     }
 
-    pub fn sync_audio(&mut self, audio: &mut rubato_audio::audio_system::AudioSystem) {
+    pub fn sync_audio(&mut self, audio: &mut crate::audio::audio_system::AudioSystem) {
         delegate!(mut self, sync_audio(audio))
     }
 
@@ -261,23 +261,23 @@ impl GameScreen {
         delegate!(self, groove_gauge_value() -> Option<f32>)
     }
 
-    pub fn get_image(&self, imageid: i32) -> Option<rubato_render::texture::TextureRegion> {
-        delegate!(self, get_image(imageid) -> Option<rubato_render::texture::TextureRegion>)
+    pub fn get_image(&self, imageid: i32) -> Option<crate::render::texture::TextureRegion> {
+        delegate!(self, get_image(imageid) -> Option<crate::render::texture::TextureRegion>)
     }
 
-    pub fn sound(&self, sound: rubato_skin::sound_type::SoundType) -> Option<String> {
+    pub fn sound(&self, sound: crate::skin::sound_type::SoundType) -> Option<String> {
         delegate!(self, sound(sound) -> Option<String>)
     }
 
-    pub fn play_sound(&mut self, sound: rubato_skin::sound_type::SoundType) {
+    pub fn play_sound(&mut self, sound: crate::skin::sound_type::SoundType) {
         delegate!(mut self, play_sound(sound))
     }
 
-    pub fn play_sound_loop(&mut self, sound: rubato_skin::sound_type::SoundType, loop_sound: bool) {
+    pub fn play_sound_loop(&mut self, sound: crate::skin::sound_type::SoundType, loop_sound: bool) {
         delegate!(mut self, play_sound_loop(sound, loop_sound))
     }
 
-    pub fn stop_sound(&mut self, sound: rubato_skin::sound_type::SoundType) {
+    pub fn stop_sound(&mut self, sound: crate::skin::sound_type::SoundType) {
         delegate!(mut self, stop_sound(sound))
     }
 
@@ -304,7 +304,7 @@ impl GameScreen {
     pub fn receive_updated_play_config(
         &mut self,
         mode: bms::model::mode::Mode,
-        play_config: rubato_skin::play_config::PlayConfig,
+        play_config: crate::skin::play_config::PlayConfig,
     ) {
         delegate!(mut self, receive_updated_play_config(mode, play_config))
     }

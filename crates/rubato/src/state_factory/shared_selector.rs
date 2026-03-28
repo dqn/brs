@@ -6,8 +6,8 @@ use std::sync::{Arc, Mutex};
 use crate::core::main_state::{MainState, MainStateData, MainStateType};
 use crate::core::timer_manager::TimerManager;
 use crate::select::music_selector::MusicSelector;
-use rubato_skin::sound_type::SoundType;
-use rubato_skin::sync_utils::lock_or_recover;
+use crate::skin::sound_type::SoundType;
+use crate::skin::sync_utils::lock_or_recover;
 
 /// Wrapper that delegates MainState methods to a shared `Arc<Mutex<MusicSelector>>`.
 ///
@@ -82,7 +82,7 @@ impl MainState for SharedMusicSelectorState {
         self.with_selector(|selector| selector.input());
     }
 
-    fn sync_audio(&mut self, audio: &mut rubato_audio::audio_system::AudioSystem) {
+    fn sync_audio(&mut self, audio: &mut crate::audio::audio_system::AudioSystem) {
         self.with_selector(|selector| selector.sync_audio(audio));
     }
 

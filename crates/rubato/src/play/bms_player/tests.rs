@@ -4,11 +4,11 @@ use crate::core::main_state::MainState;
 use crate::core::main_state::SkinDrawable;
 use crate::core::player_config::PlayerConfig;
 use crate::core::sprite_batch_helper::SpriteBatch;
+use crate::input::bms_player_input_device::DeviceType;
+use crate::input::bms_player_input_processor::{BMSPlayerInputProcessor, KEYSTATE_SIZE};
+use crate::input::keyboard_input_processor::ControlKeys;
 use bms::model::bms_model::BMSModel;
 use bms::model::mode::Mode;
-use rubato_input::bms_player_input_device::DeviceType;
-use rubato_input::bms_player_input_processor::{BMSPlayerInputProcessor, KEYSTATE_SIZE};
-use rubato_input::keyboard_input_processor::ControlKeys;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicI32, Ordering};
@@ -37,19 +37,19 @@ struct PlayerConfigMutatingSkin;
 impl SkinDrawable for PlayerConfigMutatingSkin {
     fn draw_all_objects_timed(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
     ) {
     }
 
     fn update_custom_objects_timed(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
     ) {
     }
 
     fn mouse_pressed_at(
         &mut self,
-        ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
         _button: i32,
         _x: i32,
         _y: i32,
@@ -61,14 +61,14 @@ impl SkinDrawable for PlayerConfigMutatingSkin {
 
     fn mouse_dragged_at(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
         _button: i32,
         _x: i32,
         _y: i32,
     ) {
     }
 
-    fn prepare_skin(&mut self, _state_type: Option<rubato_skin::main_state_type::MainStateType>) {}
+    fn prepare_skin(&mut self, _state_type: Option<crate::skin::main_state_type::MainStateType>) {}
 
     fn dispose_skin(&mut self) {}
 
@@ -103,7 +103,7 @@ struct ProbeImageIndexSkin {
 impl SkinDrawable for ProbeImageIndexSkin {
     fn draw_all_objects_timed(
         &mut self,
-        ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
     ) {
         self.observed
             .store(ctx.image_index_value(self.id), Ordering::SeqCst);
@@ -111,13 +111,13 @@ impl SkinDrawable for ProbeImageIndexSkin {
 
     fn update_custom_objects_timed(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
     ) {
     }
 
     fn mouse_pressed_at(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
         _button: i32,
         _x: i32,
         _y: i32,
@@ -126,14 +126,14 @@ impl SkinDrawable for ProbeImageIndexSkin {
 
     fn mouse_dragged_at(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
         _button: i32,
         _x: i32,
         _y: i32,
     ) {
     }
 
-    fn prepare_skin(&mut self, _state_type: Option<rubato_skin::main_state_type::MainStateType>) {}
+    fn prepare_skin(&mut self, _state_type: Option<crate::skin::main_state_type::MainStateType>) {}
 
     fn dispose_skin(&mut self) {}
 
@@ -173,19 +173,19 @@ struct ProbeDrawLaneTimeSkin {
 impl SkinDrawable for ProbeDrawLaneTimeSkin {
     fn draw_all_objects_timed(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
     ) {
     }
 
     fn update_custom_objects_timed(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
     ) {
     }
 
     fn mouse_pressed_at(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
         _button: i32,
         _x: i32,
         _y: i32,
@@ -194,22 +194,22 @@ impl SkinDrawable for ProbeDrawLaneTimeSkin {
 
     fn mouse_dragged_at(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
         _button: i32,
         _x: i32,
         _y: i32,
     ) {
     }
 
-    fn prepare_skin(&mut self, _state_type: Option<rubato_skin::main_state_type::MainStateType>) {}
+    fn prepare_skin(&mut self, _state_type: Option<crate::skin::main_state_type::MainStateType>) {}
 
     fn dispose_skin(&mut self) {}
 
     fn compute_note_draw_commands(
         &mut self,
         _compute: &mut dyn FnMut(
-            &[rubato_skin::skin_note::SkinLane],
-        ) -> Vec<rubato_skin::draw_command::DrawCommand>,
+            &[crate::skin::skin_note::SkinLane],
+        ) -> Vec<crate::skin::draw_command::DrawCommand>,
     ) {
         // The closure captures the LaneRenderer and DrawLaneContext.
         // Signal that the method was called.
@@ -399,7 +399,7 @@ fn state_play_transitions_to_finished_when_playtime_exceeded() {
     player.gauge = Some(
         crate::play::groove_gauge::create_groove_gauge(
             &player.model,
-            rubato_skin::groove_gauge::NORMAL,
+            crate::skin::groove_gauge::NORMAL,
             0,
             None,
         )
@@ -431,7 +431,7 @@ fn state_play_transitions_to_failed_on_zero_gauge() {
     // Create a gauge at 0 value
     let gauge = crate::play::groove_gauge::create_groove_gauge(
         &player.model,
-        rubato_skin::groove_gauge::HARD,
+        crate::skin::groove_gauge::HARD,
         0,
         None,
     )
@@ -649,7 +649,7 @@ fn create_score_data_returns_some_when_aborted() {
 
 #[test]
 fn create_score_data_sets_device_type_keyboard() {
-    use rubato_skin::bms_player_input_device;
+    use crate::skin::bms_player_input_device;
 
     let model = make_model();
     let mut player = BMSPlayer::new(model);
@@ -664,7 +664,7 @@ fn create_score_data_sets_device_type_keyboard() {
 
 #[test]
 fn create_score_data_sets_device_type_bm_controller() {
-    use rubato_skin::bms_player_input_device;
+    use crate::skin::bms_player_input_device;
 
     let model = make_model();
     let mut player = BMSPlayer::new(model);
@@ -679,7 +679,7 @@ fn create_score_data_sets_device_type_bm_controller() {
 
 #[test]
 fn create_score_data_sets_device_type_midi() {
-    use rubato_skin::bms_player_input_device;
+    use crate::skin::bms_player_input_device;
 
     let model = make_model();
     let mut player = BMSPlayer::new(model);
@@ -701,7 +701,7 @@ fn update_judge_updates_pomyu_chara_judge() {
     player.gauge = Some(
         crate::play::groove_gauge::create_groove_gauge(
             &player.model,
-            rubato_skin::groove_gauge::NORMAL,
+            crate::skin::groove_gauge::NORMAL,
             0,
             None,
         )
@@ -724,7 +724,7 @@ fn render_turns_on_judge_timer_after_autoplay_judgment() {
     player.rebuild_judge_system(&mode);
     player.gauge = crate::play::groove_gauge::create_groove_gauge(
         &player.model,
-        rubato_skin::groove_gauge::NORMAL,
+        crate::skin::groove_gauge::NORMAL,
         0,
         None,
     );
@@ -746,7 +746,7 @@ fn render_turns_on_judge_timer_after_autoplay_judgment() {
         player
             .main_state_data
             .timer
-            .is_timer_on(rubato_skin::timer_id::TimerId::new(46)),
+            .is_timer_on(crate::skin::timer_id::TimerId::new(46)),
         "judge timer 46 should turn on after an autoplay judgment"
     );
 }
@@ -820,8 +820,8 @@ fn receive_reloaded_model_refreshes_song_data_and_metadata() {
     let mut player = BMSPlayer::new(model);
 
     // Set initial song_data/metadata from the original model
-    let original_sd = rubato_skin::song_data::SongData::new_from_model(make_model(), false);
-    let mut orig_meta = rubato_skin::song_data::SongMetadata::default();
+    let original_sd = crate::skin::song_data::SongData::new_from_model(make_model(), false);
+    let mut orig_meta = crate::skin::song_data::SongMetadata::default();
     orig_meta.title = "Original Title".to_string();
     orig_meta.artist = "Original Artist".to_string();
     orig_meta.genre = "Original Genre".to_string();
@@ -866,7 +866,7 @@ fn lifecycle_preload_ready_play_finished() {
     player.gauge = Some(
         crate::play::groove_gauge::create_groove_gauge(
             &player.model,
-            rubato_skin::groove_gauge::NORMAL,
+            crate::skin::groove_gauge::NORMAL,
             0,
             None,
         )
@@ -1317,11 +1317,11 @@ fn make_replay_data() -> ReplayData {
     rd.randomoption2seed = 88888;
     rd.doubleoption = 1;
     rd.rand = vec![2, 5, 1];
-    rd.gauge = rubato_skin::groove_gauge::HARD;
-    rd.config = Some(rubato_skin::play_config::PlayConfig {
+    rd.gauge = crate::skin::groove_gauge::HARD;
+    rd.config = Some(crate::skin::play_config::PlayConfig {
         hispeed: 5.0,
         duration: 300,
-        ..rubato_skin::play_config::PlayConfig::default()
+        ..crate::skin::play_config::PlayConfig::default()
     });
     rd
 }
@@ -1465,72 +1465,72 @@ fn restore_replay_data_no_keys_stays_replay() {
 #[test]
 fn select_gauge_type_no_replay_uses_config() {
     let key_state = ReplayKeyState::default();
-    let result = BMSPlayer::select_gauge_type(None, rubato_skin::groove_gauge::NORMAL, &key_state);
-    assert_eq!(result, rubato_skin::groove_gauge::NORMAL);
+    let result = BMSPlayer::select_gauge_type(None, crate::skin::groove_gauge::NORMAL, &key_state);
+    assert_eq!(result, crate::skin::groove_gauge::NORMAL);
 }
 
 #[test]
 fn select_gauge_type_replay_uses_replay_gauge() {
     let mut replay = make_replay_data();
-    replay.gauge = rubato_skin::groove_gauge::HARD;
+    replay.gauge = crate::skin::groove_gauge::HARD;
     let key_state = ReplayKeyState::default();
     let result =
-        BMSPlayer::select_gauge_type(Some(&replay), rubato_skin::groove_gauge::NORMAL, &key_state);
-    assert_eq!(result, rubato_skin::groove_gauge::HARD);
+        BMSPlayer::select_gauge_type(Some(&replay), crate::skin::groove_gauge::NORMAL, &key_state);
+    assert_eq!(result, crate::skin::groove_gauge::HARD);
 }
 
 #[test]
 fn select_gauge_type_replay_with_key5_shifts_by_1() {
     let mut replay = make_replay_data();
-    replay.gauge = rubato_skin::groove_gauge::NORMAL; // 2
+    replay.gauge = crate::skin::groove_gauge::NORMAL; // 2
     let key_state = ReplayKeyState {
         gauge_shift_key5: true,
         ..Default::default()
     };
     let result =
-        BMSPlayer::select_gauge_type(Some(&replay), rubato_skin::groove_gauge::NORMAL, &key_state);
-    assert_eq!(result, rubato_skin::groove_gauge::HARD); // 2 + 1 = 3
+        BMSPlayer::select_gauge_type(Some(&replay), crate::skin::groove_gauge::NORMAL, &key_state);
+    assert_eq!(result, crate::skin::groove_gauge::HARD); // 2 + 1 = 3
 }
 
 #[test]
 fn select_gauge_type_replay_with_key3_shifts_by_2() {
     let mut replay = make_replay_data();
-    replay.gauge = rubato_skin::groove_gauge::NORMAL; // 2
+    replay.gauge = crate::skin::groove_gauge::NORMAL; // 2
     let key_state = ReplayKeyState {
         gauge_shift_key3: true,
         ..Default::default()
     };
     let result =
-        BMSPlayer::select_gauge_type(Some(&replay), rubato_skin::groove_gauge::NORMAL, &key_state);
-    assert_eq!(result, rubato_skin::groove_gauge::EXHARD); // 2 + 2 = 4
+        BMSPlayer::select_gauge_type(Some(&replay), crate::skin::groove_gauge::NORMAL, &key_state);
+    assert_eq!(result, crate::skin::groove_gauge::EXHARD); // 2 + 2 = 4
 }
 
 #[test]
 fn select_gauge_type_replay_with_both_keys_shifts_by_3() {
     let mut replay = make_replay_data();
-    replay.gauge = rubato_skin::groove_gauge::NORMAL; // 2
+    replay.gauge = crate::skin::groove_gauge::NORMAL; // 2
     let key_state = ReplayKeyState {
         gauge_shift_key3: true,
         gauge_shift_key5: true,
         ..Default::default()
     };
     let result =
-        BMSPlayer::select_gauge_type(Some(&replay), rubato_skin::groove_gauge::NORMAL, &key_state);
-    assert_eq!(result, rubato_skin::groove_gauge::HAZARD); // 2 + 3 = 5
+        BMSPlayer::select_gauge_type(Some(&replay), crate::skin::groove_gauge::NORMAL, &key_state);
+    assert_eq!(result, crate::skin::groove_gauge::HAZARD); // 2 + 3 = 5
 }
 
 #[test]
 fn select_gauge_type_replay_hazard_no_shift() {
     let mut replay = make_replay_data();
-    replay.gauge = rubato_skin::groove_gauge::HAZARD; // 5
+    replay.gauge = crate::skin::groove_gauge::HAZARD; // 5
     let key_state = ReplayKeyState {
         gauge_shift_key5: true,
         ..Default::default()
     };
     let result =
-        BMSPlayer::select_gauge_type(Some(&replay), rubato_skin::groove_gauge::NORMAL, &key_state);
+        BMSPlayer::select_gauge_type(Some(&replay), crate::skin::groove_gauge::NORMAL, &key_state);
     // HAZARD cannot be shifted further
-    assert_eq!(result, rubato_skin::groove_gauge::HAZARD);
+    assert_eq!(result, crate::skin::groove_gauge::HAZARD);
 }
 
 // --- handle_random_syntax tests (Phase 34c) ---
@@ -2277,7 +2277,7 @@ fn stop_play_failed_path_sets_pending_pitch_to_one() {
 
 #[test]
 fn apply_loudness_analysis_success() {
-    use rubato_audio::bms_loudness_analyzer::AnalysisResult;
+    use crate::audio::bms_loudness_analyzer::AnalysisResult;
 
     let model = make_model();
     let mut player = BMSPlayer::new(model);
@@ -2292,7 +2292,7 @@ fn apply_loudness_analysis_success() {
 
 #[test]
 fn apply_loudness_analysis_failure() {
-    use rubato_audio::bms_loudness_analyzer::AnalysisResult;
+    use crate::audio::bms_loudness_analyzer::AnalysisResult;
 
     let model = make_model();
     let mut player = BMSPlayer::new(model);
@@ -2305,7 +2305,7 @@ fn apply_loudness_analysis_failure() {
 
 #[test]
 fn apply_loudness_analysis_preserves_base_volume_on_failure() {
-    use rubato_audio::bms_loudness_analyzer::AnalysisResult;
+    use crate::audio::bms_loudness_analyzer::AnalysisResult;
 
     let model = make_model();
     let mut player = BMSPlayer::new(model);
@@ -2682,7 +2682,7 @@ fn save_config_saves_hispeed_when_fixhispeed_off() {
         .player_config
         .play_config(Mode::BEAT_7K)
         .playconfig
-        .fixhispeed = rubato_skin::play_config::FIX_HISPEED_OFF;
+        .fixhispeed = crate::skin::play_config::FIX_HISPEED_OFF;
 
     player.save_config();
 
@@ -2861,11 +2861,11 @@ fn gauge_autoshift_continue_does_not_fail() {
     player.state = PlayState::Play;
     player.playtime = 999_999;
     player.player_config.play_settings.gauge_auto_shift =
-        rubato_skin::player_config::GAUGEAUTOSHIFT_CONTINUE;
+        crate::skin::player_config::GAUGEAUTOSHIFT_CONTINUE;
 
     let gauge = crate::play::groove_gauge::create_groove_gauge(
         &player.model,
-        rubato_skin::groove_gauge::HARD,
+        crate::skin::groove_gauge::HARD,
         0,
         None,
     )
@@ -2894,11 +2894,11 @@ fn gauge_autoshift_survival_to_groove_shifts_type() {
     player.state = PlayState::Play;
     player.playtime = 999_999;
     player.player_config.play_settings.gauge_auto_shift =
-        rubato_skin::player_config::GAUGEAUTOSHIFT_SURVIVAL_TO_GROOVE;
+        crate::skin::player_config::GAUGEAUTOSHIFT_SURVIVAL_TO_GROOVE;
 
     let gauge = crate::play::groove_gauge::create_groove_gauge(
         &player.model,
-        rubato_skin::groove_gauge::HARD,
+        crate::skin::groove_gauge::HARD,
         0,
         None,
     )
@@ -2920,7 +2920,7 @@ fn gauge_autoshift_survival_to_groove_shifts_type() {
     assert_eq!(player.state(), PlayState::Play);
     assert_eq!(
         player.gauge.as_ref().unwrap().gauge_type(),
-        rubato_skin::groove_gauge::NORMAL
+        crate::skin::groove_gauge::NORMAL
     );
 }
 
@@ -3227,15 +3227,15 @@ fn set_player_config_persists() {
     let mut player = BMSPlayer::new(model);
 
     let config = PlayerConfig {
-        display_settings: rubato_skin::player_config::DisplaySettings {
+        display_settings: crate::skin::player_config::DisplaySettings {
             chart_preview: false,
             ..Default::default()
         },
-        select_settings: rubato_skin::player_config::SelectSettings {
+        select_settings: crate::skin::player_config::SelectSettings {
             is_window_hold: true,
             ..Default::default()
         },
-        play_settings: rubato_skin::player_config::PlaySettings {
+        play_settings: crate::skin::player_config::PlaySettings {
             gauge_auto_shift: 3,
             ..Default::default()
         },
@@ -3289,7 +3289,7 @@ impl NoteTrackingAudioDriver {
     }
 }
 
-impl rubato_audio::audio_driver::AudioDriver for NoteTrackingAudioDriver {
+impl crate::audio::audio_driver::AudioDriver for NoteTrackingAudioDriver {
     fn play_path(&mut self, _path: &str, _volume: f32, _loop_play: bool) {}
     fn set_volume_path(&mut self, _path: &str, _volume: f32) {}
     fn is_playing_path(&self, _path: &str) -> bool {
@@ -3329,9 +3329,9 @@ impl rubato_audio::audio_driver::AudioDriver for NoteTrackingAudioDriver {
 
 #[test]
 fn sync_audio_drains_pending_bg_notes() {
+    use crate::audio::audio_system::AudioSystem;
     use bms::model::note::Note;
     use bms::model::time_line::TimeLine;
-    use rubato_audio::audio_system::AudioSystem;
 
     // Build a model with a BG note at time 0
     let mut model = make_model();
@@ -3373,7 +3373,7 @@ fn sync_audio_drains_pending_bg_notes() {
 
 #[test]
 fn sync_audio_stops_all_notes_when_pending_flag_set() {
-    use rubato_audio::audio_system::AudioSystem;
+    use crate::audio::audio_system::AudioSystem;
 
     let model = make_model();
     let mut player = BMSPlayer::new(model);
@@ -3401,7 +3401,7 @@ fn sync_audio_stops_all_notes_when_pending_flag_set() {
 
 #[test]
 fn sync_audio_does_not_stop_notes_when_flag_not_set() {
-    use rubato_audio::audio_system::AudioSystem;
+    use crate::audio::audio_system::AudioSystem;
 
     let model = make_model();
     let mut player = BMSPlayer::new(model);
@@ -3421,8 +3421,8 @@ fn sync_audio_does_not_stop_notes_when_flag_not_set() {
 
 #[test]
 fn sync_audio_drains_pending_keysound_plays() {
+    use crate::audio::audio_system::AudioSystem;
     use bms::model::note::Note;
-    use rubato_audio::audio_system::AudioSystem;
 
     let model = make_model();
     let mut player = BMSPlayer::new(model);
@@ -3569,7 +3569,7 @@ fn create_reads_judge_algorithm_from_play_config() {
     // The JudgeManager should use Duration algorithm, and the score should record it
     assert_eq!(
         player.judge_manager().score().play_option.judge_algorithm,
-        Some(rubato_skin::judge_algorithm::JudgeAlgorithm::Duration),
+        Some(crate::skin::judge_algorithm::JudgeAlgorithm::Duration),
     );
 }
 
@@ -3588,7 +3588,7 @@ fn create_defaults_to_combo_for_invalid_judgetype() {
     // Should fall back to Combo
     assert_eq!(
         player.judge_manager().score().play_option.judge_algorithm,
-        Some(rubato_skin::judge_algorithm::JudgeAlgorithm::Combo),
+        Some(crate::skin::judge_algorithm::JudgeAlgorithm::Combo),
     );
 }
 
@@ -3600,7 +3600,7 @@ fn create_sets_rule_lr2_on_score() {
 
     assert_eq!(
         player.judge_manager().score().play_option.rule,
-        Some(rubato_skin::bms_player_rule::BMSPlayerRule::LR2),
+        Some(crate::skin::bms_player_rule::BMSPlayerRule::LR2),
     );
 }
 
@@ -3615,17 +3615,17 @@ struct ProbeMouseIntegerSkin {
 impl SkinDrawable for ProbeMouseIntegerSkin {
     fn draw_all_objects_timed(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
     ) {
     }
     fn update_custom_objects_timed(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
     ) {
     }
     fn mouse_pressed_at(
         &mut self,
-        ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
         _button: i32,
         _x: i32,
         _y: i32,
@@ -3635,13 +3635,13 @@ impl SkinDrawable for ProbeMouseIntegerSkin {
     }
     fn mouse_dragged_at(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
         _button: i32,
         _x: i32,
         _y: i32,
     ) {
     }
-    fn prepare_skin(&mut self, _state_type: Option<rubato_skin::main_state_type::MainStateType>) {}
+    fn prepare_skin(&mut self, _state_type: Option<crate::skin::main_state_type::MainStateType>) {}
     fn dispose_skin(&mut self) {}
     fn fadeout(&self) -> i32 {
         0
@@ -3670,17 +3670,17 @@ struct ProbeMouseBoolSkin {
 impl SkinDrawable for ProbeMouseBoolSkin {
     fn draw_all_objects_timed(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
     ) {
     }
     fn update_custom_objects_timed(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
     ) {
     }
     fn mouse_pressed_at(
         &mut self,
-        ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
         _button: i32,
         _x: i32,
         _y: i32,
@@ -3690,13 +3690,13 @@ impl SkinDrawable for ProbeMouseBoolSkin {
     }
     fn mouse_dragged_at(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
         _button: i32,
         _x: i32,
         _y: i32,
     ) {
     }
-    fn prepare_skin(&mut self, _state_type: Option<rubato_skin::main_state_type::MainStateType>) {}
+    fn prepare_skin(&mut self, _state_type: Option<crate::skin::main_state_type::MainStateType>) {}
     fn dispose_skin(&mut self) {}
     fn fadeout(&self) -> i32 {
         0
@@ -3724,17 +3724,17 @@ struct ProbeMouseGaugeSkin {
 impl SkinDrawable for ProbeMouseGaugeSkin {
     fn draw_all_objects_timed(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
     ) {
     }
     fn update_custom_objects_timed(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
     ) {
     }
     fn mouse_pressed_at(
         &mut self,
-        ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
         _button: i32,
         _x: i32,
         _y: i32,
@@ -3743,13 +3743,13 @@ impl SkinDrawable for ProbeMouseGaugeSkin {
     }
     fn mouse_dragged_at(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
         _button: i32,
         _x: i32,
         _y: i32,
     ) {
     }
-    fn prepare_skin(&mut self, _state_type: Option<rubato_skin::main_state_type::MainStateType>) {}
+    fn prepare_skin(&mut self, _state_type: Option<crate::skin::main_state_type::MainStateType>) {}
     fn dispose_skin(&mut self) {}
     fn fadeout(&self) -> i32 {
         0
@@ -3777,17 +3777,17 @@ struct ProbeMousePlayerConfigSkin {
 impl SkinDrawable for ProbeMousePlayerConfigSkin {
     fn draw_all_objects_timed(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
     ) {
     }
     fn update_custom_objects_timed(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
     ) {
     }
     fn mouse_pressed_at(
         &mut self,
-        ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
         _button: i32,
         _x: i32,
         _y: i32,
@@ -3799,13 +3799,13 @@ impl SkinDrawable for ProbeMousePlayerConfigSkin {
     }
     fn mouse_dragged_at(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
         _button: i32,
         _x: i32,
         _y: i32,
     ) {
     }
-    fn prepare_skin(&mut self, _state_type: Option<rubato_skin::main_state_type::MainStateType>) {}
+    fn prepare_skin(&mut self, _state_type: Option<crate::skin::main_state_type::MainStateType>) {}
     fn dispose_skin(&mut self) {}
     fn fadeout(&self) -> i32 {
         0
@@ -3913,7 +3913,7 @@ fn mouse_context_delegates_gauge_value() {
     // Create a gauge with a known value
     let gauge = crate::play::groove_gauge::create_groove_gauge(
         &player.model,
-        rubato_skin::groove_gauge::NORMAL,
+        crate::skin::groove_gauge::NORMAL,
         0,
         None,
     )
@@ -4003,17 +4003,17 @@ struct ProbeMouseImageIndexSkin {
 impl SkinDrawable for ProbeMouseImageIndexSkin {
     fn draw_all_objects_timed(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
     ) {
     }
     fn update_custom_objects_timed(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
     ) {
     }
     fn mouse_pressed_at(
         &mut self,
-        ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
         _button: i32,
         _x: i32,
         _y: i32,
@@ -4023,13 +4023,13 @@ impl SkinDrawable for ProbeMouseImageIndexSkin {
     }
     fn mouse_dragged_at(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
         _button: i32,
         _x: i32,
         _y: i32,
     ) {
     }
-    fn prepare_skin(&mut self, _state_type: Option<rubato_skin::main_state_type::MainStateType>) {}
+    fn prepare_skin(&mut self, _state_type: Option<crate::skin::main_state_type::MainStateType>) {}
     fn dispose_skin(&mut self) {}
     fn fadeout(&self) -> i32 {
         0
@@ -4056,13 +4056,13 @@ fn make_play_render_context_with_bpm_volume<'a>(
     timer: &'a mut crate::core::timer_manager::TimerManager,
     judge: &'a crate::play::judge::manager::JudgeManager,
     player_config: &'a PlayerConfig,
-    play_config: &'a rubato_skin::play_config::PlayConfig,
-    option_info: &'a rubato_skin::replay_data::ReplayData,
+    play_config: &'a crate::skin::play_config::PlayConfig,
+    option_info: &'a crate::skin::replay_data::ReplayData,
     bpm: (f64, f64, f64, f64),
     volume: (f32, f32, f32),
 ) -> skin_context::PlayRenderContext<'a> {
     static DEFAULT_SCORE_DATA: std::sync::OnceLock<
-        rubato_skin::score_data_property::ScoreDataProperty,
+        crate::skin::score_data_property::ScoreDataProperty,
     > = std::sync::OnceLock::new();
     skin_context::PlayRenderContext {
         timer,
@@ -4095,18 +4095,18 @@ fn make_play_render_context_with_bpm_volume<'a>(
         bg_volume: volume.2,
         is_mode_changed: false,
         lnmode_override: None,
-        config: Box::leak(Box::new(rubato_skin::config::Config::default())),
+        config: Box::leak(Box::new(crate::skin::config::Config::default())),
         score_data_property: DEFAULT_SCORE_DATA
-            .get_or_init(rubato_skin::score_data_property::ScoreDataProperty::default),
+            .get_or_init(crate::skin::score_data_property::ScoreDataProperty::default),
         song_metadata: {
-            static DEFAULT_META: std::sync::OnceLock<rubato_skin::song_data::SongMetadata> =
+            static DEFAULT_META: std::sync::OnceLock<crate::skin::song_data::SongMetadata> =
                 std::sync::OnceLock::new();
-            DEFAULT_META.get_or_init(rubato_skin::song_data::SongMetadata::default)
+            DEFAULT_META.get_or_init(crate::skin::song_data::SongMetadata::default)
         },
         song_data: None,
         offsets: {
             static EMPTY_OFFSETS: std::sync::OnceLock<
-                std::collections::HashMap<i32, rubato_skin::skin_offset::SkinOffset>,
+                std::collections::HashMap<i32, crate::skin::skin_offset::SkinOffset>,
             > = std::sync::OnceLock::new();
             EMPTY_OFFSETS.get_or_init(std::collections::HashMap::new)
         },
@@ -4119,13 +4119,13 @@ fn make_play_render_context_with_bpm_volume<'a>(
 
 #[test]
 fn play_render_context_integer_bpm_ids() {
-    use rubato_skin::skin_render_context::SkinRenderContext;
+    use crate::skin::skin_render_context::SkinRenderContext;
 
     let mut timer = crate::core::timer_manager::TimerManager::new();
     let judge = crate::play::judge::manager::JudgeManager::new();
     let pc = PlayerConfig::default();
-    let play_config = rubato_skin::play_config::PlayConfig::default();
-    let option_info = rubato_skin::replay_data::ReplayData::default();
+    let play_config = crate::skin::play_config::PlayConfig::default();
+    let option_info = crate::skin::replay_data::ReplayData::default();
 
     let ctx = make_play_render_context_with_bpm_volume(
         &mut timer,
@@ -4149,13 +4149,13 @@ fn play_render_context_integer_bpm_ids() {
 
 #[test]
 fn play_render_context_integer_volume_ids() {
-    use rubato_skin::skin_render_context::SkinRenderContext;
+    use crate::skin::skin_render_context::SkinRenderContext;
 
     let mut timer = crate::core::timer_manager::TimerManager::new();
     let judge = crate::play::judge::manager::JudgeManager::new();
     let pc = PlayerConfig::default();
-    let play_config = rubato_skin::play_config::PlayConfig::default();
-    let option_info = rubato_skin::replay_data::ReplayData::default();
+    let play_config = crate::skin::play_config::PlayConfig::default();
+    let option_info = crate::skin::replay_data::ReplayData::default();
 
     let ctx = make_play_render_context_with_bpm_volume(
         &mut timer,
@@ -4177,13 +4177,13 @@ fn play_render_context_integer_volume_ids() {
 
 #[test]
 fn play_render_context_float_volume_ids() {
-    use rubato_skin::skin_render_context::SkinRenderContext;
+    use crate::skin::skin_render_context::SkinRenderContext;
 
     let mut timer = crate::core::timer_manager::TimerManager::new();
     let judge = crate::play::judge::manager::JudgeManager::new();
     let pc = PlayerConfig::default();
-    let play_config = rubato_skin::play_config::PlayConfig::default();
-    let option_info = rubato_skin::replay_data::ReplayData::default();
+    let play_config = crate::skin::play_config::PlayConfig::default();
+    let option_info = crate::skin::replay_data::ReplayData::default();
 
     let ctx = make_play_render_context_with_bpm_volume(
         &mut timer,
@@ -4205,13 +4205,13 @@ fn play_render_context_float_volume_ids() {
 
 #[test]
 fn play_render_context_float_loading_progress() {
-    use rubato_skin::skin_render_context::SkinRenderContext;
+    use crate::skin::skin_render_context::SkinRenderContext;
 
     let mut timer = crate::core::timer_manager::TimerManager::new();
     let judge = crate::play::judge::manager::JudgeManager::new();
     let pc = PlayerConfig::default();
-    let play_config = rubato_skin::play_config::PlayConfig::default();
-    let option_info = rubato_skin::replay_data::ReplayData::default();
+    let play_config = crate::skin::play_config::PlayConfig::default();
+    let option_info = crate::skin::replay_data::ReplayData::default();
 
     // media_load_finished = true -> 1.0
     let ctx = make_play_render_context_with_bpm_volume(
@@ -4243,13 +4243,13 @@ fn play_render_context_float_loading_progress() {
 
 #[test]
 fn play_render_context_existing_ids_unchanged() {
-    use rubato_skin::skin_render_context::SkinRenderContext;
+    use crate::skin::skin_render_context::SkinRenderContext;
 
     let mut timer = crate::core::timer_manager::TimerManager::new();
     let judge = crate::play::judge::manager::JudgeManager::new();
     let pc = PlayerConfig::default();
-    let play_config = rubato_skin::play_config::PlayConfig::default();
-    let option_info = rubato_skin::replay_data::ReplayData::default();
+    let play_config = crate::skin::play_config::PlayConfig::default();
+    let option_info = crate::skin::replay_data::ReplayData::default();
 
     let ctx = make_play_render_context_with_bpm_volume(
         &mut timer,
@@ -4276,13 +4276,13 @@ fn play_render_context_existing_ids_unchanged() {
 
 #[test]
 fn play_render_context_bpm_zero_when_no_lanerender() {
-    use rubato_skin::skin_render_context::SkinRenderContext;
+    use crate::skin::skin_render_context::SkinRenderContext;
 
     let mut timer = crate::core::timer_manager::TimerManager::new();
     let judge = crate::play::judge::manager::JudgeManager::new();
     let pc = PlayerConfig::default();
-    let play_config = rubato_skin::play_config::PlayConfig::default();
-    let option_info = rubato_skin::replay_data::ReplayData::default();
+    let play_config = crate::skin::play_config::PlayConfig::default();
+    let option_info = crate::skin::replay_data::ReplayData::default();
 
     // BPM = 0.0 simulates no LaneRenderer (default fallback in render_skin.rs)
     let ctx = make_play_render_context_with_bpm_volume(
@@ -4378,7 +4378,7 @@ fn save_config_pending_update_contains_hispeed_when_fixhispeed_off() {
         .player_config
         .play_config(Mode::BEAT_7K)
         .playconfig
-        .fixhispeed = rubato_skin::play_config::FIX_HISPEED_OFF;
+        .fixhispeed = crate::skin::play_config::FIX_HISPEED_OFF;
 
     player.save_config();
 
@@ -4558,7 +4558,7 @@ fn receive_updated_play_config_preserves_lanerender_live_hispeed() {
         .lanerender
         .as_mut()
         .unwrap()
-        .apply_play_config(&rubato_skin::play_config::PlayConfig {
+        .apply_play_config(&crate::skin::play_config::PlayConfig {
             hispeed: live_hispeed,
             ..Default::default()
         });
@@ -4570,7 +4570,7 @@ fn receive_updated_play_config_preserves_lanerender_live_hispeed() {
 
     // ModMenu sends an update with modmenu-managed fields only.
     // The PlayConfig carries whatever hispeed the modmenu snapshot had (stale).
-    let updated_pc = rubato_skin::play_config::PlayConfig {
+    let updated_pc = crate::skin::play_config::PlayConfig {
         hispeed: stale_hispeed, // stale -- must NOT reach LaneRenderer
         enablelift: true,
         lift: 0.3,
@@ -4610,7 +4610,7 @@ fn receive_updated_play_config_propagates_modmenu_fields_to_lanerender() {
     let live_hispeed = 6.0;
     {
         // Start from LaneRenderer's current state, only change hispeed
-        let mut setup_pc = rubato_skin::play_config::PlayConfig::default();
+        let mut setup_pc = crate::skin::play_config::PlayConfig::default();
         setup_pc.hispeed = live_hispeed;
         setup_pc.enablelanecover = false;
         setup_pc.enablelift = false;
@@ -4624,7 +4624,7 @@ fn receive_updated_play_config_propagates_modmenu_fields_to_lanerender() {
 
     // Simulate modmenu pushing a PlayConfig. The modmenu snapshot carries a
     // stale hispeed (1.0) that must NOT overwrite the live value.
-    let updated_pc = rubato_skin::play_config::PlayConfig {
+    let updated_pc = crate::skin::play_config::PlayConfig {
         hispeed: 1.0, // stale -- must NOT reach LaneRenderer
         lanecover: 0.35,
         enablelanecover: true,
@@ -4837,7 +4837,7 @@ fn sync_judge_states_writes_state_and_play_time_to_model_notes() {
     // Initialize gauge for update()
     player.gauge = crate::play::groove_gauge::create_groove_gauge(
         &player.model,
-        rubato_skin::groove_gauge::NORMAL,
+        crate::skin::groove_gauge::NORMAL,
         0,
         None,
     );
@@ -4935,7 +4935,7 @@ fn create_score_data_uses_synced_judge_states() {
     player.rebuild_judge_system(&mode);
     player.gauge = crate::play::groove_gauge::create_groove_gauge(
         &player.model,
-        rubato_skin::groove_gauge::NORMAL,
+        crate::skin::groove_gauge::NORMAL,
         0,
         None,
     );
@@ -5367,7 +5367,7 @@ fn song_metadata_getter_returns_set_value() {
         "song_metadata should default to empty"
     );
 
-    let mut metadata = rubato_skin::song_data::SongMetadata::default();
+    let mut metadata = crate::skin::song_data::SongMetadata::default();
     metadata.title = "Test Song".to_string();
     metadata.artist = "Test Artist".to_string();
     metadata.genre = "Test Genre".to_string();
@@ -5418,7 +5418,7 @@ fn receive_updated_play_config_preserves_scroll_state() {
     // After init() with FIX_HISPEED_STARTBPM, LaneRenderer's hispeed is
     // recalculated from basebpm/duration. That recalculated value IS the live
     // state. receive_updated_play_config() must preserve it.
-    use rubato_skin::play_config::{FIX_HISPEED_STARTBPM, PlayConfig};
+    use crate::skin::play_config::{FIX_HISPEED_STARTBPM, PlayConfig};
 
     let mut model = make_model();
     model.bpm = 120.0;
@@ -5476,7 +5476,7 @@ fn update_judge_sets_bga_misslayertime_in_milliseconds() {
     player.gauge = Some(
         crate::play::groove_gauge::create_groove_gauge(
             &player.model,
-            rubato_skin::groove_gauge::NORMAL,
+            crate::skin::groove_gauge::NORMAL,
             0,
             None,
         )
@@ -5526,7 +5526,7 @@ fn practice_to_ready_queues_play_ready_sound() {
             .pending
             .pending_sounds
             .iter()
-            .any(|(s, _)| *s == rubato_skin::sound_type::SoundType::PlayReady),
+            .any(|(s, _)| *s == crate::skin::sound_type::SoundType::PlayReady),
         "Practice->Ready transition should queue PlayReady sound, but pending_sounds = {:?}",
         player.pending.pending_sounds
     );
@@ -5543,19 +5543,19 @@ struct VolumeSliderSkin {
 impl SkinDrawable for VolumeSliderSkin {
     fn draw_all_objects_timed(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
     ) {
     }
 
     fn update_custom_objects_timed(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
     ) {
     }
 
     fn mouse_pressed_at(
         &mut self,
-        ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
         _button: i32,
         _x: i32,
         _y: i32,
@@ -5565,14 +5565,14 @@ impl SkinDrawable for VolumeSliderSkin {
 
     fn mouse_dragged_at(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
         _button: i32,
         _x: i32,
         _y: i32,
     ) {
     }
 
-    fn prepare_skin(&mut self, _state_type: Option<rubato_skin::main_state_type::MainStateType>) {}
+    fn prepare_skin(&mut self, _state_type: Option<crate::skin::main_state_type::MainStateType>) {}
     fn dispose_skin(&mut self) {}
     fn fadeout(&self) -> i32 {
         0
@@ -5598,19 +5598,19 @@ struct NotifyAudioConfigSkin;
 impl SkinDrawable for NotifyAudioConfigSkin {
     fn draw_all_objects_timed(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
     ) {
     }
 
     fn update_custom_objects_timed(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
     ) {
     }
 
     fn mouse_pressed_at(
         &mut self,
-        ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
         _button: i32,
         _x: i32,
         _y: i32,
@@ -5620,14 +5620,14 @@ impl SkinDrawable for NotifyAudioConfigSkin {
 
     fn mouse_dragged_at(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
         _button: i32,
         _x: i32,
         _y: i32,
     ) {
     }
 
-    fn prepare_skin(&mut self, _state_type: Option<rubato_skin::main_state_type::MainStateType>) {}
+    fn prepare_skin(&mut self, _state_type: Option<crate::skin::main_state_type::MainStateType>) {}
     fn dispose_skin(&mut self) {}
     fn fadeout(&self) -> i32 {
         0
@@ -5651,8 +5651,8 @@ impl SkinDrawable for NotifyAudioConfigSkin {
 fn set_float_value_system_volume_sets_pending_audio_config() {
     let model = make_model();
     let mut player = BMSPlayer::new(model);
-    player.set_config(rubato_skin::config::Config {
-        audio: Some(rubato_skin::audio_config::AudioConfig::default()),
+    player.set_config(crate::skin::config::Config {
+        audio: Some(crate::skin::audio_config::AudioConfig::default()),
         ..Default::default()
     });
     player.main_state_data.skin = Some(Box::new(VolumeSliderSkin {
@@ -5681,8 +5681,8 @@ fn set_float_value_system_volume_sets_pending_audio_config() {
 fn set_float_value_key_volume_sets_pending_audio_config() {
     let model = make_model();
     let mut player = BMSPlayer::new(model);
-    player.set_config(rubato_skin::config::Config {
-        audio: Some(rubato_skin::audio_config::AudioConfig::default()),
+    player.set_config(crate::skin::config::Config {
+        audio: Some(crate::skin::audio_config::AudioConfig::default()),
         ..Default::default()
     });
     player.main_state_data.skin = Some(Box::new(VolumeSliderSkin {
@@ -5705,8 +5705,8 @@ fn set_float_value_key_volume_sets_pending_audio_config() {
 fn set_float_value_bg_volume_sets_pending_audio_config() {
     let model = make_model();
     let mut player = BMSPlayer::new(model);
-    player.set_config(rubato_skin::config::Config {
-        audio: Some(rubato_skin::audio_config::AudioConfig::default()),
+    player.set_config(crate::skin::config::Config {
+        audio: Some(crate::skin::audio_config::AudioConfig::default()),
         ..Default::default()
     });
     player.main_state_data.skin = Some(Box::new(VolumeSliderSkin {
@@ -5732,11 +5732,11 @@ fn set_float_value_bg_volume_sets_pending_audio_config() {
 fn notify_audio_config_changed_sets_pending_audio_config() {
     let model = make_model();
     let mut player = BMSPlayer::new(model);
-    let mut audio_cfg = rubato_skin::audio_config::AudioConfig::default();
+    let mut audio_cfg = crate::skin::audio_config::AudioConfig::default();
     audio_cfg.systemvolume = 0.8;
     audio_cfg.keyvolume = 0.6;
     audio_cfg.bgvolume = 0.4;
-    player.set_config(rubato_skin::config::Config {
+    player.set_config(crate::skin::config::Config {
         audio: Some(audio_cfg),
         ..Default::default()
     });
@@ -5761,7 +5761,7 @@ fn notify_audio_config_changed_sets_pending_audio_config() {
 fn take_pending_audio_config_drains_value() {
     let model = make_model();
     let mut player = BMSPlayer::new(model);
-    player.pending.pending_audio_config = Some(rubato_skin::audio_config::AudioConfig::default());
+    player.pending.pending_audio_config = Some(crate::skin::audio_config::AudioConfig::default());
 
     let taken = player.pending.pending_audio_config.take();
     assert!(taken.is_some(), "first take should return Some");
@@ -5774,8 +5774,8 @@ fn take_pending_audio_config_drains_value() {
 fn set_float_value_volume_clamps_to_valid_range() {
     let model = make_model();
     let mut player = BMSPlayer::new(model);
-    player.set_config(rubato_skin::config::Config {
-        audio: Some(rubato_skin::audio_config::AudioConfig::default()),
+    player.set_config(crate::skin::config::Config {
+        audio: Some(crate::skin::audio_config::AudioConfig::default()),
         ..Default::default()
     });
     player.main_state_data.skin = Some(Box::new(VolumeSliderSkin {
@@ -5801,8 +5801,8 @@ fn set_float_value_volume_clamps_to_valid_range() {
 fn set_float_value_non_volume_id_does_not_set_pending_audio_config() {
     let model = make_model();
     let mut player = BMSPlayer::new(model);
-    player.set_config(rubato_skin::config::Config {
-        audio: Some(rubato_skin::audio_config::AudioConfig::default()),
+    player.set_config(crate::skin::config::Config {
+        audio: Some(crate::skin::audio_config::AudioConfig::default()),
         ..Default::default()
     });
     player.main_state_data.skin = Some(Box::new(VolumeSliderSkin {
@@ -5829,7 +5829,7 @@ fn build_replay_data_uses_config_gauge_not_auto_shifted() {
     let mut player = BMSPlayer::new(model);
 
     // Set config gauge to NORMAL (2)
-    player.player_config.play_settings.gauge = rubato_skin::groove_gauge::NORMAL;
+    player.player_config.play_settings.gauge = crate::skin::groove_gauge::NORMAL;
 
     // Create a gauge initialized to EXHARD (4) to simulate auto-shift
     let gauge_model = {
@@ -5837,12 +5837,12 @@ fn build_replay_data_uses_config_gauge_not_auto_shifted() {
         m.total = 300.0;
         m
     };
-    let gauge = rubato_skin::groove_gauge::GrooveGauge::create_with_id(
+    let gauge = crate::skin::groove_gauge::GrooveGauge::create_with_id(
         &gauge_model,
-        rubato_skin::groove_gauge::EXHARD,
-        &rubato_skin::gauge_property::GaugeProperty::SevenKeys,
+        crate::skin::groove_gauge::EXHARD,
+        &crate::skin::gauge_property::GaugeProperty::SevenKeys,
     );
-    assert_eq!(gauge.gauge_type(), rubato_skin::groove_gauge::EXHARD);
+    assert_eq!(gauge.gauge_type(), crate::skin::groove_gauge::EXHARD);
     player.gauge = Some(gauge);
 
     let rd = player.build_replay_data();
@@ -5850,7 +5850,7 @@ fn build_replay_data_uses_config_gauge_not_auto_shifted() {
     // Should store config gauge (NORMAL=2), NOT the runtime gauge type (EXHARD=4)
     assert_eq!(
         rd.gauge,
-        rubato_skin::groove_gauge::NORMAL,
+        crate::skin::groove_gauge::NORMAL,
         "replay gauge should be config setting, not auto-shifted gauge type"
     );
 }
@@ -5860,14 +5860,14 @@ fn build_replay_data_uses_config_gauge_when_no_gauge_present() {
     // When gauge is None, replay data should still get the config gauge setting.
     let model = make_model();
     let mut player = BMSPlayer::new(model);
-    player.player_config.play_settings.gauge = rubato_skin::groove_gauge::HARD;
+    player.player_config.play_settings.gauge = crate::skin::groove_gauge::HARD;
     // gauge remains None
 
     let rd = player.build_replay_data();
 
     assert_eq!(
         rd.gauge,
-        rubato_skin::groove_gauge::HARD,
+        crate::skin::groove_gauge::HARD,
         "replay gauge should be config setting even without runtime gauge"
     );
 }
@@ -6320,7 +6320,7 @@ fn build_score_handoff_populates_all_fields_on_some_path() {
     // Initialize gauge so score_data produces clear type info.
     player.gauge = crate::play::groove_gauge::create_groove_gauge(
         &player.model,
-        rubato_skin::groove_gauge::NORMAL,
+        crate::skin::groove_gauge::NORMAL,
         0,
         None,
     );
@@ -6505,8 +6505,8 @@ fn create_score_data_clear_type_failed_when_state_is_failed() {
     // Even with a qualified gauge, Failed state should yield ClearType::Failed.
     let gauge = GrooveGauge::new(
         &player.model,
-        rubato_skin::groove_gauge::HARD,
-        &rubato_skin::gauge_property::GaugeProperty::SevenKeys,
+        crate::skin::groove_gauge::HARD,
+        &crate::skin::gauge_property::GaugeProperty::SevenKeys,
     );
     player.gauge = Some(gauge);
 
@@ -6529,8 +6529,8 @@ fn create_score_data_clear_type_failed_when_gauge_not_qualified() {
     // NORMAL gauge: init=20, border=80 -> NOT qualified by default
     let gauge = GrooveGauge::new(
         &player.model,
-        rubato_skin::groove_gauge::NORMAL,
-        &rubato_skin::gauge_property::GaugeProperty::SevenKeys,
+        crate::skin::groove_gauge::NORMAL,
+        &crate::skin::gauge_property::GaugeProperty::SevenKeys,
     );
     player.gauge = Some(gauge);
 
@@ -6545,8 +6545,8 @@ fn create_score_data_clear_type_light_assist_easy() {
     // Qualified gauge (HARD: init=100, border=0)
     let gauge = GrooveGauge::new(
         &player.model,
-        rubato_skin::groove_gauge::HARD,
-        &rubato_skin::gauge_property::GaugeProperty::SevenKeys,
+        crate::skin::groove_gauge::HARD,
+        &crate::skin::gauge_property::GaugeProperty::SevenKeys,
     );
     player.gauge = Some(gauge);
 
@@ -6560,8 +6560,8 @@ fn create_score_data_clear_type_assist_easy() {
     player.assist = 2;
     let gauge = GrooveGauge::new(
         &player.model,
-        rubato_skin::groove_gauge::HARD,
-        &rubato_skin::gauge_property::GaugeProperty::SevenKeys,
+        crate::skin::groove_gauge::HARD,
+        &crate::skin::gauge_property::GaugeProperty::SevenKeys,
     );
     player.gauge = Some(gauge);
 
@@ -6576,8 +6576,8 @@ fn create_score_data_clear_type_assist_in_course_mode_stays_failed() {
     player.is_course_mode = true;
     let gauge = GrooveGauge::new(
         &player.model,
-        rubato_skin::groove_gauge::HARD,
-        &rubato_skin::gauge_property::GaugeProperty::SevenKeys,
+        crate::skin::groove_gauge::HARD,
+        &crate::skin::gauge_property::GaugeProperty::SevenKeys,
     );
     player.gauge = Some(gauge);
 
@@ -6595,8 +6595,8 @@ fn create_score_data_clear_type_max() {
     player.judge.set_combo_for_test(10);
     let gauge = GrooveGauge::new(
         &player.model,
-        rubato_skin::groove_gauge::HARD,
-        &rubato_skin::gauge_property::GaugeProperty::SevenKeys,
+        crate::skin::groove_gauge::HARD,
+        &crate::skin::gauge_property::GaugeProperty::SevenKeys,
     );
     player.gauge = Some(gauge);
 
@@ -6614,8 +6614,8 @@ fn create_score_data_clear_type_perfect() {
     player.judge.set_combo_for_test(10);
     let gauge = GrooveGauge::new(
         &player.model,
-        rubato_skin::groove_gauge::HARD,
-        &rubato_skin::gauge_property::GaugeProperty::SevenKeys,
+        crate::skin::groove_gauge::HARD,
+        &crate::skin::gauge_property::GaugeProperty::SevenKeys,
     );
     player.gauge = Some(gauge);
 
@@ -6634,8 +6634,8 @@ fn create_score_data_clear_type_fullcombo() {
     player.judge.set_combo_for_test(10);
     let gauge = GrooveGauge::new(
         &player.model,
-        rubato_skin::groove_gauge::HARD,
-        &rubato_skin::gauge_property::GaugeProperty::SevenKeys,
+        crate::skin::groove_gauge::HARD,
+        &crate::skin::gauge_property::GaugeProperty::SevenKeys,
     );
     player.gauge = Some(gauge);
 
@@ -6654,8 +6654,8 @@ fn create_score_data_clear_type_gauge_based() {
     // HARD gauge -> clear_type() returns ClearType::Hard
     let gauge = GrooveGauge::new(
         &player.model,
-        rubato_skin::groove_gauge::HARD,
-        &rubato_skin::gauge_property::GaugeProperty::SevenKeys,
+        crate::skin::groove_gauge::HARD,
+        &crate::skin::gauge_property::GaugeProperty::SevenKeys,
     );
     player.gauge = Some(gauge);
 

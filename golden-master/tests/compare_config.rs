@@ -3,11 +3,11 @@
 use std::path::Path;
 
 use bms::model::mode::Mode;
-use rubato_skin::audio_config::{DriverType, FrequencyType};
-use rubato_skin::config::{Config, DisplayMode, SongPreview};
-use rubato_skin::player_config::PlayerConfig;
-use rubato_skin::resolution::Resolution;
-use rubato_skin::validatable::Validatable;
+use rubato::skin::audio_config::{DriverType, FrequencyType};
+use rubato::skin::config::{Config, DisplayMode, SongPreview};
+use rubato::skin::player_config::PlayerConfig;
+use rubato::skin::resolution::Resolution;
+use rubato::skin::validatable::Validatable;
 
 fn fixtures_dir() -> &'static Path {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -122,10 +122,10 @@ fn config_system_deserialize() {
     );
 
     // BGA/resource
-    assert_eq!(config.render.bga, rubato_skin::config::BgaMode::Auto);
+    assert_eq!(config.render.bga, rubato::skin::config::BgaMode::Auto);
     assert_eq!(
         config.render.bga_expand,
-        rubato_skin::config::BgaExpand::Off
+        rubato::skin::config::BgaExpand::Off
     );
     assert_eq!(config.render.frameskip, 0);
     assert!(config.updatesong);
@@ -203,10 +203,10 @@ fn config_system_validate_after_deserialize() {
     assert_eq!(config.display.window_height, 1080);
     assert_eq!(config.display.max_frame_per_second, 120);
     assert_eq!(config.select.scrolldurationlow, 200);
-    assert_eq!(config.render.bga, rubato_skin::config::BgaMode::Auto);
+    assert_eq!(config.render.bga, rubato::skin::config::BgaMode::Auto);
     assert_eq!(
         config.render.bga_expand,
-        rubato_skin::config::BgaExpand::Off
+        rubato::skin::config::BgaExpand::Off
     );
 }
 
@@ -405,7 +405,7 @@ fn config_player_validate_after_deserialize() {
     assert_eq!(pc.play_settings.lnmode, 1);
 
     // Skin array should be normalized to expected size
-    let max_skin_id = rubato_skin::skin_type::SkinType::max_skin_type_id() as usize;
+    let max_skin_id = rubato::skin::skin_type::SkinType::max_skin_type_id() as usize;
     assert_eq!(pc.skin.len(), max_skin_id + 1);
 
     // autosavereplay should remain length 4

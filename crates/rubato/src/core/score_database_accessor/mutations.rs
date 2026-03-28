@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use rubato_skin::player_data::PlayerData;
-use rubato_skin::player_information::PlayerInformation;
-use rubato_skin::score_data::ScoreData;
+use crate::skin::player_data::PlayerData;
+use crate::skin::player_information::PlayerInformation;
+use crate::skin::score_data::ScoreData;
 
 use super::ScoreDatabaseAccessor;
 use super::helpers::{local_midnight_timestamp, player_data_to_value, score_data_to_value};

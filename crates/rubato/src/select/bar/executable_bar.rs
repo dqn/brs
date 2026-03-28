@@ -3,7 +3,7 @@ use std::sync::Mutex;
 
 use super::selectable_bar::SelectableBarData;
 use crate::select::*;
-use rubato_skin::sync_utils::lock_or_recover;
+use crate::skin::sync_utils::lock_or_recover;
 
 /// Queue length for random index generation
 const QUEUE_LENGTH: usize = 1000;

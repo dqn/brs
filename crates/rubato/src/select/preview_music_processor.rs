@@ -3,9 +3,9 @@ use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
-use rubato_audio::audio_system::AudioSystem;
-use rubato_skin::audio_config::DEFAULT_AUDIO_VOLUME;
-use rubato_skin::sync_utils::lock_or_recover;
+use crate::audio::audio_system::AudioSystem;
+use crate::skin::audio_config::DEFAULT_AUDIO_VOLUME;
+use crate::skin::sync_utils::lock_or_recover;
 
 use super::*;
 
@@ -342,7 +342,7 @@ impl PreviewMusicProcessor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rubato_audio::recording_audio_driver::RecordingAudioDriver;
+    use crate::audio::recording_audio_driver::RecordingAudioDriver;
     use std::sync::atomic::AtomicBool;
 
     struct LockCheckingTarget {
@@ -504,7 +504,7 @@ mod tests {
         if let AudioSystem::Recording(ref inner) = audio {
             assert!(matches!(
                 inner.events().first(),
-                Some(rubato_audio::recording_audio_driver::AudioEvent::PlayPath {
+                Some(crate::audio::recording_audio_driver::AudioEvent::PlayPath {
                     volume,
                     ..
                 }) if (*volume - 0.1).abs() < f32::EPSILON

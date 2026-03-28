@@ -1,4 +1,4 @@
-use rubato_skin::reexports::Rectangle;
+use crate::skin::reexports::Rectangle;
 
 use super::SkinHeader;
 

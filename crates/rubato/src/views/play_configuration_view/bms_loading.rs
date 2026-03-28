@@ -30,7 +30,7 @@ impl PlayConfigurationView {
             // judgealgorithm → judgetype
             // JudgeAlgorithm.values()[judgealgorithm.getValue()].name()
             if let Some(alg_idx) = self.judgealgorithm {
-                let judge_algs = rubato_skin::JudgeAlgorithm::values();
+                let judge_algs = crate::skin::JudgeAlgorithm::values();
                 if (alg_idx as usize) < judge_algs.len() {
                     conf.judgetype = judge_algs[alg_idx as usize].name().to_string();
                 }
@@ -58,7 +58,7 @@ impl PlayConfigurationView {
             self.enable_hidden = conf.enablehidden;
             self.lift = (conf.lift * 1000.0) as i32;
             self.hidden = (conf.hidden * 1000.0) as i32;
-            self.judgealgorithm = Some(rubato_skin::JudgeAlgorithm::index(&conf.judgetype).max(0));
+            self.judgealgorithm = Some(crate::skin::JudgeAlgorithm::index(&conf.judgetype).max(0));
             self.hispeedautoadjust = conf.hispeedautoadjust;
         }
     }

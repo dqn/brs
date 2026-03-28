@@ -1,7 +1,7 @@
 use crate::external::discord_rpc::rich_presence::{RichPresence, RichPresenceData};
 
-use rubato_skin::app_event::{AppEvent, StateChangedData};
-use rubato_skin::screen_type::ScreenType;
+use crate::skin::app_event::{AppEvent, StateChangedData};
+use crate::skin::screen_type::ScreenType;
 
 static APPLICATION_ID: &str = "1054234988167561277";
 
@@ -351,7 +351,7 @@ mod tests {
 
         let data = StateChangedData {
             screen_type: ScreenType::MusicSelector,
-            state_type: Some(rubato_skin::main_state_type::MainStateType::MusicSelect),
+            state_type: Some(crate::skin::main_state_type::MainStateType::MusicSelect),
             status: 0,
             song_info: None,
         };
@@ -369,9 +369,9 @@ mod tests {
 
         let data = StateChangedData {
             screen_type: ScreenType::BMSPlayer,
-            state_type: Some(rubato_skin::main_state_type::MainStateType::Play),
+            state_type: Some(crate::skin::main_state_type::MainStateType::Play),
             status: 0,
-            song_info: Some(rubato_skin::app_event::SongInfo {
+            song_info: Some(crate::skin::app_event::SongInfo {
                 title: "Test Song".to_string(),
                 subtitle: "".to_string(),
                 artist: "Test Artist".to_string(),

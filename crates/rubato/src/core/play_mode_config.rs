@@ -1,1 +1,1 @@
-pub use rubato_skin::play_mode_config::*;
+pub use crate::skin::play_mode_config::*;

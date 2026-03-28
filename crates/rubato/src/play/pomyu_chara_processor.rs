@@ -1,5 +1,5 @@
 use crate::core::timer_manager::TimerManager;
-use rubato_skin::timer_id::TimerId;
+use crate::skin::timer_id::TimerId;
 
 // SkinProperty timer constants for PM character animations
 const TIMER_PM_CHARA_1P_NEUTRAL: TimerId = TimerId(900);

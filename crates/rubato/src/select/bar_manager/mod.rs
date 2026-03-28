@@ -652,7 +652,7 @@ impl BarManager {
                         .unwrap_or(BarSorter::Title);
                     l.sort_by(|a, b| sorter.compare(a, b));
 
-                    if rubato_skin::last_played_sort::is_enabled() {
+                    if crate::skin::last_played_sort::is_enabled() {
                         l.sort_by(|a, b| BarSorter::LastUpdate.compare(a, b));
                     }
                 } else {
@@ -811,7 +811,7 @@ impl BarManager {
     /// Corresponds to Java BarManager.close()
     pub fn close_with_context(&mut self, ctx: Option<&mut UpdateBarContext>) {
         if self.dir.is_empty() {
-            rubato_skin::last_played_sort::force_disable();
+            crate::skin::last_played_sort::force_disable();
             // In Java: select.executeEvent(EventType.sort)
             return;
         }

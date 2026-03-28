@@ -11,12 +11,12 @@ use bms::model::judge_note::{JUDGE_PG, JudgeNoteKind};
 use bms::model::mode::Mode;
 use bms::model::note::Note;
 use bms::model::time_line::TimeLine;
+use rubato::input::key_input_log::KeyInputLog;
 use rubato::play::bms_player_rule::BMSPlayerRule;
 use rubato::play::groove_gauge::create_groove_gauge;
 use rubato::play::judge_algorithm::JudgeAlgorithm;
 use rubato::play::judge_manager::{JudgeConfig, JudgeManager};
-use rubato_input::key_input_log::KeyInputLog;
-use rubato_skin::groove_gauge::{HARD, NORMAL};
+use rubato::skin::groove_gauge::{HARD, NORMAL};
 
 // ---------------------------------------------------------------------------
 // Helpers

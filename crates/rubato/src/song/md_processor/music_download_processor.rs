@@ -10,7 +10,7 @@ use std::time::Duration;
 use super::http_download_processor::copy_dir_recursive;
 use super::ipfs_information::IpfsInformation;
 use super::music_database_accessor::MusicDatabaseAccessor;
-use rubato_skin::sync_utils::lock_or_recover;
+use crate::skin::sync_utils::lock_or_recover;
 
 /// Corresponds to MusicDownloadProcessor in Java
 /// IPFS-based song download processor
@@ -701,7 +701,7 @@ fn move_path_with_fallback(src: &Path, dest: &Path) -> bool {
 }
 
 impl crate::music_download_access::MusicDownloadAccess for MusicDownloadProcessor {
-    fn start_download(&self, song: &rubato_skin::song_data::SongData) {
+    fn start_download(&self, song: &crate::skin::song_data::SongData) {
         // SongData implements IpfsInformation, so we can clone and box it.
         let song_clone = song.clone();
         self.start(Some(Box::new(song_clone)));

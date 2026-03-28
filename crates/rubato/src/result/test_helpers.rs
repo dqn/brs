@@ -13,19 +13,19 @@ pub struct ExecuteEventSkin {
 impl SkinDrawable for ExecuteEventSkin {
     fn draw_all_objects_timed(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
     ) {
     }
 
     fn update_custom_objects_timed(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
     ) {
     }
 
     fn mouse_pressed_at(
         &mut self,
-        ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
         _button: i32,
         _x: i32,
         _y: i32,
@@ -35,14 +35,14 @@ impl SkinDrawable for ExecuteEventSkin {
 
     fn mouse_dragged_at(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
         _button: i32,
         _x: i32,
         _y: i32,
     ) {
     }
 
-    fn prepare_skin(&mut self, _state_type: Option<rubato_skin::main_state_type::MainStateType>) {}
+    fn prepare_skin(&mut self, _state_type: Option<crate::skin::main_state_type::MainStateType>) {}
 
     fn dispose_skin(&mut self) {}
 
@@ -75,19 +75,19 @@ pub struct PlayerConfigMutatingSkin;
 impl SkinDrawable for PlayerConfigMutatingSkin {
     fn draw_all_objects_timed(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
     ) {
     }
 
     fn update_custom_objects_timed(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
     ) {
     }
 
     fn mouse_pressed_at(
         &mut self,
-        ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
         _button: i32,
         _x: i32,
         _y: i32,
@@ -99,14 +99,14 @@ impl SkinDrawable for PlayerConfigMutatingSkin {
 
     fn mouse_dragged_at(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
         _button: i32,
         _x: i32,
         _y: i32,
     ) {
     }
 
-    fn prepare_skin(&mut self, _state_type: Option<rubato_skin::main_state_type::MainStateType>) {}
+    fn prepare_skin(&mut self, _state_type: Option<crate::skin::main_state_type::MainStateType>) {}
 
     fn dispose_skin(&mut self) {}
 
@@ -134,12 +134,12 @@ impl SkinDrawable for PlayerConfigMutatingSkin {
 }
 
 /// Create a test Config with a unique temp directory for player data.
-pub fn make_test_config(label: &str) -> rubato_skin::config::Config {
+pub fn make_test_config(label: &str) -> crate::skin::config::Config {
     let unique = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("system clock")
         .as_nanos();
-    let mut config = rubato_skin::config::Config::default();
+    let mut config = crate::skin::config::Config::default();
     let player_dir = std::env::temp_dir().join(format!("rubato-{label}-{unique}"));
     config.paths.playerpath = player_dir.to_string_lossy().into_owned();
     config.playername = Some(format!("test-{label}"));

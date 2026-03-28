@@ -53,7 +53,7 @@ pub(crate) fn init_song_information_database(controller: &mut MainController) {
 fn init_song_database_impl(update_all: bool, set_accessor: bool) {
     use rubato::core::config::Config;
     use rubato::core::main_loader::MainLoader;
-    use rubato_skin::validatable::Validatable;
+    use rubato::skin::validatable::Validatable;
 
     let mut config = Config::read().unwrap_or_default();
     config.validate();
@@ -133,8 +133,8 @@ pub(crate) fn init_audio_driver(controller: &mut MainController) -> Result<()> {
     // Known limitation: audio driver selection from config is not yet implemented.
     // Always uses GdxSoundDriver regardless of config.audio.driver setting.
     let song_resource_gen = controller.config().render.song_resource_gen;
-    let audio_driver = rubato_audio::gdx_sound_driver::GdxSoundDriver::new(song_resource_gen)?;
-    controller.set_audio_driver(rubato_audio::audio_system::AudioSystem::GdxSound(
+    let audio_driver = rubato::audio::gdx_sound_driver::GdxSoundDriver::new(song_resource_gen)?;
+    controller.set_audio_driver(rubato::audio::audio_system::AudioSystem::GdxSound(
         audio_driver,
     ));
     Ok(())
@@ -187,7 +187,7 @@ pub(crate) fn init_ir_config(controller: &mut MainController) {
     ]);
 
     let player_config = controller.player_config().clone();
-    let ir_statuses = rubato::state::result::ir_initializer::initialize_ir_config(&player_config);
+    let ir_statuses = rubato::result::ir_initializer::initialize_ir_config(&player_config);
     for ir_status in ir_statuses {
         let rival_provider = rubato::ir::ir_rival_provider_impl::IRRivalProviderImpl::new(
             ir_status.connection.clone(),
@@ -207,7 +207,7 @@ pub(crate) fn init_ir_config(controller: &mut MainController) {
     }
     // Wire IR resend service
     let ir_send_count = controller.config().network.ir_send_count;
-    let resend_service = rubato::state::result::ir_resend::IrResendServiceImpl::new(ir_send_count);
+    let resend_service = rubato::result::ir_resend::IrResendServiceImpl::new(ir_send_count);
     resend_service.start();
     controller.set_ir_resend_service(Box::new(resend_service));
 }
@@ -309,9 +309,9 @@ fn init_http_download_processor(
             // Java: DownloadTaskState.initialize(httpDownloadProcessor)
             rubato::song::md_processor::download_task_state::DownloadTaskState::initialize();
             // Java: DownloadTaskMenu.setProcessor(httpDownloadProcessor)
-            rubato::state::modmenu::download_task_menu::DownloadTaskMenu::set_processor(
-                Arc::clone(&processor),
-            );
+            rubato::modmenu::download_task_menu::DownloadTaskMenu::set_processor(Arc::clone(
+                &processor,
+            ));
 
             controller.set_http_download_processor(Box::new(HttpDownloadProcessorWrapper(
                 Arc::clone(&processor),
@@ -348,15 +348,15 @@ pub(crate) fn init_stream_controller(controller: &mut MainController) {
             &config.paths.songpath,
             &config.paths.bmsroot,
         ) {
-            Ok(db) => rubato::state::select::music_selector::MusicSelector::with_song_database(
-                Box::new(db),
-            ),
+            Ok(db) => {
+                rubato::select::music_selector::MusicSelector::with_song_database(Box::new(db))
+            }
             Err(e) => {
                 log::warn!(
                     "Failed to open song database for shared MusicSelector: {}",
                     e
                 );
-                rubato::state::select::music_selector::MusicSelector::with_config(config.clone())
+                rubato::select::music_selector::MusicSelector::with_config(config.clone())
             }
         };
     // Wire dependencies so the shared selector can access config, sounds, scores, etc.
@@ -368,8 +368,7 @@ pub(crate) fn init_stream_controller(controller: &mut MainController) {
     let selector = std::sync::Arc::new(std::sync::Mutex::new(selector));
     // Store the shared selector on MainController for the StateCreator to retrieve
     controller.set_shared_music_selector(std::sync::Arc::clone(&selector));
-    let mut stream_controller =
-        rubato::state::stream::stream_controller::StreamController::new(selector);
+    let mut stream_controller = rubato::stream::stream_controller::StreamController::new(selector);
     stream_controller.run();
     controller.set_stream_controller(Box::new(stream_controller));
 }

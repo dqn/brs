@@ -4,7 +4,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use crate::ir::ir_chart_data::IRChartData;
 use crate::ir::ir_connection::IRConnection;
 use crate::ir::ir_score_data::IRScoreData;
-use rubato_skin::song_data::SongData;
+use crate::skin::song_data::SongData;
 
 /// MainController.IRSendStatus — handles IR score submission
 ///

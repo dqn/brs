@@ -17,8 +17,8 @@ use rubato::play::judge_algorithm::JudgeAlgorithm;
 use rubato::play::judge_manager::{JudgeConfig, JudgeManager};
 use rubato::play::key_input_processor::{InputContext, KeyInputProccessor};
 use rubato::play::lane_property::LaneProperty;
-use rubato_skin::groove_gauge::NORMAL;
-use rubato_skin::timer_id::TimerId;
+use rubato::skin::groove_gauge::NORMAL;
+use rubato::skin::timer_id::TimerId;
 
 // Timer ID constants (must match key_input.rs private constants)
 const TIMER_KEYON_1P_SCRATCH: i32 = 100;

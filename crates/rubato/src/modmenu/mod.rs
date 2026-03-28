@@ -11,26 +11,26 @@ pub use crate::core::config::Config;
 pub use crate::core::play_config::PlayConfig;
 pub use crate::core::score_data::ScoreData;
 pub use crate::core::version::{self, Version};
-pub use rubato_skin::player_config::PlayerConfig;
-pub use rubato_skin::player_config::read_all_player_id;
-pub use rubato_skin::reexports::Rectangle;
-pub use rubato_skin::skin_config::{
+pub use crate::skin::player_config::PlayerConfig;
+pub use crate::skin::player_config::read_all_player_id;
+pub use crate::skin::reexports::Rectangle;
+pub use crate::skin::skin_config::{
     SkinConfig, SkinFilePath, SkinOffset, SkinOption, SkinProperty,
 };
-pub use rubato_skin::skin_header::{
+pub use crate::skin::skin_header::{
     CustomCategory, CustomFile, CustomItemEnum as CustomCategoryItem, CustomOffset, CustomOption,
     SkinHeader, TYPE_LR2SKIN,
 };
-pub use rubato_skin::skin_property::OPTION_RANDOM_VALUE;
-pub use rubato_skin::skin_type::SkinType;
-pub use rubato_skin::song_data::SongData;
-pub use rubato_skin::song_selection_access::SongSelectionAccess;
-pub use rubato_skin::validatable::Validatable;
+pub use crate::skin::skin_property::OPTION_RANDOM_VALUE;
+pub use crate::skin::skin_type::SkinType;
+pub use crate::skin::song_data::SongData;
+pub use crate::skin::song_selection_access::SongSelectionAccess;
+pub use crate::skin::validatable::Validatable;
 
 // Skin loaders
-pub use rubato_skin::json::json_skin_loader::JSONSkinLoader;
-pub use rubato_skin::lr2::lr2_skin_header_loader::LR2SkinHeaderLoader;
-pub use rubato_skin::lua::lua_skin_loader::LuaSkinLoader;
+pub use crate::skin::json::json_skin_loader::JSONSkinLoader;
+pub use crate::skin::lr2::lr2_skin_header_loader::LR2SkinHeaderLoader;
+pub use crate::skin::lua::lua_skin_loader::LuaSkinLoader;
 
 /// Empty stub for backward compatibility -- callers use `MainController`.
 /// The modmenu (egui launcher/settings) does not need a real MainController;

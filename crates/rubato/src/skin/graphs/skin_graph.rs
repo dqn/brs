@@ -1,0 +1,276 @@
+// SkinGraph.java -> skin_graph.rs
+// Mechanical line-by-line translation.
+
+use crate::skin::property::float_property::{FloatProperty, FloatPropertyEnum};
+use crate::skin::property::float_property_factory;
+use crate::skin::property::timer_property::TimerPropertyEnum;
+use crate::skin::reexports::{MainState, TextureRegion};
+use crate::skin::sources::skin_source::SkinSource;
+use crate::skin::sources::skin_source_image::SkinSourceImage;
+use crate::skin::sources::skin_source_reference::SkinSourceReference;
+use crate::skin::types::skin_object::{RateProperty, SkinObjectData, SkinObjectRenderer};
+
+pub struct SkinGraph {
+    pub data: SkinObjectData,
+    source: Box<dyn SkinSource>,
+    ref_prop: Option<FloatPropertyEnum>,
+    pub direction: i32,
+    current: TextureRegion,
+    current_image: Option<TextureRegion>,
+    current_value: f32,
+}
+
+impl SkinGraph {
+    pub fn new_with_image_id(imageid: i32, id: i32, direction: i32) -> Self {
+        Self {
+            data: SkinObjectData::new(),
+            source: Box::new(SkinSourceReference::new(imageid)),
+            ref_prop: float_property_factory::rate_property_by_id(id),
+            direction,
+            current: TextureRegion::new(),
+            current_image: None,
+            current_value: 0.0,
+        }
+    }
+
+    pub fn new_with_image_id_minmax(
+        imageid: i32,
+        id: i32,
+        min: i32,
+        max: i32,
+        direction: i32,
+    ) -> Self {
+        Self {
+            data: SkinObjectData::new(),
+            source: Box::new(SkinSourceReference::new(imageid)),
+            ref_prop: Some(FloatPropertyEnum::Rate(RateProperty::new(id, min, max))),
+            direction,
+            current: TextureRegion::new(),
+            current_image: None,
+            current_value: 0.0,
+        }
+    }
+
+    pub fn new_with_int_timer(
+        image: Vec<TextureRegion>,
+        timer: i32,
+        cycle: i32,
+        id: i32,
+        direction: i32,
+    ) -> Self {
+        Self {
+            data: SkinObjectData::new(),
+            source: Box::new(SkinSourceImage::new_with_int_timer_from_vec(
+                image, timer, cycle,
+            )),
+            ref_prop: float_property_factory::rate_property_by_id(id),
+            direction,
+            current: TextureRegion::new(),
+            current_image: None,
+            current_value: 0.0,
+        }
+    }
+
+    pub fn new_with_int_timer_minmax(
+        image: Vec<TextureRegion>,
+        timer: i32,
+        cycle: i32,
+        id: i32,
+        min: i32,
+        max: i32,
+        direction: i32,
+    ) -> Self {
+        Self {
+            data: SkinObjectData::new(),
+            source: Box::new(SkinSourceImage::new_with_int_timer_from_vec(
+                image, timer, cycle,
+            )),
+            ref_prop: Some(FloatPropertyEnum::Rate(RateProperty::new(id, min, max))),
+            direction,
+            current: TextureRegion::new(),
+            current_image: None,
+            current_value: 0.0,
+        }
+    }
+
+    pub fn new_with_timer(
+        image: Vec<TextureRegion>,
+        timer: TimerPropertyEnum,
+        cycle: i32,
+        id: i32,
+        direction: i32,
+    ) -> Self {
+        Self {
+            data: SkinObjectData::new(),
+            source: Box::new(SkinSourceImage::new_with_timer_from_vec(
+                image,
+                Some(timer),
+                cycle,
+            )),
+            ref_prop: float_property_factory::rate_property_by_id(id),
+            direction,
+            current: TextureRegion::new(),
+            current_image: None,
+            current_value: 0.0,
+        }
+    }
+
+    pub fn new_with_timer_ref(
+        image: Vec<TextureRegion>,
+        timer: TimerPropertyEnum,
+        cycle: i32,
+        ref_prop: FloatPropertyEnum,
+        direction: i32,
+    ) -> Self {
+        Self {
+            data: SkinObjectData::new(),
+            source: Box::new(SkinSourceImage::new_with_timer_from_vec(
+                image,
+                Some(timer),
+                cycle,
+            )),
+            ref_prop: Some(ref_prop),
+            direction,
+            current: TextureRegion::new(),
+            current_image: None,
+            current_value: 0.0,
+        }
+    }
+
+    pub fn new_with_timer_minmax(
+        image: Vec<TextureRegion>,
+        timer: TimerPropertyEnum,
+        cycle: i32,
+        id: i32,
+        min: i32,
+        max: i32,
+        direction: i32,
+    ) -> Self {
+        Self {
+            data: SkinObjectData::new(),
+            source: Box::new(SkinSourceImage::new_with_timer_from_vec(
+                image,
+                Some(timer),
+                cycle,
+            )),
+            ref_prop: Some(FloatPropertyEnum::Rate(RateProperty::new(id, min, max))),
+            direction,
+            current: TextureRegion::new(),
+            current_image: None,
+            current_value: 0.0,
+        }
+    }
+
+    pub fn validate(&self) -> bool {
+        if !self.source.validate() {
+            return false;
+        }
+        self.data.validate()
+    }
+
+    pub fn prepare(&mut self, time: i64, state: &dyn MainState) {
+        self.data.prepare(time, state);
+        if !self.data.draw {
+            return;
+        }
+        self.current_image = self.source.get_image(time, state);
+        if self.current_image.is_none() {
+            self.data.draw = false;
+            return;
+        }
+        self.current_value = if let Some(ref r) = self.ref_prop {
+            r.get(state).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+    }
+
+    pub fn draw_impl(&mut self, sprite: &mut SkinObjectRenderer) {
+        if let Some(ref current_image) = self.current_image {
+            if self.direction == 1 {
+                // Java: current.setRegion(currentImage, 0, h - h*value, w, h*value)
+                self.current.set_region_from_parent(
+                    current_image,
+                    0,
+                    current_image.region_height
+                        - (current_image.region_height as f32 * self.current_value) as i32,
+                    current_image.region_width,
+                    (current_image.region_height as f32 * self.current_value) as i32,
+                );
+                let region = self.data.region;
+                self.data.draw_image_at(
+                    sprite,
+                    &self.current,
+                    region.x,
+                    region.y,
+                    region.width,
+                    region.height * self.current_value,
+                );
+            } else {
+                // Java: current.setRegion(currentImage, 0, 0, w*value, h)
+                self.current.set_region_from_parent(
+                    current_image,
+                    0,
+                    0,
+                    (current_image.region_width as f32 * self.current_value) as i32,
+                    current_image.region_height,
+                );
+                let region = self.data.region;
+                self.data.draw_image_at(
+                    sprite,
+                    &self.current,
+                    region.x,
+                    region.y,
+                    region.width * self.current_value,
+                    region.height,
+                );
+            }
+        }
+    }
+
+    pub fn ref_prop(&self) -> Option<&FloatPropertyEnum> {
+        self.ref_prop.as_ref()
+    }
+
+    pub fn direction(&self) -> i32 {
+        self.direction
+    }
+
+    pub fn dispose(&mut self) {
+        self.source.dispose();
+        self.data.set_disposed();
+    }
+}
+
+impl crate::skin::types::skin_node::SkinNode for SkinGraph {
+    fn data(&self) -> &SkinObjectData {
+        &self.data
+    }
+    fn data_mut(&mut self) -> &mut SkinObjectData {
+        &mut self.data
+    }
+    fn validate(&mut self) -> bool {
+        SkinGraph::validate(self)
+    }
+    fn prepare(&mut self, time: i64, state: &dyn MainState) {
+        SkinGraph::prepare(self, time, state)
+    }
+    fn draw(&mut self, sprite: &mut SkinObjectRenderer, _state: &dyn MainState) {
+        self.draw_impl(sprite)
+    }
+    fn dispose(&mut self) {
+        SkinGraph::dispose(self)
+    }
+    fn type_name(&self) -> &'static str {
+        "Graph"
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+    fn into_any_box(self: Box<Self>) -> Box<dyn std::any::Any> {
+        self
+    }
+}

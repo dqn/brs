@@ -9,7 +9,7 @@ use bms::model::mode::Mode;
 use rubato::play::groove_gauge::{
     ASSISTEASY, EASY, EXHARD, GrooveGauge, HARD, HAZARD, NORMAL, create_groove_gauge,
 };
-use rubato_skin::gauge_property::GaugeProperty;
+use rubato::skin::gauge_property::GaugeProperty;
 
 /// Create a minimal BEAT_7K model (used by most tests).
 fn make_7k_model() -> BMSModel {

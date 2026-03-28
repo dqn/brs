@@ -1,6 +1,6 @@
+use crate::render::color::Rectangle;
+use crate::render::texture::TextureRegion;
 use bms::model::layer::Sequence;
-use rubato_render::color::Rectangle;
-use rubato_render::texture::TextureRegion;
 
 use super::{BGAProcessor, BgaRenderType, BgaRenderer};
 use crate::play::skin::bga::{StretchType, StretchTypeExt};
@@ -104,7 +104,7 @@ impl BGAProcessor {
         &mut self,
         renderer: &mut dyn BgaRenderer,
         r: &Rectangle,
-        bga: &rubato_render::texture::Texture,
+        bga: &crate::render::texture::Texture,
         stretch: StretchType,
     ) {
         self.tmp_rect.set(r);

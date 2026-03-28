@@ -7,7 +7,7 @@ use bms::model::bms_model::LNTYPE_LONGNOTE;
 use bms::model::bmson_decoder::BMSONDecoder;
 use bms::model::chart_information::ChartInformation;
 use golden_master::song_information_fixtures::{SongInformationFixture, SongInformationTestCase};
-use rubato_skin::song_information::SongInformation;
+use rubato::skin::song_information::SongInformation;
 
 #[path = "support/random_seeds.rs"]
 mod random_seeds;

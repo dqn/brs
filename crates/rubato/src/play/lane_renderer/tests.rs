@@ -1,11 +1,11 @@
 use super::*;
-use bms::model::bms_model::BMSModel;
-use bms::model::note::Note;
-use bms::model::time_line::TimeLine;
-use rubato_skin::play_config::{
+use crate::skin::play_config::{
     FIX_HISPEED_MAINBPM, FIX_HISPEED_MAXBPM, FIX_HISPEED_MINBPM, FIX_HISPEED_OFF,
     FIX_HISPEED_STARTBPM, PlayConfig,
 };
+use bms::model::bms_model::BMSModel;
+use bms::model::note::Note;
+use bms::model::time_line::TimeLine;
 
 // --- Helper to create a minimal BMSModel with timelines ---
 
@@ -904,7 +904,7 @@ fn apply_play_config_updates_all_fields() {
 
 /// Regression test: local FIX_HISPEED_* constants in lane_renderer had wrong
 /// values (MINBPM=2, MAXBPM=3, MAINBPM=4) swapped relative to the canonical
-/// constants in rubato_skin::play_config (MAXBPM=2, MAINBPM=3, MINBPM=4,
+/// constants in crate::skin::play_config (MAXBPM=2, MAINBPM=3, MINBPM=4,
 /// matching Java PlayConfig). With default fixhispeed=FIX_HISPEED_MAINBPM(3),
 /// the match hit the wrong arm, setting basebpm to maxbpm instead of mainbpm.
 ///

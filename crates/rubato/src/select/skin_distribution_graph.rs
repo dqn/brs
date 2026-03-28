@@ -1,4 +1,4 @@
-use rubato_skin::distribution_data::DistributionData;
+use crate::skin::distribution_data::DistributionData;
 
 use super::bar::directory_bar::DirectoryBarData;
 use super::bar::function_bar::FunctionBar;
@@ -306,8 +306,8 @@ mod tests {
     fn test_prepare_folderlamp_disabled() {
         let mut graph = SkinDistributionGraph::new(0);
         let mut state = MockMainState::default();
-        let config = rubato_skin::config::Config {
-            select: rubato_skin::config::SelectConfig {
+        let config = crate::skin::config::Config {
+            select: crate::skin::config::SelectConfig {
                 folderlamp: false,
                 ..Default::default()
             },
@@ -322,8 +322,8 @@ mod tests {
     fn test_prepare_folderlamp_enabled() {
         let mut graph = SkinDistributionGraph::new(1);
         let mut state = MockMainState::default();
-        let config = rubato_skin::config::Config {
-            select: rubato_skin::config::SelectConfig {
+        let config = crate::skin::config::Config {
+            select: crate::skin::config::SelectConfig {
                 folderlamp: true,
                 ..Default::default()
             },
@@ -341,35 +341,35 @@ mod tests {
     #[derive(Default)]
     struct MockMainState {
         distribution: Option<DistributionData>,
-        config: Option<rubato_skin::config::Config>,
+        config: Option<crate::skin::config::Config>,
     }
 
-    impl rubato_skin::timer_access::TimerAccess for MockMainState {
+    impl crate::skin::timer_access::TimerAccess for MockMainState {
         fn now_time(&self) -> i64 {
             0
         }
         fn now_micro_time(&self) -> i64 {
             0
         }
-        fn micro_timer(&self, _: rubato_skin::timer_id::TimerId) -> i64 {
+        fn micro_timer(&self, _: crate::skin::timer_id::TimerId) -> i64 {
             i64::MIN
         }
-        fn timer(&self, _: rubato_skin::timer_id::TimerId) -> i64 {
+        fn timer(&self, _: crate::skin::timer_id::TimerId) -> i64 {
             i64::MIN
         }
-        fn now_time_for(&self, _: rubato_skin::timer_id::TimerId) -> i64 {
+        fn now_time_for(&self, _: crate::skin::timer_id::TimerId) -> i64 {
             0
         }
-        fn is_timer_on(&self, _: rubato_skin::timer_id::TimerId) -> bool {
+        fn is_timer_on(&self, _: crate::skin::timer_id::TimerId) -> bool {
             false
         }
     }
 
-    impl rubato_skin::skin_render_context::SkinRenderContext for MockMainState {
+    impl crate::skin::skin_render_context::SkinRenderContext for MockMainState {
         fn get_distribution_data(&self) -> Option<DistributionData> {
             self.distribution.clone()
         }
-        fn config_ref(&self) -> Option<&rubato_skin::config::Config> {
+        fn config_ref(&self) -> Option<&crate::skin::config::Config> {
             self.config.as_ref()
         }
     }

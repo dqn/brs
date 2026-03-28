@@ -49,17 +49,17 @@ pub(super) struct PlayRenderContext<'a> {
     /// for image_index_value ID 308.
     pub(super) lnmode_override: Option<i32>,
     /// Global config reference for BGA mode, volume changes, and other skin property queries.
-    pub(super) config: &'a mut rubato_skin::config::Config,
+    pub(super) config: &'a mut crate::skin::config::Config,
     /// Score data property for Lua skin accessors (rate, exscore, etc.).
-    pub(super) score_data_property: &'a rubato_skin::score_data_property::ScoreDataProperty,
+    pub(super) score_data_property: &'a crate::skin::score_data_property::ScoreDataProperty,
     /// Song metadata for string property queries (title, artist, genre, etc.).
-    pub(super) song_metadata: &'a rubato_skin::song_data::SongMetadata,
+    pub(super) song_metadata: &'a crate::skin::song_data::SongMetadata,
     /// Song data for boolean property queries (chart mode, LN, BGA, difficulty, etc.).
-    pub(super) song_data: Option<&'a rubato_skin::song_data::SongData>,
+    pub(super) song_data: Option<&'a crate::skin::song_data::SongData>,
     /// Skin offset values for positional adjustments during prepare().
-    pub(super) offsets: &'a std::collections::HashMap<i32, rubato_skin::skin_offset::SkinOffset>,
+    pub(super) offsets: &'a std::collections::HashMap<i32, crate::skin::skin_offset::SkinOffset>,
     /// Player statistics for skin property IDs 30-37, 333.
-    pub(super) player_data: Option<&'a rubato_skin::player_data::PlayerData>,
+    pub(super) player_data: Option<&'a crate::skin::player_data::PlayerData>,
     /// Cumulative playtime in seconds from PlayerData.
     /// Java: PlayerData.getPlaytime() -- total play time across all sessions.
     pub(super) cumulative_playtime_seconds: i64,
@@ -68,7 +68,7 @@ pub(super) struct PlayRenderContext<'a> {
     pub(super) current_duration: i32,
     /// Score data from the player's score database (best score for this chart).
     /// Used by skin property ID 370 (clear type) and Lua `main_state.score_data`.
-    pub(super) score_data: Option<&'a rubato_skin::score_data::ScoreData>,
+    pub(super) score_data: Option<&'a crate::skin::score_data::ScoreData>,
     /// Pre-computed judge area (timing windows per judge level) for timing visualizer widgets.
     pub(super) judge_area: Option<Vec<Vec<i32>>>,
     /// Pending actions outbox for side effects (audio play/stop) that cannot be
@@ -76,45 +76,45 @@ pub(super) struct PlayRenderContext<'a> {
     pub(super) pending: &'a mut super::PendingActions,
 }
 
-impl rubato_skin::timer_access::TimerAccess for PlayRenderContext<'_> {
+impl crate::skin::timer_access::TimerAccess for PlayRenderContext<'_> {
     fn now_time(&self) -> i64 {
         self.timer.now_time()
     }
     fn now_micro_time(&self) -> i64 {
         self.timer.now_micro_time()
     }
-    fn micro_timer(&self, timer_id: rubato_skin::timer_id::TimerId) -> i64 {
+    fn micro_timer(&self, timer_id: crate::skin::timer_id::TimerId) -> i64 {
         self.timer.micro_timer(timer_id)
     }
-    fn timer(&self, timer_id: rubato_skin::timer_id::TimerId) -> i64 {
+    fn timer(&self, timer_id: crate::skin::timer_id::TimerId) -> i64 {
         self.timer.timer(timer_id)
     }
-    fn now_time_for(&self, timer_id: rubato_skin::timer_id::TimerId) -> i64 {
+    fn now_time_for(&self, timer_id: crate::skin::timer_id::TimerId) -> i64 {
         self.timer.now_time_for_id(timer_id)
     }
-    fn is_timer_on(&self, timer_id: rubato_skin::timer_id::TimerId) -> bool {
+    fn is_timer_on(&self, timer_id: crate::skin::timer_id::TimerId) -> bool {
         self.timer.is_timer_on(timer_id)
     }
 }
 
-impl rubato_skin::skin_render_context::SkinRenderContext for PlayRenderContext<'_> {
-    fn current_state_type(&self) -> Option<rubato_skin::main_state_type::MainStateType> {
-        Some(rubato_skin::main_state_type::MainStateType::Play)
+impl crate::skin::skin_render_context::SkinRenderContext for PlayRenderContext<'_> {
+    fn current_state_type(&self) -> Option<crate::skin::main_state_type::MainStateType> {
+        Some(crate::skin::main_state_type::MainStateType::Play)
     }
 
     fn boot_time_millis(&self) -> i64 {
         self.timer.boot_time_millis()
     }
 
-    fn player_config_ref(&self) -> Option<&rubato_skin::player_config::PlayerConfig> {
+    fn player_config_ref(&self) -> Option<&crate::skin::player_config::PlayerConfig> {
         Some(self.player_config)
     }
 
-    fn config_ref(&self) -> Option<&rubato_skin::config::Config> {
+    fn config_ref(&self) -> Option<&crate::skin::config::Config> {
         Some(self.config)
     }
 
-    fn config_mut(&mut self) -> Option<&mut rubato_skin::config::Config> {
+    fn config_mut(&mut self) -> Option<&mut crate::skin::config::Config> {
         Some(self.config)
     }
 
@@ -124,11 +124,11 @@ impl rubato_skin::skin_render_context::SkinRenderContext for PlayRenderContext<'
         }
     }
 
-    fn score_data_property(&self) -> &rubato_skin::score_data_property::ScoreDataProperty {
+    fn score_data_property(&self) -> &crate::skin::score_data_property::ScoreDataProperty {
         self.score_data_property
     }
 
-    fn replay_option_data(&self) -> Option<&rubato_skin::replay_data::ReplayData> {
+    fn replay_option_data(&self) -> Option<&crate::skin::replay_data::ReplayData> {
         Some(self.option_info)
     }
 
@@ -136,19 +136,19 @@ impl rubato_skin::skin_render_context::SkinRenderContext for PlayRenderContext<'
         self.target_score
     }
 
-    fn score_data_ref(&self) -> Option<&rubato_skin::score_data::ScoreData> {
+    fn score_data_ref(&self) -> Option<&crate::skin::score_data::ScoreData> {
         self.score_data
     }
 
-    fn current_play_config_ref(&self) -> Option<&rubato_skin::play_config::PlayConfig> {
+    fn current_play_config_ref(&self) -> Option<&crate::skin::play_config::PlayConfig> {
         Some(self.play_config)
     }
 
-    fn song_data_ref(&self) -> Option<&rubato_skin::song_data::SongData> {
+    fn song_data_ref(&self) -> Option<&crate::skin::song_data::SongData> {
         self.song_data
     }
 
-    fn set_timer_micro(&mut self, timer_id: rubato_skin::timer_id::TimerId, micro_time: i64) {
+    fn set_timer_micro(&mut self, timer_id: crate::skin::timer_id::TimerId, micro_time: i64) {
         self.timer.set_micro_timer(timer_id, micro_time);
     }
 
@@ -222,11 +222,11 @@ impl rubato_skin::skin_render_context::SkinRenderContext for PlayRenderContext<'
     }
 
     fn recent_judges(&self) -> &[i64] {
-        rubato_skin::skin_render_context::SkinRenderContext::recent_judges(self.timer)
+        crate::skin::skin_render_context::SkinRenderContext::recent_judges(self.timer)
     }
 
     fn recent_judges_index(&self) -> usize {
-        rubato_skin::skin_render_context::SkinRenderContext::recent_judges_index(self.timer)
+        crate::skin::skin_render_context::SkinRenderContext::recent_judges_index(self.timer)
     }
 
     fn judge_area(&self) -> Option<Vec<Vec<i32>>> {
@@ -505,7 +505,7 @@ impl rubato_skin::skin_render_context::SkinRenderContext for PlayRenderContext<'
         }
     }
 
-    fn get_offset_value(&self, id: i32) -> Option<&rubato_skin::skin_offset::SkinOffset> {
+    fn get_offset_value(&self, id: i32) -> Option<&crate::skin::skin_offset::SkinOffset> {
         self.offsets.get(&id)
     }
 }
@@ -518,7 +518,7 @@ pub(super) struct PlayMouseContext<'a> {
     pub(super) player: &'a mut BMSPlayer,
 }
 
-impl rubato_skin::timer_access::TimerAccess for PlayMouseContext<'_> {
+impl crate::skin::timer_access::TimerAccess for PlayMouseContext<'_> {
     fn now_time(&self) -> i64 {
         self.timer.now_time()
     }
@@ -527,41 +527,41 @@ impl rubato_skin::timer_access::TimerAccess for PlayMouseContext<'_> {
         self.timer.now_micro_time()
     }
 
-    fn micro_timer(&self, timer_id: rubato_skin::timer_id::TimerId) -> i64 {
+    fn micro_timer(&self, timer_id: crate::skin::timer_id::TimerId) -> i64 {
         self.timer.micro_timer(timer_id)
     }
 
-    fn timer(&self, timer_id: rubato_skin::timer_id::TimerId) -> i64 {
+    fn timer(&self, timer_id: crate::skin::timer_id::TimerId) -> i64 {
         self.timer.timer(timer_id)
     }
 
-    fn now_time_for(&self, timer_id: rubato_skin::timer_id::TimerId) -> i64 {
+    fn now_time_for(&self, timer_id: crate::skin::timer_id::TimerId) -> i64 {
         self.timer.now_time_for_id(timer_id)
     }
 
-    fn is_timer_on(&self, timer_id: rubato_skin::timer_id::TimerId) -> bool {
+    fn is_timer_on(&self, timer_id: crate::skin::timer_id::TimerId) -> bool {
         self.timer.is_timer_on(timer_id)
     }
 }
 
-impl rubato_skin::skin_render_context::SkinRenderContext for PlayMouseContext<'_> {
-    fn current_state_type(&self) -> Option<rubato_skin::main_state_type::MainStateType> {
-        Some(rubato_skin::main_state_type::MainStateType::Play)
+impl crate::skin::skin_render_context::SkinRenderContext for PlayMouseContext<'_> {
+    fn current_state_type(&self) -> Option<crate::skin::main_state_type::MainStateType> {
+        Some(crate::skin::main_state_type::MainStateType::Play)
     }
 
     fn boot_time_millis(&self) -> i64 {
         self.timer.boot_time_millis()
     }
 
-    fn config_ref(&self) -> Option<&rubato_skin::config::Config> {
+    fn config_ref(&self) -> Option<&crate::skin::config::Config> {
         Some(&self.player.config)
     }
 
-    fn change_state(&mut self, state: rubato_skin::main_state_type::MainStateType) {
+    fn change_state(&mut self, state: crate::skin::main_state_type::MainStateType) {
         self.player.pending.pending_state_change = Some(state);
     }
 
-    fn set_timer_micro(&mut self, timer_id: rubato_skin::timer_id::TimerId, micro_time: i64) {
+    fn set_timer_micro(&mut self, timer_id: crate::skin::timer_id::TimerId, micro_time: i64) {
         self.timer.set_micro_timer(timer_id, micro_time);
     }
 
@@ -579,15 +579,15 @@ impl rubato_skin::skin_render_context::SkinRenderContext for PlayMouseContext<'_
             .push(path.to_string());
     }
 
-    fn player_config_ref(&self) -> Option<&rubato_skin::player_config::PlayerConfig> {
+    fn player_config_ref(&self) -> Option<&crate::skin::player_config::PlayerConfig> {
         Some(&self.player.player_config)
     }
 
-    fn player_config_mut(&mut self) -> Option<&mut rubato_skin::player_config::PlayerConfig> {
+    fn player_config_mut(&mut self) -> Option<&mut crate::skin::player_config::PlayerConfig> {
         Some(&mut self.player.player_config)
     }
 
-    fn replay_option_data(&self) -> Option<&rubato_skin::replay_data::ReplayData> {
+    fn replay_option_data(&self) -> Option<&crate::skin::replay_data::ReplayData> {
         Some(&self.player.score.playinfo)
     }
 
@@ -595,11 +595,11 @@ impl rubato_skin::skin_render_context::SkinRenderContext for PlayMouseContext<'_
         self.player.score.target_score.as_ref()
     }
 
-    fn score_data_ref(&self) -> Option<&rubato_skin::score_data::ScoreData> {
+    fn score_data_ref(&self) -> Option<&crate::skin::score_data::ScoreData> {
         self.player.score.db_score.as_ref()
     }
 
-    fn current_play_config_ref(&self) -> Option<&rubato_skin::play_config::PlayConfig> {
+    fn current_play_config_ref(&self) -> Option<&crate::skin::play_config::PlayConfig> {
         Some(
             &self
                 .player
@@ -615,7 +615,7 @@ impl rubato_skin::skin_render_context::SkinRenderContext for PlayMouseContext<'_
         )
     }
 
-    fn song_data_ref(&self) -> Option<&rubato_skin::song_data::SongData> {
+    fn song_data_ref(&self) -> Option<&crate::skin::song_data::SongData> {
         self.player.song_data.as_ref()
     }
 
@@ -690,11 +690,11 @@ impl rubato_skin::skin_render_context::SkinRenderContext for PlayMouseContext<'_
         self.player.play_mode.mode == crate::core::bms_player_mode::Mode::Practice
     }
 
-    fn score_data_property(&self) -> &rubato_skin::score_data_property::ScoreDataProperty {
+    fn score_data_property(&self) -> &crate::skin::score_data_property::ScoreDataProperty {
         &self.player.main_state_data.score
     }
 
-    fn config_mut(&mut self) -> Option<&mut rubato_skin::config::Config> {
+    fn config_mut(&mut self) -> Option<&mut crate::skin::config::Config> {
         Some(&mut self.player.config)
     }
 
@@ -742,11 +742,11 @@ impl rubato_skin::skin_render_context::SkinRenderContext for PlayMouseContext<'_
     }
 
     fn recent_judges(&self) -> &[i64] {
-        rubato_skin::skin_render_context::SkinRenderContext::recent_judges(self.timer)
+        crate::skin::skin_render_context::SkinRenderContext::recent_judges(self.timer)
     }
 
     fn recent_judges_index(&self) -> usize {
-        rubato_skin::skin_render_context::SkinRenderContext::recent_judges_index(self.timer)
+        crate::skin::skin_render_context::SkinRenderContext::recent_judges_index(self.timer)
     }
 
     fn image_index_value(&self, id: i32) -> i32 {
@@ -1118,7 +1118,7 @@ impl rubato_skin::skin_render_context::SkinRenderContext for PlayMouseContext<'_
         }
     }
 
-    fn get_offset_value(&self, id: i32) -> Option<&rubato_skin::skin_offset::SkinOffset> {
+    fn get_offset_value(&self, id: i32) -> Option<&crate::skin::skin_offset::SkinOffset> {
         self.player.main_state_data.offsets.get(&id)
     }
 }
@@ -1126,10 +1126,10 @@ impl rubato_skin::skin_render_context::SkinRenderContext for PlayMouseContext<'_
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rubato_skin::skin_render_context::SkinRenderContext;
+    use crate::skin::skin_render_context::SkinRenderContext;
 
     static EMPTY_OFFSETS: std::sync::LazyLock<
-        std::collections::HashMap<i32, rubato_skin::skin_offset::SkinOffset>,
+        std::collections::HashMap<i32, crate::skin::skin_offset::SkinOffset>,
     > = std::sync::LazyLock::new(std::collections::HashMap::new);
 
     /// Build a minimal PlayRenderContext with the given playtime (in ms).
@@ -1140,9 +1140,9 @@ mod tests {
         let player_config = Box::leak(Box::new(PlayerConfig::default()));
         let option_info = Box::leak(Box::new(ReplayData::default()));
         let play_config = Box::leak(Box::new(PlayConfig::default()));
-        let config = Box::leak(Box::new(rubato_skin::config::Config::default()));
+        let config = Box::leak(Box::new(crate::skin::config::Config::default()));
         let score_data_property = Box::leak(Box::new(
-            rubato_skin::score_data_property::ScoreDataProperty::default(),
+            crate::skin::score_data_property::ScoreDataProperty::default(),
         ));
         PlayRenderContext {
             timer,
@@ -1177,7 +1177,7 @@ mod tests {
             lnmode_override: None,
             config,
             score_data_property,
-            song_metadata: Box::leak(Box::new(rubato_skin::song_data::SongMetadata::default())),
+            song_metadata: Box::leak(Box::new(crate::skin::song_data::SongMetadata::default())),
             song_data: None,
             player_data: None,
             offsets: &EMPTY_OFFSETS,
@@ -1194,13 +1194,13 @@ mod tests {
         let player_config = Box::leak(Box::new(PlayerConfig::default()));
         let option_info = Box::leak(Box::new(ReplayData::default()));
         let play_config = Box::leak(Box::new(PlayConfig::default()));
-        let config = Box::leak(Box::new(rubato_skin::config::Config::default()));
+        let config = Box::leak(Box::new(crate::skin::config::Config::default()));
         let score_data_property = Box::leak(Box::new(
-            rubato_skin::score_data_property::ScoreDataProperty::default(),
+            crate::skin::score_data_property::ScoreDataProperty::default(),
         ));
         let offsets = Box::leak(Box::new(std::collections::HashMap::from([(
             3,
-            rubato_skin::skin_offset::SkinOffset {
+            crate::skin::skin_offset::SkinOffset {
                 x: 10.0,
                 y: 20.0,
                 w: 0.0,
@@ -1242,7 +1242,7 @@ mod tests {
             lnmode_override: None,
             config,
             score_data_property,
-            song_metadata: Box::leak(Box::new(rubato_skin::song_data::SongMetadata::default())),
+            song_metadata: Box::leak(Box::new(crate::skin::song_data::SongMetadata::default())),
             song_data: None,
             player_data: None,
             offsets,
@@ -1378,9 +1378,9 @@ mod tests {
             ..ReplayData::default()
         }));
         let play_config = Box::leak(Box::new(PlayConfig::default()));
-        let config = Box::leak(Box::new(rubato_skin::config::Config::default()));
+        let config = Box::leak(Box::new(crate::skin::config::Config::default()));
         let score_data_property = Box::leak(Box::new(
-            rubato_skin::score_data_property::ScoreDataProperty::default(),
+            crate::skin::score_data_property::ScoreDataProperty::default(),
         ));
         PlayRenderContext {
             timer,
@@ -1415,7 +1415,7 @@ mod tests {
             lnmode_override: None,
             config,
             score_data_property,
-            song_metadata: Box::leak(Box::new(rubato_skin::song_data::SongMetadata::default())),
+            song_metadata: Box::leak(Box::new(crate::skin::song_data::SongMetadata::default())),
             song_data: None,
             player_data: None,
             offsets: &EMPTY_OFFSETS,
@@ -1479,7 +1479,7 @@ mod tests {
         let timer = Box::leak(Box::new(TimerManager::new()));
         let judge = Box::leak(Box::new(JudgeManager::default()));
         let player_config = Box::leak(Box::new(PlayerConfig {
-            play_settings: rubato_skin::player_config::PlaySettings {
+            play_settings: crate::skin::player_config::PlaySettings {
                 lnmode: 99, // sentinel value to detect fallback
                 ..Default::default()
             },
@@ -1487,9 +1487,9 @@ mod tests {
         }));
         let option_info = Box::leak(Box::new(ReplayData::default()));
         let play_config = Box::leak(Box::new(PlayConfig::default()));
-        let config = Box::leak(Box::new(rubato_skin::config::Config::default()));
+        let config = Box::leak(Box::new(crate::skin::config::Config::default()));
         let score_data_property = Box::leak(Box::new(
-            rubato_skin::score_data_property::ScoreDataProperty::default(),
+            crate::skin::score_data_property::ScoreDataProperty::default(),
         ));
         PlayRenderContext {
             timer,
@@ -1524,7 +1524,7 @@ mod tests {
             lnmode_override,
             config,
             score_data_property,
-            song_metadata: Box::leak(Box::new(rubato_skin::song_data::SongMetadata::default())),
+            song_metadata: Box::leak(Box::new(crate::skin::song_data::SongMetadata::default())),
             song_data: None,
             player_data: None,
             offsets: &EMPTY_OFFSETS,
@@ -1573,9 +1573,9 @@ mod tests {
         let player_config = Box::leak(Box::new(PlayerConfig::default()));
         let option_info = Box::leak(Box::new(ReplayData::default()));
         let play_config = Box::leak(Box::new(PlayConfig::default()));
-        let config = Box::leak(Box::new(rubato_skin::config::Config::default()));
+        let config = Box::leak(Box::new(crate::skin::config::Config::default()));
         let score_data_property = Box::leak(Box::new(
-            rubato_skin::score_data_property::ScoreDataProperty::default(),
+            crate::skin::score_data_property::ScoreDataProperty::default(),
         ));
         let ctx = PlayRenderContext {
             timer,
@@ -1610,7 +1610,7 @@ mod tests {
             lnmode_override: None,
             config,
             score_data_property,
-            song_metadata: Box::leak(Box::new(rubato_skin::song_data::SongMetadata::default())),
+            song_metadata: Box::leak(Box::new(crate::skin::song_data::SongMetadata::default())),
             song_data: None,
             player_data: None,
             offsets: &EMPTY_OFFSETS,
@@ -1632,12 +1632,12 @@ mod tests {
         let player_config = Box::leak(Box::new(PlayerConfig::default()));
         let option_info = Box::leak(Box::new(ReplayData::default()));
         let play_config = Box::leak(Box::new(PlayConfig::default()));
-        let config = Box::leak(Box::new(rubato_skin::config::Config::default()));
+        let config = Box::leak(Box::new(crate::skin::config::Config::default()));
         let score_data_property = Box::leak(Box::new(
-            rubato_skin::score_data_property::ScoreDataProperty {
+            crate::skin::score_data_property::ScoreDataProperty {
                 nowrate: 0.85,
                 nowscore: 999,
-                ..rubato_skin::score_data_property::ScoreDataProperty::default()
+                ..crate::skin::score_data_property::ScoreDataProperty::default()
             },
         ));
         let ctx = PlayRenderContext {
@@ -1673,7 +1673,7 @@ mod tests {
             lnmode_override: None,
             config,
             score_data_property,
-            song_metadata: Box::leak(Box::new(rubato_skin::song_data::SongMetadata::default())),
+            song_metadata: Box::leak(Box::new(crate::skin::song_data::SongMetadata::default())),
             song_data: None,
             player_data: None,
             offsets: &EMPTY_OFFSETS,
@@ -1697,10 +1697,10 @@ mod tests {
             m.total = 300.0;
             m
         };
-        let gauge = Box::leak(Box::new(rubato_skin::groove_gauge::GrooveGauge::new(
+        let gauge = Box::leak(Box::new(crate::skin::groove_gauge::GrooveGauge::new(
             &model,
-            rubato_skin::groove_gauge::NORMAL,
-            &rubato_skin::gauge_property::GaugeProperty::SevenKeys,
+            crate::skin::groove_gauge::NORMAL,
+            &crate::skin::gauge_property::GaugeProperty::SevenKeys,
         )));
         // Push gauge to max (init=20, max=100, add_value clamps)
         gauge.add_value(200.0);
@@ -1724,10 +1724,10 @@ mod tests {
             m.total = 300.0;
             m
         };
-        let gauge = Box::leak(Box::new(rubato_skin::groove_gauge::GrooveGauge::new(
+        let gauge = Box::leak(Box::new(crate::skin::groove_gauge::GrooveGauge::new(
             &model,
-            rubato_skin::groove_gauge::NORMAL,
-            &rubato_skin::gauge_property::GaugeProperty::SevenKeys,
+            crate::skin::groove_gauge::NORMAL,
+            &crate::skin::gauge_property::GaugeProperty::SevenKeys,
         )));
         // Gauge starts at init=20, not at max=100
         assert!(!gauge.gauge().is_max());
@@ -1755,16 +1755,16 @@ mod tests {
     // ============================================================
 
     fn make_render_ctx_with_metadata(
-        metadata: rubato_skin::song_data::SongMetadata,
+        metadata: crate::skin::song_data::SongMetadata,
     ) -> PlayRenderContext<'static> {
         let timer = Box::leak(Box::new(TimerManager::new()));
         let judge = Box::leak(Box::new(JudgeManager::default()));
         let player_config = Box::leak(Box::new(PlayerConfig::default()));
         let option_info = Box::leak(Box::new(ReplayData::default()));
         let play_config = Box::leak(Box::new(PlayConfig::default()));
-        let config = Box::leak(Box::new(rubato_skin::config::Config::default()));
+        let config = Box::leak(Box::new(crate::skin::config::Config::default()));
         let score_data_property = Box::leak(Box::new(
-            rubato_skin::score_data_property::ScoreDataProperty::default(),
+            crate::skin::score_data_property::ScoreDataProperty::default(),
         ));
         let song_metadata = Box::leak(Box::new(metadata));
         PlayRenderContext {
@@ -1818,8 +1818,8 @@ mod tests {
         genre: &str,
         artist: &str,
         subartist: &str,
-    ) -> rubato_skin::song_data::SongMetadata {
-        let mut m = rubato_skin::song_data::SongMetadata::default();
+    ) -> crate::skin::song_data::SongMetadata {
+        let mut m = crate::skin::song_data::SongMetadata::default();
         m.title = title.to_string();
         m.subtitle = subtitle.to_string();
         m.genre = genre.to_string();
@@ -1874,13 +1874,13 @@ mod tests {
 
     #[test]
     fn play_render_context_player_stats_ids() {
-        use rubato_skin::skin_render_context::SkinRenderContext;
+        use crate::skin::skin_render_context::SkinRenderContext;
         let timer = Box::leak(Box::new(TimerManager::new()));
         let judge = Box::leak(Box::new(crate::play::judge::manager::JudgeManager::new()));
         let player_config = Box::leak(Box::new(PlayerConfig::default()));
-        let play_config = Box::leak(Box::new(rubato_skin::play_config::PlayConfig::default()));
-        let option_info = Box::leak(Box::new(rubato_skin::replay_data::ReplayData::new()));
-        let pd = Box::leak(Box::new(rubato_skin::player_data::PlayerData {
+        let play_config = Box::leak(Box::new(crate::skin::play_config::PlayConfig::default()));
+        let option_info = Box::leak(Box::new(crate::skin::replay_data::ReplayData::new()));
+        let pd = Box::leak(Box::new(crate::skin::player_data::PlayerData {
             playcount: 100,
             clear: 80,
             epg: 5000,
@@ -1896,7 +1896,7 @@ mod tests {
             ..Default::default()
         }));
         static EMPTY_OFFSETS: std::sync::OnceLock<
-            std::collections::HashMap<i32, rubato_skin::skin_offset::SkinOffset>,
+            std::collections::HashMap<i32, crate::skin::skin_offset::SkinOffset>,
         > = std::sync::OnceLock::new();
         let ctx = PlayRenderContext {
             timer,
@@ -1929,11 +1929,11 @@ mod tests {
             bg_volume: 0.5,
             is_mode_changed: false,
             lnmode_override: None,
-            config: Box::leak(Box::new(rubato_skin::config::Config::default())),
+            config: Box::leak(Box::new(crate::skin::config::Config::default())),
             score_data_property: Box::leak(Box::new(
-                rubato_skin::score_data_property::ScoreDataProperty::default(),
+                crate::skin::score_data_property::ScoreDataProperty::default(),
             )),
-            song_metadata: Box::leak(Box::new(rubato_skin::song_data::SongMetadata::default())),
+            song_metadata: Box::leak(Box::new(crate::skin::song_data::SongMetadata::default())),
             song_data: None,
             player_data: Some(pd),
             offsets: EMPTY_OFFSETS.get_or_init(std::collections::HashMap::new),
@@ -1959,14 +1959,14 @@ mod tests {
 
     #[test]
     fn play_render_context_config_mut_returns_some() {
-        use rubato_skin::skin_render_context::SkinRenderContext;
+        use crate::skin::skin_render_context::SkinRenderContext;
         let timer = Box::leak(Box::new(TimerManager::new()));
         let judge = Box::leak(Box::new(crate::play::judge::manager::JudgeManager::new()));
         let player_config = Box::leak(Box::new(PlayerConfig::default()));
-        let play_config = Box::leak(Box::new(rubato_skin::play_config::PlayConfig::default()));
-        let option_info = Box::leak(Box::new(rubato_skin::replay_data::ReplayData::new()));
+        let play_config = Box::leak(Box::new(crate::skin::play_config::PlayConfig::default()));
+        let option_info = Box::leak(Box::new(crate::skin::replay_data::ReplayData::new()));
         static EMPTY_OFFSETS2: std::sync::OnceLock<
-            std::collections::HashMap<i32, rubato_skin::skin_offset::SkinOffset>,
+            std::collections::HashMap<i32, crate::skin::skin_offset::SkinOffset>,
         > = std::sync::OnceLock::new();
         let mut ctx = PlayRenderContext {
             timer,
@@ -1999,11 +1999,11 @@ mod tests {
             bg_volume: 0.5,
             is_mode_changed: false,
             lnmode_override: None,
-            config: Box::leak(Box::new(rubato_skin::config::Config::default())),
+            config: Box::leak(Box::new(crate::skin::config::Config::default())),
             score_data_property: Box::leak(Box::new(
-                rubato_skin::score_data_property::ScoreDataProperty::default(),
+                crate::skin::score_data_property::ScoreDataProperty::default(),
             )),
-            song_metadata: Box::leak(Box::new(rubato_skin::song_data::SongMetadata::default())),
+            song_metadata: Box::leak(Box::new(crate::skin::song_data::SongMetadata::default())),
             song_data: None,
             player_data: None,
             offsets: EMPTY_OFFSETS2.get_or_init(std::collections::HashMap::new),
@@ -2082,10 +2082,10 @@ mod tests {
             m.total = 300.0;
             m
         })));
-        player.gauge = Some(rubato_skin::groove_gauge::GrooveGauge::new(
+        player.gauge = Some(crate::skin::groove_gauge::GrooveGauge::new(
             &player.model,
-            rubato_skin::groove_gauge::NORMAL,
-            &rubato_skin::gauge_property::GaugeProperty::SevenKeys,
+            crate::skin::groove_gauge::NORMAL,
+            &crate::skin::gauge_property::GaugeProperty::SevenKeys,
         ));
         let ctx = PlayMouseContext { timer, player };
         let result = ctx.gauge_border_max();
@@ -2122,10 +2122,10 @@ mod tests {
             m.total = 300.0;
             m
         })));
-        player.gauge = Some(rubato_skin::groove_gauge::GrooveGauge::new(
+        player.gauge = Some(crate::skin::groove_gauge::GrooveGauge::new(
             &player.model,
-            rubato_skin::groove_gauge::NORMAL,
-            &rubato_skin::gauge_property::GaugeProperty::SevenKeys,
+            crate::skin::groove_gauge::NORMAL,
+            &crate::skin::gauge_property::GaugeProperty::SevenKeys,
         ));
         let ctx = PlayMouseContext { timer, player };
         // NORMAL gauge min is 2.0 (from GaugeProperty::SevenKeys NORMAL)
@@ -2144,10 +2144,10 @@ mod tests {
             m.total = 300.0;
             m
         })));
-        player.gauge = Some(rubato_skin::groove_gauge::GrooveGauge::new(
+        player.gauge = Some(crate::skin::groove_gauge::GrooveGauge::new(
             &player.model,
-            rubato_skin::groove_gauge::NORMAL,
-            &rubato_skin::gauge_property::GaugeProperty::SevenKeys,
+            crate::skin::groove_gauge::NORMAL,
+            &crate::skin::gauge_property::GaugeProperty::SevenKeys,
         ));
         let ctx = PlayMouseContext { timer, player };
         let borders = ctx.gauge_element_borders();
@@ -2178,10 +2178,10 @@ mod tests {
             m.total = 300.0;
             m
         })));
-        player.gauge = Some(rubato_skin::groove_gauge::GrooveGauge::new(
+        player.gauge = Some(crate::skin::groove_gauge::GrooveGauge::new(
             &player.model,
-            rubato_skin::groove_gauge::NORMAL,
-            &rubato_skin::gauge_property::GaugeProperty::SevenKeys,
+            crate::skin::groove_gauge::NORMAL,
+            &crate::skin::gauge_property::GaugeProperty::SevenKeys,
         ));
         // Gauge starts at init=20, not at max
         let ctx = PlayMouseContext { timer, player };
@@ -2199,10 +2199,10 @@ mod tests {
             m.total = 300.0;
             m
         })));
-        let mut gauge = rubato_skin::groove_gauge::GrooveGauge::new(
+        let mut gauge = crate::skin::groove_gauge::GrooveGauge::new(
             &player.model,
-            rubato_skin::groove_gauge::NORMAL,
-            &rubato_skin::gauge_property::GaugeProperty::SevenKeys,
+            crate::skin::groove_gauge::NORMAL,
+            &crate::skin::gauge_property::GaugeProperty::SevenKeys,
         );
         gauge.add_value(200.0);
         player.gauge = Some(gauge);
@@ -2459,8 +2459,8 @@ mod tests {
 
     #[test]
     fn play_render_context_float_value_falls_through_to_default() {
-        let mut song_data = rubato_skin::song_data::SongData::default();
-        song_data.info = Some(rubato_skin::song_information::SongInformation {
+        let mut song_data = crate::skin::song_data::SongData::default();
+        song_data.info = Some(crate::skin::song_information::SongInformation {
             peakdensity: 12.5,
             ..Default::default()
         });
@@ -2481,8 +2481,8 @@ mod tests {
         let player = Box::leak(Box::new(BMSPlayer::new(
             bms::model::bms_model::BMSModel::new(),
         )));
-        let mut song_data = rubato_skin::song_data::SongData::default();
-        song_data.info = Some(rubato_skin::song_information::SongInformation {
+        let mut song_data = crate::skin::song_data::SongData::default();
+        song_data.info = Some(crate::skin::song_information::SongInformation {
             peakdensity: 7.25,
             ..Default::default()
         });
@@ -2501,16 +2501,16 @@ mod tests {
     // ============================================================
 
     /// Helper: create a GrooveGauge with NORMAL type and set gauge value.
-    fn make_gauge_with_value(value: f32) -> rubato_skin::groove_gauge::GrooveGauge {
+    fn make_gauge_with_value(value: f32) -> crate::skin::groove_gauge::GrooveGauge {
         let model = {
             let mut m = bms::model::bms_model::BMSModel::new();
             m.total = 300.0;
             m
         };
-        let mut gauge = rubato_skin::groove_gauge::GrooveGauge::new(
+        let mut gauge = crate::skin::groove_gauge::GrooveGauge::new(
             &model,
-            rubato_skin::groove_gauge::NORMAL,
-            &rubato_skin::gauge_property::GaugeProperty::SevenKeys,
+            crate::skin::groove_gauge::NORMAL,
+            &crate::skin::gauge_property::GaugeProperty::SevenKeys,
         );
         gauge.set_value(value);
         gauge
@@ -2629,10 +2629,10 @@ mod tests {
             m.total = 300.0;
             m
         })));
-        let mut gauge = rubato_skin::groove_gauge::GrooveGauge::new(
+        let mut gauge = crate::skin::groove_gauge::GrooveGauge::new(
             &player.model,
-            rubato_skin::groove_gauge::NORMAL,
-            &rubato_skin::gauge_property::GaugeProperty::SevenKeys,
+            crate::skin::groove_gauge::NORMAL,
+            &crate::skin::gauge_property::GaugeProperty::SevenKeys,
         );
         gauge.set_value(55.0);
         player.gauge = Some(gauge);
@@ -2651,10 +2651,10 @@ mod tests {
             m.total = 300.0;
             m
         })));
-        let mut gauge = rubato_skin::groove_gauge::GrooveGauge::new(
+        let mut gauge = crate::skin::groove_gauge::GrooveGauge::new(
             &player.model,
-            rubato_skin::groove_gauge::NORMAL,
-            &rubato_skin::gauge_property::GaugeProperty::SevenKeys,
+            crate::skin::groove_gauge::NORMAL,
+            &crate::skin::gauge_property::GaugeProperty::SevenKeys,
         );
         gauge.set_value(85.0);
         player.gauge = Some(gauge);
@@ -3014,10 +3014,10 @@ mod tests {
             m.total = 300.0;
             m
         };
-        let gauge = Box::leak(Box::new(rubato_skin::groove_gauge::GrooveGauge::new(
+        let gauge = Box::leak(Box::new(crate::skin::groove_gauge::GrooveGauge::new(
             &model,
-            rubato_skin::groove_gauge::NORMAL,
-            &rubato_skin::gauge_property::GaugeProperty::SevenKeys,
+            crate::skin::groove_gauge::NORMAL,
+            &crate::skin::gauge_property::GaugeProperty::SevenKeys,
         )));
         // NORMAL gauge: init=20%, border=80%. Value 20% < 80%, not qualified.
         let mut ctx = make_render_ctx(0);
@@ -3032,10 +3032,10 @@ mod tests {
             m.total = 300.0;
             m
         };
-        let gauge = Box::leak(Box::new(rubato_skin::groove_gauge::GrooveGauge::new(
+        let gauge = Box::leak(Box::new(crate::skin::groove_gauge::GrooveGauge::new(
             &model,
-            rubato_skin::groove_gauge::NORMAL,
-            &rubato_skin::gauge_property::GaugeProperty::SevenKeys,
+            crate::skin::groove_gauge::NORMAL,
+            &crate::skin::gauge_property::GaugeProperty::SevenKeys,
         )));
         // Push gauge to >= border (80%). add_value(60) -> 20 + 60 = 80%
         gauge.add_value(60.0);

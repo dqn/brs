@@ -1,4 +1,4 @@
-use rubato_skin::score_data::ScoreData;
+use crate::skin::score_data::ScoreData;
 
 /// Trait interface for AbstractResult data access.
 ///

@@ -2,13 +2,13 @@ use super::*;
 use crate::core::config::Config;
 use crate::select::bar::folder_bar::FolderBar;
 use crate::select::bar::song_bar::SongBar;
-use rubato_skin::json::json_skin_loader::SkinConfigProperty;
-use rubato_skin::reexports::Timer;
-use rubato_skin::skin_data_converter;
-use rubato_skin::skin_text::SkinText;
-use rubato_skin::skin_text::SkinTextEnum;
-use rubato_skin::skin_type::SkinType;
-use rubato_skin::text::skin_text_bitmap::{SkinTextBitmap, SkinTextBitmapSource};
+use crate::skin::json::json_skin_loader::SkinConfigProperty;
+use crate::skin::reexports::Timer;
+use crate::skin::skin_data_converter;
+use crate::skin::skin_text::SkinText;
+use crate::skin::skin_text::SkinTextEnum;
+use crate::skin::skin_type::SkinType;
+use crate::skin::text::skin_text_bitmap::{SkinTextBitmap, SkinTextBitmapSource};
 
 /// Create a test SkinImage with draw=true and specified region.
 /// Uses a default TextureRegion (no real texture, but valid for layout tests).
@@ -22,7 +22,7 @@ fn make_test_image(x: f32, y: f32, w: f32, h: f32) -> SkinImage {
     img
 }
 
-/// Mock MainState for testing (implements rubato_skin::reexports::MainState)
+/// Mock MainState for testing (implements crate::skin::reexports::MainState)
 struct MockMainState {
     timer: Timer,
 }
@@ -35,28 +35,28 @@ impl Default for MockMainState {
     }
 }
 
-impl rubato_skin::timer_access::TimerAccess for MockMainState {
+impl crate::skin::timer_access::TimerAccess for MockMainState {
     fn now_time(&self) -> i64 {
         self.timer.now_time()
     }
     fn now_micro_time(&self) -> i64 {
         self.timer.now_micro_time()
     }
-    fn micro_timer(&self, timer_id: rubato_skin::timer_id::TimerId) -> i64 {
+    fn micro_timer(&self, timer_id: crate::skin::timer_id::TimerId) -> i64 {
         self.timer.micro_timer(timer_id)
     }
-    fn timer(&self, timer_id: rubato_skin::timer_id::TimerId) -> i64 {
+    fn timer(&self, timer_id: crate::skin::timer_id::TimerId) -> i64 {
         self.timer.timer(timer_id)
     }
-    fn now_time_for(&self, timer_id: rubato_skin::timer_id::TimerId) -> i64 {
+    fn now_time_for(&self, timer_id: crate::skin::timer_id::TimerId) -> i64 {
         self.timer.now_time_for(timer_id)
     }
-    fn is_timer_on(&self, timer_id: rubato_skin::timer_id::TimerId) -> bool {
+    fn is_timer_on(&self, timer_id: crate::skin::timer_id::TimerId) -> bool {
         self.timer.is_timer_on(timer_id)
     }
 }
 
-impl rubato_skin::skin_render_context::SkinRenderContext for MockMainState {}
+impl crate::skin::skin_render_context::SkinRenderContext for MockMainState {}
 
 impl MainState for MockMainState {}
 
@@ -338,7 +338,7 @@ fn test_bar_renderer_render_draws_ecfn_loaded_songlist_bitmap_bartext_quads() {
     );
 
     let mut loader =
-        rubato_skin::lua::lua_skin_loader::LuaSkinLoader::new_without_state(&Config::default());
+        crate::skin::lua::lua_skin_loader::LuaSkinLoader::new_without_state(&Config::default());
     let header = loader
         .load_header(&path)
         .expect("ECFN select Lua skin header should load");
@@ -419,7 +419,7 @@ fn test_bar_renderer_centers_ecfn_loaded_songlist_bitmap_bartext_vertically() {
     );
 
     let mut loader =
-        rubato_skin::lua::lua_skin_loader::LuaSkinLoader::new_without_state(&Config::default());
+        crate::skin::lua::lua_skin_loader::LuaSkinLoader::new_without_state(&Config::default());
     let header = loader
         .load_header(&path)
         .expect("ECFN select Lua skin header should load");

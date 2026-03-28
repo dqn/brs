@@ -1,5 +1,5 @@
-use rubato_skin::folder_data::FolderData;
-use rubato_skin::song_data::SongData;
+use crate::skin::folder_data::FolderData;
+use crate::skin::song_data::SongData;
 
 /// Song database accessor interface (core query methods).
 ///

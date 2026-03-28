@@ -1,4 +1,4 @@
-pub use rubato_skin::config::*;
+pub use crate::skin::config::*;
 
 #[cfg(test)]
 #[allow(clippy::field_reassign_with_default)]

@@ -4,10 +4,10 @@
 // functions that take &SkinObjectData + &dyn SkinStateProvider and return computed
 // values without mutation.
 
-use rubato_skin::property::timer_property::TimerProperty;
-use rubato_skin::reexports::SkinOffset;
-use rubato_skin::skin_object::{SkinObjectData, SkinObjectDestination};
-use rubato_skin::skin_text::SkinTextData;
+use rubato::skin::property::timer_property::TimerProperty;
+use rubato::skin::reexports::SkinOffset;
+use rubato::skin::skin_object::{SkinObjectData, SkinObjectDestination};
+use rubato::skin::skin_text::SkinTextData;
 
 use crate::state_provider::SkinStateProvider;
 
@@ -273,7 +273,7 @@ pub fn resolve_text_content(text_data: &SkinTextData, provider: &dyn SkinStatePr
             if let Some(content) = provider.string_value(id) {
                 return content;
             }
-            if id == rubato_skin::skin_property::STRING_TABLE_FULL {
+            if id == rubato::skin::skin_property::STRING_TABLE_FULL {
                 // Java GM mocks allocate PlayerResource via Unsafe without running field
                 // initializers, and tablefull is computed from null + "". This yields
                 // "null" and keeps tablefull text visible in decide skin snapshots.
@@ -289,7 +289,7 @@ pub fn resolve_text_content(text_data: &SkinTextData, provider: &dyn SkinStatePr
 mod tests {
     use super::*;
     use crate::state_provider::StaticStateProvider;
-    use rubato_skin::skin_object::{DestinationParams, SkinObjectData};
+    use rubato::skin::skin_object::{DestinationParams, SkinObjectData};
 
     fn make_data_with_single_dst() -> SkinObjectData {
         let mut data = SkinObjectData::new();

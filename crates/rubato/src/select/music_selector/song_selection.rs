@@ -465,7 +465,7 @@ impl MusicSelector {
                     .expect("player_resource is Some");
                 res.set_course_data(course_data.clone());
                 if !files.is_empty() {
-                    rubato_skin::player_resource_access::SessionMutation::set_bms_file(
+                    crate::skin::player_resource_access::SessionMutation::set_bms_file(
                         res, &files[0], mode_type, mode_id,
                     );
                 }

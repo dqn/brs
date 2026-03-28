@@ -21,10 +21,10 @@ use rubato::core::bms_player_mode::BMSPlayerMode;
 use rubato::core::config::DisplayMode;
 use rubato::core::main_controller::MainController;
 use rubato::core::version;
-use rubato_render::egui_integration::EguiIntegration;
-use rubato_render::gpu_context::GpuContext;
-use rubato_render::gpu_texture_manager::GpuTextureManager;
-use rubato_render::render_pipeline::SpriteRenderPipeline;
+use rubato::render::egui_integration::EguiIntegration;
+use rubato::render::gpu_context::GpuContext;
+use rubato::render::gpu_texture_manager::GpuTextureManager;
+use rubato::render::render_pipeline::SpriteRenderPipeline;
 
 mod keymap;
 mod subsystem_init;
@@ -100,7 +100,7 @@ fn main() -> Result<()> {
     // Java: if (Files.exists(Config.configpath) && (bmsPath != null || auto != null))
     let config_exists = {
         let cwd = std::env::current_dir().unwrap_or_default();
-        match rubato_skin::config::resolve_config_dir(&cwd) {
+        match rubato::skin::config::resolve_config_dir(&cwd) {
             Some(config_dir) => {
                 // Anchor CWD to the resolved config root so all relative paths
                 // (songpath, skinpath, etc.) resolve correctly when launched
@@ -195,10 +195,10 @@ fn play(bms_path: Option<PathBuf>, player_mode: Option<BMSPlayerMode>) -> Result
     subsystem_init::init_stream_controller(&mut main_controller);
 
     // Wire modmenu with real PlayerConfig and command queue so UI changes propagate back
-    rubato::state::modmenu::misc_setting_menu::MiscSettingMenu::set_player_config(
+    rubato::modmenu::misc_setting_menu::MiscSettingMenu::set_player_config(
         main_controller.player_config().clone(),
         main_controller.config().clone(),
-        main_controller.controller_command_queue(),
+        main_controller.command_queue().clone(),
     );
 
     // Extract window config from the controller's Config
@@ -225,8 +225,8 @@ fn play(bms_path: Option<PathBuf>, player_mode: Option<BMSPlayerMode>) -> Result
     event_loop.set_control_flow(ControlFlow::Poll);
 
     // Initialize shared key state for winit->input bridge
-    let key_state = rubato_input::winit_input_bridge::SharedKeyState::new();
-    rubato_input::gdx_compat::set_shared_key_state(key_state.clone());
+    let key_state = rubato::input::winit_input_bridge::SharedKeyState::new();
+    rubato::input::gdx_compat::set_shared_key_state(key_state.clone());
 
     let mut app = RubatoApp {
         controller: main_controller,
@@ -245,7 +245,7 @@ fn play(bms_path: Option<PathBuf>, player_mode: Option<BMSPlayerMode>) -> Result
         display_mode,
         max_fps,
         last_frame_time: Instant::now(),
-        fps_tracker: rubato_skin::fps_counter::FpsTracker::new(),
+        fps_tracker: rubato::skin::fps_counter::FpsTracker::new(),
         initialized: false,
         key_state,
         disposed: false,
@@ -285,10 +285,10 @@ struct RubatoApp {
     /// Last frame time for FPS capping
     last_frame_time: Instant,
     /// FPS tracker for computing actual frame rate
-    fps_tracker: rubato_skin::fps_counter::FpsTracker,
+    fps_tracker: rubato::skin::fps_counter::FpsTracker,
     initialized: bool,
     /// Shared key state bridging winit keyboard events to the input system
-    key_state: rubato_input::winit_input_bridge::SharedKeyState,
+    key_state: rubato::input::winit_input_bridge::SharedKeyState,
     /// Set after dispose() is called to prevent redraws on a disposed controller.
     /// Between event_loop.exit() and actual loop termination, about_to_wait can
     /// still fire; this flag gates redraw requests.
@@ -361,12 +361,12 @@ impl ApplicationHandler for RubatoApp {
                 // dispatches handle_skin_mouse_dragged() on the next render.
                 if self
                     .key_state
-                    .is_mouse_button_pressed(rubato_input::winit_input_bridge::MOUSE_BUTTON_LEFT)
+                    .is_mouse_button_pressed(rubato::input::winit_input_bridge::MOUSE_BUTTON_LEFT)
                     || self.key_state.is_mouse_button_pressed(
-                        rubato_input::winit_input_bridge::MOUSE_BUTTON_RIGHT,
+                        rubato::input::winit_input_bridge::MOUSE_BUTTON_RIGHT,
                     )
                     || self.key_state.is_mouse_button_pressed(
-                        rubato_input::winit_input_bridge::MOUSE_BUTTON_MIDDLE,
+                        rubato::input::winit_input_bridge::MOUSE_BUTTON_MIDDLE,
                     )
                 {
                     self.key_state.set_mouse_dragged(true);
@@ -585,7 +585,7 @@ impl RubatoApp {
     /// Bridge winit keyboard events to the input system.
     fn handle_keyboard_input(&mut self, event: &winit::event::KeyEvent) {
         if let PhysicalKey::Code(keycode) = event.physical_key {
-            let java_key = rubato_input::winit_input_bridge::winit_keycode_to_java(
+            let java_key = rubato::input::winit_input_bridge::winit_keycode_to_java(
                 winit_to_bridge_keycode(keycode),
             );
             if java_key >= 0 {
@@ -602,12 +602,12 @@ impl RubatoApp {
         button: winit::event::MouseButton,
     ) {
         let btn = match button {
-            winit::event::MouseButton::Left => rubato_input::winit_input_bridge::MOUSE_BUTTON_LEFT,
+            winit::event::MouseButton::Left => rubato::input::winit_input_bridge::MOUSE_BUTTON_LEFT,
             winit::event::MouseButton::Right => {
-                rubato_input::winit_input_bridge::MOUSE_BUTTON_RIGHT
+                rubato::input::winit_input_bridge::MOUSE_BUTTON_RIGHT
             }
             winit::event::MouseButton::Middle => {
-                rubato_input::winit_input_bridge::MOUSE_BUTTON_MIDDLE
+                rubato::input::winit_input_bridge::MOUSE_BUTTON_MIDDLE
             }
             _ => -1,
         };
@@ -715,7 +715,7 @@ impl RubatoApp {
         // Java: ImGuiRenderer.start() → ImGuiRenderer.render() → ImGuiRenderer.end()
         let raw_input = egui_state.take_egui_input(window);
         let full_output = egui_integration.ctx.run(raw_input, |ctx| {
-            rubato::state::modmenu::imgui_renderer::ImGuiRenderer::render_ui(ctx);
+            rubato::modmenu::imgui_renderer::ImGuiRenderer::render_ui(ctx);
 
             // Diagnostic overlay: show current state and skin status
             egui::Area::new(egui::Id::new("diag_overlay"))
@@ -784,7 +784,7 @@ impl RubatoApp {
                     && let Some(sprite_pipeline) = &self.sprite_pipeline
                     && let Some(texture_manager) = &self.texture_manager
                 {
-                    Some(rubato_render::sprite_batch::GpuRenderContext {
+                    Some(rubato::render::sprite_batch::GpuRenderContext {
                         device: &gpu.device,
                         queue: &gpu.queue,
                         pipeline: sprite_pipeline,
@@ -897,7 +897,7 @@ impl RubatoApp {
                 tex.width,
                 tex.height,
                 &tex.rgba_data,
-                &rubato_render::gpu_texture_manager::TextureUploadContext {
+                &rubato::render::gpu_texture_manager::TextureUploadContext {
                     device: &gpu.device,
                     queue: &gpu.queue,
                     texture_layout: &sprite_pipeline.texture_layout,

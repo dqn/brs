@@ -5,12 +5,12 @@
 // SRC_NOTE but the SkinNoteObject had empty TextureRegion::new() because
 // assemble_objects() did not copy the loaded textures.
 
-use rubato_skin::lr2::lr2_play_skin_loader::{LR2PlaySkinLoaderState, SkinSourceData};
-use rubato_skin::lr2::lr2_skin_csv_loader::LR2SkinLoaderAccess;
-use rubato_skin::reexports::{Rectangle, Resolution, TextureRegion};
-use rubato_skin::skin::Skin;
-use rubato_skin::skin_note_object::SkinNoteObject;
-use rubato_skin::types::skin_header::SkinHeader;
+use rubato::skin::lr2::lr2_play_skin_loader::{LR2PlaySkinLoaderState, SkinSourceData};
+use rubato::skin::lr2::lr2_skin_csv_loader::LR2SkinLoaderAccess;
+use rubato::skin::reexports::{Rectangle, Resolution, TextureRegion};
+use rubato::skin::skin::Skin;
+use rubato::skin::skin_note_object::SkinNoteObject;
+use rubato::skin::types::skin_header::SkinHeader;
 
 fn make_test_texture() -> TextureRegion {
     TextureRegion {
@@ -36,7 +36,7 @@ fn make_loader_with_notes() -> LR2PlaySkinLoaderState {
         height: 1080.0,
     };
     let mut loader = LR2PlaySkinLoaderState::new(
-        rubato_skin::skin_type::SkinType::Play7Keys,
+        rubato::skin::skin_type::SkinType::Play7Keys,
         src,
         dst,
         false,
@@ -175,18 +175,18 @@ fn lr2_loader_wires_ln_textures() {
 
 #[test]
 fn draw_note_with_texture_produces_draw_call() {
-    use rubato_skin::skin_object::SkinObjectRenderer;
+    use rubato::skin::skin_object::SkinObjectRenderer;
 
     let mut note = SkinNoteObject::new(8);
     note.note_images[0] = Some(make_test_texture());
 
-    note.draw_commands = vec![rubato_skin::draw_command::DrawCommand::DrawNote {
+    note.draw_commands = vec![rubato::skin::draw_command::DrawCommand::DrawNote {
         lane: 0,
         x: 10.0,
         y: 20.0,
         w: 40.0,
         h: 5.0,
-        image_type: rubato_skin::draw_command::NoteImageType::Normal,
+        image_type: rubato::skin::draw_command::NoteImageType::Normal,
     }];
 
     let mut sprite = SkinObjectRenderer::new();
@@ -205,18 +205,18 @@ fn draw_note_with_texture_produces_draw_call() {
 
 #[test]
 fn draw_note_without_texture_produces_no_vertices() {
-    use rubato_skin::skin_object::SkinObjectRenderer;
+    use rubato::skin::skin_object::SkinObjectRenderer;
 
     let mut note = SkinNoteObject::new(8);
     // note_images[0] is None (no texture wired)
 
-    note.draw_commands = vec![rubato_skin::draw_command::DrawCommand::DrawNote {
+    note.draw_commands = vec![rubato::skin::draw_command::DrawCommand::DrawNote {
         lane: 0,
         x: 10.0,
         y: 20.0,
         w: 40.0,
         h: 5.0,
-        image_type: rubato_skin::draw_command::NoteImageType::Normal,
+        image_type: rubato::skin::draw_command::NoteImageType::Normal,
     }];
 
     let mut sprite = SkinObjectRenderer::new();
@@ -244,7 +244,7 @@ fn compute_note_draw_commands_produces_commands() {
     use bms::model::note::Note;
     use bms::model::time_line::TimeLine;
     use rubato::play::lane_renderer::{DrawLaneContext, LaneRenderer};
-    use rubato_skin::skin_drawable::SkinDrawable;
+    use rubato::skin::skin_drawable::SkinDrawable;
 
     // 1. Create a model with one note
     let mut model = BMSModel::new();

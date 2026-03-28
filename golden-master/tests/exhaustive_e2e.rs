@@ -8,7 +8,7 @@
 use bms::model::judge_note::{JUDGE_MS, JUDGE_PG, JUDGE_PR};
 use bms::model::mode::Mode;
 use golden_master::e2e_helpers::*;
-use rubato_skin::groove_gauge::{ASSISTEASY, EASY, EXHARD, HARD, HAZARD, NORMAL};
+use rubato::skin::groove_gauge::{ASSISTEASY, EASY, EXHARD, HARD, HAZARD, NORMAL};
 
 fn run_autoplay_test(bms_file: &str, gauge_type: i32, label: &str) {
     let model = load_bms(bms_file);

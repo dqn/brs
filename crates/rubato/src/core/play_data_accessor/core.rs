@@ -6,12 +6,12 @@ use sha2::{Digest, Sha256};
 use crate::core::score_data_log_database_accessor::ScoreDataLogDatabaseAccessor;
 use crate::core::score_database_accessor::{ScoreDataCollector, ScoreDatabaseAccessor, SongData};
 use crate::core::score_log_database_accessor::{ScoreLog, ScoreLogDatabaseAccessor};
-use rubato_skin::clear_type::ClearType;
-use rubato_skin::config::Config;
-use rubato_skin::course_data::CourseDataConstraint;
-use rubato_skin::player_data::PlayerData;
-use rubato_skin::replay_data::ReplayData;
-use rubato_skin::score_data::{ScoreData, SongTrophy};
+use crate::skin::clear_type::ClearType;
+use crate::skin::config::Config;
+use crate::skin::course_data::CourseDataConstraint;
+use crate::skin::player_data::PlayerData;
+use crate::skin::replay_data::ReplayData;
+use crate::skin::score_data::{ScoreData, SongTrophy};
 
 use super::{PlayDataAccessor, REPLAY};
 

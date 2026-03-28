@@ -1931,10 +1931,6 @@ dependencies = [
  "bms",
  "image",
  "rubato",
- "rubato-audio",
- "rubato-input",
- "rubato-render",
- "rubato-skin",
  "serde",
  "serde_json",
  "tempfile",
@@ -4104,25 +4100,35 @@ checksum = "7204ed6420f698836b76d4d5c2ec5dec7585fd5c3a788fd1cde855d1de598239"
 name = "rubato"
 version = "0.1.0"
 dependencies = [
+ "ab_glyph",
  "aes",
  "anyhow",
  "arboard",
  "base64",
  "bms",
+ "bytemuck",
+ "cbc",
  "chrono",
  "cpal",
  "criterion",
+ "ebur128",
  "ecb",
  "eframe",
  "egui",
+ "egui-wgpu",
  "encoding_rs",
  "ffmpeg-next",
  "flate2",
  "futures-util",
+ "gilrs",
  "image",
+ "kira",
  "lazy_static",
+ "lewton",
  "log",
  "md-5",
+ "midir",
+ "mlua",
  "open",
  "proptest",
  "quick-xml 0.37.5",
@@ -4131,38 +4137,20 @@ dependencies = [
  "regex",
  "reqwest",
  "rfd",
- "rubato-audio",
- "rubato-input",
- "rubato-render",
- "rubato-skin",
  "rusqlite",
  "serde",
  "serde_json",
  "sevenz-rust",
  "sha2",
+ "symphonia",
  "tar",
  "tempfile",
  "tokio",
  "tokio-tungstenite",
  "urlencoding",
  "uuid",
+ "wgpu",
  "winit",
-]
-
-[[package]]
-name = "rubato-audio"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bms",
- "ebur128",
- "kira",
- "lewton",
- "log",
- "proptest",
- "rayon",
- "symphonia",
- "tempfile",
 ]
 
 [[package]]
@@ -4182,72 +4170,10 @@ dependencies = [
  "log",
  "pollster",
  "rubato",
- "rubato-audio",
- "rubato-input",
- "rubato-render",
- "rubato-skin",
  "serde_json",
  "tempfile",
  "wgpu",
  "winit",
-]
-
-[[package]]
-name = "rubato-input"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bms",
- "gilrs",
- "log",
- "midir",
- "proptest",
- "rubato-skin",
- "tempfile",
-]
-
-[[package]]
-name = "rubato-render"
-version = "0.1.0"
-dependencies = [
- "ab_glyph",
- "anyhow",
- "bytemuck",
- "egui",
- "egui-wgpu",
- "encoding_rs",
- "image",
- "log",
- "tempfile",
- "tokio",
- "wgpu",
- "winit",
-]
-
-[[package]]
-name = "rubato-skin"
-version = "0.1.0"
-dependencies = [
- "aes",
- "anyhow",
- "base64",
- "bms",
- "cbc",
- "chrono",
- "criterion",
- "encoding_rs",
- "ffmpeg-next",
- "flate2",
- "log",
- "mlua",
- "proptest",
- "rand 0.8.5",
- "regex",
- "rubato-render",
- "serde",
- "serde_json",
- "sha2",
- "tempfile",
 ]
 
 [[package]]

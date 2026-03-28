@@ -1,0 +1,852 @@
+// SkinImage.java -> skin_image.rs
+// Mechanical line-by-line translation.
+
+use crate::skin::property::integer_property::IntegerProperty;
+use crate::skin::property::integer_property_factory;
+use crate::skin::property::timer_property::TimerPropertyEnum;
+use crate::skin::reexports::{MainState, TextureRegion};
+use crate::skin::sources::skin_source::SkinSource;
+use crate::skin::sources::skin_source_image::SkinSourceImage;
+use crate::skin::sources::skin_source_movie::SkinSourceMovie;
+use crate::skin::sources::skin_source_reference::SkinSourceReference;
+use crate::skin::types::skin_object::{SkinObjectData, SkinObjectRenderer};
+
+pub struct SkinImage {
+    pub data: SkinObjectData,
+    image: Vec<Option<Box<dyn SkinSource>>>,
+    ref_prop: Option<Box<dyn IntegerProperty>>,
+    current_image: Option<TextureRegion>,
+    removed_sources: Vec<Box<dyn SkinSource>>,
+    is_movie: bool,
+}
+
+/// Scope guard that sets `image_type` to a temporary value and restores the
+/// original on drop (including panic unwind). This prevents the FFmpeg shader
+/// type from leaking if `draw_image_at` panics.
+///
+/// Uses a raw pointer to avoid holding a `&mut` borrow on the field, which
+/// would conflict with subsequent method calls on the owning struct.
+///
+/// # Safety contract
+/// The guard must be stack-local and the pointee (`SkinObjectData.image_type`)
+/// must outlive the guard. This is always true when the guard is created from
+/// `&mut self.data.image_type` inside a `SkinImage` method.
+struct ImageTypeGuard {
+    target: *mut i32,
+    original: i32,
+}
+
+impl ImageTypeGuard {
+    /// Sets `*target` to `temporary` and returns a guard that will restore the
+    /// original value on drop.
+    ///
+    /// # Safety
+    /// The caller must ensure `target` outlives the guard and that no other
+    /// code invalidates the pointer while the guard is alive.
+    unsafe fn new(target: *mut i32, temporary: i32) -> Self {
+        let original = unsafe { *target };
+        unsafe { *target = temporary };
+        Self { target, original }
+    }
+}
+
+impl Drop for ImageTypeGuard {
+    fn drop(&mut self) {
+        // SAFETY: see `new()` contract -- target is alive and we are restoring
+        // the original value.
+        unsafe {
+            *self.target = self.original;
+        }
+    }
+}
+
+impl SkinImage {
+    /// Create an empty SkinImage with no sources (used in tests).
+    pub fn new_empty() -> Self {
+        Self {
+            data: SkinObjectData::new(),
+            image: Vec::new(),
+            ref_prop: None,
+            current_image: None,
+            removed_sources: Vec::new(),
+            is_movie: false,
+        }
+    }
+
+    pub fn new_with_image_id(imageid: i32) -> Self {
+        Self {
+            data: SkinObjectData::new(),
+            image: vec![Some(Box::new(SkinSourceReference::new(imageid)))],
+            ref_prop: None,
+            current_image: None,
+            removed_sources: Vec::new(),
+            is_movie: false,
+        }
+    }
+
+    pub fn new_with_single(image: TextureRegion) -> Self {
+        Self {
+            data: SkinObjectData::new(),
+            image: vec![Some(Box::new(
+                SkinSourceImage::new_with_int_timer_from_vec(vec![image], 0, 0),
+            ))],
+            ref_prop: None,
+            current_image: None,
+            removed_sources: Vec::new(),
+            is_movie: false,
+        }
+    }
+
+    pub fn new_with_int_timer(image: Vec<TextureRegion>, timer: i32, cycle: i32) -> Self {
+        Self {
+            data: SkinObjectData::new(),
+            image: vec![Some(Box::new(
+                SkinSourceImage::new_with_int_timer_from_vec(image, timer, cycle),
+            ))],
+            ref_prop: None,
+            current_image: None,
+            removed_sources: Vec::new(),
+            is_movie: false,
+        }
+    }
+
+    pub fn new_with_int_timer_ref_id(
+        images: Vec<Vec<TextureRegion>>,
+        timer: i32,
+        cycle: i32,
+        ref_id: i32,
+    ) -> Self {
+        Self::new_with_int_timer_ref(
+            images,
+            timer,
+            cycle,
+            integer_property_factory::image_index_property_by_id(ref_id),
+        )
+    }
+
+    pub fn new_with_int_timer_ref(
+        images: Vec<Vec<TextureRegion>>,
+        timer: i32,
+        cycle: i32,
+        ref_prop: Option<Box<dyn IntegerProperty>>,
+    ) -> Self {
+        let image: Vec<Option<Box<dyn SkinSource>>> = images
+            .into_iter()
+            .map(|img| -> Option<Box<dyn SkinSource>> {
+                Some(Box::new(SkinSourceImage::new_with_int_timer_from_vec(
+                    img, timer, cycle,
+                )))
+            })
+            .collect();
+        Self {
+            data: SkinObjectData::new(),
+            image,
+            ref_prop,
+            current_image: None,
+            removed_sources: Vec::new(),
+            is_movie: false,
+        }
+    }
+
+    pub fn new_with_timer(image: Vec<TextureRegion>, timer: TimerPropertyEnum, cycle: i32) -> Self {
+        Self {
+            data: SkinObjectData::new(),
+            image: vec![Some(Box::new(SkinSourceImage::new_with_timer_from_vec(
+                image,
+                Some(timer),
+                cycle,
+            )))],
+            ref_prop: None,
+            current_image: None,
+            removed_sources: Vec::new(),
+            is_movie: false,
+        }
+    }
+
+    pub fn new_with_timer_ref_id(
+        images: Vec<Vec<TextureRegion>>,
+        timer: TimerPropertyEnum,
+        cycle: i32,
+        ref_id: i32,
+    ) -> Self {
+        let image: Vec<Option<Box<dyn SkinSource>>> = images
+            .into_iter()
+            .map(|img| -> Option<Box<dyn SkinSource>> {
+                Some(Box::new(SkinSourceImage::new_with_timer_from_vec(
+                    img,
+                    Some(timer.clone()),
+                    cycle,
+                )))
+            })
+            .collect();
+        Self {
+            data: SkinObjectData::new(),
+            image,
+            ref_prop: integer_property_factory::image_index_property_by_id(ref_id),
+            current_image: None,
+            removed_sources: Vec::new(),
+            is_movie: false,
+        }
+    }
+
+    pub fn new_with_movie(movie: SkinSourceMovie) -> Self {
+        let mut data = SkinObjectData::new();
+        data.image_type = SkinObjectRenderer::TYPE_FFMPEG;
+        Self {
+            data,
+            image: vec![Some(Box::new(movie))],
+            ref_prop: None,
+            current_image: None,
+            removed_sources: Vec::new(),
+            is_movie: true,
+        }
+    }
+
+    pub fn new_with_sources_ref_id(image: Vec<SkinSourceImage>, ref_id: i32) -> Self {
+        Self::new_with_sources_ref(
+            image,
+            integer_property_factory::image_index_property_by_id(ref_id),
+        )
+    }
+
+    pub fn new_with_sources_ref(
+        image: Vec<SkinSourceImage>,
+        ref_prop: Option<Box<dyn IntegerProperty>>,
+    ) -> Self {
+        let image: Vec<Option<Box<dyn SkinSource>>> = image
+            .into_iter()
+            .map(|s| -> Option<Box<dyn SkinSource>> { Some(Box::new(s)) })
+            .collect();
+        Self {
+            data: SkinObjectData::new(),
+            image,
+            ref_prop,
+            current_image: None,
+            removed_sources: Vec::new(),
+            is_movie: false,
+        }
+    }
+
+    /// Return the first frame of the first source (static snapshot).
+    /// Useful for extracting line image textures without time/state context.
+    pub fn first_frame_region(&self) -> Option<TextureRegion> {
+        self.image
+            .first()
+            .and_then(|opt| opt.as_ref())
+            .and_then(|source| source.first_frame())
+    }
+
+    pub fn image(&self, time: i64, state: &dyn MainState) -> Option<TextureRegion> {
+        self.image_at(0, time, state)
+    }
+
+    pub fn image_at(
+        &self,
+        value: usize,
+        time: i64,
+        state: &dyn MainState,
+    ) -> Option<TextureRegion> {
+        if value < self.image.len()
+            && let Some(ref source) = self.image[value]
+        {
+            return source.get_image(time, state);
+        }
+        None
+    }
+
+    pub fn validate(&mut self) -> bool {
+        let mut exist = false;
+        for slot in self.image.iter_mut() {
+            if let Some(source) = slot.as_ref() {
+                if source.validate() {
+                    exist = true;
+                } else {
+                    let removed = slot.take().expect("take");
+                    self.removed_sources.push(removed);
+                }
+            }
+        }
+
+        if !exist {
+            return false;
+        }
+
+        self.data.validate()
+    }
+
+    pub fn prepare(&mut self, time: i64, state: &dyn MainState) {
+        self.prepare_with_offset(time, state, 0.0, 0.0);
+    }
+
+    pub fn prepare_with_offset(
+        &mut self,
+        time: i64,
+        state: &dyn MainState,
+        offset_x: f32,
+        offset_y: f32,
+    ) {
+        let value = if let Some(ref r) = self.ref_prop {
+            let v = r.get(state);
+            // Java: SkinImage.prepare() uses `ref != null ? ref.get(state) : 0`.
+            // In Java, IntegerPropertyFactory returns null for unrecognized IDs,
+            // so SkinImage.ref would be null and the fallback is 0 (show variant 0).
+            // In Rust, DelegateIntegerProperty always exists, and unrecognized IDs
+            // return i32::MIN. Treat i32::MIN as "no data" and fall back to 0,
+            // matching the Java null-ref behavior. prepare_with_value treats
+            // negative values as "don't draw", so without this guard the image
+            // would be hidden instead of showing the default variant.
+            if v == i32::MIN { 0 } else { v }
+        } else {
+            0
+        };
+        self.prepare_with_value(time, state, value, offset_x, offset_y);
+    }
+
+    pub fn prepare_with_value(
+        &mut self,
+        time: i64,
+        state: &dyn MainState,
+        mut value: i32,
+        offset_x: f32,
+        offset_y: f32,
+    ) {
+        if value < 0 {
+            self.data.draw = false;
+            return;
+        }
+        if self.image.is_empty() {
+            self.data.draw = false;
+            return;
+        }
+        self.data
+            .prepare_with_offset(time, state, offset_x, offset_y);
+        if value >= self.image.len() as i32 {
+            value = 0;
+        }
+        self.current_image = self.image_at(value as usize, time, state);
+        if self.current_image.is_none() {
+            self.data.draw = false;
+        }
+    }
+
+    pub fn draw_impl(&mut self, sprite: &mut SkinObjectRenderer) {
+        if let Some(ref current_image) = self.current_image {
+            if self.is_movie {
+                // SAFETY: self.data outlives _guard (both are stack-local in this method).
+                let _guard = unsafe {
+                    ImageTypeGuard::new(
+                        &mut self.data.image_type as *mut i32,
+                        SkinObjectRenderer::TYPE_FFMPEG,
+                    )
+                };
+                let region = self.data.region;
+                self.data.draw_image_at(
+                    sprite,
+                    current_image,
+                    region.x,
+                    region.y,
+                    region.width,
+                    region.height,
+                );
+            } else {
+                let region = self.data.region;
+                self.data.draw_image_at(
+                    sprite,
+                    current_image,
+                    region.x,
+                    region.y,
+                    region.width,
+                    region.height,
+                );
+            }
+        }
+    }
+
+    pub fn draw_with_offset(
+        &mut self,
+        sprite: &mut SkinObjectRenderer,
+        offset_x: f32,
+        offset_y: f32,
+    ) {
+        if let Some(ref current_image) = self.current_image {
+            if self.is_movie {
+                // SAFETY: self.data outlives _guard (both are stack-local in this method).
+                let _guard = unsafe {
+                    ImageTypeGuard::new(
+                        &mut self.data.image_type as *mut i32,
+                        SkinObjectRenderer::TYPE_FFMPEG,
+                    )
+                };
+                let region = self.data.region;
+                self.data.draw_image_at(
+                    sprite,
+                    current_image,
+                    region.x + offset_x,
+                    region.y + offset_y,
+                    region.width,
+                    region.height,
+                );
+            } else {
+                let region = self.data.region;
+                self.data.draw_image_at(
+                    sprite,
+                    current_image,
+                    region.x + offset_x,
+                    region.y + offset_y,
+                    region.width,
+                    region.height,
+                );
+            }
+        }
+    }
+
+    pub fn draw_prepared(
+        &mut self,
+        sprite: &mut SkinObjectRenderer,
+        time: i64,
+        state: &dyn MainState,
+        offset_x: f32,
+        offset_y: f32,
+    ) {
+        self.prepare_with_offset(time, state, offset_x, offset_y);
+        if self.data.draw {
+            self.draw_impl(sprite);
+        }
+    }
+
+    pub fn draw_with_value(
+        &mut self,
+        sprite: &mut SkinObjectRenderer,
+        time: i64,
+        state: &dyn MainState,
+        value: i32,
+        offset_x: f32,
+        offset_y: f32,
+    ) {
+        self.prepare_with_value(time, state, value, offset_x, offset_y);
+        if self.data.draw {
+            self.draw_impl(sprite);
+        }
+    }
+
+    pub fn ref_prop(&self) -> Option<&dyn IntegerProperty> {
+        self.ref_prop.as_deref()
+    }
+
+    pub fn source_count(&self) -> usize {
+        self.image.len()
+    }
+
+    pub fn has_valid_source(&self) -> bool {
+        self.image.iter().any(|s| s.is_some())
+    }
+
+    pub fn dispose(&mut self) {
+        for mut source in self.removed_sources.drain(..) {
+            source.dispose();
+        }
+        for s in self.image.iter_mut().flatten() {
+            s.dispose();
+        }
+        self.data.set_disposed();
+    }
+}
+
+impl crate::skin::types::skin_node::SkinNode for SkinImage {
+    fn data(&self) -> &SkinObjectData {
+        &self.data
+    }
+    fn data_mut(&mut self) -> &mut SkinObjectData {
+        &mut self.data
+    }
+    fn validate(&mut self) -> bool {
+        SkinImage::validate(self)
+    }
+    fn prepare(&mut self, time: i64, state: &dyn MainState) {
+        SkinImage::prepare(self, time, state)
+    }
+    fn draw(&mut self, sprite: &mut SkinObjectRenderer, _state: &dyn MainState) {
+        self.draw_impl(sprite)
+    }
+    fn dispose(&mut self) {
+        SkinImage::dispose(self)
+    }
+    fn type_name(&self) -> &'static str {
+        "Image"
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+    fn into_any_box(self: Box<Self>) -> Box<dyn std::any::Any> {
+        self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::skin::reexports::{Color, Rectangle, TextureRegion};
+    use crate::skin::skin_object::{SkinObjectDestination, SkinObjectRenderer};
+    use crate::skin::test_helpers::MockMainState;
+
+    /// Helper: make a TextureRegion with known dimensions.
+    fn make_region(w: i32, h: i32) -> TextureRegion {
+        TextureRegion {
+            region_width: w,
+            region_height: h,
+            u: 0.0,
+            v: 0.0,
+            u2: 1.0,
+            v2: 1.0,
+            ..TextureRegion::default()
+        }
+    }
+
+    /// Helper: set up a single-destination SkinObjectData so prepare() sets draw=true.
+    /// Uses time=0, full white color, no timer/loop/blend.
+    fn setup_data(
+        data: &mut crate::skin::skin_object::SkinObjectData,
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
+    ) {
+        data.set_destination_with_int_timer_ops(
+            &crate::skin::skin_object::DestinationParams {
+                time: 0,
+                x,
+                y,
+                w,
+                h,
+                acc: 0,
+                a: 255,
+                r: 255,
+                g: 255,
+                b: 255,
+                blend: 0,
+                filter: 0,
+                angle: 0,
+                center: 0,
+                loop_val: 0,
+            },
+            0,
+            &[0],
+        );
+    }
+
+    #[test]
+    fn test_skin_image_draw_basic() {
+        let region = make_region(64, 48);
+        let mut img = SkinImage::new_with_single(region);
+        setup_data(&mut img.data, 10.0, 20.0, 100.0, 50.0);
+
+        let state = MockMainState::default();
+        img.prepare(0, &state);
+        assert!(img.data.draw);
+
+        let mut renderer = SkinObjectRenderer::new();
+        img.draw_impl(&mut renderer);
+
+        // Should have generated 6 vertices (one quad)
+        assert_eq!(renderer.sprite.vertices().len(), 6);
+        // Check position: draw adds 0.01 offset (Java Windows workaround)
+        let v0 = &renderer.sprite.vertices()[0];
+        assert!((v0.position[0] - 10.01).abs() < 0.02);
+        assert!((v0.position[1] - 20.01).abs() < 0.02);
+    }
+
+    #[test]
+    fn test_skin_image_draw_with_offset() {
+        let region = make_region(32, 32);
+        let mut img = SkinImage::new_with_single(region);
+        setup_data(&mut img.data, 10.0, 20.0, 100.0, 50.0);
+
+        let state = MockMainState::default();
+        img.prepare(0, &state);
+
+        let mut renderer = SkinObjectRenderer::new();
+        img.draw_with_offset(&mut renderer, 5.0, 3.0);
+
+        assert_eq!(renderer.sprite.vertices().len(), 6);
+        // Position should be region (10, 20) + offset (5, 3) + 0.01 draw offset
+        let v0 = &renderer.sprite.vertices()[0];
+        assert!((v0.position[0] - 15.01).abs() < 0.02);
+        assert!((v0.position[1] - 23.01).abs() < 0.02);
+    }
+
+    #[test]
+    fn test_skin_image_draw_movie_type_override() {
+        // Test the movie draw path by manually constructing a SkinImage with is_movie=true
+        // and injecting a current_image.
+        let region = make_region(320, 240);
+        let mut img = SkinImage {
+            data: crate::skin::skin_object::SkinObjectData::new(),
+            image: vec![Some(Box::new(SkinSourceImage::new_single(region.clone())))],
+            ref_prop: None,
+            current_image: Some(region),
+            removed_sources: Vec::new(),
+            is_movie: true,
+        };
+        img.data.image_type = SkinObjectRenderer::TYPE_FFMPEG;
+        setup_data(&mut img.data, 0.0, 0.0, 100.0, 100.0);
+        // Manually set draw=true and region since we bypass prepare
+        img.data.draw = true;
+        img.data.region = Rectangle::new(0.0, 0.0, 100.0, 100.0);
+        img.data.color = Color::new(1.0, 1.0, 1.0, 1.0);
+
+        let mut renderer = SkinObjectRenderer::new();
+        img.draw_impl(&mut renderer);
+
+        // After draw, imageType should be restored to its original value (TYPE_FFMPEG for movies).
+        // The guard temporarily sets TYPE_FFMPEG during draw and restores the original on drop.
+        assert_eq!(img.data.image_type, SkinObjectRenderer::TYPE_FFMPEG);
+        // Renderer should have had TYPE_FFMPEG (3) set during draw
+        assert_eq!(
+            renderer.sprite.shader_type(),
+            SkinObjectRenderer::TYPE_FFMPEG
+        );
+        assert_eq!(renderer.sprite.vertices().len(), 6);
+    }
+
+    #[test]
+    fn test_skin_image_draw_not_drawn_when_no_image() {
+        // Create with image that has no texture region available
+        let mut img = SkinImage::new_with_image_id(999);
+        setup_data(&mut img.data, 0.0, 0.0, 100.0, 100.0);
+
+        let state = MockMainState::default();
+        img.prepare(0, &state);
+
+        // Should not draw since source returns None
+        assert!(!img.data.draw);
+    }
+
+    #[test]
+    fn test_skin_image_draw_sets_color_on_sprite() {
+        let region = make_region(32, 32);
+        let mut img = SkinImage::new_with_single(region);
+        setup_data(&mut img.data, 0.0, 0.0, 50.0, 50.0);
+
+        let state = MockMainState::default();
+        img.prepare(0, &state);
+
+        // Color should be white after prepare (255,255,255,255)
+        assert_eq!(img.data.color.r, 1.0);
+        assert_eq!(img.data.color.a, 1.0);
+
+        let mut renderer = SkinObjectRenderer::new();
+        img.draw_impl(&mut renderer);
+
+        // All vertices should have white color
+        for v in renderer.sprite.vertices() {
+            assert_eq!(v.color, [1.0, 1.0, 1.0, 1.0]);
+        }
+    }
+
+    #[test]
+    fn test_skin_image_draw_zero_alpha_skips() {
+        let region = make_region(32, 32);
+        let mut img = SkinImage::new_with_single(region);
+        // Set alpha=0 so draw_image_at returns early
+        img.data.dst.push(SkinObjectDestination::new(
+            0,
+            Rectangle::new(0.0, 0.0, 100.0, 100.0),
+            Color::new(1.0, 1.0, 1.0, 0.0),
+            0,
+            0,
+        ));
+        img.data.starttime = 0;
+        img.data.endtime = 0;
+        img.data.fixr = Some(Rectangle::new(0.0, 0.0, 100.0, 100.0));
+        img.data.fixc = Some(Color::new(1.0, 1.0, 1.0, 0.0));
+        img.data.fixa = 0;
+
+        let state = MockMainState::default();
+        img.prepare(0, &state);
+        assert!(img.data.draw);
+        assert_eq!(img.data.color.a, 0.0);
+
+        let mut renderer = SkinObjectRenderer::new();
+        img.draw_impl(&mut renderer);
+
+        // No vertices should be generated since alpha is 0
+        assert!(renderer.sprite.vertices().is_empty());
+    }
+
+    #[test]
+    fn test_skin_image_draw_with_offset_movie() {
+        // Test movie draw_with_offset path
+        let region = make_region(320, 240);
+        let mut img = SkinImage {
+            data: crate::skin::skin_object::SkinObjectData::new(),
+            image: vec![Some(Box::new(SkinSourceImage::new_single(region.clone())))],
+            ref_prop: None,
+            current_image: Some(region),
+            removed_sources: Vec::new(),
+            is_movie: true,
+        };
+        img.data.image_type = SkinObjectRenderer::TYPE_FFMPEG;
+        // Manually set draw state
+        img.data.draw = true;
+        img.data.region = Rectangle::new(100.0, 200.0, 320.0, 240.0);
+        img.data.color = Color::new(1.0, 1.0, 1.0, 1.0);
+
+        let mut renderer = SkinObjectRenderer::new();
+        img.draw_with_offset(&mut renderer, 10.0, 5.0);
+
+        // After draw_with_offset for movie: imageType should be restored to its original value.
+        assert_eq!(img.data.image_type, SkinObjectRenderer::TYPE_FFMPEG);
+        assert_eq!(renderer.sprite.vertices().len(), 6);
+        // Position: (100+10, 200+5) = (110, 205) + 0.01
+        let v0 = &renderer.sprite.vertices()[0];
+        assert!((v0.position[0] - 110.01).abs() < 0.02);
+        assert!((v0.position[1] - 205.01).abs() < 0.02);
+    }
+
+    #[test]
+    fn test_skin_image_timer_ref_id_uses_timer_property() {
+        // Regression: new_with_timer_ref_id must pass the TimerPropertyEnum to each
+        // source image, not drop it and use int timer 0 (which becomes None).
+        //
+        // Setup: 2 animation frames per source, cycle=1000ms, timer 10 activated at t=0.
+        // At time=500ms the source should select frame index 1 (halfway through cycle).
+        // With the old bug (timer dropped, int timer 0 used), frame 0 would always be selected.
+        use crate::skin::property::timer_property_factory;
+
+        // Two animation frames with distinguishable region_width values.
+        let frame0 = make_region(10, 10);
+        let frame1 = make_region(99, 10);
+
+        // Single source with 2 animation frames.
+        let images = vec![vec![frame0, frame1]];
+
+        let timer = timer_property_factory::timer_property(10).unwrap();
+
+        let img = SkinImage::new_with_timer_ref_id(
+            images, timer, 1000, // cycle = 1000ms
+            0,    // ref_id
+        );
+
+        // Timer 10 is ON, activated at micro-time 0.
+        let mut state = MockMainState::default();
+        state.timer.now_time = 500;
+        state.timer.now_micro_time = 500_000;
+        state.timer.set_timer_value(10, 0);
+
+        // At time=500ms with cycle=1000ms and 2 frames:
+        // index = (500 * 2 / 1000) % 2 = 1
+        let result = img.image_at(0, 500, &state);
+        assert!(
+            result.is_some(),
+            "source should return an image when timer is ON"
+        );
+        let region = result.unwrap();
+        assert_eq!(
+            region.region_width, 99,
+            "at time=500ms with cycle=1000ms, frame index 1 (width=99) should be selected"
+        );
+    }
+
+    #[test]
+    fn test_skin_image_timer_ref_id_off_timer_returns_frame0() {
+        // When timer is OFF, source should return frame 0.
+        use crate::skin::property::timer_property_factory;
+
+        let frame0 = make_region(10, 10);
+        let frame1 = make_region(99, 10);
+        let images = vec![vec![frame0, frame1]];
+
+        let timer = timer_property_factory::timer_property(10).unwrap();
+        let img = SkinImage::new_with_timer_ref_id(images, timer, 1000, 0);
+
+        // Timer 10 is OFF (not set).
+        let state = MockMainState::default();
+        let result = img.image_at(0, 500, &state);
+        assert!(result.is_some());
+        assert_eq!(
+            result.unwrap().region_width,
+            10,
+            "when timer is OFF, frame 0 (width=10) should be selected"
+        );
+    }
+
+    #[test]
+    fn test_skin_image_draw_region_dimensions() {
+        let region = make_region(64, 48);
+        let mut img = SkinImage::new_with_single(region);
+        setup_data(&mut img.data, 50.0, 60.0, 200.0, 150.0);
+
+        let state = MockMainState::default();
+        img.prepare(0, &state);
+
+        let mut renderer = SkinObjectRenderer::new();
+        img.draw_impl(&mut renderer);
+
+        // Verify the quad spans the correct region
+        let verts = renderer.sprite.vertices();
+        // v0 = top-left, v1 = top-right, v2 = bottom-right
+        let x0 = verts[0].position[0];
+        let y0 = verts[0].position[1];
+        let x1 = verts[1].position[0];
+        let y1 = verts[2].position[1];
+        // Width = x1 - x0, Height = y1 - y0
+        assert!((x1 - x0 - 200.0).abs() < 0.02);
+        assert!((y1 - y0 - 150.0).abs() < 0.02);
+    }
+
+    #[test]
+    fn test_image_type_guard_restores_on_drop() {
+        // Verify the guard restores the original value when dropped, which is the
+        // same path taken during panic unwind.
+        let mut value: i32 = 0;
+        let ptr = &mut value as *mut i32;
+        {
+            // SAFETY: value is stack-local and outlives the guard.
+            let _guard = unsafe { ImageTypeGuard::new(ptr, SkinObjectRenderer::TYPE_FFMPEG) };
+            assert_eq!(unsafe { *ptr }, SkinObjectRenderer::TYPE_FFMPEG);
+        }
+        assert_eq!(value, 0, "image_type must be restored after guard drop");
+    }
+
+    #[test]
+    fn test_image_type_guard_restores_on_panic() {
+        // Simulate a panic inside the guarded scope and verify image_type is
+        // restored via the guard's Drop impl during unwind.
+        use std::panic;
+
+        let mut value: i32 = 0;
+        let value_ptr = &mut value as *mut i32;
+
+        let result = panic::catch_unwind(panic::AssertUnwindSafe(|| {
+            // SAFETY: value outlives the catch_unwind scope and no other thread
+            // accesses it.
+            let _guard = unsafe { ImageTypeGuard::new(value_ptr, SkinObjectRenderer::TYPE_FFMPEG) };
+            panic!("simulated draw_image_at panic");
+        }));
+
+        assert!(result.is_err(), "should have caught the panic");
+        assert_eq!(
+            value, 0,
+            "image_type must be restored even after a panic inside the guarded scope"
+        );
+    }
+
+    /// Regression: prepare_with_value must early-return when image array is empty,
+    /// skipping the prepare_with_offset call that would otherwise run on invalid state.
+    #[test]
+    fn test_skin_image_prepare_empty_image_sets_draw_false() {
+        let mut img = SkinImage::new_empty();
+        setup_data(&mut img.data, 0.0, 0.0, 100.0, 100.0);
+
+        let state = MockMainState::default();
+        img.prepare(0, &state);
+
+        assert!(
+            !img.data.draw,
+            "draw should be false when image array is empty"
+        );
+    }
+}

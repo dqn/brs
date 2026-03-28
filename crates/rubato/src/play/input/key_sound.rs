@@ -3,9 +3,9 @@ use std::sync::{Arc, Condvar, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
+use crate::skin::sync_utils::lock_or_recover;
 use bms::model::bms_model::BMSModel;
 use bms::model::note::Note;
-use rubato_skin::sync_utils::lock_or_recover;
 
 /// A BG note that needs to be played by the audio driver.
 ///

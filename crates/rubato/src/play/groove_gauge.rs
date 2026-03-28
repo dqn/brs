@@ -1,6 +1,6 @@
 // GrooveGauge, Gauge, GaugeModifier moved to beatoraja-types (Phase 15b)
 // Only the `create` factory function remains here (depends on BMSPlayerRule).
-pub use rubato_skin::groove_gauge::*;
+pub use crate::skin::groove_gauge::*;
 
 use crate::play::bms_player_rule::BMSPlayerRule;
 use crate::play::gauge_property::GaugeProperty;

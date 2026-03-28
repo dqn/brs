@@ -12,9 +12,9 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use crate::e2e_support::{E2eHarness, MainStateType};
+use rubato::audio::recording_audio_driver::AudioEvent;
+use rubato::skin::timer_id::TimerId;
 use rubato::state_factory::LauncherStateFactory;
-use rubato_audio::recording_audio_driver::AudioEvent;
-use rubato_skin::timer_id::TimerId;
 
 fn test_bms_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))

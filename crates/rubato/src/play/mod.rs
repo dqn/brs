@@ -33,4 +33,4 @@ pub use skin::note as skin_note;
 
 // Re-exports
 pub use crate::core::main_controller::MainController;
-pub use rubato_render::Texture;
+pub use crate::render::Texture;

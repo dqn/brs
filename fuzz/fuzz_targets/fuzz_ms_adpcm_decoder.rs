@@ -3,7 +3,7 @@
 use arbitrary::Arbitrary;
 use libfuzzer_sys::fuzz_target;
 
-use rubato_audio::ms_adpcm_decoder::MSADPCMDecoder;
+use rubato::audio::ms_adpcm_decoder::MSADPCMDecoder;
 
 /// Structured input for MS-ADPCM fuzzing: decoder parameters + raw audio data.
 #[derive(Arbitrary, Debug)]

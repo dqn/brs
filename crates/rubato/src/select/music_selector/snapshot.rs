@@ -1,8 +1,8 @@
 use crate::core::timer_manager::TimerManager;
-use rubato_skin::property_snapshot::PropertySnapshot;
-use rubato_skin::skin_action_queue::SkinActionQueue;
-use rubato_skin::skin_property::*;
-use rubato_skin::timer_id::TimerId;
+use crate::skin::property_snapshot::PropertySnapshot;
+use crate::skin::skin_action_queue::SkinActionQueue;
+use crate::skin::skin_property::*;
+use crate::skin::timer_id::TimerId;
 
 use super::*;
 
@@ -26,7 +26,7 @@ impl MusicSelector {
         }
 
         // ---- State identity ----
-        s.state_type = Some(rubato_skin::main_state_type::MainStateType::MusicSelect);
+        s.state_type = Some(crate::skin::main_state_type::MainStateType::MusicSelect);
 
         // ---- Config ----
         s.config = Some(Box::new(self.app_config.clone()));
@@ -109,7 +109,7 @@ impl MusicSelector {
 
         // ---- Distribution data ----
         if let Some(dir) = selected_bar.and_then(|b| b.as_directory_bar()) {
-            s.distribution_data = Some(rubato_skin::distribution_data::DistributionData {
+            s.distribution_data = Some(crate::skin::distribution_data::DistributionData {
                 lamps: *dir.lamps(),
                 ranks: *dir.ranks(),
             });

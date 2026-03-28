@@ -20,15 +20,15 @@ impl JudgeManager {
         self.score = ScoreData::default();
         self.score.notes = model.total_notes();
         self.score.play_option.judge_algorithm = Some(match self.algorithm {
-            JudgeAlgorithm::Combo => rubato_skin::judge_algorithm::JudgeAlgorithm::Combo,
-            JudgeAlgorithm::Duration => rubato_skin::judge_algorithm::JudgeAlgorithm::Duration,
-            JudgeAlgorithm::Lowest => rubato_skin::judge_algorithm::JudgeAlgorithm::Lowest,
-            JudgeAlgorithm::Score => rubato_skin::judge_algorithm::JudgeAlgorithm::Score,
+            JudgeAlgorithm::Combo => crate::skin::judge_algorithm::JudgeAlgorithm::Combo,
+            JudgeAlgorithm::Duration => crate::skin::judge_algorithm::JudgeAlgorithm::Duration,
+            JudgeAlgorithm::Lowest => crate::skin::judge_algorithm::JudgeAlgorithm::Lowest,
+            JudgeAlgorithm::Score => crate::skin::judge_algorithm::JudgeAlgorithm::Score,
         });
         // BMSPlayerRule::get_bms_player_rule always returns the LR2 ruleset in the current
         // implementation (bms_player_rule_set_lr2). Map to the types-level enum accordingly.
         let _ = BMSPlayerRule::for_mode(&orgmode);
-        self.score.play_option.rule = Some(rubato_skin::bms_player_rule::BMSPlayerRule::LR2);
+        self.score.play_option.rule = Some(crate::skin::bms_player_rule::BMSPlayerRule::LR2);
 
         self.ghost = vec![4; model.total_notes() as usize];
         self.lntype = model.lntype();

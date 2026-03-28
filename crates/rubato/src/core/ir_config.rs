@@ -1,1 +1,1 @@
-pub use rubato_skin::ir_config::*;
+pub use crate::skin::ir_config::*;

@@ -3,16 +3,16 @@
 
 use std::sync::{Arc, Mutex};
 
+use rubato::audio::recording_audio_driver::{AudioEvent, RecordingAudioDriver};
+use rubato::audio::shared_recording_audio_driver::SharedRecordingAudioDriver;
 use rubato::core::config::Config;
 use rubato::core::main_controller::{MainController, StateCreator};
 use rubato::core::player_config::PlayerConfig;
 use rubato::core::player_resource::PlayerResource;
-use rubato_audio::recording_audio_driver::{AudioEvent, RecordingAudioDriver};
-use rubato_audio::shared_recording_audio_driver::SharedRecordingAudioDriver;
-use rubato_render::sprite_batch::CapturedDrawQuad;
-use rubato_skin::app_event::AppEvent;
-use rubato_skin::main_state_type::MainStateType;
-use rubato_skin::state_event::StateEvent;
+use rubato::render::sprite_batch::CapturedDrawQuad;
+use rubato::skin::app_event::AppEvent;
+use rubato::skin::main_state_type::MainStateType;
+use rubato::skin::state_event::StateEvent;
 
 /// One frame at 60 fps in microseconds (1_000_000 / 60 = 16_667, truncated).
 pub const FRAME_DURATION_US: i64 = 16_667;
@@ -50,7 +50,7 @@ impl E2eHarness {
         // Inject shared recording audio driver
         let shared_driver = SharedRecordingAudioDriver::new();
         let audio_handle = shared_driver.inner();
-        controller.set_audio_driver(rubato_audio::audio_system::AudioSystem::SharedRecording(
+        controller.set_audio_driver(rubato::audio::audio_system::AudioSystem::SharedRecording(
             shared_driver,
         ));
 
@@ -271,7 +271,7 @@ impl E2eHarness {
     ///
     /// During Play/Result states, player_resource() is None because the resource
     /// is owned by the active state. Fall back to the state's score_data_property.
-    pub fn score_data(&self) -> Option<&rubato_skin::score_data::ScoreData> {
+    pub fn score_data(&self) -> Option<&rubato::skin::score_data::ScoreData> {
         if let Some(sd) = self
             .controller
             .player_resource()

@@ -4,13 +4,13 @@
 // engines), this captures "what to draw" as a serializable data structure.
 // Both Java and Rust generate the same JSON format for field-by-field comparison.
 
-use rubato_skin::property::float_property::FloatProperty;
-use rubato_skin::property::timer_property::TimerProperty;
-use rubato_skin::skin_object::SkinObjectData;
-use rubato_skin::skin_property;
-use rubato_skin::skin_text::SkinTextData;
-use rubato_skin::skin_type::SkinType;
-use rubato_skin::types::skin_node::SkinNode;
+use rubato::skin::property::float_property::FloatProperty;
+use rubato::skin::property::timer_property::TimerProperty;
+use rubato::skin::skin_object::SkinObjectData;
+use rubato::skin::skin_property;
+use rubato::skin::skin_text::SkinTextData;
+use rubato::skin::skin_type::SkinType;
+use rubato::skin::types::skin_node::SkinNode;
 use serde::{Deserialize, Serialize};
 
 use crate::eval;
@@ -105,7 +105,7 @@ pub enum DrawDetail {
 /// Captures a RenderSnapshot from a Skin + SkinStateProvider.
 /// Pure function — no GPU dependency.
 pub fn capture_render_snapshot(
-    skin: &rubato_skin::skin::Skin,
+    skin: &rubato::skin::skin::Skin,
     provider: &dyn SkinStateProvider,
 ) -> RenderSnapshot {
     let objects = skin.objects();
@@ -211,7 +211,7 @@ pub fn capture_render_snapshot(
     }
 }
 
-fn should_skip_for_parity(skin: &rubato_skin::skin::Skin, object: &dyn SkinNode) -> bool {
+fn should_skip_for_parity(skin: &rubato::skin::skin::Skin, object: &dyn SkinNode) -> bool {
     let skin_type = skin.header.skin_type();
     matches!(skin_type, Some(&SkinType::MusicSelect))
         && (is_text_with_string_id(object, skin_property::STRING_SEARCHWORD)
@@ -229,19 +229,19 @@ fn is_text_with_string_id(object: &dyn SkinNode, target_id: i32) -> bool {
 fn get_text_data(object: &dyn SkinNode) -> Option<&SkinTextData> {
     if let Some(t) = object
         .as_any()
-        .downcast_ref::<rubato_skin::skin_text_font::SkinTextFont>()
+        .downcast_ref::<rubato::skin::skin_text_font::SkinTextFont>()
     {
         return Some(&t.text_data);
     }
     if let Some(t) = object
         .as_any()
-        .downcast_ref::<rubato_skin::skin_text_bitmap::SkinTextBitmap>()
+        .downcast_ref::<rubato::skin::skin_text_bitmap::SkinTextBitmap>()
     {
         return Some(&t.text_data);
     }
     if let Some(t) = object
         .as_any()
-        .downcast_ref::<rubato_skin::skin_text_image::SkinTextImage>()
+        .downcast_ref::<rubato::skin::skin_text_image::SkinTextImage>()
     {
         return Some(&t.text_data);
     }
@@ -251,7 +251,7 @@ fn get_text_data(object: &dyn SkinNode) -> Option<&SkinTextData> {
 fn is_object_valid_for_prepare(object: &dyn SkinNode) -> bool {
     if let Some(img) = object
         .as_any()
-        .downcast_ref::<rubato_skin::skin_image::SkinImage>()
+        .downcast_ref::<rubato::skin::skin_image::SkinImage>()
     {
         return img.has_valid_source();
     }
@@ -260,7 +260,7 @@ fn is_object_valid_for_prepare(object: &dyn SkinNode) -> bool {
 
 fn matches_option_conditions(
     data: &SkinObjectData,
-    skin: &rubato_skin::skin::Skin,
+    skin: &rubato::skin::skin::Skin,
     provider: &dyn SkinStateProvider,
     skin_type: Option<&SkinType>,
 ) -> bool {
@@ -304,7 +304,7 @@ fn matches_option_conditions(
 
 fn matches_dynamic_draw_conditions(
     data: &SkinObjectData,
-    skin: &rubato_skin::skin::Skin,
+    skin: &rubato::skin::skin::Skin,
     provider: &dyn SkinStateProvider,
     skin_type: Option<&SkinType>,
     object_index: usize,
@@ -497,7 +497,7 @@ fn is_object_renderable(
     }
     if let Some(img) = object
         .as_any()
-        .downcast_ref::<rubato_skin::skin_image::SkinImage>()
+        .downcast_ref::<rubato::skin::skin_image::SkinImage>()
         && let Some(ref_prop) = img.ref_prop()
     {
         let id = ref_prop.get_id();
@@ -510,7 +510,7 @@ fn is_object_renderable(
     }
     if let Some(num) = object
         .as_any()
-        .downcast_ref::<rubato_skin::skin_number::SkinNumber>()
+        .downcast_ref::<rubato::skin::skin_number::SkinNumber>()
         && let Some(ref_prop) = num.ref_prop()
     {
         let id = ref_prop.get_id();
@@ -665,7 +665,7 @@ fn resolve_detail(
     provider: &dyn SkinStateProvider,
     skin_type: Option<&SkinType>,
 ) -> Option<DrawDetail> {
-    use rubato_skin::*;
+    use rubato::skin::*;
     let any = object.as_any();
     if let Some(img) = any.downcast_ref::<skin_image::SkinImage>() {
         let source_index = img
@@ -1087,11 +1087,11 @@ fn compare_detail(
 mod tests {
     use super::*;
     use crate::state_provider::StaticStateProvider;
-    use rubato_skin::reexports::TextureRegion;
-    use rubato_skin::skin::Skin;
-    use rubato_skin::skin_header::SkinHeader;
-    use rubato_skin::skin_image::SkinImage;
-    use rubato_skin::skin_object::DestinationParams;
+    use rubato::skin::reexports::TextureRegion;
+    use rubato::skin::skin::Skin;
+    use rubato::skin::skin_header::SkinHeader;
+    use rubato::skin::skin_image::SkinImage;
+    use rubato::skin::skin_object::DestinationParams;
 
     fn make_provider() -> StaticStateProvider {
         StaticStateProvider::default()

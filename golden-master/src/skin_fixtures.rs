@@ -8,8 +8,8 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use rubato_skin::skin::Skin;
-use rubato_skin::types::skin_node::SkinNode;
+use rubato::skin::skin::Skin;
+use rubato::skin::types::skin_node::SkinNode;
 
 // ---------------------------------------------------------------------------
 // Snapshot types
@@ -146,8 +146,8 @@ pub fn should_update_snapshots() -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rubato_skin::skin_header::SkinHeader;
-    use rubato_skin::skin_image::SkinImage;
+    use rubato::skin::skin_header::SkinHeader;
+    use rubato::skin::skin_image::SkinImage;
 
     #[test]
     fn test_empty_skin_snapshot() {

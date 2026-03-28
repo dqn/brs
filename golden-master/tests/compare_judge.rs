@@ -18,12 +18,12 @@ use bms::model::chart_information::ChartInformation;
 use bms::model::mode::Mode;
 use golden_master::judge_fixtures::{JudgeFixtures, JudgeTestCase};
 use rubato::core::score_data::ScoreData;
+use rubato::input::key_input_log::KeyInputLog;
 use rubato::play::bms_player_rule::BMSPlayerRule;
 use rubato::play::judge_algorithm::JudgeAlgorithm;
 use rubato::play::judge_manager::{JudgeConfig, JudgeManager};
 use rubato::play::lane_property::LaneProperty;
-use rubato_input::key_input_log::KeyInputLog;
-use rubato_skin::groove_gauge::GrooveGauge;
+use rubato::skin::groove_gauge::GrooveGauge;
 
 #[path = "support/random_seeds.rs"]
 mod random_seeds;

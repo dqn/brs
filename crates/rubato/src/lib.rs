@@ -1,6 +1,12 @@
 //! Unified game crate: core engine, playback, states, IR, song DB,
 //! external integrations, and launcher UI.
 
+// Infrastructure modules (merged from standalone crates)
+pub mod audio;
+pub mod input;
+pub mod render;
+pub mod skin;
+
 // Merged application-layer modules
 pub mod core;
 pub mod decide;

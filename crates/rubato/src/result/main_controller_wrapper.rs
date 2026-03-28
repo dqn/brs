@@ -1,10 +1,10 @@
 use crate::core::play_data_accessor::PlayDataAccessor;
 use crate::core::system_sound_manager::SoundType;
-use rubato_skin::config::Config;
+use crate::skin::config::Config;
 
 use super::ir_send_status::IRSendStatusMain;
 use super::ir_status::IRStatus;
-use rubato_skin::sync_utils::lock_or_recover;
+use crate::skin::sync_utils::lock_or_recover;
 
 /// Wrapper for bms.player.beatoraja.MainController.
 /// Holds a cloned `Config` and locally-stored components:
@@ -104,7 +104,7 @@ impl MainController {
 mod tests {
     use super::*;
     use crate::ir::ranking_data::RankingData;
-    use rubato_skin::song_data::SongData;
+    use crate::skin::song_data::SongData;
 
     fn make_ranking_cache() -> Box<dyn crate::ranking_data_cache_access::RankingDataCacheAccess> {
         Box::new(crate::ir::ranking_data_cache::RankingDataCache::new())

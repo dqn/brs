@@ -1,4 +1,4 @@
-use rubato_skin::score_data::ScoreData;
+use crate::skin::score_data::ScoreData;
 
 use crate::core::score_database_accessor::ScoreDatabaseAccessor;
 

@@ -3,7 +3,7 @@ use crate::core::config::SelectConfig;
 use crate::core::config_pkg::key_configuration::KeyConfiguration;
 use crate::core::config_pkg::skin_configuration::SkinConfiguration;
 use crate::core::main_state::{MainState, MainStateData};
-use rubato_skin::test_support::CurrentDirGuard;
+use crate::skin::test_support::CurrentDirGuard;
 
 /// A minimal test state that implements MainState for testing state dispatch.
 struct TestState {
@@ -550,21 +550,21 @@ impl MockSkinDrawable {
 impl SkinDrawable for MockSkinDrawable {
     fn draw_all_objects_timed(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
     ) {
         self.draw_count += 1;
     }
 
     fn update_custom_objects_timed(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
     ) {
         self.update_count += 1;
     }
 
     fn mouse_pressed_at(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
         _button: i32,
         _x: i32,
         _y: i32,
@@ -572,13 +572,13 @@ impl SkinDrawable for MockSkinDrawable {
     }
     fn mouse_dragged_at(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
         _button: i32,
         _x: i32,
         _y: i32,
     ) {
     }
-    fn prepare_skin(&mut self, _state_type: Option<rubato_skin::main_state_type::MainStateType>) {}
+    fn prepare_skin(&mut self, _state_type: Option<crate::skin::main_state_type::MainStateType>) {}
     fn dispose_skin(&mut self) {}
     fn fadeout(&self) -> i32 {
         0
@@ -679,7 +679,7 @@ fn test_render_without_skin_does_not_panic() {
 /// used by transition_to_state() without calling the private method directly.
 #[test]
 fn test_skin_offsets_populated_from_skin_drawable() {
-    use rubato_skin::skin_offset::SkinOffset;
+    use crate::skin::skin_offset::SkinOffset;
     use std::collections::HashMap;
 
     /// A mock skin that returns predefined offset data.
@@ -689,17 +689,17 @@ fn test_skin_offsets_populated_from_skin_drawable() {
     impl SkinDrawable for OffsetSkinDrawable {
         fn draw_all_objects_timed(
             &mut self,
-            _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+            _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
         ) {
         }
         fn update_custom_objects_timed(
             &mut self,
-            _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+            _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
         ) {
         }
         fn mouse_pressed_at(
             &mut self,
-            _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+            _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
             _button: i32,
             _x: i32,
             _y: i32,
@@ -707,7 +707,7 @@ fn test_skin_offsets_populated_from_skin_drawable() {
         }
         fn mouse_dragged_at(
             &mut self,
-            _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+            _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
             _button: i32,
             _x: i32,
             _y: i32,
@@ -715,7 +715,7 @@ fn test_skin_offsets_populated_from_skin_drawable() {
         }
         fn prepare_skin(
             &mut self,
-            _state_type: Option<rubato_skin::main_state_type::MainStateType>,
+            _state_type: Option<crate::skin::main_state_type::MainStateType>,
         ) {
         }
         fn dispose_skin(&mut self) {}
@@ -800,21 +800,21 @@ fn test_render_skin_called_once_per_frame() {
     impl SkinDrawable for CountingSkinDrawable {
         fn draw_all_objects_timed(
             &mut self,
-            _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+            _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
         ) {
             self.counts.lock().expect("mutex poisoned").1 += 1;
         }
 
         fn update_custom_objects_timed(
             &mut self,
-            _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+            _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
         ) {
             self.counts.lock().expect("mutex poisoned").0 += 1;
         }
 
         fn mouse_pressed_at(
             &mut self,
-            _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+            _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
             _button: i32,
             _x: i32,
             _y: i32,
@@ -822,7 +822,7 @@ fn test_render_skin_called_once_per_frame() {
         }
         fn mouse_dragged_at(
             &mut self,
-            _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+            _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
             _button: i32,
             _x: i32,
             _y: i32,
@@ -830,7 +830,7 @@ fn test_render_skin_called_once_per_frame() {
         }
         fn prepare_skin(
             &mut self,
-            _state_type: Option<rubato_skin::main_state_type::MainStateType>,
+            _state_type: Option<crate::skin::main_state_type::MainStateType>,
         ) {
         }
         fn dispose_skin(&mut self) {}
@@ -898,11 +898,11 @@ impl VertexGeneratingSkinDrawable {
 impl SkinDrawable for VertexGeneratingSkinDrawable {
     fn draw_all_objects_timed(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
     ) {
         // Draw a test quad to our internal sprite batch.
         // After swap_sprite_batch, this is actually MainController's batch.
-        use rubato_render::texture::{Texture, TextureRegion};
+        use crate::render::texture::{Texture, TextureRegion};
         use std::sync::Arc;
 
         let tex = Texture {
@@ -929,13 +929,13 @@ impl SkinDrawable for VertexGeneratingSkinDrawable {
 
     fn update_custom_objects_timed(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
     ) {
     }
 
     fn mouse_pressed_at(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
         _button: i32,
         _x: i32,
         _y: i32,
@@ -943,13 +943,13 @@ impl SkinDrawable for VertexGeneratingSkinDrawable {
     }
     fn mouse_dragged_at(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
         _button: i32,
         _x: i32,
         _y: i32,
     ) {
     }
-    fn prepare_skin(&mut self, _state_type: Option<rubato_skin::main_state_type::MainStateType>) {}
+    fn prepare_skin(&mut self, _state_type: Option<crate::skin::main_state_type::MainStateType>) {}
     fn dispose_skin(&mut self) {}
     fn fadeout(&self) -> i32 {
         0
@@ -1060,11 +1060,11 @@ fn test_update_state_references_does_not_panic() {
 
 // --- Audio driver wiring tests (Phase 24c) ---
 
+use crate::audio::audio_driver::AudioDriver;
+use crate::audio::audio_system::AudioSystem;
+use crate::audio::recording_audio_driver::RecordingAudioDriver;
 use bms::model::bms_model::BMSModel;
 use bms::model::note::Note;
-use rubato_audio::audio_driver::AudioDriver;
-use rubato_audio::audio_system::AudioSystem;
-use rubato_audio::recording_audio_driver::RecordingAudioDriver;
 
 #[test]
 fn test_audio_driver_initially_none() {
@@ -1602,7 +1602,7 @@ fn test_event_sender_receives_lifecycle_events_on_state_change() {
     // Collect lifecycle events
     let mut lifecycle_events = Vec::new();
     while let Ok(event) = rx.try_recv() {
-        if let rubato_skin::app_event::AppEvent::Lifecycle(se) = event {
+        if let crate::skin::app_event::AppEvent::Lifecycle(se) = event {
             lifecycle_events.push(se);
         }
     }
@@ -1611,20 +1611,20 @@ fn test_event_sender_receives_lifecycle_events_on_state_change() {
     assert!(
         lifecycle_events.iter().any(|e| matches!(
             e,
-            rubato_skin::state_event::StateEvent::TransitionStart { .. }
+            crate::skin::state_event::StateEvent::TransitionStart { .. }
         )),
         "should have TransitionStart event"
     );
     assert!(
         lifecycle_events
             .iter()
-            .any(|e| matches!(e, rubato_skin::state_event::StateEvent::StateCreated { .. })),
+            .any(|e| matches!(e, crate::skin::state_event::StateEvent::StateCreated { .. })),
         "should have StateCreated event"
     );
     assert!(
         lifecycle_events.iter().any(|e| matches!(
             e,
-            rubato_skin::state_event::StateEvent::TransitionComplete { .. }
+            crate::skin::state_event::StateEvent::TransitionComplete { .. }
         )),
         "should have TransitionComplete event"
     );
@@ -1641,7 +1641,7 @@ fn test_event_sender_receives_state_changed_on_transition() {
     // Collect StateChanged events
     let mut state_changed = Vec::new();
     while let Ok(event) = rx.try_recv() {
-        if let rubato_skin::app_event::AppEvent::StateChanged(data) = event {
+        if let crate::skin::app_event::AppEvent::StateChanged(data) = event {
             state_changed.push(data);
         }
     }
@@ -1667,7 +1667,7 @@ fn test_event_sender_no_state_changed_without_current_state() {
 
     let mut state_changed_count = 0;
     while let Ok(event) = rx.try_recv() {
-        if matches!(event, rubato_skin::app_event::AppEvent::StateChanged(_)) {
+        if matches!(event, crate::skin::app_event::AppEvent::StateChanged(_)) {
             state_changed_count += 1;
         }
     }
@@ -2205,17 +2205,17 @@ impl DisposableSkinDrawable {
 impl SkinDrawable for DisposableSkinDrawable {
     fn draw_all_objects_timed(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
     ) {
     }
     fn update_custom_objects_timed(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
     ) {
     }
     fn mouse_pressed_at(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
         _button: i32,
         _x: i32,
         _y: i32,
@@ -2223,13 +2223,13 @@ impl SkinDrawable for DisposableSkinDrawable {
     }
     fn mouse_dragged_at(
         &mut self,
-        _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+        _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
         _button: i32,
         _x: i32,
         _y: i32,
     ) {
     }
-    fn prepare_skin(&mut self, _state_type: Option<rubato_skin::main_state_type::MainStateType>) {}
+    fn prepare_skin(&mut self, _state_type: Option<crate::skin::main_state_type::MainStateType>) {}
     fn dispose_skin(&mut self) {
         *self.dispose_count.lock().unwrap() += 1;
     }
@@ -2364,7 +2364,7 @@ fn test_handoff_updated_model_propagates_to_resource() {
         let mut tl = bms::model::time_line::TimeLine::new(0.0, 1_000_000, 8);
         tl.set_note(0, Some(bms::model::note::Note::new_normal(1)));
         model.timelines = vec![tl];
-        let sd = rubato_skin::song_data::SongData::new_from_model(model, false);
+        let sd = crate::skin::song_data::SongData::new_from_model(model, false);
         res.set_songdata(sd);
     }
 
@@ -2587,33 +2587,33 @@ fn offset_mut_updates_are_visible_through_offset() {
 #[test]
 fn test_transition_registers_stagefile_and_banner_into_skin() {
     use crate::core::bms_resource::{IMAGE_BACKBMP, IMAGE_BANNER, IMAGE_STAGEFILE};
-    use rubato_render::pixmap::{Pixmap, PixmapFormat};
+    use crate::render::pixmap::{Pixmap, PixmapFormat};
 
     let registered = Arc::new(Mutex::new(Vec::<(
         i32,
-        rubato_render::texture::TextureRegion,
+        crate::render::texture::TextureRegion,
     )>::new()));
     let registered_clone = Arc::clone(&registered);
 
     /// Mock SkinDrawable that captures register_image calls via shared state.
     struct SharedImageCaptureSkin {
-        registered: Arc<Mutex<Vec<(i32, rubato_render::texture::TextureRegion)>>>,
+        registered: Arc<Mutex<Vec<(i32, crate::render::texture::TextureRegion)>>>,
     }
 
     impl crate::core::main_state::SkinDrawable for SharedImageCaptureSkin {
         fn draw_all_objects_timed(
             &mut self,
-            _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+            _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
         ) {
         }
         fn update_custom_objects_timed(
             &mut self,
-            _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+            _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
         ) {
         }
         fn mouse_pressed_at(
             &mut self,
-            _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+            _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
             _button: i32,
             _x: i32,
             _y: i32,
@@ -2621,7 +2621,7 @@ fn test_transition_registers_stagefile_and_banner_into_skin() {
         }
         fn mouse_dragged_at(
             &mut self,
-            _ctx: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+            _ctx: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
             _button: i32,
             _x: i32,
             _y: i32,
@@ -2644,15 +2644,15 @@ fn test_transition_registers_stagefile_and_banner_into_skin() {
         fn get_height(&self) -> f32 {
             720.0
         }
-        fn swap_sprite_batch(&mut self, _batch: &mut rubato_render::sprite_batch::SpriteBatch) {}
-        fn register_image(&mut self, id: i32, texture: rubato_render::texture::TextureRegion) {
+        fn swap_sprite_batch(&mut self, _batch: &mut crate::render::sprite_batch::SpriteBatch) {}
+        fn register_image(&mut self, id: i32, texture: crate::render::texture::TextureRegion) {
             self.registered.lock().unwrap().push((id, texture));
         }
     }
 
     struct SharedImageCaptureState {
         state_data: MainStateData,
-        registered: Arc<Mutex<Vec<(i32, rubato_render::texture::TextureRegion)>>>,
+        registered: Arc<Mutex<Vec<(i32, crate::render::texture::TextureRegion)>>>,
     }
 
     impl MainState for SharedImageCaptureState {
@@ -2744,28 +2744,28 @@ fn test_transition_registers_stagefile_and_banner_into_skin() {
 fn test_transition_without_bms_images_does_not_register() {
     let registered = Arc::new(Mutex::new(Vec::<(
         i32,
-        rubato_render::texture::TextureRegion,
+        crate::render::texture::TextureRegion,
     )>::new()));
     let registered_clone = Arc::clone(&registered);
 
     // Reuse SharedImageCapture types from above by defining inline
     struct NoImageSkin {
-        registered: Arc<Mutex<Vec<(i32, rubato_render::texture::TextureRegion)>>>,
+        registered: Arc<Mutex<Vec<(i32, crate::render::texture::TextureRegion)>>>,
     }
     impl crate::core::main_state::SkinDrawable for NoImageSkin {
         fn draw_all_objects_timed(
             &mut self,
-            _: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+            _: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
         ) {
         }
         fn update_custom_objects_timed(
             &mut self,
-            _: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+            _: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
         ) {
         }
         fn mouse_pressed_at(
             &mut self,
-            _: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+            _: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
             _: i32,
             _: i32,
             _: i32,
@@ -2773,7 +2773,7 @@ fn test_transition_without_bms_images_does_not_register() {
         }
         fn mouse_dragged_at(
             &mut self,
-            _: &mut dyn rubato_skin::skin_render_context::SkinRenderContext,
+            _: &mut dyn crate::skin::skin_render_context::SkinRenderContext,
             _: i32,
             _: i32,
             _: i32,
@@ -2796,15 +2796,15 @@ fn test_transition_without_bms_images_does_not_register() {
         fn get_height(&self) -> f32 {
             720.0
         }
-        fn swap_sprite_batch(&mut self, _: &mut rubato_render::sprite_batch::SpriteBatch) {}
-        fn register_image(&mut self, id: i32, texture: rubato_render::texture::TextureRegion) {
+        fn swap_sprite_batch(&mut self, _: &mut crate::render::sprite_batch::SpriteBatch) {}
+        fn register_image(&mut self, id: i32, texture: crate::render::texture::TextureRegion) {
             self.registered.lock().unwrap().push((id, texture));
         }
     }
 
     struct NoImageState {
         state_data: MainStateData,
-        registered: Arc<Mutex<Vec<(i32, rubato_render::texture::TextureRegion)>>>,
+        registered: Arc<Mutex<Vec<(i32, crate::render::texture::TextureRegion)>>>,
     }
     impl MainState for NoImageState {
         fn state_type(&self) -> Option<MainStateType> {

@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use crate::ir_rival_provider::{IRRivalProvider, RivalInfo};
+use crate::skin::score_data::ScoreData;
 use anyhow::bail;
-use rubato_skin::score_data::ScoreData;
 
 use crate::ir::ir_connection::IRConnection;
 use crate::ir::ir_player_data::IRPlayerData;

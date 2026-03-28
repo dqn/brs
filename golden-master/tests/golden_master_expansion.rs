@@ -18,7 +18,7 @@ use golden_master::e2e_helpers::*;
 use rubato::core::pattern::lane_shuffle_modifier::LaneRandomShuffleModifier;
 use rubato::core::pattern::pattern_modifier::PatternModifier;
 use rubato::play::bms_player_rule::BMSPlayerRule;
-use rubato_skin::groove_gauge::{EXHARD, HARD, NORMAL};
+use rubato::skin::groove_gauge::{EXHARD, HARD, NORMAL};
 
 fn test_bms_dir() -> &'static Path {
     Path::new(env!("CARGO_MANIFEST_DIR"))

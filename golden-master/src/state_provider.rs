@@ -5,7 +5,7 @@
 
 use std::collections::HashMap;
 
-use rubato_skin::reexports::{MainState, SkinOffset, Timer};
+use rubato::skin::reexports::{MainState, SkinOffset, Timer};
 use serde::{Deserialize, Serialize};
 
 /// Lightweight state provider for skin evaluation.
@@ -133,28 +133,28 @@ impl<'a> StaticMainStateAdapter<'a> {
     }
 }
 
-impl rubato_skin::timer_access::TimerAccess for StaticMainStateAdapter<'_> {
+impl rubato::skin::timer_access::TimerAccess for StaticMainStateAdapter<'_> {
     fn now_time(&self) -> i64 {
         self.timer.now_time()
     }
     fn now_micro_time(&self) -> i64 {
         self.timer.now_micro_time()
     }
-    fn micro_timer(&self, timer_id: rubato_skin::timer_id::TimerId) -> i64 {
+    fn micro_timer(&self, timer_id: rubato::skin::timer_id::TimerId) -> i64 {
         self.timer.micro_timer(timer_id)
     }
-    fn timer(&self, timer_id: rubato_skin::timer_id::TimerId) -> i64 {
+    fn timer(&self, timer_id: rubato::skin::timer_id::TimerId) -> i64 {
         self.timer.timer(timer_id)
     }
-    fn now_time_for(&self, timer_id: rubato_skin::timer_id::TimerId) -> i64 {
+    fn now_time_for(&self, timer_id: rubato::skin::timer_id::TimerId) -> i64 {
         self.timer.now_time_for(timer_id)
     }
-    fn is_timer_on(&self, timer_id: rubato_skin::timer_id::TimerId) -> bool {
+    fn is_timer_on(&self, timer_id: rubato::skin::timer_id::TimerId) -> bool {
         self.timer.is_timer_on(timer_id)
     }
 }
 
-impl rubato_skin::skin_render_context::SkinRenderContext for StaticMainStateAdapter<'_> {
+impl rubato::skin::skin_render_context::SkinRenderContext for StaticMainStateAdapter<'_> {
     fn get_offset_value(&self, id: i32) -> Option<&SkinOffset> {
         self.provider.offsets.get(&id)
     }

@@ -1,5 +1,5 @@
 use crate::play::pomyu_chara_processor::PomyuCharaProcessor;
-use rubato_render::color::Rectangle;
+use crate::render::color::Rectangle;
 
 /// Play skin
 pub struct PlaySkin {

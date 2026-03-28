@@ -10,7 +10,7 @@ use crate::core::score_data::ScoreData;
 use crate::core::system_sound_manager::SoundType;
 use crate::core::timer_manager::TimerManager;
 use crate::play::groove_gauge;
-use rubato_skin::skin_property::*;
+use crate::skin::skin_property::*;
 
 use super::abstract_result::{
     AbstractResultData, REPLAY_SIZE, ReplayAutoSaveConstraint, ReplayStatus, STATE_IR_FINISHED,
@@ -23,9 +23,9 @@ use super::{
     BMSPlayerModeType, ControlKeys, KeyCommand, MainController, PlayerResource, RankingData,
 };
 use crate::core::ir_config::{IR_SEND_ALWAYS, IR_SEND_COMPLETE_SONG, IR_SEND_UPDATE_SCORE};
-use rubato_skin::property_snapshot::PropertySnapshot;
-use rubato_skin::skin_action_queue::SkinActionQueue;
-use rubato_skin::timer_id::TimerId;
+use crate::skin::property_snapshot::PropertySnapshot;
+use crate::skin::skin_action_queue::SkinActionQueue;
+use crate::skin::timer_id::TimerId;
 
 #[cfg(test)]
 mod render_context;
@@ -65,7 +65,7 @@ pub struct MusicResult {
     /// Outbox: pending audio path stops.
     pending_audio_path_stops: Vec<String>,
     /// Outbox: pending audio config update.
-    pending_audio_config: Option<rubato_skin::audio_config::AudioConfig>,
+    pending_audio_config: Option<crate::skin::audio_config::AudioConfig>,
     /// Outbox: pending stop-all-notes request (fadeout).
     pending_stop_all_notes: bool,
     /// Outbox: pending state change from skin callbacks / do_render.
@@ -73,7 +73,7 @@ pub struct MusicResult {
     /// Outbox: pending save_last_recording requests.
     pending_save_last_recording: Vec<String>,
     /// Read-only input snapshot for the current frame.
-    input_snapshot: Option<rubato_input::input_snapshot::InputSnapshot>,
+    input_snapshot: Option<crate::input::input_snapshot::InputSnapshot>,
 }
 
 impl MusicResult {
@@ -157,7 +157,7 @@ impl MusicResult {
         self.data.gauge_type = super::result_common::set_gauge_type(&self.resource);
 
         // loadSkin(SkinType.RESULT)
-        self.load_skin(rubato_skin::skin_type::SkinType::Result.id());
+        self.load_skin(crate::skin::skin_type::SkinType::Result.id());
     }
 
     fn do_prepare(&mut self) {
@@ -770,7 +770,7 @@ impl MusicResult {
         s.recent_judges_index = timer.recent_judges_index();
 
         // ---- State identity ----
-        s.state_type = Some(rubato_skin::main_state_type::MainStateType::Result);
+        s.state_type = Some(crate::skin::main_state_type::MainStateType::Result);
 
         // ---- Config ----
         s.config = Some(Box::new(self.main.config().clone()));
@@ -1274,7 +1274,7 @@ impl MainState for MusicResult {
         StateTransition::Continue
     }
 
-    fn render_skin(&mut self, sprite: &mut rubato_render::sprite_batch::SpriteBatch) {
+    fn render_skin(&mut self, sprite: &mut crate::render::sprite_batch::SpriteBatch) {
         let mut skin = match self.main_data.skin.take() {
             Some(s) => s,
             None => return,
@@ -1397,7 +1397,7 @@ impl MainState for MusicResult {
         self.do_input();
     }
 
-    fn sync_input_snapshot(&mut self, snapshot: &rubato_input::input_snapshot::InputSnapshot) {
+    fn sync_input_snapshot(&mut self, snapshot: &crate::input::input_snapshot::InputSnapshot) {
         self.input_snapshot = Some(snapshot.clone());
     }
 
@@ -1409,16 +1409,16 @@ impl MainState for MusicResult {
             .get(skin_type as usize)
             .and_then(|skin| skin.as_ref())
             .and_then(|skin| skin.path.clone())
-            .or_else(|| rubato_skin::skin_config::SkinConfig::default_for_id(skin_type).path);
+            .or_else(|| crate::skin::skin_config::SkinConfig::default_for_id(skin_type).path);
         // Take timer out to avoid borrowing self.main_data and its fields simultaneously
         let timer = std::mem::take(&mut self.main_data.timer);
         let loaded = {
             let mut snapshot = self.build_snapshot(&timer);
             let registry = std::collections::HashMap::new();
             let mut state =
-                rubato_skin::snapshot_main_state::SnapshotMainState::new(&mut snapshot, &registry);
+                crate::skin::snapshot_main_state::SnapshotMainState::new(&mut snapshot, &registry);
             skin_path.as_deref().and_then(|path| {
-                rubato_skin::skin_loader::load_skin_from_path_with_state(
+                crate::skin::skin_loader::load_skin_from_path_with_state(
                     &mut state, skin_type, path,
                 )
             })
@@ -1454,7 +1454,7 @@ impl Default for MusicResult {
     fn default() -> Self {
         Self::new(
             MainController::new(
-                rubato_skin::config::Config::default(),
+                crate::skin::config::Config::default(),
                 Box::new(crate::ir::ranking_data_cache::RankingDataCache::new()),
             ),
             PlayerResource::default(),
@@ -1471,7 +1471,7 @@ mod tests {
     use crate::result::test_helpers::{
         ExecuteEventSkin, PlayerConfigMutatingSkin, make_test_config,
     };
-    use rubato_skin::skin_render_context::SkinRenderContext;
+    use crate::skin::skin_render_context::SkinRenderContext;
 
     fn make_ranking_cache() -> Box<dyn crate::ranking_data_cache_access::RankingDataCacheAccess> {
         Box::new(crate::ir::ranking_data_cache::RankingDataCache::new())
@@ -1480,11 +1480,11 @@ mod tests {
     /// Create a CorePlayerResource with default score and replay data, matching
     /// what MouseResultResourceAccess::new(config) previously provided.
     fn make_test_core_resource(
-        config: rubato_skin::config::Config,
+        config: crate::skin::config::Config,
     ) -> crate::core::player_resource::PlayerResource {
         let mut r = crate::core::player_resource::PlayerResource::new(
             config,
-            rubato_skin::player_config::PlayerConfig::default(),
+            crate::skin::player_config::PlayerConfig::default(),
         );
         r.set_score_data(crate::core::score_data::ScoreData::default());
         r.set_replay_data(crate::core::replay_data::ReplayData::default());
@@ -1679,7 +1679,7 @@ mod tests {
     fn test_create_calls_load_skin_with_result_type() {
         let mut mr = MusicResult::default();
         <MusicResult as MainState>::create(&mut mr);
-        assert_eq!(rubato_skin::skin_type::SkinType::Result.id(), 7);
+        assert_eq!(crate::skin::skin_type::SkinType::Result.id(), 7);
         assert!(
             mr.main_data.skin.is_some(),
             "result create() should load the configured result skin"
@@ -1693,11 +1693,11 @@ mod tests {
     #[test]
     fn test_create_loads_ecfn_result_lua_skin() {
         let mut mr = make_result_for_mouse();
-        let result_skin_idx = rubato_skin::skin_type::SkinType::Result.id() as usize;
+        let result_skin_idx = crate::skin::skin_type::SkinType::Result.id() as usize;
         mr.resource
             .player_config_mut()
             .expect("player config should be mutable")
-            .skin[result_skin_idx] = Some(rubato_skin::skin_config::SkinConfig::new_with_path(
+            .skin[result_skin_idx] = Some(crate::skin::skin_config::SkinConfig::new_with_path(
             "skin/ECFN/RESULT/result.luaskin",
         ));
 
@@ -1911,7 +1911,7 @@ mod tests {
     // ============================================================
 
     fn make_result_with_songdata(
-        song_data: Option<rubato_skin::song_data::SongData>,
+        song_data: Option<crate::skin::song_data::SongData>,
     ) -> MusicResult {
         let config = make_test_config("lnmode-result");
         let main = MainController::new(config.clone(), make_ranking_cache());
@@ -1920,7 +1920,7 @@ mod tests {
             core_res.set_songdata(sd);
         }
         // Set lnmode config to a sentinel value (99) so we can verify fallback
-        rubato_skin::player_resource_access::ConfigAccess::player_config_mut(&mut core_res)
+        crate::skin::player_resource_access::ConfigAccess::player_config_mut(&mut core_res)
             .unwrap()
             .play_settings
             .lnmode = 99;
@@ -1933,7 +1933,7 @@ mod tests {
 
     #[test]
     fn result_lnmode_308_override_longnote() {
-        use rubato_skin::song_data::{ChartInfo, FEATURE_LONGNOTE, SongData};
+        use crate::skin::song_data::{ChartInfo, FEATURE_LONGNOTE, SongData};
         let mut mr = make_result_with_songdata(Some(SongData {
             chart: ChartInfo {
                 feature: FEATURE_LONGNOTE,
@@ -1954,7 +1954,7 @@ mod tests {
 
     #[test]
     fn result_lnmode_308_override_chargenote() {
-        use rubato_skin::song_data::{ChartInfo, FEATURE_CHARGENOTE, SongData};
+        use crate::skin::song_data::{ChartInfo, FEATURE_CHARGENOTE, SongData};
         let mut mr = make_result_with_songdata(Some(SongData {
             chart: ChartInfo {
                 feature: FEATURE_CHARGENOTE,
@@ -1975,7 +1975,7 @@ mod tests {
 
     #[test]
     fn result_lnmode_308_override_hellchargenote() {
-        use rubato_skin::song_data::{ChartInfo, FEATURE_HELLCHARGENOTE, SongData};
+        use crate::skin::song_data::{ChartInfo, FEATURE_HELLCHARGENOTE, SongData};
         let mut mr = make_result_with_songdata(Some(SongData {
             chart: ChartInfo {
                 feature: FEATURE_HELLCHARGENOTE,
@@ -1996,7 +1996,7 @@ mod tests {
 
     #[test]
     fn result_lnmode_308_undefined_ln_falls_through_to_config() {
-        use rubato_skin::song_data::{ChartInfo, FEATURE_UNDEFINEDLN, SongData};
+        use crate::skin::song_data::{ChartInfo, FEATURE_UNDEFINEDLN, SongData};
         let mut mr = make_result_with_songdata(Some(SongData {
             chart: ChartInfo {
                 feature: FEATURE_UNDEFINEDLN,
@@ -2110,7 +2110,7 @@ mod tests {
         // Regression: volume slider writes (IDs 17-19) on the result screen
         // must propagate to pending_audio_config, not be silently dropped.
         let mut config = make_test_config("volume-result");
-        config.audio = Some(rubato_skin::audio_config::AudioConfig::default());
+        config.audio = Some(crate::skin::audio_config::AudioConfig::default());
         let main = MainController::new(config.clone(), make_ranking_cache());
         let resource = PlayerResource::new(
             make_test_core_resource(config),
@@ -2141,7 +2141,7 @@ mod tests {
     #[test]
     fn result_mouse_context_set_float_value_clamps_volume() {
         let mut config = make_test_config("volume-clamp-result");
-        config.audio = Some(rubato_skin::audio_config::AudioConfig::default());
+        config.audio = Some(crate::skin::audio_config::AudioConfig::default());
         let main = MainController::new(config.clone(), make_ranking_cache());
         let resource = PlayerResource::new(
             make_test_core_resource(config),
@@ -2411,7 +2411,7 @@ mod tests {
             timer: &mut timer,
             result: &mut mr,
         };
-        use rubato_skin::skin_render_context::SkinRenderContext;
+        use crate::skin::skin_render_context::SkinRenderContext;
         // ID 27 = boot time hours: 7_200_000 / 3_600_000 = 2
         assert_eq!(
             ctx.integer_value(27),
@@ -2436,7 +2436,7 @@ mod tests {
             main: &mut mr.main,
             offsets: &mr.main_data.offsets,
         };
-        use rubato_skin::skin_render_context::SkinRenderContext;
+        use crate::skin::skin_render_context::SkinRenderContext;
         assert_eq!(ctx.result_gauge_type(), 3);
     }
 
@@ -2449,7 +2449,7 @@ mod tests {
             timer: &mut timer,
             result: &mut mr,
         };
-        use rubato_skin::skin_render_context::SkinRenderContext;
+        use crate::skin::skin_render_context::SkinRenderContext;
         assert_eq!(ctx.result_gauge_type(), 5);
     }
 
@@ -2468,7 +2468,7 @@ mod tests {
             main: &mut mr.main,
             offsets: &mr.main_data.offsets,
         };
-        use rubato_skin::skin_render_context::SkinRenderContext;
+        use crate::skin::skin_render_context::SkinRenderContext;
         // image_index 450 = lane_shuffle_pattern_value(0, 0) = 2
         assert_eq!(ctx.image_index_value(450), 2);
         // image_index 451 = lane_shuffle_pattern_value(0, 1) = 0
@@ -2489,7 +2489,7 @@ mod tests {
             timer: &mut timer,
             result: &mut mr,
         };
-        use rubato_skin::skin_render_context::SkinRenderContext;
+        use crate::skin::skin_render_context::SkinRenderContext;
         assert_eq!(ctx.image_index_value(450), 5);
         assert_eq!(ctx.image_index_value(451), 3);
     }
@@ -2506,7 +2506,7 @@ mod tests {
             main: &mut mr.main,
             offsets: &mr.main_data.offsets,
         };
-        use rubato_skin::skin_render_context::SkinRenderContext;
+        use crate::skin::skin_render_context::SkinRenderContext;
         assert_eq!(ctx.image_index_value(450), -1);
         assert_eq!(ctx.image_index_value(460), -1);
     }

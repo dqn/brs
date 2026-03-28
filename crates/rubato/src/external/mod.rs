@@ -48,10 +48,10 @@ pub use crate::core::score_database_accessor::ScoreDatabaseAccessor;
 pub use crate::core::table_data::{TableData, TableFolder};
 pub use crate::core::table_data_accessor::{TableAccessor, TableDataAccessor};
 pub use crate::imgui_notify::ImGuiNotify;
+pub use crate::skin::screen_type::ScreenType;
 pub use crate::song::song_data::SongData;
 pub use crate::song_database_accessor::SongDatabaseAccessor;
 pub use bms::model::mode::Mode;
-pub use rubato_skin::screen_type::ScreenType;
 
 pub use crate::external::clipboard_helper::ClipboardHelper;
 pub use crate::external::main_state_adapter::MainState;
@@ -62,7 +62,7 @@ pub use crate::external::property_adapters::{
     StringProperty, StringPropertyFactory,
 };
 
-pub use rubato_skin::skin_property::{
+pub use crate::skin::skin_property::{
     NUMBER_CLEAR, NUMBER_MAXSCORE, NUMBER_PLAYLEVEL, OPTION_RESULT_A_1P, OPTION_RESULT_AA_1P,
     OPTION_RESULT_AAA_1P, OPTION_RESULT_B_1P, OPTION_RESULT_C_1P, OPTION_RESULT_D_1P,
     OPTION_RESULT_E_1P, OPTION_RESULT_F_1P, STRING_FULLTITLE, STRING_TABLE_LEVEL,

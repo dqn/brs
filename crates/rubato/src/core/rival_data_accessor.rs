@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use crate::score_data_cache::ScoreDataCache;
-use rubato_skin::player_information::PlayerInformation;
+use crate::skin::player_information::PlayerInformation;
 
 use crate::core::main_controller::MainController;
 use crate::core::score_data_importer::ScoreDataImporter;
@@ -139,7 +139,7 @@ impl RivalDataAccessor {
                                             log::error!("Failed to create score table: {e}");
                                         }
                                         scoredb.set_information(&info_clone);
-                                        let refs: Vec<&rubato_skin::score_data::ScoreData> =
+                                        let refs: Vec<&crate::skin::score_data::ScoreData> =
                                             scores.iter().collect();
                                         scoredb.set_score_data_batch(&refs);
                                         log::info!(

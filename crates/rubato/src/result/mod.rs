@@ -7,24 +7,24 @@ pub use crate::core::bms_player_mode::BMSPlayerMode;
 pub use crate::core::bms_player_mode::Mode as BMSPlayerModeType;
 pub use crate::core::play_data_accessor::PlayDataAccessor;
 pub use crate::core::timer_manager::TimerManager;
+pub use crate::input::key_command::KeyCommand;
+pub use crate::input::keyboard_input_processor::ControlKeys;
 pub use crate::ir::ir_connection::IRConnection;
 pub use crate::ir::ir_course_data::IRCourseData;
 pub use crate::ir::ir_score_data::IRScoreData;
 pub use crate::ir::ranking_data::RankingData;
-pub use rubato_input::key_command::KeyCommand;
-pub use rubato_input::keyboard_input_processor::ControlKeys;
-pub use rubato_skin::groove_gauge::GrooveGauge;
-pub use rubato_skin::player_resource_access::PlayerResourceAccess;
-pub use rubato_skin::reexports::Color;
-pub use rubato_skin::reexports::Pixmap;
-pub use rubato_skin::reexports::PixmapFormat;
-pub use rubato_skin::reexports::Rectangle;
-pub use rubato_skin::reexports::Texture;
-pub use rubato_skin::reexports::TextureRegion;
-pub use rubato_skin::skin::Skin;
-pub use rubato_skin::skin_header::SkinHeader;
-pub use rubato_skin::skin_object::SkinObjectData;
-pub use rubato_skin::skin_object::SkinObjectRenderer;
+pub use crate::skin::groove_gauge::GrooveGauge;
+pub use crate::skin::player_resource_access::PlayerResourceAccess;
+pub use crate::skin::reexports::Color;
+pub use crate::skin::reexports::Pixmap;
+pub use crate::skin::reexports::PixmapFormat;
+pub use crate::skin::reexports::Rectangle;
+pub use crate::skin::reexports::Texture;
+pub use crate::skin::reexports::TextureRegion;
+pub use crate::skin::skin::Skin;
+pub use crate::skin::skin_header::SkinHeader;
+pub use crate::skin::skin_object::SkinObjectData;
+pub use crate::skin::skin_object::SkinObjectRenderer;
 
 // Convenience re-exports for the wrapper types
 pub use main_controller_wrapper::MainController;
@@ -102,7 +102,7 @@ macro_rules! impl_result_main_state {
             self.do_render();
         }
 
-        fn render_skin(&mut self, sprite: &mut rubato_render::sprite_batch::SpriteBatch) {
+        fn render_skin(&mut self, sprite: &mut crate::render::sprite_batch::SpriteBatch) {
             let mut skin = match self.main_data.skin.take() {
                 Some(s) => s,
                 None => return,
@@ -205,7 +205,7 @@ macro_rules! impl_result_main_state {
             self.do_input();
         }
 
-        fn sync_input_snapshot(&mut self, snapshot: &rubato_input::input_snapshot::InputSnapshot) {
+        fn sync_input_snapshot(&mut self, snapshot: &crate::input::input_snapshot::InputSnapshot) {
             self.input_snapshot = Some(snapshot.clone());
         }
 
@@ -217,17 +217,17 @@ macro_rules! impl_result_main_state {
                 .get(skin_type as usize)
                 .and_then(|skin| skin.as_ref())
                 .and_then(|skin| skin.path.clone())
-                .or_else(|| rubato_skin::skin_config::SkinConfig::default_for_id(skin_type).path);
+                .or_else(|| crate::skin::skin_config::SkinConfig::default_for_id(skin_type).path);
             let mut timer = std::mem::take(&mut self.main_data.timer);
             let loaded = {
                 let mut snapshot = self.build_snapshot(&timer);
                 let registry = std::collections::HashMap::new();
-                let mut state = rubato_skin::snapshot_main_state::SnapshotMainState::new(
+                let mut state = crate::skin::snapshot_main_state::SnapshotMainState::new(
                     &mut snapshot,
                     &registry,
                 );
                 skin_path.as_deref().and_then(|path| {
-                    rubato_skin::skin_loader::load_skin_from_path_with_state(
+                    crate::skin::skin_loader::load_skin_from_path_with_state(
                         &mut state, skin_type, path,
                     )
                 })

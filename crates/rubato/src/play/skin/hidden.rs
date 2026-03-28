@@ -54,7 +54,7 @@ impl SkinHidden {
     }
 
     pub fn draw(&self) {
-        // Drawing is handled by rubato_skin::skin_hidden::SkinHidden.
+        // Drawing is handled by crate::skin::skin_hidden::SkinHidden.
         // The skin-level SkinHidden holds TextureRegion arrays and implements
         // the full hidden cover rendering logic (trimming at disappear line).
         // This play-side struct exists for standalone hidden state only.

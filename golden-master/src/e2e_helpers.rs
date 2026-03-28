@@ -14,12 +14,12 @@ use bms::model::judge_note::{
 };
 use bms::model::mode::Mode;
 use rubato::core::score_data::ScoreData;
+use rubato::input::key_input_log::KeyInputLog;
 use rubato::play::bms_player_rule::BMSPlayerRule;
 use rubato::play::judge_algorithm::JudgeAlgorithm;
 use rubato::play::judge_manager::{JudgeConfig, JudgeManager};
 use rubato::play::lane_property::LaneProperty;
-use rubato_input::key_input_log::KeyInputLog;
-use rubato_skin::groove_gauge::GrooveGauge;
+use rubato::skin::groove_gauge::GrooveGauge;
 
 /// Sentinel for "not set" timestamps (matches JudgeManager internal).
 pub const NOT_SET: i64 = i64::MIN;
@@ -311,7 +311,7 @@ pub fn run_course_simulation(models: &[&BMSModel], gauge_type: i32) -> CourseSim
             jm.update(time, &judge_notes, &key_states, &key_times, &mut gauge);
 
             // Stop judging if gauge dies (hard gauge types reach 0 and stay dead)
-            if gauge_type >= rubato_skin::groove_gauge::HARD && gauge.value() <= 0.0 {
+            if gauge_type >= rubato::skin::groove_gauge::HARD && gauge.value() <= 0.0 {
                 break;
             }
 
@@ -331,7 +331,7 @@ pub fn run_course_simulation(models: &[&BMSModel], gauge_type: i32) -> CourseSim
     }
 
     let completed =
-        carry_gauge.is_none_or(|v| v > 0.0) || gauge_type < rubato_skin::groove_gauge::HARD;
+        carry_gauge.is_none_or(|v| v > 0.0) || gauge_type < rubato::skin::groove_gauge::HARD;
     CourseSimulationResult { stages, completed }
 }
 

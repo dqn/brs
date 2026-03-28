@@ -6,7 +6,7 @@ use std::path::Path;
 use log::error;
 
 use crate::core::config::Config;
-use rubato_skin::skin_header::SkinHeader;
+use crate::skin::skin_header::SkinHeader;
 
 /// Load a skin header from a file path.
 ///
@@ -17,11 +17,11 @@ use rubato_skin::skin_header::SkinHeader;
 ///
 /// Returns `None` if the file cannot be parsed as a valid skin header.
 pub fn load_skin_header(path: &Path, config: &Config) -> Option<SkinHeader> {
-    use rubato_skin::json::json_skin_loader::JSONSkinLoader;
-    use rubato_skin::lr2::lr2_skin_header_loader::LR2SkinHeaderLoader;
-    use rubato_skin::lua::lua_skin_loader::LuaSkinLoader;
-    use rubato_skin::reexports::Resolution;
-    use rubato_skin::skin_data_converter::convert_header_data;
+    use crate::skin::json::json_skin_loader::JSONSkinLoader;
+    use crate::skin::lr2::lr2_skin_header_loader::LR2SkinHeaderLoader;
+    use crate::skin::lua::lua_skin_loader::LuaSkinLoader;
+    use crate::skin::reexports::Resolution;
+    use crate::skin::skin_data_converter::convert_header_data;
 
     let path_string = path.to_string_lossy().to_lowercase();
     let default_src = Resolution {
@@ -60,9 +60,9 @@ pub fn load_skin_header(path: &Path, config: &Config) -> Option<SkinHeader> {
 /// Maps the LR2-specific header data types to the common SkinHeader type
 /// used by the launcher UI.
 pub(super) fn convert_lr2_header_data(
-    data: &rubato_skin::lr2::lr2_skin_header_loader::LR2SkinHeaderData,
+    data: &crate::skin::lr2::lr2_skin_header_loader::LR2SkinHeaderData,
 ) -> SkinHeader {
-    use rubato_skin::skin_header::{CustomFile, CustomOffset, CustomOption, TYPE_LR2SKIN};
+    use crate::skin::skin_header::{CustomFile, CustomOffset, CustomOption, TYPE_LR2SKIN};
 
     let mut header = SkinHeader::default();
 
@@ -112,9 +112,9 @@ pub(super) fn convert_lr2_header_data(
 }
 
 fn convert_lr2_custom_option(
-    o: &rubato_skin::lr2::lr2_skin_header_loader::CustomOption,
-) -> rubato_skin::skin_header::CustomOption {
-    rubato_skin::skin_header::CustomOption::new(
+    o: &crate::skin::lr2::lr2_skin_header_loader::CustomOption,
+) -> crate::skin::skin_header::CustomOption {
+    crate::skin::skin_header::CustomOption::new(
         o.name.clone(),
         o.option.clone(),
         o.contents.clone(),
@@ -122,13 +122,13 @@ fn convert_lr2_custom_option(
 }
 
 fn convert_lr2_custom_file(
-    f: &rubato_skin::lr2::lr2_skin_header_loader::CustomFile,
-) -> rubato_skin::skin_header::CustomFile {
-    rubato_skin::skin_header::CustomFile::new(f.name.clone(), f.path.clone(), f.def.clone())
+    f: &crate::skin::lr2::lr2_skin_header_loader::CustomFile,
+) -> crate::skin::skin_header::CustomFile {
+    crate::skin::skin_header::CustomFile::new(f.name.clone(), f.path.clone(), f.def.clone())
 }
 
 fn convert_lr2_custom_offset(
-    o: &rubato_skin::lr2::lr2_skin_header_loader::CustomOffset,
-) -> rubato_skin::skin_header::CustomOffset {
-    rubato_skin::skin_header::CustomOffset::new(o.name.clone(), o.id, o.caps)
+    o: &crate::skin::lr2::lr2_skin_header_loader::CustomOffset,
+) -> crate::skin::skin_header::CustomOffset {
+    crate::skin::skin_header::CustomOffset::new(o.name.clone(), o.id, o.caps)
 }

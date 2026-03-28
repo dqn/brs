@@ -1,1 +1,1 @@
-pub use rubato_skin::resolution::*;
+pub use crate::skin::resolution::*;

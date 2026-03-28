@@ -1,18 +1,18 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
+use crate::audio::audio_system::AudioSystem;
 use crate::core::app_context::GameContext;
 use crate::core::score_data_property::ScoreDataProperty;
 use crate::core::timer_manager::TimerManager;
-use rubato_audio::audio_system::AudioSystem;
-use rubato_input::bms_player_input_processor::BMSPlayerInputProcessor;
-use rubato_input::input_snapshot::InputSnapshot;
-use rubato_render::sprite_batch::SpriteBatch;
-use rubato_skin::skin_offset::SkinOffset;
-use rubato_skin::sound_type::SoundType;
+use crate::input::bms_player_input_processor::BMSPlayerInputProcessor;
+use crate::input::input_snapshot::InputSnapshot;
+use crate::render::sprite_batch::SpriteBatch;
+use crate::skin::skin_offset::SkinOffset;
+use crate::skin::sound_type::SoundType;
 
 // MainStateType moved to beatoraja-types (Phase 15d)
-pub use rubato_skin::main_state_type::MainStateType;
+pub use crate::skin::main_state_type::MainStateType;
 
 /// Result of a state's render cycle, indicating what should happen next.
 ///
@@ -217,7 +217,7 @@ pub trait MainState {
         None
     }
 
-    fn get_image(&self, _imageid: i32) -> Option<rubato_render::texture::TextureRegion> {
+    fn get_image(&self, _imageid: i32) -> Option<crate::render::texture::TextureRegion> {
         // Default no-op: concrete states override to return TextureRegion from PlayerResource.
         // Skin rendering uses the skin crate's MainState trait (separate from this trait).
         None
@@ -290,7 +290,7 @@ pub trait MainState {
     fn receive_updated_play_config(
         &mut self,
         _mode: bms::model::mode::Mode,
-        _play_config: rubato_skin::play_config::PlayConfig,
+        _play_config: crate::skin::play_config::PlayConfig,
     ) {
         // Default no-op — only BMSPlayer uses this.
     }
@@ -332,8 +332,8 @@ pub trait MainState {
 }
 
 // Re-exported from rubato-render (canonical location)
-pub use rubato_skin::skin_drawable::PlaySkinProperties;
-pub use rubato_skin::skin_drawable::SkinDrawable;
+pub use crate::skin::skin_drawable::PlaySkinProperties;
+pub use crate::skin::skin_drawable::SkinDrawable;
 
 /// Shared data for MainState implementations
 pub struct MainStateData {

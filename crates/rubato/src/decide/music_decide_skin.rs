@@ -1,8 +1,8 @@
 // Translated from MusicDecideSkin.java
 // Skin for the music decide screen.
 
-use rubato_skin::skin::Skin;
-use rubato_skin::skin_header::SkinHeader;
+use crate::skin::skin::Skin;
+use crate::skin::skin_header::SkinHeader;
 
 /// MusicDecideSkin - skin for the music decide screen
 ///

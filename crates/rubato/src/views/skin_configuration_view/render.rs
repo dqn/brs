@@ -2,8 +2,8 @@
 // Extracted from mod.rs for navigability.
 
 use super::{SkinConfigItem, SkinConfigurationView};
-use rubato_skin::skin_header::TYPE_BEATORJASKIN;
-use rubato_skin::skin_type::SkinType;
+use crate::skin::skin_header::TYPE_BEATORJASKIN;
+use crate::skin::skin_type::SkinType;
 
 impl SkinConfigurationView {
     /// Render the skin configuration view using egui.
@@ -153,7 +153,7 @@ impl SkinConfigurationView {
 
     /// Helper: Get skin header display name for SkinListCell
     /// Translates: SkinListCell.updateItem(SkinHeader, boolean)
-    pub fn skin_header_display_name(header: &rubato_skin::skin_header::SkinHeader) -> String {
+    pub fn skin_header_display_name(header: &crate::skin::skin_header::SkinHeader) -> String {
         let name = header.name().unwrap_or("");
         if header.toast_type() == TYPE_BEATORJASKIN {
             name.to_string()

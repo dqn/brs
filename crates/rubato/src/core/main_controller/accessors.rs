@@ -65,7 +65,7 @@ impl MainController {
                 audio: None,
                 sound: Some(sound),
                 loudness_analyzer: Some(
-                    rubato_audio::bms_loudness_analyzer::BMSLoudnessAnalyzer::new(),
+                    crate::audio::bms_loudness_analyzer::BMSLoudnessAnalyzer::new(),
                 ),
                 timer,
                 input: Some(input),
@@ -264,7 +264,7 @@ impl MainController {
     /// Disconnected senders are pruned automatically on each broadcast.
     pub fn add_event_sender(
         &mut self,
-        sender: std::sync::mpsc::SyncSender<rubato_skin::app_event::AppEvent>,
+        sender: std::sync::mpsc::SyncSender<crate::skin::app_event::AppEvent>,
     ) {
         self.event_senders.push(sender);
     }
@@ -281,7 +281,7 @@ impl MainController {
     )]
     pub fn set_state_event_log(
         &mut self,
-        log: std::sync::Arc<std::sync::Mutex<Vec<rubato_skin::state_event::StateEvent>>>,
+        log: std::sync::Arc<std::sync::Mutex<Vec<crate::skin::state_event::StateEvent>>>,
     ) {
         self.state_event_log = Some(log);
     }
@@ -302,20 +302,20 @@ impl MainController {
     }
 
     /// Emit a state event to the event log and to all channel-based receivers.
-    pub(super) fn emit_state_event(&self, event: rubato_skin::state_event::StateEvent) {
+    pub(super) fn emit_state_event(&self, event: crate::skin::state_event::StateEvent) {
         if let Some(ref log) = self.state_event_log
             && let Ok(mut guard) = log.lock()
         {
             guard.push(event.clone());
         }
-        self.broadcast_app_event(rubato_skin::app_event::AppEvent::Lifecycle(event));
+        self.broadcast_app_event(crate::skin::app_event::AppEvent::Lifecycle(event));
     }
 
     /// Broadcast an `AppEvent` to all registered channel senders.
     ///
     /// Uses `try_send` to avoid blocking the render thread. Disconnected
     /// senders are silently ignored (pruned on next mutable access).
-    pub(super) fn broadcast_app_event(&self, event: rubato_skin::app_event::AppEvent) {
+    pub(super) fn broadcast_app_event(&self, event: crate::skin::app_event::AppEvent) {
         for sender in &self.event_senders {
             let _ = sender.try_send(event.clone());
         }
@@ -334,7 +334,7 @@ impl MainController {
             let state_type = current.state_type();
 
             let song_info = self.resource.as_ref().and_then(|r| r.songdata()).map(|sd| {
-                rubato_skin::app_event::SongInfo {
+                crate::skin::app_event::SongInfo {
                     title: sd.metadata.title.clone(),
                     subtitle: sd.metadata.subtitle.clone(),
                     artist: sd.metadata.artist.clone(),
@@ -342,13 +342,13 @@ impl MainController {
                 }
             });
 
-            let data = rubato_skin::app_event::StateChangedData {
+            let data = crate::skin::app_event::StateChangedData {
                 screen_type,
                 state_type,
                 status,
                 song_info,
             };
-            self.broadcast_app_event(rubato_skin::app_event::AppEvent::StateChanged(data));
+            self.broadcast_app_event(crate::skin::app_event::AppEvent::StateChanged(data));
         }
     }
 }

@@ -13,8 +13,8 @@ use rubato::core::main_controller::MainController;
 use rubato::core::main_loader::MainLoader;
 use rubato::core::main_state::MainStateType;
 use rubato::core::player_config::PlayerConfig;
+use rubato::skin::app_event::AppEvent;
 use rubato::state_factory::LauncherStateFactory;
-use rubato_skin::app_event::AppEvent;
 
 // ---------------------------------------------------------------------------
 // Helper: create controller via MainLoader::play() (production path)

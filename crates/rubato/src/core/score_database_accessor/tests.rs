@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use rusqlite::Connection;
 
 use crate::core::sqlite_database_accessor::{Column, SQLiteDatabaseAccessor, Table};
-use rubato_skin::player_data::PlayerData;
-use rubato_skin::score_data::ScoreData;
+use crate::skin::player_data::PlayerData;
+use crate::skin::score_data::ScoreData;
 
 use super::helpers::{local_midnight_timestamp, player_data_to_value, score_data_to_value};
 use super::{ScoreDataCollector, ScoreDatabaseAccessor, SongData};
@@ -59,7 +59,7 @@ fn set_player_data_does_not_panic() {
 
 #[test]
 fn test_score_data_to_value_basic() {
-    use rubato_skin::score_data::{JudgeCounts, PlayOption, TimingStats};
+    use crate::skin::score_data::{JudgeCounts, PlayOption, TimingStats};
     let sd = ScoreData {
         sha256: "abc123def456".to_string(),
         mode: 7,

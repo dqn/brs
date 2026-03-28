@@ -3,15 +3,15 @@ pub(crate) use crate::play::bms_player_rule::BMSPlayerRule;
 pub(crate) use crate::play::judge::algorithm::JudgeAlgorithm;
 pub(crate) use crate::play::judge::property::{JudgeProperty, MissCondition, NoteType};
 pub(crate) use crate::play::lane_property::LaneProperty;
+pub(crate) use crate::skin::course_data::CourseDataConstraint;
+pub(crate) use crate::skin::groove_gauge::GrooveGauge;
+pub(crate) use crate::skin::player_config::PlayerConfig;
 pub(crate) use bms::model::bms_model::{BMSModel, LNTYPE_HELLCHARGENOTE, LNTYPE_LONGNOTE, LnType};
 pub(crate) use bms::model::judge_note::{JUDGE_PR, JudgeNote};
 pub(crate) use bms::model::mode::Mode;
 pub(crate) use bms::model::note::{
     TYPE_CHARGENOTE, TYPE_HELLCHARGENOTE, TYPE_LONGNOTE, TYPE_UNDEFINED,
 };
-pub(crate) use rubato_skin::course_data::CourseDataConstraint;
-pub(crate) use rubato_skin::groove_gauge::GrooveGauge;
-pub(crate) use rubato_skin::player_config::PlayerConfig;
 
 /// HCN gauge change interval (microseconds)
 const HCN_MDURATION: i64 = 200000;

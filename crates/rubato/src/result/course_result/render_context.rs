@@ -1,4 +1,4 @@
-use rubato_skin::audio_config::DEFAULT_AUDIO_VOLUME;
+use crate::skin::audio_config::DEFAULT_AUDIO_VOLUME;
 
 use super::CourseResult;
 use crate::result::abstract_result::AbstractResultData;
@@ -10,7 +10,7 @@ use crate::result::{MainController, PlayerResource};
 /// Shared between `CourseResultRenderContext` and `CourseResultMouseContext`.
 fn course_current_play_config_ref(
     resource: &PlayerResource,
-) -> Option<&rubato_skin::play_config::PlayConfig> {
+) -> Option<&crate::skin::play_config::PlayConfig> {
     let course = resource.course_data()?;
     let mut current_mode: Option<bms::model::mode::Mode> = None;
     for song in &course.hash {
@@ -50,33 +50,33 @@ pub(super) struct CourseResultRenderContext<'a> {
     pub(super) data: &'a AbstractResultData,
     pub(super) resource: &'a PlayerResource,
     pub(super) main: &'a mut MainController,
-    pub(super) offsets: &'a std::collections::HashMap<i32, rubato_skin::skin_offset::SkinOffset>,
+    pub(super) offsets: &'a std::collections::HashMap<i32, crate::skin::skin_offset::SkinOffset>,
 }
 
-impl rubato_skin::timer_access::TimerAccess for CourseResultRenderContext<'_> {
+impl crate::skin::timer_access::TimerAccess for CourseResultRenderContext<'_> {
     fn now_time(&self) -> i64 {
         self.timer.now_time()
     }
     fn now_micro_time(&self) -> i64 {
         self.timer.now_micro_time()
     }
-    fn micro_timer(&self, timer_id: rubato_skin::timer_id::TimerId) -> i64 {
+    fn micro_timer(&self, timer_id: crate::skin::timer_id::TimerId) -> i64 {
         self.timer.micro_timer(timer_id)
     }
-    fn timer(&self, timer_id: rubato_skin::timer_id::TimerId) -> i64 {
+    fn timer(&self, timer_id: crate::skin::timer_id::TimerId) -> i64 {
         self.timer.timer(timer_id)
     }
-    fn now_time_for(&self, timer_id: rubato_skin::timer_id::TimerId) -> i64 {
+    fn now_time_for(&self, timer_id: crate::skin::timer_id::TimerId) -> i64 {
         self.timer.now_time_for_id(timer_id)
     }
-    fn is_timer_on(&self, timer_id: rubato_skin::timer_id::TimerId) -> bool {
+    fn is_timer_on(&self, timer_id: crate::skin::timer_id::TimerId) -> bool {
         self.timer.is_timer_on(timer_id)
     }
 }
 
-impl rubato_skin::skin_render_context::SkinRenderContext for CourseResultRenderContext<'_> {
-    fn current_state_type(&self) -> Option<rubato_skin::main_state_type::MainStateType> {
-        Some(rubato_skin::main_state_type::MainStateType::CourseResult)
+impl crate::skin::skin_render_context::SkinRenderContext for CourseResultRenderContext<'_> {
+    fn current_state_type(&self) -> Option<crate::skin::main_state_type::MainStateType> {
+        Some(crate::skin::main_state_type::MainStateType::CourseResult)
     }
 
     fn boot_time_millis(&self) -> i64 {
@@ -91,15 +91,15 @@ impl rubato_skin::skin_render_context::SkinRenderContext for CourseResultRenderC
         self.timer.recent_judges_index()
     }
 
-    fn player_config_ref(&self) -> Option<&rubato_skin::player_config::PlayerConfig> {
+    fn player_config_ref(&self) -> Option<&crate::skin::player_config::PlayerConfig> {
         shared_render_context::player_config_ref(self.resource)
     }
 
-    fn config_ref(&self) -> Option<&rubato_skin::config::Config> {
+    fn config_ref(&self) -> Option<&crate::skin::config::Config> {
         shared_render_context::config_ref(self.main)
     }
 
-    fn replay_option_data(&self) -> Option<&rubato_skin::replay_data::ReplayData> {
+    fn replay_option_data(&self) -> Option<&crate::skin::replay_data::ReplayData> {
         shared_render_context::replay_option_data(self.resource)
     }
 
@@ -115,15 +115,15 @@ impl rubato_skin::skin_render_context::SkinRenderContext for CourseResultRenderC
         shared_render_context::rival_score_data_ref(self.data)
     }
 
-    fn current_play_config_ref(&self) -> Option<&rubato_skin::play_config::PlayConfig> {
+    fn current_play_config_ref(&self) -> Option<&crate::skin::play_config::PlayConfig> {
         course_current_play_config_ref(self.resource)
     }
 
-    fn song_data_ref(&self) -> Option<&rubato_skin::song_data::SongData> {
+    fn song_data_ref(&self) -> Option<&crate::skin::song_data::SongData> {
         shared_render_context::song_data_ref(self.resource)
     }
 
-    fn set_timer_micro(&mut self, timer_id: rubato_skin::timer_id::TimerId, micro_time: i64) {
+    fn set_timer_micro(&mut self, timer_id: crate::skin::timer_id::TimerId, micro_time: i64) {
         self.timer.set_micro_timer(timer_id, micro_time);
     }
 
@@ -183,7 +183,7 @@ impl rubato_skin::skin_render_context::SkinRenderContext for CourseResultRenderC
             308 => {
                 if let Some(song) = self.resource.songdata()
                     && let Some(override_val) =
-                        rubato_skin::skin_render_context::compute_lnmode_from_chart(&song.chart)
+                        crate::skin::skin_render_context::compute_lnmode_from_chart(&song.chart)
                 {
                     return override_val;
                 }
@@ -359,11 +359,11 @@ impl rubato_skin::skin_render_context::SkinRenderContext for CourseResultRenderC
 
     fn get_timing_distribution(
         &self,
-    ) -> Option<&rubato_skin::timing_distribution::TimingDistribution> {
+    ) -> Option<&crate::skin::timing_distribution::TimingDistribution> {
         shared_render_context::get_timing_distribution(self.data)
     }
 
-    fn score_data_property(&self) -> &rubato_skin::score_data_property::ScoreDataProperty {
+    fn score_data_property(&self) -> &crate::skin::score_data_property::ScoreDataProperty {
         shared_render_context::score_data_property(self.data)
     }
 
@@ -375,12 +375,12 @@ impl rubato_skin::skin_render_context::SkinRenderContext for CourseResultRenderC
         shared_render_context::gauge_element_borders(self.resource)
     }
 
-    fn get_offset_value(&self, id: i32) -> Option<&rubato_skin::skin_offset::SkinOffset> {
+    fn get_offset_value(&self, id: i32) -> Option<&crate::skin::skin_offset::SkinOffset> {
         self.offsets.get(&id)
     }
 }
 
-impl rubato_skin::main_state::MainState for CourseResultRenderContext<'_> {}
+impl crate::skin::main_state::MainState for CourseResultRenderContext<'_> {}
 
 #[allow(dead_code)]
 pub(super) struct CourseResultMouseContext<'a> {
@@ -388,7 +388,7 @@ pub(super) struct CourseResultMouseContext<'a> {
     pub(super) result: &'a mut CourseResult,
 }
 
-impl rubato_skin::timer_access::TimerAccess for CourseResultMouseContext<'_> {
+impl crate::skin::timer_access::TimerAccess for CourseResultMouseContext<'_> {
     fn now_time(&self) -> i64 {
         self.timer.now_time()
     }
@@ -397,26 +397,26 @@ impl rubato_skin::timer_access::TimerAccess for CourseResultMouseContext<'_> {
         self.timer.now_micro_time()
     }
 
-    fn micro_timer(&self, timer_id: rubato_skin::timer_id::TimerId) -> i64 {
+    fn micro_timer(&self, timer_id: crate::skin::timer_id::TimerId) -> i64 {
         self.timer.micro_timer(timer_id)
     }
 
-    fn timer(&self, timer_id: rubato_skin::timer_id::TimerId) -> i64 {
+    fn timer(&self, timer_id: crate::skin::timer_id::TimerId) -> i64 {
         self.timer.timer(timer_id)
     }
 
-    fn now_time_for(&self, timer_id: rubato_skin::timer_id::TimerId) -> i64 {
+    fn now_time_for(&self, timer_id: crate::skin::timer_id::TimerId) -> i64 {
         self.timer.now_time_for_id(timer_id)
     }
 
-    fn is_timer_on(&self, timer_id: rubato_skin::timer_id::TimerId) -> bool {
+    fn is_timer_on(&self, timer_id: crate::skin::timer_id::TimerId) -> bool {
         self.timer.is_timer_on(timer_id)
     }
 }
 
-impl rubato_skin::skin_render_context::SkinRenderContext for CourseResultMouseContext<'_> {
-    fn current_state_type(&self) -> Option<rubato_skin::main_state_type::MainStateType> {
-        Some(rubato_skin::main_state_type::MainStateType::CourseResult)
+impl crate::skin::skin_render_context::SkinRenderContext for CourseResultMouseContext<'_> {
+    fn current_state_type(&self) -> Option<crate::skin::main_state_type::MainStateType> {
+        Some(crate::skin::main_state_type::MainStateType::CourseResult)
     }
 
     fn boot_time_millis(&self) -> i64 {
@@ -431,15 +431,15 @@ impl rubato_skin::skin_render_context::SkinRenderContext for CourseResultMouseCo
         self.timer.recent_judges_index()
     }
 
-    fn player_config_ref(&self) -> Option<&rubato_skin::player_config::PlayerConfig> {
+    fn player_config_ref(&self) -> Option<&crate::skin::player_config::PlayerConfig> {
         shared_render_context::player_config_ref(&self.result.resource)
     }
 
-    fn config_ref(&self) -> Option<&rubato_skin::config::Config> {
+    fn config_ref(&self) -> Option<&crate::skin::config::Config> {
         shared_render_context::config_ref(&self.result.main)
     }
 
-    fn replay_option_data(&self) -> Option<&rubato_skin::replay_data::ReplayData> {
+    fn replay_option_data(&self) -> Option<&crate::skin::replay_data::ReplayData> {
         shared_render_context::replay_option_data(&self.result.resource)
     }
 
@@ -455,11 +455,11 @@ impl rubato_skin::skin_render_context::SkinRenderContext for CourseResultMouseCo
         shared_render_context::rival_score_data_ref(&self.result.data)
     }
 
-    fn song_data_ref(&self) -> Option<&rubato_skin::song_data::SongData> {
+    fn song_data_ref(&self) -> Option<&crate::skin::song_data::SongData> {
         shared_render_context::song_data_ref(&self.result.resource)
     }
 
-    fn current_play_config_ref(&self) -> Option<&rubato_skin::play_config::PlayConfig> {
+    fn current_play_config_ref(&self) -> Option<&crate::skin::play_config::PlayConfig> {
         course_current_play_config_ref(&self.result.resource)
     }
 
@@ -520,11 +520,11 @@ impl rubato_skin::skin_render_context::SkinRenderContext for CourseResultMouseCo
 
     fn get_timing_distribution(
         &self,
-    ) -> Option<&rubato_skin::timing_distribution::TimingDistribution> {
+    ) -> Option<&crate::skin::timing_distribution::TimingDistribution> {
         shared_render_context::get_timing_distribution(&self.result.data)
     }
 
-    fn score_data_property(&self) -> &rubato_skin::score_data_property::ScoreDataProperty {
+    fn score_data_property(&self) -> &crate::skin::score_data_property::ScoreDataProperty {
         shared_render_context::score_data_property(&self.result.data)
     }
 
@@ -533,7 +533,7 @@ impl rubato_skin::skin_render_context::SkinRenderContext for CourseResultMouseCo
             308 => {
                 if let Some(song) = self.result.resource.songdata()
                     && let Some(override_val) =
-                        rubato_skin::skin_render_context::compute_lnmode_from_chart(&song.chart)
+                        crate::skin::skin_render_context::compute_lnmode_from_chart(&song.chart)
                 {
                     return override_val;
                 }
@@ -735,11 +735,11 @@ impl rubato_skin::skin_render_context::SkinRenderContext for CourseResultMouseCo
         }
     }
 
-    fn change_state(&mut self, state: rubato_skin::main_state_type::MainStateType) {
+    fn change_state(&mut self, state: crate::skin::main_state_type::MainStateType) {
         self.result.pending_state_change = Some(state);
     }
 
-    fn set_timer_micro(&mut self, timer_id: rubato_skin::timer_id::TimerId, micro_time: i64) {
+    fn set_timer_micro(&mut self, timer_id: crate::skin::timer_id::TimerId, micro_time: i64) {
         self.timer.set_micro_timer(timer_id, micro_time);
     }
 
@@ -753,7 +753,7 @@ impl rubato_skin::skin_render_context::SkinRenderContext for CourseResultMouseCo
         self.result.pending_audio_path_stops.push(path.to_string());
     }
 
-    fn player_config_mut(&mut self) -> Option<&mut rubato_skin::player_config::PlayerConfig> {
+    fn player_config_mut(&mut self) -> Option<&mut crate::skin::player_config::PlayerConfig> {
         self.result.resource.player_config_mut()
     }
 
@@ -789,7 +789,7 @@ impl rubato_skin::skin_render_context::SkinRenderContext for CourseResultMouseCo
         ));
     }
 
-    fn get_offset_value(&self, id: i32) -> Option<&rubato_skin::skin_offset::SkinOffset> {
+    fn get_offset_value(&self, id: i32) -> Option<&crate::skin::skin_offset::SkinOffset> {
         self.result.main_data.offsets.get(&id)
     }
 }

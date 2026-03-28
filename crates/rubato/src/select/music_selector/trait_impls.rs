@@ -4,7 +4,7 @@ use super::*;
 // SongSelectionAccess trait implementation
 // ============================================================
 
-impl rubato_skin::song_selection_access::SongSelectionAccess for MusicSelector {
+impl crate::skin::song_selection_access::SongSelectionAccess for MusicSelector {
     fn selected_song_data(&self) -> Option<SongData> {
         let bar = self.selected_bar()?;
         bar.as_song_bar().map(|sb| sb.song_data().clone())
@@ -42,15 +42,15 @@ impl MainState for MusicSelector {
 
     fn load_skin(&mut self, skin_type: i32) {
         let skin_path =
-            rubato_skin::skin_loader::skin_path_from_player_config(&self.config, skin_type);
+            crate::skin::skin_loader::skin_path_from_player_config(&self.config, skin_type);
         let timer = std::mem::take(&mut self.main_state_data.timer);
         let skin_result = {
             let mut snapshot = self.build_snapshot(&timer);
             let registry = std::collections::HashMap::new();
             let mut state =
-                rubato_skin::snapshot_main_state::SnapshotMainState::new(&mut snapshot, &registry);
+                crate::skin::snapshot_main_state::SnapshotMainState::new(&mut snapshot, &registry);
             skin_path.as_deref().and_then(|path| {
-                rubato_skin::skin_loader::load_skin_from_path_with_state(
+                crate::skin::skin_loader::load_skin_from_path_with_state(
                     &mut state, skin_type, path,
                 )
             })
@@ -293,7 +293,7 @@ impl MainState for MusicSelector {
         self.load_skin(SkinType::MusicSelect.id());
         if let Some(skin) = self.main_state_data.skin.as_mut() {
             skin.prepare_skin(Some(
-                rubato_skin::main_state_type::MainStateType::MusicSelect,
+                crate::skin::main_state_type::MainStateType::MusicSelect,
             ));
         }
 
@@ -321,14 +321,14 @@ impl MainState for MusicSelector {
 
     /// Override skin rendering to add BarRenderer prepare/render around the default cycle.
     /// Java: MusicSelectSkin.render() wraps MainSkin.render() with bar logic.
-    fn render_skin(&mut self, sprite: &mut rubato_render::sprite_batch::SpriteBatch) {
-        use rubato_skin::skin_object::SkinObjectRenderer;
+    fn render_skin(&mut self, sprite: &mut crate::render::sprite_batch::SpriteBatch) {
+        use crate::skin::skin_object::SkinObjectRenderer;
         let time = self.main_state_data.timer.now_time();
 
         // Prepare skin_bar sub-objects (sets data.draw = true on bar images).
         // Must be called before bar_renderer.prepare() which checks data.draw.
         if let Some(skin_bar) = &mut self.bar_rendering.skin_bar {
-            let timer_snapshot = rubato_skin::reexports::Timer::with_timers(
+            let timer_snapshot = crate::skin::reexports::Timer::with_timers(
                 self.main_state_data.timer.now_time(),
                 self.main_state_data.timer.now_micro_time(),
                 self.main_state_data.timer.export_timer_array(),
@@ -400,7 +400,7 @@ impl MainState for MusicSelector {
 
         // Bar render — draw bar images, text, lamps, etc.
         {
-            let timer_snapshot = rubato_skin::reexports::Timer::with_timers(
+            let timer_snapshot = crate::skin::reexports::Timer::with_timers(
                 self.main_state_data.timer.now_time(),
                 self.main_state_data.timer.now_micro_time(),
                 self.main_state_data.timer.export_timer_array(),
@@ -491,7 +491,7 @@ impl MainState for MusicSelector {
             if let (Some(bar_renderer), Some(skin_bar)) =
                 (&self.bar_rendering.bar, &self.bar_rendering.skin_bar)
             {
-                let timer_snapshot = rubato_skin::reexports::Timer::with_timers(
+                let timer_snapshot = crate::skin::reexports::Timer::with_timers(
                     self.main_state_data.timer.now_time(),
                     self.main_state_data.timer.now_micro_time(),
                     self.main_state_data.timer.export_timer_array(),
@@ -641,7 +641,7 @@ impl MainState for MusicSelector {
                 .and_then(|b| b.as_grade_bar())
                 .map(|gb| gb.course_data().clone());
             if let Some(res) = self.player_resource.as_mut() {
-                rubato_skin::player_resource_access::SongAccess::set_songdata(res, song_data);
+                crate::skin::player_resource_access::SongAccess::set_songdata(res, song_data);
                 if let Some(cd) = course_data {
                     res.set_course_data(cd);
                 } else {

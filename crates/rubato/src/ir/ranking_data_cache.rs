@@ -7,7 +7,7 @@ use sha2::{Digest, Sha256};
 
 use crate::core::course_data::CourseData;
 use crate::ranking_data_cache_access::RankingDataCacheAccess;
-use rubato_skin::song_data::SongData;
+use crate::skin::song_data::SongData;
 
 use crate::ir::convert_hex_string;
 use crate::ir::ranking_data::RankingData;
@@ -137,7 +137,7 @@ impl RankingDataCache {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rubato_skin::song_data::FEATURE_UNDEFINEDLN;
+    use crate::skin::song_data::FEATURE_UNDEFINEDLN;
 
     /// Verify that `song()` and `put_song()` use the same cache index logic
     /// (both delegate to `song_cache_index`). Previously `song()` had inline

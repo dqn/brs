@@ -1,1 +1,1 @@
-pub use rubato_skin::audio_config::*;
+pub use crate::skin::audio_config::*;

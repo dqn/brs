@@ -13,9 +13,9 @@ use std::path::{Path, PathBuf};
 use crate::core::config::Config;
 use crate::core::player_config::PlayerConfig;
 use crate::core::skin_config::{SkinConfig, SkinFilePath, SkinOffset, SkinOption, SkinProperty};
-use rubato_skin::skin_header::SkinHeader;
-use rubato_skin::skin_property::OPTION_RANDOM_VALUE;
-use rubato_skin::skin_type::SkinType;
+use crate::skin::skin_header::SkinHeader;
+use crate::skin::skin_property::OPTION_RANDOM_VALUE;
+use crate::skin::skin_type::SkinType;
 
 /// Skin configuration item for egui rendering
 /// Translates the dynamic VBox content built by create() method.
@@ -331,7 +331,7 @@ impl SkinConfigurationView {
         for path in &skinpaths {
             if let Some(header) = load_skin_header(path, config) {
                 // 7/14key skinは5/10keyにも加える (add 7/14key skins as 5/10key too)
-                if header.toast_type() == rubato_skin::skin_header::TYPE_LR2SKIN
+                if header.toast_type() == crate::skin::skin_header::TYPE_LR2SKIN
                     && let Some(skin_type) = header.skin_type()
                     && (*skin_type == SkinType::Play7Keys || *skin_type == SkinType::Play14Keys)
                     && let Some(mut variant) = load_skin_header(path, config)
@@ -474,8 +474,8 @@ impl SkinConfigurationView {
 mod tests {
     use super::header_loader::convert_lr2_header_data;
     use super::*;
-    use rubato_skin::skin_header::CustomFile;
-    use rubato_skin::skin_header::TYPE_LR2SKIN;
+    use crate::skin::skin_header::CustomFile;
+    use crate::skin::skin_header::TYPE_LR2SKIN;
 
     /// Helper to get the path to the test skin directory
     fn test_skin_dir() -> PathBuf {
@@ -660,7 +660,7 @@ mod tests {
 
     #[test]
     fn convert_lr2_header_data_sets_type_lr2skin() {
-        use rubato_skin::lr2::lr2_skin_header_loader::LR2SkinHeaderData;
+        use crate::skin::lr2::lr2_skin_header_loader::LR2SkinHeaderData;
 
         let lr2_data = LR2SkinHeaderData {
             name: "Test LR2 Skin".to_string(),
@@ -679,7 +679,7 @@ mod tests {
 
     #[test]
     fn convert_lr2_header_data_converts_custom_options() {
-        use rubato_skin::lr2::lr2_skin_header_loader::{
+        use crate::skin::lr2::lr2_skin_header_loader::{
             CustomOption as LR2CustomOption, LR2SkinHeaderData,
         };
 
@@ -701,7 +701,7 @@ mod tests {
 
     #[test]
     fn convert_lr2_header_data_converts_custom_files() {
-        use rubato_skin::lr2::lr2_skin_header_loader::{
+        use crate::skin::lr2::lr2_skin_header_loader::{
             CustomFile as LR2CustomFile, LR2SkinHeaderData,
         };
 
@@ -724,7 +724,7 @@ mod tests {
 
     #[test]
     fn convert_lr2_header_data_converts_custom_offsets() {
-        use rubato_skin::lr2::lr2_skin_header_loader::{
+        use crate::skin::lr2::lr2_skin_header_loader::{
             CustomOffset as LR2CustomOffset, LR2SkinHeaderData,
         };
 
@@ -732,7 +732,7 @@ mod tests {
             custom_offsets: vec![LR2CustomOffset::new(
                 "All offset(%)",
                 0,
-                rubato_skin::offset_capabilities::OffsetCapabilities {
+                crate::skin::offset_capabilities::OffsetCapabilities {
                     x: true,
                     y: true,
                     w: true,

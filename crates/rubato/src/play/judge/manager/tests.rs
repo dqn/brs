@@ -1,9 +1,9 @@
 use super::*;
+use crate::skin::course_data::CourseDataConstraint;
+use crate::skin::player_config::PlayerConfig;
 use bms::model::judge_note::{JUDGE_PG, build_judge_notes};
 use bms::model::note::Note;
 use bms::model::time_line::TimeLine;
-use rubato_skin::course_data::CourseDataConstraint;
-use rubato_skin::player_config::PlayerConfig;
 
 #[test]
 fn new_creates_default_state() {
@@ -1334,11 +1334,11 @@ fn from_config_sets_judge_algorithm_combo() {
 
     assert_eq!(
         jm.score().play_option.judge_algorithm,
-        Some(rubato_skin::judge_algorithm::JudgeAlgorithm::Combo),
+        Some(crate::skin::judge_algorithm::JudgeAlgorithm::Combo),
     );
     assert_eq!(
         jm.score().play_option.rule,
-        Some(rubato_skin::bms_player_rule::BMSPlayerRule::LR2),
+        Some(crate::skin::bms_player_rule::BMSPlayerRule::LR2),
     );
 }
 
@@ -1367,7 +1367,7 @@ fn from_config_sets_judge_algorithm_duration() {
 
     assert_eq!(
         jm.score().play_option.judge_algorithm,
-        Some(rubato_skin::judge_algorithm::JudgeAlgorithm::Duration),
+        Some(crate::skin::judge_algorithm::JudgeAlgorithm::Duration),
     );
 }
 
@@ -1396,7 +1396,7 @@ fn from_config_sets_judge_algorithm_lowest() {
 
     assert_eq!(
         jm.score().play_option.judge_algorithm,
-        Some(rubato_skin::judge_algorithm::JudgeAlgorithm::Lowest),
+        Some(crate::skin::judge_algorithm::JudgeAlgorithm::Lowest),
     );
 }
 
@@ -1425,11 +1425,11 @@ fn from_config_sets_judge_algorithm_score() {
 
     assert_eq!(
         jm.score().play_option.judge_algorithm,
-        Some(rubato_skin::judge_algorithm::JudgeAlgorithm::Score),
+        Some(crate::skin::judge_algorithm::JudgeAlgorithm::Score),
     );
     assert_eq!(
         jm.score().play_option.rule,
-        Some(rubato_skin::bms_player_rule::BMSPlayerRule::LR2),
+        Some(crate::skin::bms_player_rule::BMSPlayerRule::LR2),
     );
 }
 
@@ -1509,10 +1509,10 @@ fn note_state_updated_after_autoplay_judgment() {
         judgeregion: 1,
     };
     let mut jm = JudgeManager::from_config(&config);
-    let mut gauge = rubato_skin::groove_gauge::GrooveGauge::new(
+    let mut gauge = crate::skin::groove_gauge::GrooveGauge::new(
         &model,
-        rubato_skin::groove_gauge::NORMAL,
-        &rubato_skin::gauge_property::GaugeProperty::SevenKeys,
+        crate::skin::groove_gauge::NORMAL,
+        &crate::skin::gauge_property::GaugeProperty::SevenKeys,
     );
 
     // Autoplay at exactly note time -> PG (judge=0, state=1)

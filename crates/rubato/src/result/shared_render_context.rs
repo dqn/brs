@@ -82,8 +82,8 @@ pub fn integer_value(
     data: &AbstractResultData,
     boot_time_millis: i64,
     cumulative_playtime_seconds: i64,
-    songdata: Option<&rubato_skin::song_data::SongData>,
-    player_data: Option<&rubato_skin::player_data::PlayerData>,
+    songdata: Option<&crate::skin::song_data::SongData>,
+    player_data: Option<&crate::skin::player_data::PlayerData>,
     id: i32,
 ) -> i32 {
     match id {
@@ -357,7 +357,7 @@ pub fn integer_value(
         // Java IntegerPropertyFactory defines these as global lambdas (all screens).
         // Since this is a free function (not a trait method), we inline the logic
         // from SkinRenderContext::default_integer_value().
-        20 => rubato_skin::fps_counter::current_fps(),
+        20 => crate::skin::fps_counter::current_fps(),
         21 => {
             let now = chrono::Local::now();
             chrono::Datelike::year(&now)
@@ -580,17 +580,17 @@ pub fn boolean_value(data: &AbstractResultData, course_score: Option<&ScoreData>
 /// These methods are identical between music and course result render contexts.
 pub fn player_config_ref(
     resource: &PlayerResource,
-) -> Option<&rubato_skin::player_config::PlayerConfig> {
+) -> Option<&crate::skin::player_config::PlayerConfig> {
     Some(resource.player_config())
 }
 
-pub fn config_ref(main: &MainController) -> Option<&rubato_skin::config::Config> {
+pub fn config_ref(main: &MainController) -> Option<&crate::skin::config::Config> {
     Some(main.config())
 }
 
 pub fn replay_option_data(
     resource: &PlayerResource,
-) -> Option<&rubato_skin::replay_data::ReplayData> {
+) -> Option<&crate::skin::replay_data::ReplayData> {
     resource.replay_data()
 }
 
@@ -608,7 +608,7 @@ pub fn rival_score_data_ref(
     Some(&data.oldscore)
 }
 
-pub fn song_data_ref(resource: &PlayerResource) -> Option<&rubato_skin::song_data::SongData> {
+pub fn song_data_ref(resource: &PlayerResource) -> Option<&crate::skin::song_data::SongData> {
     resource.songdata()
 }
 
@@ -712,7 +712,7 @@ pub fn gauge_min(resource: &PlayerResource, gauge_type: i32) -> f32 {
 /// Returns the cached rubato_types TimingDistribution for the result screen.
 pub fn get_timing_distribution(
     data: &AbstractResultData,
-) -> Option<&rubato_skin::timing_distribution::TimingDistribution> {
+) -> Option<&crate::skin::timing_distribution::TimingDistribution> {
     if data.timing_distribution_cache.distribution.is_empty() {
         None
     } else {
@@ -723,7 +723,7 @@ pub fn get_timing_distribution(
 /// Returns the ScoreDataProperty for the result screen.
 pub fn score_data_property(
     data: &AbstractResultData,
-) -> &rubato_skin::score_data_property::ScoreDataProperty {
+) -> &crate::skin::score_data_property::ScoreDataProperty {
     &data.score
 }
 
@@ -1118,23 +1118,23 @@ mod tests {
     /// Mock PlayerResourceAccess that holds an optional GrooveGauge
     /// for testing gauge_value().
     struct GaugeTestResourceAccess {
-        config: rubato_skin::config::Config,
-        player_config: rubato_skin::player_config::PlayerConfig,
-        groove_gauge: Option<rubato_skin::groove_gauge::GrooveGauge>,
+        config: crate::skin::config::Config,
+        player_config: crate::skin::player_config::PlayerConfig,
+        groove_gauge: Option<crate::skin::groove_gauge::GrooveGauge>,
         course_gauge: Vec<Vec<Vec<f32>>>,
         course_replay: Vec<crate::core::replay_data::ReplayData>,
     }
 
-    impl rubato_skin::player_resource_access::ConfigAccess for GaugeTestResourceAccess {
-        fn config(&self) -> &rubato_skin::config::Config {
+    impl crate::skin::player_resource_access::ConfigAccess for GaugeTestResourceAccess {
+        fn config(&self) -> &crate::skin::config::Config {
             &self.config
         }
-        fn player_config(&self) -> &rubato_skin::player_config::PlayerConfig {
+        fn player_config(&self) -> &crate::skin::player_config::PlayerConfig {
             &self.player_config
         }
     }
 
-    impl rubato_skin::player_resource_access::ScoreAccess for GaugeTestResourceAccess {
+    impl crate::skin::player_resource_access::ScoreAccess for GaugeTestResourceAccess {
         fn score_data(&self) -> Option<&crate::core::score_data::ScoreData> {
             None
         }
@@ -1153,20 +1153,20 @@ mod tests {
         }
     }
 
-    impl rubato_skin::player_resource_access::SongAccess for GaugeTestResourceAccess {
-        fn songdata(&self) -> Option<&rubato_skin::song_data::SongData> {
+    impl crate::skin::player_resource_access::SongAccess for GaugeTestResourceAccess {
+        fn songdata(&self) -> Option<&crate::skin::song_data::SongData> {
             None
         }
-        fn songdata_mut(&mut self) -> Option<&mut rubato_skin::song_data::SongData> {
+        fn songdata_mut(&mut self) -> Option<&mut crate::skin::song_data::SongData> {
             None
         }
-        fn set_songdata(&mut self, _data: Option<rubato_skin::song_data::SongData>) {}
-        fn course_song_data(&self) -> Vec<rubato_skin::song_data::SongData> {
+        fn set_songdata(&mut self, _data: Option<crate::skin::song_data::SongData>) {}
+        fn course_song_data(&self) -> Vec<crate::skin::song_data::SongData> {
             vec![]
         }
     }
 
-    impl rubato_skin::player_resource_access::ReplayAccess for GaugeTestResourceAccess {
+    impl crate::skin::player_resource_access::ReplayAccess for GaugeTestResourceAccess {
         fn replay_data(&self) -> Option<&crate::core::replay_data::ReplayData> {
             None
         }
@@ -1184,8 +1184,8 @@ mod tests {
         }
     }
 
-    impl rubato_skin::player_resource_access::CourseAccess for GaugeTestResourceAccess {
-        fn course_data(&self) -> Option<&rubato_skin::course_data::CourseData> {
+    impl crate::skin::player_resource_access::CourseAccess for GaugeTestResourceAccess {
+        fn course_data(&self) -> Option<&crate::skin::course_data::CourseData> {
             None
         }
         fn course_index(&self) -> usize {
@@ -1194,18 +1194,18 @@ mod tests {
         fn next_course(&mut self) -> bool {
             false
         }
-        fn constraint(&self) -> Vec<rubato_skin::course_data::CourseDataConstraint> {
+        fn constraint(&self) -> Vec<crate::skin::course_data::CourseDataConstraint> {
             vec![]
         }
-        fn set_course_data(&mut self, _data: rubato_skin::course_data::CourseData) {}
+        fn set_course_data(&mut self, _data: crate::skin::course_data::CourseData) {}
         fn clear_course_data(&mut self) {}
     }
 
-    impl rubato_skin::player_resource_access::GaugeAccess for GaugeTestResourceAccess {
+    impl crate::skin::player_resource_access::GaugeAccess for GaugeTestResourceAccess {
         fn gauge(&self) -> Option<&Vec<Vec<f32>>> {
             None
         }
-        fn groove_gauge(&self) -> Option<&rubato_skin::groove_gauge::GrooveGauge> {
+        fn groove_gauge(&self) -> Option<&crate::skin::groove_gauge::GrooveGauge> {
             self.groove_gauge.as_ref()
         }
         fn course_gauge(&self) -> &Vec<Vec<Vec<f32>>> {
@@ -1219,7 +1219,7 @@ mod tests {
         }
     }
 
-    impl rubato_skin::player_resource_access::PlayerStateAccess for GaugeTestResourceAccess {
+    impl crate::skin::player_resource_access::PlayerStateAccess for GaugeTestResourceAccess {
         fn maxcombo(&self) -> i32 {
             0
         }
@@ -1244,7 +1244,7 @@ mod tests {
         }
     }
 
-    impl rubato_skin::player_resource_access::SessionMutation for GaugeTestResourceAccess {
+    impl crate::skin::player_resource_access::SessionMutation for GaugeTestResourceAccess {
         fn clear(&mut self) {}
         fn set_bms_file(
             &mut self,
@@ -1268,7 +1268,7 @@ mod tests {
         }
     }
 
-    impl rubato_skin::player_resource_access::MediaAccess for GaugeTestResourceAccess {
+    impl crate::skin::player_resource_access::MediaAccess for GaugeTestResourceAccess {
         fn reverse_lookup_data(&self) -> Vec<String> {
             vec![]
         }
@@ -1277,22 +1277,22 @@ mod tests {
         }
     }
 
-    impl rubato_skin::player_resource_access::PlayerResourceAccess for GaugeTestResourceAccess {}
+    impl crate::skin::player_resource_access::PlayerResourceAccess for GaugeTestResourceAccess {}
 
     fn make_resource_with_gauge(gauge_value: f32) -> PlayerResource {
-        use rubato_skin::gauge_property::GaugeProperty;
+        use crate::skin::gauge_property::GaugeProperty;
 
         let model = bms::model::bms_model::BMSModel::new();
-        let mut gg = rubato_skin::groove_gauge::GrooveGauge::new(
+        let mut gg = crate::skin::groove_gauge::GrooveGauge::new(
             &model,
-            rubato_skin::groove_gauge::NORMAL,
+            crate::skin::groove_gauge::NORMAL,
             &GaugeProperty::SevenKeys,
         );
         gg.set_value(gauge_value);
         {
             let mut core = crate::core::player_resource::PlayerResource::new(
-                rubato_skin::config::Config::default(),
-                rubato_skin::player_config::PlayerConfig::default(),
+                crate::skin::config::Config::default(),
+                crate::skin::player_config::PlayerConfig::default(),
             );
             core.set_groove_gauge(gg);
             PlayerResource::new(
@@ -2161,7 +2161,7 @@ mod tests {
     #[test]
     fn test_integer_value_player_profile_stats_with_data() {
         let data = AbstractResultData::new();
-        let mut pd = rubato_skin::player_data::PlayerData::new();
+        let mut pd = crate::skin::player_data::PlayerData::new();
         pd.playcount = 100;
         pd.clear = 75;
         pd.epg = 10;
@@ -2201,7 +2201,7 @@ mod tests {
     #[test]
     fn test_integer_value_player_notes_333_clamps_to_i32_max() {
         let data = AbstractResultData::new();
-        let mut pd = rubato_skin::player_data::PlayerData::new();
+        let mut pd = crate::skin::player_data::PlayerData::new();
         pd.epg = i32::MAX as i64;
         pd.lpg = i32::MAX as i64;
         pd.egr = i32::MAX as i64;
@@ -2222,7 +2222,7 @@ mod tests {
     fn test_integer_value_fps_id_20_returns_current_fps() {
         let data = AbstractResultData::new();
         let result = integer_value(&data, 0, 0, None, None, 20);
-        let expected = rubato_skin::fps_counter::current_fps();
+        let expected = crate::skin::fps_counter::current_fps();
         assert_eq!(result, expected, "ID 20 (FPS) should return current_fps()");
     }
 

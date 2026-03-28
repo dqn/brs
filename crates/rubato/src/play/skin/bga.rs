@@ -1,5 +1,5 @@
-use rubato_render::color::Rectangle;
-use rubato_render::texture::TextureRegion;
+use crate::render::color::Rectangle;
+use crate::render::texture::TextureRegion;
 
 /// BGA skin object.
 /// Translated from: SkinBGA.java
@@ -17,7 +17,7 @@ pub struct SkinBGA {
 }
 
 // Re-export shared BGA types from rubato-types (canonical location).
-pub use rubato_skin::bga_types::{
+pub use crate::skin::bga_types::{
     BGAEXPAND_FULL, BGAEXPAND_KEEP_ASPECT_RATIO, BGAEXPAND_OFF, StretchType,
 };
 
@@ -106,7 +106,7 @@ impl SkinBGA {
     }
 
     pub fn draw(&self) {
-        // Drawing is handled by rubato_skin::skin_bga_object::SkinBgaObject.
+        // Drawing is handled by crate::skin::skin_bga_object::SkinBgaObject.
         // The skin-level SkinBgaObject holds Arc<Mutex<dyn BgaDraw>> and implements
         // the full BGA rendering logic via BGAProcessor.draw_bga().
         // In practice mode, it delegates to PracticeConfiguration.draw().
@@ -143,7 +143,7 @@ mod tests {
     #[test]
     fn test_stretch_type_stretch_no_modification() {
         let mut rect = Rectangle::new(10.0, 20.0, 200.0, 150.0);
-        let mut image = TextureRegion::from_texture(rubato_render::texture::Texture {
+        let mut image = TextureRegion::from_texture(crate::render::texture::Texture {
             width: 100,
             height: 100,
             disposed: false,
@@ -161,7 +161,7 @@ mod tests {
     fn test_stretch_type_keep_aspect_ratio_fit_inner_wider() {
         // Rectangle is wider than image aspect
         let mut rect = Rectangle::new(0.0, 0.0, 400.0, 200.0);
-        let mut image = TextureRegion::from_texture(rubato_render::texture::Texture {
+        let mut image = TextureRegion::from_texture(crate::render::texture::Texture {
             width: 100,
             height: 100,
             disposed: false,
@@ -178,7 +178,7 @@ mod tests {
     fn test_stretch_type_keep_aspect_ratio_fit_inner_taller() {
         // Rectangle is taller than image aspect
         let mut rect = Rectangle::new(0.0, 0.0, 200.0, 400.0);
-        let mut image = TextureRegion::from_texture(rubato_render::texture::Texture {
+        let mut image = TextureRegion::from_texture(crate::render::texture::Texture {
             width: 100,
             height: 100,
             disposed: false,
@@ -195,7 +195,7 @@ mod tests {
     fn test_stretch_type_no_expanding_small_image() {
         // Image is smaller than rectangle — should not expand
         let mut rect = Rectangle::new(0.0, 0.0, 400.0, 400.0);
-        let mut image = TextureRegion::from_texture(rubato_render::texture::Texture {
+        let mut image = TextureRegion::from_texture(crate::render::texture::Texture {
             width: 100,
             height: 100,
             disposed: false,
@@ -214,7 +214,7 @@ mod tests {
     fn test_stretch_type_no_expanding_large_image() {
         // Image is larger than rectangle — should scale down
         let mut rect = Rectangle::new(0.0, 0.0, 200.0, 100.0);
-        let mut image = TextureRegion::from_texture(rubato_render::texture::Texture {
+        let mut image = TextureRegion::from_texture(crate::render::texture::Texture {
             width: 400,
             height: 400,
             disposed: false,

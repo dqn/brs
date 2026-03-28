@@ -399,13 +399,13 @@ impl BMSPlayer {
                 let shift = (if key_state.gauge_shift_key5 { 1 } else { 0 })
                     + (if key_state.gauge_shift_key3 { 2 } else { 0 });
                 for _ in 0..shift {
-                    if gauge != rubato_skin::groove_gauge::HAZARD
-                        && gauge != rubato_skin::groove_gauge::EXHARDCLASS
+                    if gauge != crate::skin::groove_gauge::HAZARD
+                        && gauge != crate::skin::groove_gauge::EXHARDCLASS
                     {
                         gauge += 1;
                     }
                 }
-                gauge = gauge.min(rubato_skin::groove_gauge::EXHARDCLASS);
+                gauge = gauge.min(crate::skin::groove_gauge::EXHARDCLASS);
                 gauge
             }
             None => config_gauge,
@@ -634,7 +634,7 @@ impl BMSPlayer {
         self.init_playinfo_from_config(&config);
 
         // Step 2: Restore replay data (Java lines 110-175)
-        let mut hs_replay_config: Option<rubato_skin::play_config::PlayConfig> = None;
+        let mut hs_replay_config: Option<crate::skin::play_config::PlayConfig> = None;
         if is_replay && !is_course {
             let replay = self.score.active_replay.take();
             let key_state = self.replay_key_state;

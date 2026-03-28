@@ -1,11 +1,11 @@
 // Re-export from rubato-types (canonical location)
-pub use rubato_skin::score_data_property::ScoreDataProperty;
+pub use crate::skin::score_data_property::ScoreDataProperty;
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::skin::score_data::ScoreData;
     use bms::model::mode::Mode;
-    use rubato_skin::score_data::ScoreData;
 
     #[test]
     fn qualify_rank_out_of_bounds_returns_false() {

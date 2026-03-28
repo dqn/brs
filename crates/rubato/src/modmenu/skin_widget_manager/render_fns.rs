@@ -6,7 +6,7 @@ use super::{
     EventType, MOVE_OVERLAY_ENABLED, RESET_MOVE_OVERLAY, SkinWidget, SkinWidgetDestination,
     WIDGET_TABLE_COLUMNS, WIDGETS, WidgetTableColumn,
 };
-use rubato_skin::sync_utils::lock_or_recover;
+use crate::skin::sync_utils::lock_or_recover;
 
 pub(super) fn render_prefer_column_setting(ui: &mut egui::Ui) {
     let popup_id = ui.make_persistent_id("PreferColumnSetting");

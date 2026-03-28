@@ -22,7 +22,7 @@ use crate::result::PlayerResource as ResultPlayerResource;
 use crate::result::course_result::CourseResult;
 use crate::result::music_result::MusicResult;
 use crate::select::music_selector::MusicSelector;
-use rubato_skin::score_data::ScoreData;
+use crate::skin::score_data::ScoreData;
 
 use shared_selector::SharedMusicSelectorState;
 
@@ -285,7 +285,7 @@ impl LauncherStateFactory {
                 // Java: IntegerPropertyFactory ID 308 checks SongData LN types on BMSPlayer.
                 if let Some(songdata) = resource.and_then(|r| r.songdata()) {
                     player.set_lnmode_override(
-                        rubato_skin::skin_render_context::compute_lnmode_from_chart(
+                        crate::skin::skin_render_context::compute_lnmode_from_chart(
                             &songdata.chart,
                         ),
                     );
@@ -383,7 +383,7 @@ impl LauncherStateFactory {
                         .config()
                         .audio_config()
                         .map(|a| a.freq_option)
-                        .unwrap_or(rubato_skin::audio_config::FrequencyType::UNPROCESSED);
+                        .unwrap_or(crate::skin::audio_config::FrequencyType::UNPROCESSED);
                     player.apply_freq_trainer(freq, is_play_mode, is_course_mode, &freq_option);
                 }
 
@@ -417,7 +417,7 @@ impl LauncherStateFactory {
                         skin_type,
                         skin_type.id()
                     );
-                    if let Some(skin) = rubato_skin::skin_loader::load_skin_from_config(
+                    if let Some(skin) = crate::skin::skin_loader::load_skin_from_config(
                         controller.config(),
                         controller.player_config(),
                         skin_type.id(),
@@ -550,17 +550,17 @@ impl LauncherStateFactory {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::audio::audio_system::AudioSystem;
     use crate::core::main_state::StateTransition;
     use crate::core::score_database_accessor::ScoreDatabaseAccessor;
     use crate::core::sprite_batch_helper::SpriteBatchHelper;
     use crate::select::preview_music_processor::PreviewMusicProcessor;
+    use crate::skin::skin_config::SkinConfig;
+    use crate::skin::skin_render_context::SkinRenderContext;
+    use crate::skin::skin_type::SkinType;
+    use crate::skin::song_data::SongData;
+    use crate::skin::song_information::SongInformation;
     use crate::song::song_information_accessor::SongInformationAccessor;
-    use rubato_audio::audio_system::AudioSystem;
-    use rubato_skin::skin_config::SkinConfig;
-    use rubato_skin::skin_render_context::SkinRenderContext;
-    use rubato_skin::skin_type::SkinType;
-    use rubato_skin::song_data::SongData;
-    use rubato_skin::song_information::SongInformation;
     use std::path::PathBuf;
     use std::sync::{Arc, Mutex};
 
@@ -587,7 +587,7 @@ mod tests {
         }
         fn prepare_skin(
             &mut self,
-            _state_type: Option<rubato_skin::main_state_type::MainStateType>,
+            _state_type: Option<crate::skin::main_state_type::MainStateType>,
         ) {
         }
         fn dispose_skin(&mut self) {}
@@ -613,7 +613,7 @@ mod tests {
         }
     }
 
-    use rubato_audio::recording_audio_driver::RecordingAudioDriver;
+    use crate::audio::recording_audio_driver::RecordingAudioDriver;
 
     fn make_empty_game_context() -> crate::core::app_context::GameContext {
         crate::core::app_context::GameContext {
@@ -667,7 +667,7 @@ mod tests {
 
         fn prepare_skin(
             &mut self,
-            _state_type: Option<rubato_skin::main_state_type::MainStateType>,
+            _state_type: Option<crate::skin::main_state_type::MainStateType>,
         ) {
         }
         fn dispose_skin(&mut self) {}
@@ -1133,7 +1133,7 @@ mod tests {
             state
                 .main_state_data_mut()
                 .timer
-                .set_timer_on(rubato_skin::skin_property::TIMER_STARTINPUT);
+                .set_timer_on(crate::skin::skin_property::TIMER_STARTINPUT);
         }
         mc.input_processor_mut()
             .expect("controller should own an input processor")
@@ -1146,7 +1146,7 @@ mod tests {
                 .expect("decide state should still be current for fadeout")
                 .main_state_data()
                 .timer
-                .is_timer_on(rubato_skin::skin_property::TIMER_FADEOUT),
+                .is_timer_on(crate::skin::skin_property::TIMER_FADEOUT),
             "decide state should see the live controller input and enter fadeout"
         );
     }

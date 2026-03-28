@@ -6,12 +6,12 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::core::sqlite_database_accessor::{Column, SQLiteDatabaseAccessor, Table};
 use crate::core::validatable::remove_invalid_elements_vec;
+use crate::skin::sync_utils::lock_or_recover;
 use bms::model::bms_decoder::BMSDecoder;
 use bms::model::bms_model::{BMSModel, LNTYPE_LONGNOTE};
 use bms::model::bmson_decoder::BMSONDecoder;
 use bms::model::osu_decoder::OSUDecoder;
 use rayon::prelude::*;
-use rubato_skin::sync_utils::lock_or_recover;
 use rusqlite::Connection;
 use rusqlite::hooks::{AuthAction, AuthContext, Authorization};
 

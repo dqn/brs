@@ -19,9 +19,9 @@ use rubato::core::main_controller::MainController;
 use rubato::core::main_state::MainStateType;
 use rubato::core::player_config::PlayerConfig;
 use rubato::core::player_resource::PlayerResource;
+use rubato::skin::course_data::CourseData;
+use rubato::skin::player_resource_access::CourseAccess;
 use rubato::state_factory::LauncherStateFactory;
-use rubato_skin::course_data::CourseData;
-use rubato_skin::player_resource_access::CourseAccess;
 
 fn test_bms_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))

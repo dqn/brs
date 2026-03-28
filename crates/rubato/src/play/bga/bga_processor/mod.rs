@@ -3,10 +3,10 @@ mod render;
 #[cfg(test)]
 mod tests;
 
+use crate::render::color::Rectangle;
+use crate::render::texture::{Texture, TextureRegion};
 use bms::model::bms_model::BMSModel;
 use bms::model::layer::{EventType, Layer};
-use rubato_render::color::Rectangle;
-use rubato_render::texture::{Texture, TextureRegion};
 
 use crate::play::bga::bg_image_processor::BGImageProcessor;
 use crate::play::bga::movie_processor::MovieProcessor;
@@ -17,7 +17,7 @@ pub static MOV_EXTENSION: &[&str] = &[
 ];
 
 // Re-export shared BGA render type from rubato-types (canonical location).
-pub use rubato_skin::bga_types::BgaRenderType;
+pub use crate::skin::bga_types::BgaRenderType;
 
 /// Trait for BGA sprite rendering, abstracting SkinObjectRenderer.
 /// Implemented by the skin rendering system to draw BGA textures.

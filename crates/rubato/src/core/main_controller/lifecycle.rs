@@ -12,7 +12,7 @@ impl MainController {
         let t = Instant::now();
         let mut sprite = SpriteBatchHelper::create_sprite_batch();
         // Java: SpriteBatch constructor calls setToOrtho2D(0, 0, width, height)
-        let mut ortho = rubato_render::color::Matrix4::new();
+        let mut ortho = crate::render::color::Matrix4::new();
         // Match Java LibGDX setToOrtho2D(0, 0, width, height): Y-up projection
         // where y=0 is at the bottom and y=height is at the top.
         // The LR2 skin loader already flips Y coordinates from LR2 format (y-down)
@@ -268,7 +268,7 @@ impl MainController {
 
         // Emit OutboxDrained event when state changes were processed.
         if has_state_change {
-            self.emit_state_event(rubato_skin::state_event::StateEvent::OutboxDrained {
+            self.emit_state_event(crate::skin::state_event::StateEvent::OutboxDrained {
                 state_change: has_state_change,
             });
         }
@@ -536,7 +536,7 @@ impl MainController {
         // Update sprite batch projection to match new window size
         // Java: SpriteBatch projection is updated via Gdx.graphics viewport
         if let Some(ref mut sprite) = self.sprite {
-            let mut ortho = rubato_render::color::Matrix4::new();
+            let mut ortho = crate::render::color::Matrix4::new();
             ortho.set_to_ortho(0.0, width as f32, 0.0, height as f32, -1.0, 1.0);
             sprite.set_projection_matrix(&ortho);
         }

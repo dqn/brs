@@ -75,7 +75,7 @@ fn judge_note_idx_to_timeline_idx(
 impl BMSPlayer {
     pub(super) fn render_skin_impl(
         &mut self,
-        sprite: &mut rubato_render::sprite_batch::SpriteBatch,
+        sprite: &mut crate::render::sprite_batch::SpriteBatch,
     ) {
         let mut skin = match self.main_state_data.skin.take() {
             Some(s) => s,
@@ -404,7 +404,7 @@ mod tests {
     #[test]
     fn lane_group_regions_mapping_from_rectangles() {
         use crate::play::play_skin::PlaySkin;
-        use rubato_render::color::Rectangle;
+        use crate::render::color::Rectangle;
 
         let mut skin = PlaySkin::new();
         skin.lanegroupregion = Some(vec![

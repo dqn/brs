@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::core::course_data::CourseData;
 use crate::core::validatable::{Validatable, remove_invalid_elements_vec};
-use rubato_skin::SongData;
+use crate::skin::SongData;
 
 /// Table data (difficulty table)
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -128,7 +128,7 @@ impl Validatable for TableFolder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rubato_skin::SongData;
+    use crate::skin::SongData;
 
     /// Helper to create a minimal valid TableData for testing.
     fn make_valid_table_data() -> TableData {

@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use log::info;
 
 // SoundType moved to beatoraja-types (Phase 59a)
-pub use rubato_skin::sound_type::SoundType;
+pub use crate::skin::sound_type::SoundType;
 
 /// SystemSoundManager - manages BGM and sound effect sets
 pub struct SystemSoundManager {
@@ -184,7 +184,7 @@ impl SystemSoundManager {
         &self,
         sound: &SoundType,
         loop_sound: bool,
-        audio: Option<&mut rubato_audio::audio_system::AudioSystem>,
+        audio: Option<&mut crate::audio::audio_system::AudioSystem>,
         system_volume: f32,
     ) {
         if let Some(path) = self.soundmap.get(sound)
@@ -200,7 +200,7 @@ impl SystemSoundManager {
     pub fn stop(
         &self,
         sound: &SoundType,
-        audio: Option<&mut rubato_audio::audio_system::AudioSystem>,
+        audio: Option<&mut crate::audio::audio_system::AudioSystem>,
     ) {
         if let Some(path) = self.soundmap.get(sound)
             && let Some(audio) = audio
@@ -215,7 +215,7 @@ impl SystemSoundManager {
     pub fn dispose_sound(
         &self,
         path: &str,
-        audio: Option<&mut rubato_audio::audio_system::AudioSystem>,
+        audio: Option<&mut crate::audio::audio_system::AudioSystem>,
     ) {
         if let Some(audio) = audio {
             audio.dispose_path(path);
@@ -236,8 +236,8 @@ fn rand_f64() -> f64 {
 mod tests {
     use super::*;
 
-    use rubato_audio::audio_system::AudioSystem;
-    use rubato_audio::recording_audio_driver::{AudioEvent, RecordingAudioDriver};
+    use crate::audio::audio_system::AudioSystem;
+    use crate::audio::recording_audio_driver::{AudioEvent, RecordingAudioDriver};
 
     #[test]
     fn play_calls_audio_driver() {

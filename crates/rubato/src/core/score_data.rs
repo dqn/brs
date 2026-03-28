@@ -1,4 +1,4 @@
-pub use rubato_skin::score_data::*;
+pub use crate::skin::score_data::*;
 
 #[cfg(test)]
 #[allow(clippy::field_reassign_with_default)]

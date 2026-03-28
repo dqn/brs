@@ -1636,7 +1636,7 @@ fn test_loader_updates_search_word_bar_folder_status() {
 
 /// Mock SongInformationDb for tests
 struct MockSongInfoDb {
-    entries: Vec<(String, rubato_skin::song_information::SongInformation)>,
+    entries: Vec<(String, crate::skin::song_information::SongInformation)>,
 }
 
 impl MockSongInfoDb {
@@ -1647,7 +1647,7 @@ impl MockSongInfoDb {
     }
 
     fn with_entry(mut self, sha256: &str, mainbpm: f64) -> Self {
-        let mut info = rubato_skin::song_information::SongInformation::default();
+        let mut info = crate::skin::song_information::SongInformation::default();
         info.sha256 = sha256.to_string();
         info.mainbpm = mainbpm;
         self.entries.push((sha256.to_string(), info));
@@ -1656,10 +1656,10 @@ impl MockSongInfoDb {
 }
 
 impl crate::song_information_db::SongInformationDb for MockSongInfoDb {
-    fn informations(&self, _sql: &str) -> Vec<rubato_skin::song_information::SongInformation> {
+    fn informations(&self, _sql: &str) -> Vec<crate::skin::song_information::SongInformation> {
         Vec::new()
     }
-    fn information(&self, sha256: &str) -> Option<rubato_skin::song_information::SongInformation> {
+    fn information(&self, sha256: &str) -> Option<crate::skin::song_information::SongInformation> {
         self.entries
             .iter()
             .find(|(h, _)| h == sha256)
@@ -1725,7 +1725,7 @@ fn test_loader_skips_song_info_when_already_loaded() {
 
     // Pre-populate song info
     let mut sd = make_song_data("hash_a", Some("/a.bms"));
-    let mut existing_info = rubato_skin::song_information::SongInformation::default();
+    let mut existing_info = crate::skin::song_information::SongInformation::default();
     existing_info.mainbpm = 999.0; // existing value
     sd.info = Some(existing_info);
 

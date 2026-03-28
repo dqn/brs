@@ -1,5 +1,5 @@
 use super::*;
-use rubato_skin::sync_utils::lock_or_recover;
+use crate::skin::sync_utils::lock_or_recover;
 
 impl BMSPlayer {
     /// Sync judge states from JudgeManager's internal note_states back to the
@@ -109,7 +109,7 @@ impl BMSPlayer {
             if self.media_load_finished {
                 self.pending.pending_stop_all_notes = true;
             }
-            self.queue_sound(rubato_skin::sound_type::SoundType::PlayStop);
+            self.queue_sound(crate::skin::sound_type::SoundType::PlayStop);
             log::info!("PlayState::Failed");
         }
     }
@@ -119,7 +119,7 @@ impl BMSPlayer {
     /// `device_type` comes from `MainController.input_processor().get_device_type()`.
     pub fn create_score_data(
         &self,
-        device_type: rubato_input::bms_player_input_device::DeviceType,
+        device_type: crate::input::bms_player_input_device::DeviceType,
     ) -> Option<ScoreData> {
         let mut score = self.judge.score_data().clone();
 
@@ -267,14 +267,14 @@ impl BMSPlayer {
 
         // Java: score.setDeviceType(main.getInputProcessor().getDeviceType());
         score.play_option.device_type = Some(match device_type {
-            rubato_input::bms_player_input_device::DeviceType::Keyboard => {
-                rubato_skin::bms_player_input_device::Type::KEYBOARD
+            crate::input::bms_player_input_device::DeviceType::Keyboard => {
+                crate::skin::bms_player_input_device::Type::KEYBOARD
             }
-            rubato_input::bms_player_input_device::DeviceType::BmController => {
-                rubato_skin::bms_player_input_device::Type::BM_CONTROLLER
+            crate::input::bms_player_input_device::DeviceType::BmController => {
+                crate::skin::bms_player_input_device::Type::BM_CONTROLLER
             }
-            rubato_input::bms_player_input_device::DeviceType::Midi => {
-                rubato_skin::bms_player_input_device::Type::MIDI
+            crate::input::bms_player_input_device::DeviceType::Midi => {
+                crate::skin::bms_player_input_device::Type::MIDI
             }
         });
         score.play_option.skin = self.skin_name.clone();
@@ -424,7 +424,7 @@ impl BMSPlayer {
         let pc = &mut self.player_config.play_config(mode).playconfig;
 
         // 4. If fixhispeed != OFF: save duration; else save hispeed
-        if pc.fixhispeed != rubato_skin::play_config::FIX_HISPEED_OFF {
+        if pc.fixhispeed != crate::skin::play_config::FIX_HISPEED_OFF {
             pc.duration = duration;
         } else {
             pc.hispeed = hispeed;

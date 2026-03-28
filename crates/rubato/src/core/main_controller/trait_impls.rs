@@ -13,7 +13,7 @@ impl MainController {
     pub fn rival_information(
         &self,
         index: usize,
-    ) -> Option<rubato_skin::player_information::PlayerInformation> {
+    ) -> Option<crate::skin::player_information::PlayerInformation> {
         self.ctx.db.rivals.rival_information(index).cloned()
     }
 
@@ -30,7 +30,7 @@ impl MainController {
         hash: &str,
         ln: bool,
         lnmode: i32,
-    ) -> Option<rubato_skin::score_data::ScoreData> {
+    ) -> Option<crate::skin::score_data::ScoreData> {
         self.ctx
             .db
             .playdata

@@ -47,8 +47,8 @@ impl Default for PlayerResource {
     fn default() -> Self {
         Self {
             inner: CorePlayerResource::new(
-                rubato_skin::config::Config::default(),
-                rubato_skin::player_config::PlayerConfig::default(),
+                crate::skin::config::Config::default(),
+                crate::skin::player_config::PlayerConfig::default(),
             ),
             original_mode: Mode::BEAT_7K,
         }

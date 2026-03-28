@@ -1,5 +1,5 @@
-use rubato_render::font::BitmapFont;
-use rubato_render::sprite_batch::SpriteBatch;
+use crate::render::font::BitmapFont;
+use crate::render::sprite_batch::SpriteBatch;
 
 /// Color - RGBA color (LibGDX equivalent)
 #[derive(Clone, Copy, Debug)]
@@ -54,7 +54,7 @@ impl Message {
     /// size=24, color=self.color.
     pub fn init(&mut self, fontpath: &str) {
         let mut font = BitmapFont::from_file(fontpath, 24.0);
-        font.set_color(&rubato_render::color::Color::new(
+        font.set_color(&crate::render::color::Color::new(
             self.color.r,
             self.color.g,
             self.color.b,
@@ -108,7 +108,7 @@ impl Message {
         let cycle = (now_millis % 1440) as f32;
         let alpha = (cycle / 4.0).to_radians().sin() * 0.3 + 0.7;
 
-        font.set_color(&rubato_render::color::Color::new(
+        font.set_color(&crate::render::color::Color::new(
             self.color.r,
             self.color.g,
             self.color.b,

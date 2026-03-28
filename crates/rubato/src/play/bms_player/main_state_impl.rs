@@ -1,37 +1,37 @@
 use super::*;
 use crate::core::app_context::GameContext;
 use crate::core::main_state::StateTransition;
-use rubato_skin::player_resource_access::ReplayAccess;
-use rubato_skin::sync_utils::lock_or_recover;
+use crate::skin::player_resource_access::ReplayAccess;
+use crate::skin::sync_utils::lock_or_recover;
 
-fn judge_timer_id(player: usize) -> rubato_skin::timer_id::TimerId {
+fn judge_timer_id(player: usize) -> crate::skin::timer_id::TimerId {
     match player {
-        0 => rubato_skin::timer_id::TimerId::new(46),
-        1 => rubato_skin::timer_id::TimerId::new(47),
-        2 => rubato_skin::timer_id::TimerId::new(247),
-        _ => rubato_skin::timer_id::TimerId::UNDEFINED,
+        0 => crate::skin::timer_id::TimerId::new(46),
+        1 => crate::skin::timer_id::TimerId::new(47),
+        2 => crate::skin::timer_id::TimerId::new(247),
+        _ => crate::skin::timer_id::TimerId::UNDEFINED,
     }
 }
 
-fn combo_timer_id(player: usize) -> rubato_skin::timer_id::TimerId {
+fn combo_timer_id(player: usize) -> crate::skin::timer_id::TimerId {
     match player {
-        0 => rubato_skin::timer_id::TimerId::new(446),
-        1 => rubato_skin::timer_id::TimerId::new(447),
-        2 => rubato_skin::timer_id::TimerId::new(448),
-        _ => rubato_skin::timer_id::TimerId::UNDEFINED,
+        0 => crate::skin::timer_id::TimerId::new(446),
+        1 => crate::skin::timer_id::TimerId::new(447),
+        2 => crate::skin::timer_id::TimerId::new(448),
+        _ => crate::skin::timer_id::TimerId::UNDEFINED,
     }
 }
 
-fn bomb_timer_id(player: i32, key: i32) -> rubato_skin::timer_id::TimerId {
+fn bomb_timer_id(player: i32, key: i32) -> crate::skin::timer_id::TimerId {
     if player < 2 {
         if key < 10 {
-            return rubato_skin::timer_id::TimerId::new(50 + key + player * 10);
+            return crate::skin::timer_id::TimerId::new(50 + key + player * 10);
         }
         if key < 100 {
-            return rubato_skin::timer_id::TimerId::new(1010 + key - 10 + player * 100);
+            return crate::skin::timer_id::TimerId::new(1010 + key - 10 + player * 100);
         }
     }
-    rubato_skin::timer_id::TimerId::UNDEFINED
+    crate::skin::timer_id::TimerId::UNDEFINED
 }
 
 /// Maximum number of gauge log entries to pad on stage failure.
@@ -87,7 +87,7 @@ impl MainState for BMSPlayer {
     fn receive_updated_play_config(
         &mut self,
         mode: bms::model::mode::Mode,
-        play_config: rubato_skin::play_config::PlayConfig,
+        play_config: crate::skin::play_config::PlayConfig,
     ) {
         // Only merge modmenu-managed fields to avoid overwriting live fields
         // (e.g. hispeed changed via scroll wheel) with stale values from the
@@ -122,10 +122,10 @@ impl MainState for BMSPlayer {
             .as_ref()
             .map(|sd| sd.chart.has_document())
             .unwrap_or(false);
-        let sd = rubato_skin::song_data::SongData::new_from_model(model, contains_txt);
+        let sd = crate::skin::song_data::SongData::new_from_model(model, contains_txt);
         self.song_metadata = sd.metadata.clone();
         self.lnmode_override =
-            rubato_skin::skin_render_context::compute_lnmode_from_chart(&sd.chart);
+            crate::skin::skin_render_context::compute_lnmode_from_chart(&sd.chart);
         // Extract the model back out of SongData before storing both.
         // BMSModel is not Clone, so use Option::take to move it out.
         let mut sd = sd;
@@ -150,7 +150,7 @@ impl MainState for BMSPlayer {
         Some(Arc::clone(&self.bga))
     }
 
-    fn render_skin(&mut self, sprite: &mut rubato_render::sprite_batch::SpriteBatch) {
+    fn render_skin(&mut self, sprite: &mut crate::render::sprite_batch::SpriteBatch) {
         self.render_skin_impl(sprite);
     }
 
@@ -525,7 +525,7 @@ impl MainState for BMSPlayer {
                     lock_or_recover(&self.bga).prepare(&() as &dyn std::any::Any);
                     self.state = PlayState::Ready;
                     self.main_state_data.timer.set_timer_on(TIMER_READY);
-                    self.queue_sound(rubato_skin::sound_type::SoundType::PlayReady);
+                    self.queue_sound(crate::skin::sound_type::SoundType::PlayReady);
                     log::info!("PlayState::Ready");
                 }
                 // PM character neutral timer
@@ -714,7 +714,7 @@ impl MainState for BMSPlayer {
                     lock_or_recover(&self.bga).prepare(&() as &dyn std::any::Any);
                     self.state = PlayState::Ready;
                     self.main_state_data.timer.set_timer_on(TIMER_READY);
-                    self.queue_sound(rubato_skin::sound_type::SoundType::PlayReady);
+                    self.queue_sound(crate::skin::sound_type::SoundType::PlayReady);
                     log::info!("Practice -> PlayState::Ready");
                 }
             }
@@ -871,13 +871,13 @@ impl MainState for BMSPlayer {
                         if event.judge <= self.play_skin.judgetimer {
                             let bomb_timer =
                                 bomb_timer_id(event.player as i32, event.offset as i32);
-                            if bomb_timer != rubato_skin::timer_id::TimerId::UNDEFINED {
+                            if bomb_timer != crate::skin::timer_id::TimerId::UNDEFINED {
                                 self.main_state_data.timer.set_timer_on(bomb_timer);
                             }
                         }
 
                         let judge_timer = judge_timer_id(event.player);
-                        if judge_timer != rubato_skin::timer_id::TimerId::UNDEFINED {
+                        if judge_timer != crate::skin::timer_id::TimerId::UNDEFINED {
                             self.main_state_data.timer.set_timer_on(judge_timer);
                         }
 
@@ -885,7 +885,7 @@ impl MainState for BMSPlayer {
                             for player in 0..3 {
                                 if player != event.player {
                                     let combo_timer = combo_timer_id(player);
-                                    if combo_timer != rubato_skin::timer_id::TimerId::UNDEFINED {
+                                    if combo_timer != crate::skin::timer_id::TimerId::UNDEFINED {
                                         self.main_state_data.timer.set_timer_off(combo_timer);
                                     }
                                 }
@@ -893,7 +893,7 @@ impl MainState for BMSPlayer {
                         }
 
                         let combo_timer = combo_timer_id(event.player);
-                        if combo_timer != rubato_skin::timer_id::TimerId::UNDEFINED {
+                        if combo_timer != crate::skin::timer_id::TimerId::UNDEFINED {
                             self.main_state_data.timer.set_timer_on(combo_timer);
                         }
                     }
@@ -977,8 +977,8 @@ impl MainState for BMSPlayer {
                 // Translated from: Java BMSPlayer.render() lines 782-815
                 if let Some(ref mut gauge) = self.gauge {
                     let gas = self.player_config.play_settings.gauge_auto_shift;
-                    use rubato_skin::groove_gauge::{CLASS, EXHARDCLASS, HAZARD, NORMAL};
-                    use rubato_skin::player_config::{
+                    use crate::skin::groove_gauge::{CLASS, EXHARDCLASS, HAZARD, NORMAL};
+                    use crate::skin::player_config::{
                         GAUGEAUTOSHIFT_BESTCLEAR, GAUGEAUTOSHIFT_CONTINUE, GAUGEAUTOSHIFT_NONE,
                         GAUGEAUTOSHIFT_SELECT_TO_UNDER, GAUGEAUTOSHIFT_SURVIVAL_TO_GROOVE,
                     };
@@ -1033,7 +1033,7 @@ impl MainState for BMSPlayer {
                                 if self.media_load_finished {
                                     self.pending.pending_stop_all_notes = true;
                                 }
-                                self.queue_sound(rubato_skin::sound_type::SoundType::PlayStop);
+                                self.queue_sound(crate::skin::sound_type::SoundType::PlayStop);
                                 log::info!("PlayState::Failed");
                             }
                             GAUGEAUTOSHIFT_CONTINUE => {
@@ -1334,7 +1334,7 @@ impl MainState for BMSPlayer {
         self.sync_input_back_to_impl(input);
     }
 
-    fn sync_audio(&mut self, audio: &mut rubato_audio::audio_system::AudioSystem) {
+    fn sync_audio(&mut self, audio: &mut crate::audio::audio_system::AudioSystem) {
         self.sync_audio_impl(audio);
     }
 

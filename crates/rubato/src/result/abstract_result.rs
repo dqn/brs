@@ -190,7 +190,7 @@ pub struct AbstractResultData {
     pub score: ScoreDataProperty,
     /// Cached rubato_types version of timing_distribution for SkinRenderContext.
     /// Updated via `sync_timing_distribution_cache()` after statistics are calculated.
-    pub timing_distribution_cache: rubato_skin::timing_distribution::TimingDistribution,
+    pub timing_distribution_cache: crate::skin::timing_distribution::TimingDistribution,
 }
 
 impl AbstractResultData {
@@ -210,14 +210,14 @@ impl AbstractResultData {
             oldscore: ScoreData::default(),
             score: ScoreDataProperty::new(),
             timing_distribution_cache:
-                rubato_skin::timing_distribution::TimingDistribution::default(),
+                crate::skin::timing_distribution::TimingDistribution::default(),
         }
     }
 
     /// Synchronize the rubato_types TimingDistribution cache from the local
     /// TimingDistribution data. Call this after `statistic_value_calculate()`.
     pub fn sync_timing_distribution_cache(&mut self) {
-        self.timing_distribution_cache = rubato_skin::timing_distribution::TimingDistribution {
+        self.timing_distribution_cache = crate::skin::timing_distribution::TimingDistribution {
             distribution: self.timing_distribution.timing_distribution().to_vec(),
             array_center: self.timing_distribution.array_center(),
             average: self.timing_distribution.average(),
@@ -286,7 +286,7 @@ impl AbstractResultData {
         &self.timing_distribution
     }
 
-    pub fn input(&mut self, snapshot: &rubato_input::input_snapshot::InputSnapshot) {
+    pub fn input(&mut self, snapshot: &crate::input::input_snapshot::InputSnapshot) {
         let mov = snapshot.scroll_y as i32;
         if mov != 0
             && let Some(ref ranking) = self.ranking
