@@ -273,11 +273,7 @@ impl GameScreen {
         delegate!(mut self, play_sound(sound))
     }
 
-    pub fn play_sound_loop(
-        &mut self,
-        sound: rubato_skin::sound_type::SoundType,
-        loop_sound: bool,
-    ) {
+    pub fn play_sound_loop(&mut self, sound: rubato_skin::sound_type::SoundType, loop_sound: bool) {
         delegate!(mut self, play_sound_loop(sound, loop_sound))
     }
 

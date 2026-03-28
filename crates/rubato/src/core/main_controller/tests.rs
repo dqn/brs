@@ -1616,10 +1616,9 @@ fn test_event_sender_receives_lifecycle_events_on_state_change() {
         "should have TransitionStart event"
     );
     assert!(
-        lifecycle_events.iter().any(|e| matches!(
-            e,
-            rubato_skin::state_event::StateEvent::StateCreated { .. }
-        )),
+        lifecycle_events
+            .iter()
+            .any(|e| matches!(e, rubato_skin::state_event::StateEvent::StateCreated { .. })),
         "should have StateCreated event"
     );
     assert!(

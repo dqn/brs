@@ -21,9 +21,7 @@ use crate::keyboard_input_processor::{
 use crate::midi_input_processor::MidiInputProcessor;
 use crate::winit_input_bridge::SharedKeyState;
 use rubato_skin::config::Config;
-use rubato_skin::play_mode_config::{
-    ControllerConfig, KeyboardConfig, MidiConfig, PlayModeConfig,
-};
+use rubato_skin::play_mode_config::{ControllerConfig, KeyboardConfig, MidiConfig, PlayModeConfig};
 use rubato_skin::player_config::PlayerConfig;
 
 pub const KEYSTATE_SIZE: usize = 256;

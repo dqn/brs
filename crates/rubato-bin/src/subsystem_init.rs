@@ -36,8 +36,7 @@ pub(crate) fn init_song_information_database(controller: &mut MainController) {
     }
 
     let songinfo_path = controller.config().paths.songinfopath.clone();
-    match rubato::song::song_information_accessor::SongInformationAccessor::new(&songinfo_path)
-    {
+    match rubato::song::song_information_accessor::SongInformationAccessor::new(&songinfo_path) {
         Ok(db) => {
             controller.set_info_database(Box::new(db));
             info!("Song information database initialized: {}", songinfo_path);
@@ -103,27 +102,25 @@ pub(crate) fn import_lr2_scores(config: &rubato::core::config::Config) {
         &config.paths.playerpath, player_name
     );
 
-    let scoredb = match rubato::core::score_database_accessor::ScoreDatabaseAccessor::new(
-        &score_db_path,
-    ) {
-        Ok(db) => db,
-        Err(e) => {
-            warn!("Failed to open score database {}: {}", score_db_path, e);
-            return;
-        }
-    };
-
-    let songdb =
-        match rubato::song::sqlite_song_database_accessor::SQLiteSongDatabaseAccessor::new(
-            &config.paths.songpath,
-            &config.paths.bmsroot,
-        ) {
+    let scoredb =
+        match rubato::core::score_database_accessor::ScoreDatabaseAccessor::new(&score_db_path) {
             Ok(db) => db,
             Err(e) => {
-                warn!("Failed to open song database: {}", e);
+                warn!("Failed to open score database {}: {}", score_db_path, e);
                 return;
             }
         };
+
+    let songdb = match rubato::song::sqlite_song_database_accessor::SQLiteSongDatabaseAccessor::new(
+        &config.paths.songpath,
+        &config.paths.bmsroot,
+    ) {
+        Ok(db) => db,
+        Err(e) => {
+            warn!("Failed to open song database: {}", e);
+            return;
+        }
+    };
 
     info!("Importing scores from LR2 database: {}", lr2_path);
     let importer = rubato::external::score_data_importer::ScoreDataImporter::new(scoredb);
@@ -166,8 +163,7 @@ pub(crate) fn init_state_listeners(controller: &mut MainController) -> Vec<Box<d
     }
     if use_obs_ws {
         let obs_client = rubato::external::obs::obs_ws_client::ObsWsClient::new(&cfg_clone);
-        let (sender, listener) =
-            rubato::external::obs::obs_listener::ObsListener::new(cfg_clone);
+        let (sender, listener) = rubato::external::obs::obs_listener::ObsListener::new(cfg_clone);
         controller.add_event_sender(sender);
         handles.push(Box::new(listener));
         if let Ok(client) = obs_client {
@@ -191,8 +187,7 @@ pub(crate) fn init_ir_config(controller: &mut MainController) {
     ]);
 
     let player_config = controller.player_config().clone();
-    let ir_statuses =
-        rubato::state::result::ir_initializer::initialize_ir_config(&player_config);
+    let ir_statuses = rubato::state::result::ir_initializer::initialize_ir_config(&player_config);
     for ir_status in ir_statuses {
         let rival_provider = rubato::ir::ir_rival_provider_impl::IRRivalProviderImpl::new(
             ir_status.connection.clone(),
@@ -212,8 +207,7 @@ pub(crate) fn init_ir_config(controller: &mut MainController) {
     }
     // Wire IR resend service
     let ir_send_count = controller.config().network.ir_send_count;
-    let resend_service =
-        rubato::state::result::ir_resend::IrResendServiceImpl::new(ir_send_count);
+    let resend_service = rubato::state::result::ir_resend::IrResendServiceImpl::new(ir_send_count);
     resend_service.start();
     controller.set_ir_resend_service(Box::new(resend_service));
 }
@@ -297,9 +291,7 @@ fn init_http_download_processor(
                     &config.paths.songinfopath,
                 )
                 .ok()
-                .map(|db| {
-                    Box::new(db) as Box<dyn rubato::song_information_db::SongInformationDb>
-                });
+                .map(|db| Box::new(db) as Box<dyn rubato::song_information_db::SongInformationDb>);
             let main_ref: Arc<dyn rubato::song::md_processor::MainControllerRef> =
                 Arc::new(SongDbMainControllerRef {
                     songdb,
@@ -356,19 +348,15 @@ pub(crate) fn init_stream_controller(controller: &mut MainController) {
             &config.paths.songpath,
             &config.paths.bmsroot,
         ) {
-            Ok(db) => {
-                rubato::state::select::music_selector::MusicSelector::with_song_database(
-                    Box::new(db),
-                )
-            }
+            Ok(db) => rubato::state::select::music_selector::MusicSelector::with_song_database(
+                Box::new(db),
+            ),
             Err(e) => {
                 log::warn!(
                     "Failed to open song database for shared MusicSelector: {}",
                     e
                 );
-                rubato::state::select::music_selector::MusicSelector::with_config(
-                    config.clone(),
-                )
+                rubato::state::select::music_selector::MusicSelector::with_config(config.clone())
             }
         };
     // Wire dependencies so the shared selector can access config, sounds, scores, etc.

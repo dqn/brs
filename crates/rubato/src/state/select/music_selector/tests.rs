@@ -7,9 +7,9 @@ use crate::state::select::bar::song_bar::SongBar;
 use crate::state::select::skin_bar::SkinBar;
 use crate::test_support::TestSongDb;
 use rubato_audio::recording_audio_driver::RecordingAudioDriver;
-use rubato_skin::skin_text::SkinTextEnum;
 use rubato_skin::skin_config::SkinConfig;
 use rubato_skin::skin_render_context::SkinRenderContext;
+use rubato_skin::skin_text::SkinTextEnum;
 use rubato_skin::skin_type::SkinType;
 
 fn make_song_data(sha256: &str, path: Option<&str>) -> SongData {

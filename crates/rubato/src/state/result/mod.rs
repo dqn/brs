@@ -13,6 +13,8 @@ pub use crate::ir::ir_score_data::IRScoreData;
 pub use crate::ir::ranking_data::RankingData;
 pub use rubato_input::key_command::KeyCommand;
 pub use rubato_input::keyboard_input_processor::ControlKeys;
+pub use rubato_skin::groove_gauge::GrooveGauge;
+pub use rubato_skin::player_resource_access::PlayerResourceAccess;
 pub use rubato_skin::reexports::Color;
 pub use rubato_skin::reexports::Pixmap;
 pub use rubato_skin::reexports::PixmapFormat;
@@ -23,8 +25,6 @@ pub use rubato_skin::skin::Skin;
 pub use rubato_skin::skin_header::SkinHeader;
 pub use rubato_skin::skin_object::SkinObjectData;
 pub use rubato_skin::skin_object::SkinObjectRenderer;
-pub use rubato_skin::groove_gauge::GrooveGauge;
-pub use rubato_skin::player_resource_access::PlayerResourceAccess;
 
 // Convenience re-exports for the wrapper types
 pub use main_controller_wrapper::MainController;

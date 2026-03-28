@@ -828,9 +828,9 @@ mod event_impls;
 use event_impls::*;
 
 #[cfg(test)]
-use crate::reexports::MainState;
-#[cfg(test)]
 use crate::play_config;
+#[cfg(test)]
+use crate::reexports::MainState;
 
 #[cfg(test)]
 mod tests;

@@ -4,14 +4,14 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use rubato_render::pixmap_resource_pool::PixmapResourcePool;
 use crate::config::Config;
 use crate::player_config::PlayerConfig;
+use rubato_render::pixmap_resource_pool::PixmapResourcePool;
 
 use crate::reexports::{MainState, Texture};
+use crate::sync_utils::lock_or_recover;
 use crate::types::skin::Skin;
 use crate::types::skin_type::SkinType;
-use crate::sync_utils::lock_or_recover;
 
 /// Skin image resource pool
 /// Translated from SkinLoader.java

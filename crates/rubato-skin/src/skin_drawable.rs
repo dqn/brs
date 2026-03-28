@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use rubato_render::sprite_batch::SpriteBatch;
 use crate::skin_offset::SkinOffset;
+use rubato_render::sprite_batch::SpriteBatch;
 
 /// Abstracts the beatoraja-skin Skin type so that beatoraja-core can call
 /// skin drawing methods without depending on the skin crate (circular dep).

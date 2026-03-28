@@ -1,10 +1,10 @@
 use super::*;
+use crate::main_state_type::MainStateType;
 use crate::property::boolean_property::BooleanProperty;
 use crate::property::event_factory;
+use crate::skin_drawable::SkinDrawable;
 use crate::skin_header::SkinHeader;
 use crate::skin_image::SkinImage;
-use crate::skin_drawable::SkinDrawable;
-use crate::main_state_type::MainStateType;
 use crate::skin_render_context::SkinRenderContext;
 use crate::timer_access::TimerAccess;
 
@@ -258,16 +258,20 @@ fn test_offset_value_delegates_through_timer_only_adapter() {
 /// Before the fix, all per-timer-id queries returned 0 (frozen animations).
 #[test]
 fn test_timer_manager_values_flow_through_to_skin_adapter() {
-    use std::collections::HashMap;
     use crate::timer_id::TimerId;
+    use std::collections::HashMap;
 
     // Simple mock implementing TimerAccess (replaces rubato-game TimerManager)
     struct MockTimer {
         timers: HashMap<TimerId, i64>,
     }
     impl TimerAccess for MockTimer {
-        fn now_time(&self) -> i64 { 1000 }
-        fn now_micro_time(&self) -> i64 { 1_000_000 }
+        fn now_time(&self) -> i64 {
+            1000
+        }
+        fn now_micro_time(&self) -> i64 {
+            1_000_000
+        }
         fn micro_timer(&self, id: TimerId) -> i64 {
             *self.timers.get(&id).unwrap_or(&i64::MIN)
         }
@@ -275,7 +279,9 @@ fn test_timer_manager_values_flow_through_to_skin_adapter() {
             let v = self.micro_timer(id);
             if v == i64::MIN { i64::MIN } else { v / 1000 }
         }
-        fn now_time_for(&self, _id: TimerId) -> i64 { self.now_time() }
+        fn now_time_for(&self, _id: TimerId) -> i64 {
+            self.now_time()
+        }
         fn is_timer_on(&self, id: TimerId) -> bool {
             self.timers.get(&id).is_some_and(|&v| v != i64::MIN)
         }

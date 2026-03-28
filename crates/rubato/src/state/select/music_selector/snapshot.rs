@@ -1,7 +1,7 @@
 use crate::core::timer_manager::TimerManager;
-use rubato_skin::skin_property::*;
 use rubato_skin::property_snapshot::PropertySnapshot;
 use rubato_skin::skin_action_queue::SkinActionQueue;
+use rubato_skin::skin_property::*;
 use rubato_skin::timer_id::TimerId;
 
 use super::*;

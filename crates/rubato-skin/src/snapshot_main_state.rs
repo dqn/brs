@@ -273,9 +273,7 @@ impl SkinRenderContext for SnapshotMainState<'_> {
         self.snapshot.is_debug()
     }
 
-    fn get_timing_distribution(
-        &self,
-    ) -> Option<&crate::timing_distribution::TimingDistribution> {
+    fn get_timing_distribution(&self) -> Option<&crate::timing_distribution::TimingDistribution> {
         self.snapshot.get_timing_distribution()
     }
 

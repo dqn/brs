@@ -1,7 +1,7 @@
-use mlua::prelude::*;
 use crate::property_snapshot::PropertySnapshot;
 use crate::skin_render_context::SkinRenderContext;
 use crate::timer_access::TimerAccess;
+use mlua::prelude::*;
 
 use crate::core::skin_property_mapper;
 use crate::property::boolean_property_factory;
@@ -155,10 +155,7 @@ impl MainStateAccessor {
                         ));
                     }
                     let state = unsafe { &mut *sp.0 };
-                    state.set_timer_micro(
-                        crate::timer_id::TimerId::new(timer_id),
-                        timer_value,
-                    );
+                    state.set_timer_micro(crate::timer_id::TimerId::new(timer_id), timer_value);
                     Ok(true)
                 })?;
             table.set("set_timer", set_timer_func)?;
@@ -578,10 +575,7 @@ impl SnapshotAccessor {
                         ));
                     }
                     let snapshot = unsafe { &mut *sp.0 };
-                    snapshot.set_timer_micro(
-                        crate::timer_id::TimerId::new(timer_id),
-                        timer_value,
-                    );
+                    snapshot.set_timer_micro(crate::timer_id::TimerId::new(timer_id), timer_value);
                     Ok(true)
                 })?;
             table.set("set_timer", set_timer_func)?;
@@ -942,8 +936,7 @@ mod tests {
             Self {
                 timer: Timer::default(),
                 offsets: HashMap::new(),
-                score_data_property: crate::score_data_property::ScoreDataProperty::default(
-                ),
+                score_data_property: crate::score_data_property::ScoreDataProperty::default(),
                 judge_counts: HashMap::new(),
                 gauge_value: 0.0,
                 gauge_type: 0,

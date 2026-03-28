@@ -503,17 +503,13 @@ fn e2e_music_select_standalone_default_json_skin_draws_runtime_numeric_value_qua
     std::fs::create_dir_all(&player_dir).expect("player directory should be created");
 
     let song_db_path = tempdir.path().join("songdata.db");
-    let song_db =
-        rubato::song::sqlite_song_database_accessor::SQLiteSongDatabaseAccessor::new(
-            &song_db_path.to_string_lossy(),
-            &[],
-        )
-        .expect("song db should open");
-    rubato::song_database_accessor::SongDatabaseAccessor::set_song_datas(
-        &song_db,
-        &[song.clone()],
+    let song_db = rubato::song::sqlite_song_database_accessor::SQLiteSongDatabaseAccessor::new(
+        &song_db_path.to_string_lossy(),
+        &[],
     )
-    .expect("song db should store the test song");
+    .expect("song db should open");
+    rubato::song_database_accessor::SongDatabaseAccessor::set_song_datas(&song_db, &[song.clone()])
+        .expect("song db should store the test song");
 
     let score_db_path = player_dir.join("score.db");
     let score_db = ScoreDatabaseAccessor::new(

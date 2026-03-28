@@ -33,10 +33,7 @@ impl LuaSkinLoader {
     ///
     /// The caller must keep `state` alive while the loader/Lua VM is in use
     /// because exported Lua closures retain a raw pointer to it.
-    pub fn new_with_state(
-        state: &mut dyn MainState,
-        config: &crate::config::Config,
-    ) -> Self {
+    pub fn new_with_state(state: &mut dyn MainState, config: &crate::config::Config) -> Self {
         let loader = Self::new_without_state(config);
         let state_ptr: *mut dyn MainState =
             unsafe { std::mem::transmute(state as *mut dyn MainState) };
@@ -351,11 +348,11 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
+    use crate::config::Config;
     use crate::objects::wiring_check::{Severity, WiringCheck};
     use crate::skin_object::SkinObjectRenderer;
     use crate::skin_type::SkinType;
     use crate::test_helpers::MockMainState;
-    use crate::config::Config;
 
     fn repo_path(relative: &str) -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))

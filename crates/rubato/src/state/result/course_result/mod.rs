@@ -1467,8 +1467,8 @@ mod tests {
         ExecuteEventSkin, PlayerConfigMutatingSkin, make_test_config,
     };
     use rubato_skin::skin_property::TIMER_RESULTGRAPH_BEGIN;
-    use rubato_skin::skin_type::SkinType;
     use rubato_skin::skin_render_context::SkinRenderContext;
+    use rubato_skin::skin_type::SkinType;
 
     fn make_ranking_cache() -> Box<dyn crate::ranking_data_cache_access::RankingDataCacheAccess> {
         Box::new(crate::ir::ranking_data_cache::RankingDataCache::new())
@@ -1476,10 +1476,7 @@ mod tests {
 
     fn make_default() -> CourseResult {
         CourseResult::new(
-            MainController::new(
-                rubato_skin::config::Config::default(),
-                make_ranking_cache(),
-            ),
+            MainController::new(rubato_skin::config::Config::default(), make_ranking_cache()),
             PlayerResource::default(),
             crate::core::timer_manager::TimerManager::new(),
         )
@@ -2220,10 +2217,8 @@ mod tests {
             crate::state::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
         );
         let data = AbstractResultData::new();
-        let mut main = MainController::new(
-            rubato_skin::config::Config::default(),
-            make_ranking_cache(),
-        );
+        let mut main =
+            MainController::new(rubato_skin::config::Config::default(), make_ranking_cache());
         let mut timer = crate::core::timer_manager::TimerManager::new();
         let offsets = std::collections::HashMap::new();
         let ctx = CourseResultRenderContext {
@@ -2247,10 +2242,8 @@ mod tests {
         // When the resource has no songdata, song_data_ref() should return None.
         let resource = PlayerResource::default();
         let data = AbstractResultData::new();
-        let mut main = MainController::new(
-            rubato_skin::config::Config::default(),
-            make_ranking_cache(),
-        );
+        let mut main =
+            MainController::new(rubato_skin::config::Config::default(), make_ranking_cache());
         let mut timer = crate::core::timer_manager::TimerManager::new();
         let offsets = std::collections::HashMap::new();
         let ctx = CourseResultRenderContext {
@@ -2290,10 +2283,8 @@ mod tests {
         data.ranking = Some(ranking);
         data.ranking_offset = 1;
 
-        let mut main = MainController::new(
-            rubato_skin::config::Config::default(),
-            make_ranking_cache(),
-        );
+        let mut main =
+            MainController::new(rubato_skin::config::Config::default(), make_ranking_cache());
         let mut timer = crate::core::timer_manager::TimerManager::new();
         let offsets = std::collections::HashMap::new();
         let ctx = CourseResultRenderContext {
@@ -2326,10 +2317,8 @@ mod tests {
             crate::state::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
         );
         let data = AbstractResultData::new();
-        let main = MainController::new(
-            rubato_skin::config::Config::default(),
-            make_ranking_cache(),
-        );
+        let main =
+            MainController::new(rubato_skin::config::Config::default(), make_ranking_cache());
         let timer = crate::core::timer_manager::TimerManager::new();
         (resource, data, main, timer)
     }
@@ -2436,10 +2425,8 @@ mod tests {
     fn test_course_result_string_value_no_songdata_returns_empty() {
         let resource = PlayerResource::default();
         let data = AbstractResultData::new();
-        let mut main = MainController::new(
-            rubato_skin::config::Config::default(),
-            make_ranking_cache(),
-        );
+        let mut main =
+            MainController::new(rubato_skin::config::Config::default(), make_ranking_cache());
         let mut timer = crate::core::timer_manager::TimerManager::new();
         let offsets = std::collections::HashMap::new();
         let ctx = CourseResultRenderContext {
@@ -2533,10 +2520,8 @@ mod tests {
             crate::state::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
         );
         let data = AbstractResultData::new();
-        let mut main = MainController::new(
-            rubato_skin::config::Config::default(),
-            make_ranking_cache(),
-        );
+        let mut main =
+            MainController::new(rubato_skin::config::Config::default(), make_ranking_cache());
         let mut timer = crate::core::timer_manager::TimerManager::new();
         let offsets = std::collections::HashMap::new();
         let ctx = CourseResultRenderContext {
@@ -2813,10 +2798,8 @@ mod tests {
 
     /// Create a CourseResult with pre-resolved sound paths for testing sound selection.
     fn make_sound_tracking_cr(available_sounds: Vec<SoundType>) -> CourseResult {
-        let mut main = MainController::new(
-            rubato_skin::config::Config::default(),
-            make_ranking_cache(),
-        );
+        let mut main =
+            MainController::new(rubato_skin::config::Config::default(), make_ranking_cache());
         let mut paths = std::collections::HashMap::new();
         for sound in &available_sounds {
             paths.insert(sound.clone(), format!("test/{:?}.wav", sound));

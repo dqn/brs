@@ -220,9 +220,7 @@ impl MainController {
 
         // Emit state created event
         if let Some(st) = new_state.state_type() {
-            self.emit_state_event(rubato_skin::state_event::StateEvent::StateCreated {
-                state: st,
-            });
+            self.emit_state_event(rubato_skin::state_event::StateEvent::StateCreated { state: st });
         }
 
         // Apply create side effects (input mode, guide SE)

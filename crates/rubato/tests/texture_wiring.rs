@@ -243,8 +243,8 @@ fn compute_note_draw_commands_produces_commands() {
     use bms::model::bms_model::BMSModel;
     use bms::model::note::Note;
     use bms::model::time_line::TimeLine;
-    use rubato_skin::skin_drawable::SkinDrawable;
     use rubato::play::lane_renderer::{DrawLaneContext, LaneRenderer};
+    use rubato_skin::skin_drawable::SkinDrawable;
 
     // 1. Create a model with one note
     let mut model = BMSModel::new();

@@ -7,8 +7,8 @@ use rubato_skin::reexports::Timer;
 use rubato_skin::skin_data_converter;
 use rubato_skin::skin_text::SkinText;
 use rubato_skin::skin_text::SkinTextEnum;
-use rubato_skin::text::skin_text_bitmap::{SkinTextBitmap, SkinTextBitmapSource};
 use rubato_skin::skin_type::SkinType;
+use rubato_skin::text::skin_text_bitmap::{SkinTextBitmap, SkinTextBitmapSource};
 
 /// Create a test SkinImage with draw=true and specified region.
 /// Uses a default TextureRegion (no real texture, but valid for layout tests).

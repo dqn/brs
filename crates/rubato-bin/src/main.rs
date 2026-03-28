@@ -1046,9 +1046,8 @@ impl RubatoApp {
 
         // Clipboard copy
         if config.integration.set_clipboard_screenshot {
-            match rubato::external::clipboard_helper::ClipboardHelper::copy_image_to_clipboard(
-                path,
-            ) {
+            match rubato::external::clipboard_helper::ClipboardHelper::copy_image_to_clipboard(path)
+            {
                 Ok(()) => info!("Screenshot copied to clipboard"),
                 Err(e) => warn!("Failed to copy screenshot to clipboard: {}", e),
             }

@@ -1474,11 +1474,8 @@ fn select_gauge_type_replay_uses_replay_gauge() {
     let mut replay = make_replay_data();
     replay.gauge = rubato_skin::groove_gauge::HARD;
     let key_state = ReplayKeyState::default();
-    let result = BMSPlayer::select_gauge_type(
-        Some(&replay),
-        rubato_skin::groove_gauge::NORMAL,
-        &key_state,
-    );
+    let result =
+        BMSPlayer::select_gauge_type(Some(&replay), rubato_skin::groove_gauge::NORMAL, &key_state);
     assert_eq!(result, rubato_skin::groove_gauge::HARD);
 }
 
@@ -1490,11 +1487,8 @@ fn select_gauge_type_replay_with_key5_shifts_by_1() {
         gauge_shift_key5: true,
         ..Default::default()
     };
-    let result = BMSPlayer::select_gauge_type(
-        Some(&replay),
-        rubato_skin::groove_gauge::NORMAL,
-        &key_state,
-    );
+    let result =
+        BMSPlayer::select_gauge_type(Some(&replay), rubato_skin::groove_gauge::NORMAL, &key_state);
     assert_eq!(result, rubato_skin::groove_gauge::HARD); // 2 + 1 = 3
 }
 
@@ -1506,11 +1500,8 @@ fn select_gauge_type_replay_with_key3_shifts_by_2() {
         gauge_shift_key3: true,
         ..Default::default()
     };
-    let result = BMSPlayer::select_gauge_type(
-        Some(&replay),
-        rubato_skin::groove_gauge::NORMAL,
-        &key_state,
-    );
+    let result =
+        BMSPlayer::select_gauge_type(Some(&replay), rubato_skin::groove_gauge::NORMAL, &key_state);
     assert_eq!(result, rubato_skin::groove_gauge::EXHARD); // 2 + 2 = 4
 }
 
@@ -1523,11 +1514,8 @@ fn select_gauge_type_replay_with_both_keys_shifts_by_3() {
         gauge_shift_key5: true,
         ..Default::default()
     };
-    let result = BMSPlayer::select_gauge_type(
-        Some(&replay),
-        rubato_skin::groove_gauge::NORMAL,
-        &key_state,
-    );
+    let result =
+        BMSPlayer::select_gauge_type(Some(&replay), rubato_skin::groove_gauge::NORMAL, &key_state);
     assert_eq!(result, rubato_skin::groove_gauge::HAZARD); // 2 + 3 = 5
 }
 
@@ -1539,11 +1527,8 @@ fn select_gauge_type_replay_hazard_no_shift() {
         gauge_shift_key5: true,
         ..Default::default()
     };
-    let result = BMSPlayer::select_gauge_type(
-        Some(&replay),
-        rubato_skin::groove_gauge::NORMAL,
-        &key_state,
-    );
+    let result =
+        BMSPlayer::select_gauge_type(Some(&replay), rubato_skin::groove_gauge::NORMAL, &key_state);
     // HAZARD cannot be shifted further
     assert_eq!(result, rubato_skin::groove_gauge::HAZARD);
 }

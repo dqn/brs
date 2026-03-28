@@ -5,10 +5,10 @@ use crate::core::app_context::GameContext;
 use crate::core::main_state::{MainState, MainStateData, MainStateType, StateTransition};
 use crate::core::system_sound_manager::SoundType;
 use crate::core::timer_manager::TimerManager;
-use rubato_skin::skin_property::{TIMER_FADEOUT, TIMER_STARTINPUT};
-use rubato_skin::skin_type::SkinType;
 use rubato_skin::property_snapshot::PropertySnapshot;
 use rubato_skin::skin_action_queue::SkinActionQueue;
+use rubato_skin::skin_property::{TIMER_FADEOUT, TIMER_STARTINPUT};
+use rubato_skin::skin_type::SkinType;
 use rubato_skin::timer_id::TimerId;
 
 use super::ControlKeys;
@@ -2546,8 +2546,7 @@ mod tests {
     #[test]
     fn decide_render_context_lnmode_308_override_chargenote() {
         let mut resource = make_resource_with_song_length(0);
-        resource.songdata_mut().unwrap().chart.feature =
-            rubato_skin::song_data::FEATURE_CHARGENOTE;
+        resource.songdata_mut().unwrap().chart.feature = rubato_skin::song_data::FEATURE_CHARGENOTE;
         let mut timer = TimerManager::new();
         let config = rubato_skin::config::Config::default();
         let mut outbox = TestOutbox::new();
@@ -2905,8 +2904,7 @@ mod tests {
         // Set lnmode config to a non-zero sentinel so we can distinguish
         // the chart-based override (CHARGENOTE -> 1) from the config fallback.
         let mut resource = make_resource_with_song_length(0);
-        resource.songdata_mut().unwrap().chart.feature =
-            rubato_skin::song_data::FEATURE_CHARGENOTE;
+        resource.songdata_mut().unwrap().chart.feature = rubato_skin::song_data::FEATURE_CHARGENOTE;
         resource.player_config_mut().unwrap().play_settings.lnmode = 99;
 
         let mut timer = TimerManager::new();

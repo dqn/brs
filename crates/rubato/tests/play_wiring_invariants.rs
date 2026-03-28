@@ -49,9 +49,7 @@ fn make_model_with_note_on_lane(lane: usize) -> BMSModel {
     model
 }
 
-fn make_judge_manager(
-    model: &BMSModel,
-) -> (JudgeManager, rubato::play::groove_gauge::GrooveGauge) {
+fn make_judge_manager(model: &BMSModel) -> (JudgeManager, rubato::play::groove_gauge::GrooveGauge) {
     let judge_notes = model.build_judge_notes();
     let mode = Mode::BEAT_7K;
     let rule = BMSPlayerRule::for_mode(&mode);

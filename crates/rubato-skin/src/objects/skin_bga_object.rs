@@ -5,8 +5,8 @@ use std::sync::{Arc, Mutex};
 
 use crate::sync_utils::lock_or_recover;
 
-use rubato_render::color::Color;
 use crate::practice_draw_command::{PracticeColor, PracticeDrawCommand};
+use rubato_render::color::Color;
 
 use crate::graphs::skin_note_distribution_graph::{
     NoteDistributionDrawParams, SkinNoteDistributionGraph, TYPE_EARLYLATE, TYPE_JUDGE, TYPE_NORMAL,
