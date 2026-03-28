@@ -3,10 +3,17 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use ab_glyph::{Font, GlyphId, PxScale};
 
 use crate::render::texture::{Texture, TextureRegion};
+
+/// Monotonic counter for assigning unique stable IDs to GlyphAtlas instances.
+/// Each atlas gets its own ID so multiple BitmapFont instances produce distinct
+/// GPU texture cache keys (via the `pixmap_id` -> `__pixmap_{:x}` path in
+/// `SpriteBatch::record_texture`).
+static NEXT_GLYPH_ATLAS_ID: AtomicU64 = AtomicU64::new(1);
 
 /// Cached glyph information within the atlas.
 #[derive(Clone, Copy, Debug)]
@@ -50,10 +57,11 @@ pub struct GlyphAtlas {
     cache: HashMap<GlyphKey, CachedGlyph>,
     /// Texture backing the atlas. Updated when new glyphs are rasterized.
     atlas_texture: Texture,
-    /// Stable texture key with `__pixmap_` prefix. The `__pixmap_` prefix causes
-    /// `GpuTextureManager::ensure_uploaded()` to always re-upload the texture data,
-    /// while the stable key avoids allocating a new GPU texture each frame.
-    stable_key: Arc<str>,
+    /// Stable pixmap ID unique to this atlas instance. Used by
+    /// `SpriteBatch::record_texture` to generate a `__pixmap_{:x}` key, which
+    /// causes `GpuTextureManager::ensure_uploaded()` to always re-upload the
+    /// texture data while keeping the GPU texture allocation stable.
+    pixmap_id: u64,
     /// Whether pixel data has been modified since last texture upload.
     dirty: bool,
 }
@@ -72,7 +80,7 @@ impl GlyphAtlas {
             row_height: 0,
             cache: HashMap::new(),
             atlas_texture: Texture::default(),
-            stable_key: Arc::from("__pixmap_glyph_atlas"),
+            pixmap_id: NEXT_GLYPH_ATLAS_ID.fetch_add(1, Ordering::Relaxed),
             dirty: false,
         }
     }
@@ -210,14 +218,15 @@ impl GlyphAtlas {
     }
 
     /// Update the atlas texture with current pixel data.
-    /// Uses a stable `__pixmap_`-prefixed key so `GpuTextureManager::ensure_uploaded()`
+    /// Uses the per-instance `pixmap_id` so `SpriteBatch::record_texture` generates
+    /// a unique `__pixmap_{:x}` key, and `GpuTextureManager::ensure_uploaded()`
     /// always re-uploads the data without allocating a new GPU texture each frame.
     fn update_texture(&mut self) {
         self.atlas_texture = Texture {
             width: self.atlas_width as i32,
             height: self.atlas_height as i32,
             disposed: false,
-            path: Some(Arc::clone(&self.stable_key)),
+            pixmap_id: Some(self.pixmap_id),
             rgba_data: Some(Arc::new(self.pixels.clone())),
             ..Default::default()
         };
@@ -267,24 +276,21 @@ mod tests {
         let mut atlas = GlyphAtlas::new();
         assert!(!atlas.dirty);
 
-        // Flush when not dirty: texture path stays None (default)
+        // Flush when not dirty: texture pixmap_id stays None (default)
         atlas.flush_texture_if_dirty();
-        assert!(atlas.atlas_texture.path.is_none());
+        assert!(atlas.atlas_texture.pixmap_id.is_none());
 
         // Simulate dirty state
         atlas.dirty = true;
         atlas.flush_texture_if_dirty();
         assert!(!atlas.dirty);
-        // After flush, texture uses the stable __pixmap_ key
-        assert_eq!(
-            atlas.atlas_texture.path.as_deref(),
-            Some("__pixmap_glyph_atlas")
-        );
+        // After flush, texture uses the per-instance pixmap_id
+        assert_eq!(atlas.atlas_texture.pixmap_id, Some(atlas.pixmap_id));
 
         // Flush again when not dirty: texture unchanged
-        let prev_path = atlas.atlas_texture.path.clone();
+        let prev_id = atlas.atlas_texture.pixmap_id;
         atlas.flush_texture_if_dirty();
-        assert_eq!(atlas.atlas_texture.path, prev_path);
+        assert_eq!(atlas.atlas_texture.pixmap_id, prev_id);
     }
 
     /// Load the test font (NotoSansJP from assets/).
@@ -309,15 +315,12 @@ mod tests {
             atlas.get_or_rasterize(&font, glyph_id, 24.0);
         }
         assert!(atlas.dirty);
-        assert!(atlas.atlas_texture.path.is_none()); // Not flushed yet
+        assert!(atlas.atlas_texture.pixmap_id.is_none()); // Not flushed yet
 
-        // Single flush updates texture with stable key
+        // Single flush updates texture with per-instance pixmap_id
         atlas.flush_texture_if_dirty();
         assert!(!atlas.dirty);
-        assert_eq!(
-            atlas.atlas_texture.path.as_deref(),
-            Some("__pixmap_glyph_atlas")
-        );
+        assert_eq!(atlas.atlas_texture.pixmap_id, Some(atlas.pixmap_id));
 
         // Rasterize more glyphs
         for ch in ['F', 'G'] {
@@ -326,11 +329,8 @@ mod tests {
             atlas.get_or_rasterize(&font, glyph_id, 24.0);
         }
         atlas.flush_texture_if_dirty();
-        // Key remains stable (same key, new data via __pixmap_ re-upload contract)
-        assert_eq!(
-            atlas.atlas_texture.path.as_deref(),
-            Some("__pixmap_glyph_atlas")
-        );
+        // pixmap_id remains stable (same ID, new data via __pixmap_ re-upload contract)
+        assert_eq!(atlas.atlas_texture.pixmap_id, Some(atlas.pixmap_id));
 
         // Cached glyphs don't set dirty
         for ch in ['A', 'B', 'C'] {
@@ -383,6 +383,25 @@ mod tests {
         assert!((region.v - expected_v).abs() < 1e-6);
         assert!((region.u2 - expected_u2).abs() < 1e-6);
         assert!((region.v2 - expected_v2).abs() < 1e-6);
+    }
+
+    /// Regression: multiple GlyphAtlas instances must have distinct pixmap_ids
+    /// so they produce different GPU texture cache keys. Previously all instances
+    /// shared a hardcoded `"__pixmap_glyph_atlas"` path, causing the last atlas
+    /// to upload to overwrite all others' GPU texture.
+    #[test]
+    fn test_multiple_atlases_have_unique_pixmap_ids() {
+        let atlas1 = GlyphAtlas::new();
+        let atlas2 = GlyphAtlas::new();
+        let atlas3 = GlyphAtlas::new();
+        assert_ne!(
+            atlas1.pixmap_id, atlas2.pixmap_id,
+            "each atlas must get a unique pixmap_id"
+        );
+        assert_ne!(
+            atlas2.pixmap_id, atlas3.pixmap_id,
+            "each atlas must get a unique pixmap_id"
+        );
     }
 
     /// Regression: grow_atlas must cap at MAX_ATLAS_HEIGHT to avoid exceeding GPU limits.
