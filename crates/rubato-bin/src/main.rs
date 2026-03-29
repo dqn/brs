@@ -344,6 +344,12 @@ impl ApplicationHandler for RubatoApp {
             // has keyboard focus (e.g. search text field, modmenu input).
             // RedrawRequested is never consumed by egui but exempted as a safety net.
             if response.consumed && !matches!(event, WindowEvent::RedrawRequested) {
+                if matches!(event, WindowEvent::KeyboardInput { .. }) {
+                    log::warn!(
+                        "egui consumed keyboard event -- game input will NOT see this key press. \
+                         An egui widget likely has focus (search field, modmenu text input)."
+                    );
+                }
                 return;
             }
         }
@@ -704,6 +710,18 @@ impl RubatoApp {
             .current_state()
             .map(|s| s.main_state_data().skin.is_some())
             .unwrap_or(false);
+        let diag_input_enabled = self
+            .controller
+            .input_processor()
+            .map(|ip| ip.is_enabled())
+            .unwrap_or(false);
+        let diag_play_mode = self
+            .controller
+            .player_resource()
+            .and_then(|r| r.play_mode())
+            .map(|m| format!("{:?}", m.mode))
+            .unwrap_or_else(|| "N/A".to_string());
+        let diag_focus = rubato::skin::skin_widget_focus::focus();
 
         let (Some(egui_state), Some(egui_integration)) =
             (&mut self.egui_state, &self.egui_integration)
@@ -744,6 +762,21 @@ impl RubatoApp {
                                     } else {
                                         "NOT loaded (load_skin stub)"
                                     }
+                                ),
+                            );
+                            // Input diagnostics for play state debugging
+                            let input_color = if diag_input_enabled {
+                                egui::Color32::GREEN
+                            } else {
+                                egui::Color32::RED
+                            };
+                            ui.colored_label(
+                                input_color,
+                                format!(
+                                    "Input: {} | Mode: {} | Focus: {}",
+                                    if diag_input_enabled { "ON" } else { "OFF" },
+                                    diag_play_mode,
+                                    if diag_focus { "BLOCKED" } else { "ok" },
                                 ),
                             );
                         });
