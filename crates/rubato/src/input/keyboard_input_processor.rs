@@ -278,6 +278,11 @@ impl KeyBoardInputProcesseor {
         &self.key_state
     }
 
+    /// Returns the configured game key keycodes.
+    pub fn keys(&self) -> &[i32] {
+        &self.keys
+    }
+
     pub fn set_config(&mut self, config: &KeyboardConfig) {
         self.keys = config.keys.to_vec();
         self.duration = config.duration;

@@ -397,6 +397,10 @@ impl BMSPlayerInputProcessor {
         count
     }
 
+    pub fn is_enabled(&self) -> bool {
+        self.enable
+    }
+
     pub fn set_enable(&mut self, enable: bool) {
         self.enable = enable;
         if !enable {

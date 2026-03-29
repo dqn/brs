@@ -481,6 +481,147 @@ fn e2e_ecfn_select_enter_reaches_manual_play_without_stuck_beams() {
     );
 }
 
+/// Regression test: keyboard input (z,s,x,d,c,f,v) must reach the input processor
+/// during Play state. Verifies that:
+/// 1. Input processor is enabled (not disabled as in autoplay)
+/// 2. Keyboard key presses are registered via SharedKeyState -> poll -> key_state
+/// 3. JudgeManager autoplay flag is false for manual play
+#[test]
+fn e2e_play_keyboard_input_reaches_input_processor() {
+    let bms_path = test_bms_path();
+    assert!(bms_path.exists(), "Test BMS not found: {}", bms_path.display());
+
+    let shared_state = SharedKeyState::new();
+    set_shared_key_state(shared_state.clone());
+
+    let mut config = Config::default();
+    config.select.skip_decide_screen = true;
+    let player = PlayerConfig::default();
+    let mut selector = MusicSelector::new();
+    selector.config = player.clone();
+    selector.manager.currentsongs = vec![make_song_bar(&bms_path)];
+    selector.manager.selectedindex = 0;
+
+    let mut mc = MainController::new(None, config, player, None, false);
+    mc.set_state_factory(LauncherStateFactory::new().into_creator());
+    mc.set_shared_music_selector(Arc::new(Mutex::new(selector)));
+    mc.create();
+
+    // Transition: Select -> Play via Enter key
+    shared_state.set_key_pressed(Keys::ENTER, true);
+    mc.render();
+    mc.render();
+    shared_state.set_key_pressed(Keys::ENTER, false);
+
+    for _ in 0..120 {
+        if mc.current_state_type() == Some(MainStateType::Play) {
+            break;
+        }
+        mc.render();
+    }
+    assert_eq!(mc.current_state_type(), Some(MainStateType::Play));
+    assert_eq!(
+        mc.player_resource().and_then(|r| r.play_mode()).copied(),
+        Some(BMSPlayerMode::PLAY),
+        "must be in manual PLAY mode, not autoplay"
+    );
+
+    // Render a few frames to let play state fully initialize
+    for _ in 0..10 {
+        mc.render();
+    }
+
+    // Verify: input processor must be enabled
+    let input = mc.input_processor().expect("input processor must exist");
+    // key_state(0) should be false initially (no key pressed)
+    assert!(
+        !input.key_state(0),
+        "key 0 should not be pressed before we press Z"
+    );
+
+    // Diagnostic 1: check focus state
+    let focus_blocked = rubato::skin::skin_widget_focus::focus();
+    assert!(
+        !focus_blocked,
+        "skin_widget_focus must be false during play -- focus gate is blocking ALL keyboard input"
+    );
+
+    // Diagnostic 2: verify the input processor sees the same SharedKeyState
+    let input = mc.input_processor().expect("input processor must exist");
+    let proc_key_state = input.shared_key_state();
+    // Set a test key on our shared_state and verify the processor sees it
+    shared_state.set_key_pressed(Keys::Z, true);
+    assert!(
+        proc_key_state.is_key_pressed(Keys::Z),
+        "input processor's SharedKeyState must be the SAME instance as the test's -- \
+         if this fails, the processor was created before set_shared_key_state was called"
+    );
+    shared_state.set_key_pressed(Keys::Z, false); // reset
+
+    // Diagnostic 3: verify input is enabled (not autoplay)
+    let input = mc.input_processor().expect("input processor must exist");
+    assert!(
+        input.is_enabled(),
+        "input processor must be ENABLED during manual play -- \
+         if this fails, the play mode was incorrectly set to Autoplay/Replay"
+    );
+
+    // Diagnostic 4: verify keyboard keys are mapped correctly for 7K
+    let kb = input.keyboard_input_processor();
+    let kb_keys = kb.keys();
+    assert!(
+        !kb_keys.is_empty(),
+        "keyboard must have keys configured -- got empty keys list"
+    );
+    assert_eq!(
+        kb_keys.first().copied().unwrap_or(-1),
+        Keys::Z,
+        "game key 0 must be mapped to Z keycode ({}), but keyboard keys are: {:?}",
+        Keys::Z,
+        kb_keys,
+    );
+
+    // Simulate pressing Z key (game key index 0 for 7K default: Z,S,X,D,C,F,V)
+    shared_state.set_key_pressed(Keys::Z, true);
+
+    // Ensure the time gate passes (input is only polled when time > prevtime,
+    // using System.currentTimeMillis granularity)
+    std::thread::sleep(std::time::Duration::from_millis(2));
+
+    // mc.render() triggers: input.poll() -> sync_input_from -> state.input()
+    mc.render();
+
+    // After poll, the input processor should have registered the Z key press.
+    // In 7K default config, Z maps to game key index 0.
+    let input = mc.input_processor().expect("input processor must exist");
+    assert!(
+        input.key_state(0),
+        "Z key press must reach the input processor as game key 0 -- \
+         if this fails, keyboard input is blocked (focus gate, enable flag, or key mapping issue)"
+    );
+
+    // Also verify a second key (S = game key 1)
+    shared_state.set_key_pressed(Keys::S, true);
+    std::thread::sleep(std::time::Duration::from_millis(2));
+    mc.render();
+    let input = mc.input_processor().expect("input processor must exist");
+    assert!(
+        input.key_state(1),
+        "S key press must reach the input processor as game key 1"
+    );
+
+    // Release keys and verify they go back to false
+    shared_state.set_key_pressed(Keys::Z, false);
+    shared_state.set_key_pressed(Keys::S, false);
+    std::thread::sleep(std::time::Duration::from_millis(2));
+    mc.render();
+    // Note: key_state(0) may still be true because sync_input_back_to may
+    // not reset game key states (they are level-triggered, not consumed).
+    // The important assertion is that key PRESS reaches the processor.
+
+    mc.dispose();
+}
+
 #[test]
 fn e2e_music_select_standalone_default_json_skin_draws_runtime_numeric_value_quads() {
     let bms_path = test_bms_path();
