@@ -181,6 +181,14 @@ fn play(bms_path: Option<PathBuf>, player_mode: Option<BMSPlayerMode>) -> Result
 
     subsystem_init::init_song_database();
 
+    // Initialize shared key state BEFORE MainController creation.
+    // BMSPlayerInputProcessor::new() captures the global SharedKeyState at construction
+    // time. If set_shared_key_state is called after MainController::new(), the input
+    // processor gets an isolated default SharedKeyState that never receives winit events,
+    // causing all keyboard input to be silently dropped during gameplay.
+    let key_state = rubato::input::winit_input_bridge::SharedKeyState::new();
+    rubato::input::gdx_compat::set_shared_key_state(key_state.clone());
+
     // Java: MainLoader.play() handles config, illegal songs, player config, and controller creation.
     // It sets config.windowWidth/Height from resolution before creating MainController.
     let mut main_controller = MainLoader::play(bms_path, player_mode, true, None, None, false)?;
@@ -222,10 +230,6 @@ fn play(bms_path: Option<PathBuf>, player_mode: Option<BMSPlayerMode>) -> Result
     // Java: new Lwjgl3Application(new ApplicationListener() { ... }, gdxConfig)
     let event_loop = EventLoop::new()?;
     event_loop.set_control_flow(ControlFlow::Poll);
-
-    // Initialize shared key state for winit->input bridge
-    let key_state = rubato::input::winit_input_bridge::SharedKeyState::new();
-    rubato::input::gdx_compat::set_shared_key_state(key_state.clone());
 
     let mut app = RubatoApp {
         controller: main_controller,
@@ -710,19 +714,6 @@ impl RubatoApp {
             .current_state()
             .map(|s| s.main_state_data().skin.is_some())
             .unwrap_or(false);
-        let diag_input_enabled = self
-            .controller
-            .input_processor()
-            .map(|ip| ip.is_enabled())
-            .unwrap_or(false);
-        let diag_play_mode = self
-            .controller
-            .player_resource()
-            .and_then(|r| r.play_mode())
-            .map(|m| format!("{:?}", m.mode))
-            .unwrap_or_else(|| "N/A".to_string());
-        let diag_focus = rubato::skin::skin_widget_focus::focus();
-
         let (Some(egui_state), Some(egui_integration)) =
             (&mut self.egui_state, &self.egui_integration)
         else {
@@ -762,21 +753,6 @@ impl RubatoApp {
                                     } else {
                                         "NOT loaded (load_skin stub)"
                                     }
-                                ),
-                            );
-                            // Input diagnostics for play state debugging
-                            let input_color = if diag_input_enabled {
-                                egui::Color32::GREEN
-                            } else {
-                                egui::Color32::RED
-                            };
-                            ui.colored_label(
-                                input_color,
-                                format!(
-                                    "Input: {} | Mode: {} | Focus: {}",
-                                    if diag_input_enabled { "ON" } else { "OFF" },
-                                    diag_play_mode,
-                                    if diag_focus { "BLOCKED" } else { "ok" },
                                 ),
                             );
                         });
