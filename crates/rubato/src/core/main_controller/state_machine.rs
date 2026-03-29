@@ -235,8 +235,6 @@ impl MainController {
                 cached.dispose_skin();
             }
             self.decide_skin_cache = None;
-            // Drop the pre-loaded skin (thread finishes on its own).
-            self.preloaded_decide_skin = None;
         }
 
         // Inject cached or pre-loaded decide skin before create() to skip expensive reload.
@@ -246,15 +244,6 @@ impl MainController {
             if let Some(cached_skin) = self.decide_skin_cache.take() {
                 new_state.main_state_data_mut().skin = Some(cached_skin);
                 true
-            } else if let Some(handle) = self.preloaded_decide_skin.take() {
-                match handle.join() {
-                    Ok(Some(skin)) => {
-                        new_state.main_state_data_mut().skin =
-                            Some(Box::new(skin) as Box<dyn crate::core::main_state::SkinDrawable>);
-                        false // fresh skin still needs prepare_skin()
-                    }
-                    _ => false,
-                }
             } else {
                 false
             }
