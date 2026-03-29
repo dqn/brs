@@ -1536,4 +1536,152 @@ mod tests {
 
         batch.end();
     }
+
+    /// Verify that set_transform_matrix does NOT overwrite the projection matrix.
+    /// Regression test for black-screen bug where the identity transform clobbered
+    /// the ortho projection because both wrote to the same field.
+    #[test]
+    fn test_set_transform_does_not_clobber_projection() {
+        let mut batch = SpriteBatch::new();
+
+        // Set an ortho projection
+        let mut ortho = Matrix4::new();
+        ortho.set_to_ortho(0.0, 1280.0, 0.0, 720.0, -1.0, 1.0);
+        batch.set_projection_matrix(&ortho);
+
+        // Combined should equal ortho (transform is identity)
+        let combined_before = *batch.combined_matrix();
+        assert!(
+            (combined_before[0] - 2.0 / 1280.0).abs() < 1e-7,
+            "ortho X scale should be 2/1280, got {}",
+            combined_before[0]
+        );
+
+        // Now set transform to identity (as the skin does every frame)
+        let identity = Matrix4::new();
+        batch.set_transform_matrix(&identity);
+
+        // Combined must still be the ortho projection (identity * ortho = ortho)
+        let combined_after = *batch.combined_matrix();
+        assert_eq!(
+            combined_before, combined_after,
+            "set_transform_matrix(identity) must not change the combined matrix"
+        );
+    }
+
+    /// Verify combined = projection * transform for a non-trivial transform.
+    #[test]
+    fn test_combined_matrix_is_projection_times_transform() {
+        let mut batch = SpriteBatch::new();
+
+        // Set ortho projection for 1920x1080
+        let mut ortho = Matrix4::new();
+        ortho.set_to_ortho(0.0, 1920.0, 0.0, 1080.0, -1.0, 1.0);
+        batch.set_projection_matrix(&ortho);
+
+        // Set a scale+translate transform (simulating OFFSET_ALL)
+        let mut transform = Matrix4::new();
+        transform.set(&crate::render::color::TransformComponents {
+            tx: 50.0,
+            ty: 30.0,
+            tz: 0.0,
+            qx: 0.0,
+            qy: 0.0,
+            qz: 0.0,
+            qw: 0.0,
+            sx: 1.2,
+            sy: 1.15,
+            sz: 1.0,
+        });
+        batch.set_transform_matrix(&transform);
+
+        let c = batch.combined_matrix();
+
+        // Manual verification: combined[0] = ortho[0] * transform[0]
+        //   = (2/1920) * 1.2
+        let expected_00 = (2.0 / 1920.0) * 1.2;
+        assert!(
+            (c[0] - expected_00).abs() < 1e-7,
+            "combined[0]: expected {}, got {}",
+            expected_00,
+            c[0]
+        );
+
+        // combined[5] = ortho[5] * transform[5]
+        //   = (2/1080) * 1.15
+        let expected_55 = (2.0 / 1080.0) * 1.15;
+        assert!(
+            (c[5] - expected_55).abs() < 1e-7,
+            "combined[5]: expected {}, got {}",
+            expected_55,
+            c[5]
+        );
+
+        // combined[12] = ortho[0]*transform[12] + ortho[12]*transform[15]
+        //   = (2/1920)*50 + (-1)*1 = 50/960 - 1
+        let expected_12 = (2.0 / 1920.0) * 50.0 + (-1.0) * 1.0;
+        assert!(
+            (c[12] - expected_12).abs() < 1e-5,
+            "combined[12]: expected {}, got {}",
+            expected_12,
+            c[12]
+        );
+
+        // combined[13] = ortho[5]*transform[13] + ortho[13]*transform[15]
+        //   = (2/1080)*30 + (-1)*1 = 30/540 - 1
+        let expected_13 = (2.0 / 1080.0) * 30.0 + (-1.0) * 1.0;
+        assert!(
+            (c[13] - expected_13).abs() < 1e-5,
+            "combined[13]: expected {}, got {}",
+            expected_13,
+            c[13]
+        );
+    }
+
+    /// Verify that setting projection after transform also recomputes combined.
+    #[test]
+    fn test_set_projection_after_transform_recomputes_combined() {
+        let mut batch = SpriteBatch::new();
+
+        // Set a non-identity transform first
+        let mut transform = Matrix4::new();
+        transform.set(&crate::render::color::TransformComponents {
+            tx: 10.0,
+            ty: 20.0,
+            tz: 0.0,
+            qx: 0.0,
+            qy: 0.0,
+            qz: 0.0,
+            qw: 0.0,
+            sx: 2.0,
+            sy: 3.0,
+            sz: 1.0,
+        });
+        batch.set_transform_matrix(&transform);
+
+        // Then set projection -- combined must reflect both
+        let mut ortho = Matrix4::new();
+        ortho.set_to_ortho(0.0, 800.0, 0.0, 600.0, -1.0, 1.0);
+        batch.set_projection_matrix(&ortho);
+
+        let c = batch.combined_matrix();
+
+        // combined[0] = (2/800) * 2.0
+        let expected_00 = (2.0 / 800.0) * 2.0;
+        assert!(
+            (c[0] - expected_00).abs() < 1e-7,
+            "combined[0]: expected {}, got {}",
+            expected_00,
+            c[0]
+        );
+
+        // combined[5] = (2/600) * 3.0
+        let expected_55 = (2.0 / 600.0) * 3.0;
+        assert!(
+            (c[5] - expected_55).abs() < 1e-7,
+            "combined[5]: expected {}, got {}",
+            expected_55,
+            c[5]
+        );
+    }
 }

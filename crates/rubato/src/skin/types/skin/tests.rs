@@ -725,6 +725,56 @@ fn test_offset_all_transform_applied_after_swap_sprite_batch() {
     );
 }
 
+/// Regression test: when an ortho projection is set on the sprite batch before
+/// draw_all_objects, the skin's set_transform_matrix (identity) must NOT clobber it.
+/// The combined matrix should equal `projection * transform`.
+#[test]
+fn test_draw_all_objects_preserves_projection_matrix() {
+    let mut skin = make_play_skin(crate::skin::skin_type::SkinType::Play7Keys);
+    let width = skin.width;
+    let height = skin.height;
+
+    let mut batch = crate::render::sprite_batch::SpriteBatch::new();
+
+    // Set ortho projection (as MainController.create() does)
+    let mut ortho = crate::render::color::Matrix4::new();
+    ortho.set_to_ortho(0.0, width, 0.0, height, -1.0, 1.0);
+    batch.set_projection_matrix(&ortho);
+
+    // Verify ortho is correctly set before skin draw
+    let before = *batch.combined_matrix();
+    let expected_x_scale = 2.0 / width;
+    let expected_y_scale = 2.0 / height;
+    assert!(
+        (before[0] - expected_x_scale).abs() < 1e-7,
+        "pre-draw X scale: expected {}, got {}",
+        expected_x_scale,
+        before[0]
+    );
+
+    // Swap into skin, draw (which calls set_transform_matrix internally), swap back
+    skin.swap_sprite_batch(&mut batch);
+    let state = crate::skin::test_helpers::MockMainState::default();
+    skin.draw_all_objects(&state);
+    skin.swap_sprite_batch(&mut batch);
+
+    // After draw, the combined matrix should still reflect the ortho projection
+    // (skin has no OFFSET_ALL, so transform is identity, combined = projection)
+    let after = *batch.combined_matrix();
+    assert!(
+        (after[0] - expected_x_scale).abs() < 1e-7,
+        "post-draw X scale: expected {}, got {} -- projection was clobbered",
+        expected_x_scale,
+        after[0]
+    );
+    assert!(
+        (after[5] - expected_y_scale).abs() < 1e-7,
+        "post-draw Y scale: expected {}, got {} -- projection was clobbered",
+        expected_y_scale,
+        after[5]
+    );
+}
+
 // =========================================================================
 // Phase 40a: Two-phase prepare/draw via SkinObject enum dispatch
 // =========================================================================
