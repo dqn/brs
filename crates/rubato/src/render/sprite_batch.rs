@@ -136,6 +136,8 @@ pub struct SpriteBatch {
     blend_src: i32,
     blend_dst: i32,
     projection: [f32; 16],
+    transform: [f32; 16],
+    combined: [f32; 16],
     pub drawing: bool,
     /// Current shader type (matches SkinObjectRenderer TYPE_* constants)
     pub shader_type: i32,
@@ -164,6 +166,8 @@ impl SpriteBatch {
             blend_src: 0x0302, // GL_SRC_ALPHA
             blend_dst: 0x0303, // GL_ONE_MINUS_SRC_ALPHA
             projection: Matrix4::default().values,
+            transform: Matrix4::default().values,
+            combined: Matrix4::default().values,
             drawing: false,
             shader_type: 0,
             blend_mode: BlendMode::Normal,
@@ -186,16 +190,40 @@ impl SpriteBatch {
         !self.vertices.is_empty() || !self.flushed_segments.is_empty()
     }
 
-    /// Set the projection/transform matrix for the batch.
+    /// Set the transform matrix for the batch.
     /// Java: SpriteBatch.setTransformMatrix(matrix)
+    ///
+    /// The final GPU matrix is `projection * transform`, matching LibGDX's
+    /// `combinedMatrix.set(projectionMatrix).mul(transformMatrix)`.
     pub fn set_transform_matrix(&mut self, matrix: &Matrix4) {
-        self.projection = matrix.values;
+        self.transform = matrix.values;
+        self.update_combined();
     }
 
     /// Set the projection matrix directly.
     /// Java: SpriteBatch.setProjectionMatrix(matrix)
+    ///
+    /// The final GPU matrix is `projection * transform`, matching LibGDX's
+    /// `combinedMatrix.set(projectionMatrix).mul(transformMatrix)`.
     pub fn set_projection_matrix(&mut self, matrix: &Matrix4) {
         self.projection = matrix.values;
+        self.update_combined();
+    }
+
+    /// Recompute combined = projection * transform (column-major 4x4).
+    fn update_combined(&mut self) {
+        let a = &self.projection;
+        let b = &self.transform;
+        let mut c = [0.0f32; 16];
+        for col in 0..4 {
+            for row in 0..4 {
+                c[col * 4 + row] = a[row] * b[col * 4]
+                    + a[4 + row] * b[col * 4 + 1]
+                    + a[8 + row] * b[col * 4 + 2]
+                    + a[12 + row] * b[col * 4 + 3];
+            }
+        }
+        self.combined = c;
     }
 
     pub fn set_shader(&mut self, shader: Option<&ShaderProgram>) {
@@ -434,9 +462,9 @@ impl SpriteBatch {
         }
     }
 
-    /// Get the projection matrix values.
-    pub fn projection(&self) -> &[f32; 16] {
-        &self.projection
+    /// Get the combined projection * transform matrix values for GPU upload.
+    pub fn combined_matrix(&self) -> &[f32; 16] {
+        &self.combined
     }
 
     /// Draw a full texture at (x, y) with size (w, h).
@@ -850,8 +878,8 @@ mod tests {
         let mut mat = Matrix4::new();
         mat.set_to_ortho(0.0, 1920.0, 0.0, 1080.0, -1.0, 1.0);
         batch.set_projection_matrix(&mat);
-        assert_eq!(batch.projection()[0], 2.0 / 1920.0);
-        assert_eq!(batch.projection()[5], 2.0 / 1080.0);
+        assert_eq!(batch.combined_matrix()[0], 2.0 / 1920.0);
+        assert_eq!(batch.combined_matrix()[5], 2.0 / 1080.0);
     }
 
     #[test]

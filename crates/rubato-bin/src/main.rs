@@ -907,7 +907,7 @@ impl RubatoApp {
         }
 
         // Reuse persistent uniform buffer; create once on first use
-        let projection_data = sprite_batch.projection();
+        let projection_data = sprite_batch.combined_matrix();
         if self.sprite_uniform_buffer.is_none() {
             let buffer = gpu.device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some("sprite uniform buffer"),

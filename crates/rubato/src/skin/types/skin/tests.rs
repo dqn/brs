@@ -680,7 +680,7 @@ fn test_offset_all_transform_applied_after_swap_sprite_batch() {
 
     // Swap the batch back out to inspect the projection/transform matrix
     skin.swap_sprite_batch(&mut batch);
-    let proj = batch.projection();
+    let proj = batch.combined_matrix();
 
     // Expected transform (column-major, quaternion=0 so pure scale+translate):
     // values[0] = sx = (20 + 100) / 100 = 1.2
