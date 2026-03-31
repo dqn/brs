@@ -77,6 +77,8 @@ impl MainController {
 
         // Restore PlayerResource from the current state to the controller
         // BEFORE creating the new state, so the factory can access it.
+        // This is the sole take point -- transition_to_state() relies on the
+        // resource already being in self.resource by the time it runs.
         // Previously NullPlayerResource masked this sequencing issue: states
         // like Decide that take the resource from the controller would
         // silently get a null stub because the resource was still inside the
@@ -170,12 +172,6 @@ impl MainController {
                 && let Some(ref mut resource) = self.resource
             {
                 resource.set_bga(bga_cache);
-            }
-            // Restore PlayerResource from the exiting state back to MainController.
-            // States receive ownership via take_player_resource() in the factory;
-            // we reclaim it here so it's available for the next state.
-            if let Some(resource) = old_state.take_player_resource() {
-                self.resource = Some(resource);
             }
             // Flush pending audio commands before shutdown so they operate on
             // live state rather than potentially disposed resources.

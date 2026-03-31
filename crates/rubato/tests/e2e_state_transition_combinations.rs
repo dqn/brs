@@ -311,7 +311,7 @@ fn e2e_course_data_cleared_after_course_result() {
 
     // Transition to MusicSelect to restore the PlayerResource from CourseResult.
     // CourseResult returns the resource via take_player_resource_box during
-    // transition_to_state, making it available on the controller again.
+    // change_state, making it available on the controller again.
     mc.change_state(MainStateType::MusicSelect);
 
     // Clear course data (simulates what MusicSelector does on return)
