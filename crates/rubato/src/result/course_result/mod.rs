@@ -924,6 +924,9 @@ impl CourseResult {
             }
         }
 
+        // Mode changed
+        s.is_mode_changed = shared_render_context::is_mode_changed(&self.resource);
+
         // Timing distribution and judge area
         s.timing_distribution = shared_render_context::get_timing_distribution(&self.data).cloned();
         s.judge_area = shared_render_context::judge_area(&self.resource);
@@ -3162,5 +3165,82 @@ mod tests {
         use crate::skin::skin_render_context::SkinRenderContext;
         assert_eq!(ctx.image_index_value(450), 4);
         assert_eq!(ctx.image_index_value(451), 2);
+    }
+
+    // ============================================================
+    // build_snapshot is_mode_changed integration tests
+    // ============================================================
+
+    #[test]
+    fn build_snapshot_is_mode_changed_false_by_default() {
+        let cr = make_default();
+        let timer = crate::core::timer_manager::TimerManager::new();
+        let snapshot = cr.build_snapshot(&timer);
+        assert!(
+            !snapshot.is_mode_changed,
+            "default CourseResult snapshot should have is_mode_changed=false"
+        );
+    }
+
+    #[test]
+    fn build_snapshot_is_mode_changed_true_for_seven_to_nine() {
+        let config = make_test_config("course-result-7to9");
+        let mut core_resource = crate::core::player_resource::PlayerResource::new(
+            config.clone(),
+            crate::skin::player_config::PlayerConfig::default(),
+        );
+        core_resource.set_original_mode(bms::model::mode::Mode::BEAT_7K);
+        let mut rd = crate::core::replay_data::ReplayData::default();
+        rd.seven_to_nine_pattern = 1;
+        core_resource.set_replay_data(rd);
+
+        let main = MainController::new(config, make_ranking_cache());
+        let resource = PlayerResource::new(
+            core_resource,
+            crate::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
+        );
+        let cr = CourseResult::new(
+            main,
+            resource,
+            crate::core::timer_manager::TimerManager::new(),
+        );
+
+        let timer = crate::core::timer_manager::TimerManager::new();
+        let snapshot = cr.build_snapshot(&timer);
+        assert!(
+            snapshot.is_mode_changed,
+            "7-to-9 conversion on BEAT_7K should set is_mode_changed=true in CourseResult snapshot"
+        );
+    }
+
+    #[test]
+    fn build_snapshot_is_mode_changed_true_for_battle() {
+        let config = make_test_config("course-result-battle");
+        let mut core_resource = crate::core::player_resource::PlayerResource::new(
+            config.clone(),
+            crate::skin::player_config::PlayerConfig::default(),
+        );
+        core_resource.set_original_mode(bms::model::mode::Mode::BEAT_7K);
+        let mut rd = crate::core::replay_data::ReplayData::default();
+        rd.doubleoption = 2;
+        core_resource.set_replay_data(rd);
+
+        let main = MainController::new(config, make_ranking_cache());
+        let resource = PlayerResource::new(
+            core_resource,
+            crate::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
+        );
+        let cr = CourseResult::new(
+            main,
+            resource,
+            crate::core::timer_manager::TimerManager::new(),
+        );
+
+        let timer = crate::core::timer_manager::TimerManager::new();
+        let snapshot = cr.build_snapshot(&timer);
+        assert!(
+            snapshot.is_mode_changed,
+            "battle mode on BEAT_7K should set is_mode_changed=true in CourseResult snapshot"
+        );
     }
 }

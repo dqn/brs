@@ -848,6 +848,9 @@ impl MusicResult {
             }
         }
 
+        // ---- Mode changed ----
+        s.is_mode_changed = shared_render_context::is_mode_changed(&self.resource);
+
         // ---- Timing distribution / judge area ----
         s.timing_distribution = shared_render_context::get_timing_distribution(&self.data).cloned();
         s.judge_area = shared_render_context::judge_area(&self.resource);
@@ -2515,5 +2518,66 @@ mod tests {
         use crate::skin::skin_render_context::SkinRenderContext;
         assert_eq!(ctx.image_index_value(450), -1);
         assert_eq!(ctx.image_index_value(460), -1);
+    }
+
+    // ============================================================
+    // build_snapshot is_mode_changed integration tests
+    // ============================================================
+
+    #[test]
+    fn build_snapshot_is_mode_changed_false_by_default() {
+        let mr = make_result_for_mouse();
+        let timer = TimerManager::new();
+        let snapshot = mr.build_snapshot(&timer);
+        assert!(
+            !snapshot.is_mode_changed,
+            "default MusicResult snapshot should have is_mode_changed=false"
+        );
+    }
+
+    #[test]
+    fn build_snapshot_is_mode_changed_true_for_seven_to_nine() {
+        let config = make_test_config("music-result-7to9");
+        let mut core_resource = make_test_core_resource(config.clone());
+        core_resource.set_original_mode(bms::model::mode::Mode::BEAT_7K);
+        let mut rd = crate::core::replay_data::ReplayData::default();
+        rd.seven_to_nine_pattern = 1;
+        core_resource.set_replay_data(rd);
+        let main = MainController::new(config, make_ranking_cache());
+        let resource = PlayerResource::new(
+            core_resource,
+            crate::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
+        );
+        let mr = MusicResult::new(main, resource, TimerManager::new());
+
+        let timer = TimerManager::new();
+        let snapshot = mr.build_snapshot(&timer);
+        assert!(
+            snapshot.is_mode_changed,
+            "7-to-9 conversion on BEAT_7K should set is_mode_changed=true in snapshot"
+        );
+    }
+
+    #[test]
+    fn build_snapshot_is_mode_changed_true_for_battle() {
+        let config = make_test_config("music-result-battle");
+        let mut core_resource = make_test_core_resource(config.clone());
+        core_resource.set_original_mode(bms::model::mode::Mode::BEAT_7K);
+        let mut rd = crate::core::replay_data::ReplayData::default();
+        rd.doubleoption = 2;
+        core_resource.set_replay_data(rd);
+        let main = MainController::new(config, make_ranking_cache());
+        let resource = PlayerResource::new(
+            core_resource,
+            crate::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
+        );
+        let mr = MusicResult::new(main, resource, TimerManager::new());
+
+        let timer = TimerManager::new();
+        let snapshot = mr.build_snapshot(&timer);
+        assert!(
+            snapshot.is_mode_changed,
+            "battle mode on BEAT_7K should set is_mode_changed=true in snapshot"
+        );
     }
 }

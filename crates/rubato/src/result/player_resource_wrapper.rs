@@ -203,6 +203,10 @@ impl PlayerResource {
         Some(std::mem::replace(&mut self.inner, default))
     }
 
+    pub fn original_mode(&self) -> Option<bms::model::mode::Mode> {
+        self.inner.original_mode()
+    }
+
     pub fn replay_data_mut(&mut self) -> Option<&mut crate::core::replay_data::ReplayData> {
         self.inner.replay_data_mut()
     }

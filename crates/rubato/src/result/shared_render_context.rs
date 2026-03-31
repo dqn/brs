@@ -793,6 +793,39 @@ pub fn judge_area(resource: &PlayerResource) -> Option<Vec<Vec<i32>>> {
     Some(rule.judge.note_judge(judgerank, &judge_window_rate))
 }
 
+/// Compute whether the chart mode was changed from the original.
+/// Mirrors the Play state's `is_mode_changed` logic (bms_player/snapshot.rs):
+///   orgmode.is_some_and(|org| model.mode() != org)
+///
+/// On the result screen the model stored in PlayerResource retains the original
+/// mode (Java reference-sharing semantics do not carry over to Rust). Instead,
+/// we reconstruct the flag from the replay data which records the options that
+/// actually caused mode conversion during play:
+///   - seven_to_nine_pattern >= 1 with BEAT_7K original -> POPN_9K
+///   - doubleoption >= 2 with SP original (BEAT_5K / BEAT_7K / KEYBOARD_24K)
+///     -> DP equivalent
+pub fn is_mode_changed(resource: &PlayerResource) -> bool {
+    use bms::model::mode::Mode;
+    let Some(org) = resource.original_mode() else {
+        return false;
+    };
+    let Some(rd) = resource.replay_data() else {
+        return false;
+    };
+
+    // 7-to-9 key conversion
+    if rd.seven_to_nine_pattern >= 1 && org == Mode::BEAT_7K {
+        return true;
+    }
+
+    // Battle mode SP-to-DP conversion
+    if rd.doubleoption >= 2 && matches!(org, Mode::BEAT_5K | Mode::BEAT_7K | Mode::KEYBOARD_24K) {
+        return true;
+    }
+
+    false
+}
+
 #[cfg(test)]
 #[allow(clippy::field_reassign_with_default)]
 mod tests {
@@ -2253,6 +2286,165 @@ mod tests {
         assert!(
             (0..=59).contains(&second),
             "ID 26 (second) 0-59, got {second}"
+        );
+    }
+
+    // ============================================================
+    // is_mode_changed tests
+    // ============================================================
+
+    /// Helper: create a result PlayerResource with the given original mode and replay data.
+    fn make_resource_for_mode_test(
+        orgmode: Option<bms::model::mode::Mode>,
+        replay: Option<crate::core::replay_data::ReplayData>,
+    ) -> PlayerResource {
+        let mut core = crate::core::player_resource::PlayerResource::new(
+            crate::skin::config::Config::default(),
+            crate::skin::player_config::PlayerConfig::default(),
+        );
+        if let Some(mode) = orgmode {
+            core.set_original_mode(mode);
+        }
+        if let Some(rd) = replay {
+            core.set_replay_data(rd);
+        }
+        PlayerResource::new(
+            core,
+            crate::result::BMSPlayerMode::new(crate::result::BMSPlayerModeType::Play),
+        )
+    }
+
+    #[test]
+    fn is_mode_changed_false_by_default() {
+        let resource = PlayerResource::default();
+        assert!(
+            !is_mode_changed(&resource),
+            "default resource should not report mode changed"
+        );
+    }
+
+    #[test]
+    fn is_mode_changed_false_without_replay_data() {
+        let resource = make_resource_for_mode_test(Some(bms::model::mode::Mode::BEAT_7K), None);
+        assert!(
+            !is_mode_changed(&resource),
+            "no replay data should not report mode changed"
+        );
+    }
+
+    #[test]
+    fn is_mode_changed_false_without_original_mode() {
+        let mut rd = crate::core::replay_data::ReplayData::default();
+        rd.seven_to_nine_pattern = 1;
+        let resource = make_resource_for_mode_test(None, Some(rd));
+        assert!(
+            !is_mode_changed(&resource),
+            "no original mode should not report mode changed"
+        );
+    }
+
+    #[test]
+    fn is_mode_changed_true_for_seven_to_nine() {
+        let mut rd = crate::core::replay_data::ReplayData::default();
+        rd.seven_to_nine_pattern = 1;
+        let resource = make_resource_for_mode_test(Some(bms::model::mode::Mode::BEAT_7K), Some(rd));
+        assert!(
+            is_mode_changed(&resource),
+            "7-to-9 conversion on BEAT_7K should report mode changed"
+        );
+    }
+
+    #[test]
+    fn is_mode_changed_false_for_seven_to_nine_on_non_7k() {
+        // seven_to_nine only applies to BEAT_7K charts
+        let mut rd = crate::core::replay_data::ReplayData::default();
+        rd.seven_to_nine_pattern = 1;
+        let resource = make_resource_for_mode_test(Some(bms::model::mode::Mode::BEAT_5K), Some(rd));
+        assert!(
+            !is_mode_changed(&resource),
+            "7-to-9 conversion on BEAT_5K should not report mode changed"
+        );
+    }
+
+    #[test]
+    fn is_mode_changed_true_for_battle_beat_7k() {
+        let mut rd = crate::core::replay_data::ReplayData::default();
+        rd.doubleoption = 2;
+        let resource = make_resource_for_mode_test(Some(bms::model::mode::Mode::BEAT_7K), Some(rd));
+        assert!(
+            is_mode_changed(&resource),
+            "battle mode on BEAT_7K should report mode changed"
+        );
+    }
+
+    #[test]
+    fn is_mode_changed_true_for_battle_beat_5k() {
+        let mut rd = crate::core::replay_data::ReplayData::default();
+        rd.doubleoption = 2;
+        let resource = make_resource_for_mode_test(Some(bms::model::mode::Mode::BEAT_5K), Some(rd));
+        assert!(
+            is_mode_changed(&resource),
+            "battle mode on BEAT_5K should report mode changed"
+        );
+    }
+
+    #[test]
+    fn is_mode_changed_true_for_battle_keyboard_24k() {
+        let mut rd = crate::core::replay_data::ReplayData::default();
+        rd.doubleoption = 2;
+        let resource =
+            make_resource_for_mode_test(Some(bms::model::mode::Mode::KEYBOARD_24K), Some(rd));
+        assert!(
+            is_mode_changed(&resource),
+            "battle mode on KEYBOARD_24K should report mode changed"
+        );
+    }
+
+    #[test]
+    fn is_mode_changed_false_for_battle_on_dp_mode() {
+        // Battle mode conversion only applies to SP modes
+        let mut rd = crate::core::replay_data::ReplayData::default();
+        rd.doubleoption = 2;
+        let resource =
+            make_resource_for_mode_test(Some(bms::model::mode::Mode::BEAT_14K), Some(rd));
+        assert!(
+            !is_mode_changed(&resource),
+            "battle mode on BEAT_14K (already DP) should not report mode changed"
+        );
+    }
+
+    #[test]
+    fn is_mode_changed_false_for_doubleoption_below_2() {
+        // doubleoption == 1 is FLIP, not battle mode conversion
+        let mut rd = crate::core::replay_data::ReplayData::default();
+        rd.doubleoption = 1;
+        let resource = make_resource_for_mode_test(Some(bms::model::mode::Mode::BEAT_7K), Some(rd));
+        assert!(
+            !is_mode_changed(&resource),
+            "doubleoption=1 (FLIP) should not report mode changed"
+        );
+    }
+
+    #[test]
+    fn is_mode_changed_false_for_no_conversion_options() {
+        // Replay data exists but no conversion options active
+        let rd = crate::core::replay_data::ReplayData::default();
+        let resource = make_resource_for_mode_test(Some(bms::model::mode::Mode::BEAT_7K), Some(rd));
+        assert!(
+            !is_mode_changed(&resource),
+            "no conversion options should not report mode changed"
+        );
+    }
+
+    #[test]
+    fn is_mode_changed_true_for_battle_as_option() {
+        // doubleoption == 3 is BATTLE AS, which is also a battle conversion
+        let mut rd = crate::core::replay_data::ReplayData::default();
+        rd.doubleoption = 3;
+        let resource = make_resource_for_mode_test(Some(bms::model::mode::Mode::BEAT_7K), Some(rd));
+        assert!(
+            is_mode_changed(&resource),
+            "doubleoption=3 (BATTLE AS) on BEAT_7K should report mode changed"
         );
     }
 }
