@@ -160,8 +160,9 @@ pub fn load_lr2_skin_with_property(
     });
     let mut loader = create_lr2_loader(skin_type, src, dst, false, skinpath)?;
 
-    // Transfer header options to loader's op map
-    for option in &header_data.custom_options {
+    // Transfer header options to loader's op map.
+    // Read from skin.header (post-set_skin_config_property) to get updated selections.
+    for option in &skin.header.options {
         for &opt in &option.option {
             let val = if option.selected_option() == opt {
                 1
@@ -172,8 +173,9 @@ pub fn load_lr2_skin_with_property(
         }
     }
 
-    // Transfer custom file mappings to loader's filemap
-    for file in &header_data.custom_files {
+    // Transfer custom file mappings to loader's filemap.
+    // Read from skin.header (post-set_skin_config_property) to get updated selections.
+    for file in &skin.header.files {
         if let Some(filename) = file.selected_filename() {
             loader
                 .csv_mut()
@@ -201,4 +203,109 @@ pub fn load_lr2_skin_with_property(
     skin.ranktime = loader.ranktime();
 
     Some(skin)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::skin::skin_header::{
+        SkinConfigFileEntry, SkinConfigOptionEntry, SkinConfigProperty,
+    };
+    use crate::skin::skin_type::SkinType;
+
+    /// Returns path to test-bms/test_skin.lr2skin relative to the workspace root.
+    fn test_skin_path() -> std::path::PathBuf {
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("test-bms/test_skin.lr2skin")
+    }
+
+    #[test]
+    fn lr2_skin_op_map_reflects_config_property_selection() {
+        // Regression: op map was built from stale header_data instead of
+        // the post-set_skin_config_property skin.header. The test skin has
+        // #CUSTOMOPTION,TestOption,900,ON,OFF (option IDs 900=ON, 901=OFF).
+        // Default selection is 900. We override to select 901.
+        let path = test_skin_path();
+        if !path.exists() {
+            // Skip in CI if test fixture not available.
+            return;
+        }
+
+        let dst = Resolution {
+            width: 1280.0,
+            height: 720.0,
+        };
+
+        // Load with property that selects option 901 (OFF).
+        let property = SkinConfigProperty {
+            option: vec![SkinConfigOptionEntry {
+                name: "TestOption".to_string(),
+                value: 901,
+            }],
+            file: vec![],
+            offset: vec![],
+        };
+
+        let skin = load_lr2_skin_with_property(&path, &SkinType::Play7Keys, dst, &property)
+            .expect("test skin should load");
+
+        // With the fix, option 901 should be selected (1) and 900 unselected (0).
+        // Without the fix (reading stale header_data), option 900 would be selected.
+        assert_eq!(
+            skin.option().get(&901),
+            Some(&1),
+            "option 901 should be selected after config property override"
+        );
+        assert_eq!(
+            skin.option().get(&900),
+            Some(&0),
+            "option 900 should be unselected after config property override"
+        );
+    }
+
+    #[test]
+    fn lr2_skin_filemap_reflects_config_property_file_selection() {
+        // Regression: filemap was built from stale header_data.custom_files instead of
+        // skin.header.files. The test skin has:
+        // #CUSTOMFILE,Background,bg/*.png,default.png
+        // We override to select a specific file.
+        let path = test_skin_path();
+        if !path.exists() {
+            return;
+        }
+
+        let dst = Resolution {
+            width: 1280.0,
+            height: 720.0,
+        };
+
+        let property = SkinConfigProperty {
+            option: vec![],
+            file: vec![SkinConfigFileEntry {
+                name: "Background".to_string(),
+                path: "/my/custom_bg.png".to_string(),
+            }],
+            offset: vec![],
+        };
+
+        let skin = load_lr2_skin_with_property(&path, &SkinType::Play7Keys, dst, &property)
+            .expect("test skin should load");
+
+        // Verify the file selection was applied to the skin header.
+        let bg_file = skin
+            .header
+            .files
+            .iter()
+            .find(|f| f.name == "Background")
+            .expect("Background custom file should exist");
+        assert_eq!(
+            bg_file.selected_filename(),
+            Some("/my/custom_bg.png"),
+            "custom file selection should be applied from config property"
+        );
+    }
 }

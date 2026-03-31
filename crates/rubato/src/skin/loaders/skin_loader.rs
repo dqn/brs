@@ -483,7 +483,13 @@ pub fn path(imagepath: &str, filemap: &HashMap<String, String>) -> PathBuf {
     for (key, value) in filemap {
         if imagepath.starts_with(key.as_str()) {
             let foot = &imagepath[key.len()..];
-            imagefile = PathBuf::from(format!("{}{}", value, foot));
+            if let Some(star_pos) = imagepath.rfind('*') {
+                // Java: imagepath.substring(0, imagepath.lastIndexOf('*')) + filemap.get(key) + foot
+                // Preserve directory prefix before '*' when wildcard is present.
+                imagefile = PathBuf::from(format!("{}{}{}", &imagepath[..star_pos], value, foot));
+            } else {
+                imagefile = PathBuf::from(format!("{}{}", value, foot));
+            }
             imagepath = String::new();
             break;
         }
@@ -643,19 +649,34 @@ mod tests {
 
     #[test]
     fn path_filemap_replaces_prefix_with_wildcard() {
-        // Regression: previously the code duplicated the segment between key.len() and star_pos.
+        // Java parity: imagepath[0..last_star] + value + foot
+        // With partial prefix key, the directory prefix before '*' is preserved.
         let mut filemap = HashMap::new();
         filemap.insert("theme/".to_string(), "/custom/".to_string());
         let result = path("theme/bg*.png", &filemap);
-        assert_eq!(result, PathBuf::from("/custom/bg*.png"));
+        assert_eq!(result, PathBuf::from("theme/bg/custom/bg*.png"));
     }
 
     #[test]
     fn path_filemap_wildcard_in_foot_preserved() {
+        // Java parity: imagepath[0..last_star] + value + foot
         let mut filemap = HashMap::new();
         filemap.insert("images/".to_string(), "/replaced/".to_string());
         let result = path("images/sub/bg*.jpg", &filemap);
-        assert_eq!(result, PathBuf::from("/replaced/sub/bg*.jpg"));
+        assert_eq!(result, PathBuf::from("images/sub/bg/replaced/sub/bg*.jpg"));
+    }
+
+    #[test]
+    fn path_filemap_exact_key_match_with_wildcard_preserves_directory() {
+        // Typical real-world case: key is the full path pattern (exact match).
+        // Java: imagepath[0..last_star] + value + foot (foot is empty).
+        let mut filemap = HashMap::new();
+        filemap.insert(
+            "skin/theme/bg*.png".to_string(),
+            "selected_bg.png".to_string(),
+        );
+        let result = path("skin/theme/bg*.png", &filemap);
+        assert_eq!(result, PathBuf::from("skin/theme/bgselected_bg.png"));
     }
 
     #[test]

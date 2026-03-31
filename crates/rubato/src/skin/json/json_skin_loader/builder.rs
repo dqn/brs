@@ -389,6 +389,14 @@ impl JSONSkinLoader {
         // Apply user's saved option/file selections before computing enabled options.
         header.apply_skin_config_property(property);
 
+        // Build filemap from custom files after property application (Java parity: lines 228-233).
+        self.filemap.clear();
+        for file in &header.custom_files {
+            if let Some(ref selected) = file.selected_filename {
+                self.filemap.insert(file.path.clone(), selected.clone());
+            }
+        }
+
         // Set enabled options so conditional blocks are evaluated during deserialization.
         let enabled_options = self.get_enabled_options(&header);
         log::debug!("load: enabled_options = {:?}", enabled_options);
@@ -807,8 +815,8 @@ impl JSONSkinLoader {
 
 pub(crate) fn get_path_with_filemap(path: &str, filemap: &HashMap<String, String>) -> String {
     for (key, value) in filemap {
-        if path.contains(key.as_str()) {
-            return path.replace(key.as_str(), value.as_str());
+        if path.starts_with(key.as_str()) {
+            return format!("{}{}", value, &path[key.len()..]);
         }
     }
     path.to_string()
@@ -833,3 +841,126 @@ pub(super) fn skin_customize_index(event_id: i32) -> i32 {
 }
 
 // Data types for skin loading results (replacing actual skin objects for now)
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::skin::json::json_skin_loader::parser::{
+        CustomFileData, SkinConfigProperty, SkinHeaderData,
+    };
+    use crate::skin::skin_header::SkinConfigFileEntry;
+
+    #[test]
+    fn get_path_with_filemap_uses_starts_with_not_contains() {
+        // Regression: previously used `contains`, which matched substrings anywhere
+        // in the path, not just prefixes. Java uses `startsWith`.
+        let mut filemap = HashMap::new();
+        filemap.insert("bg/".to_string(), "/custom/".to_string());
+
+        // Should match: path starts with "bg/"
+        assert_eq!(
+            get_path_with_filemap("bg/image.png", &filemap),
+            "/custom/image.png"
+        );
+
+        // Should NOT match: "bg/" appears in the middle, not at the start
+        assert_eq!(
+            get_path_with_filemap("other/bg/image.png", &filemap),
+            "other/bg/image.png"
+        );
+    }
+
+    #[test]
+    fn json_loader_filemap_populated_from_custom_files_after_property_application() {
+        // Regression: JSON skin loader did not populate filemap from header.custom_files
+        // after apply_skin_config_property, so custom file substitutions had no effect.
+        let tmp = std::env::temp_dir().join("rubato_test_json_filemap");
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).unwrap();
+
+        // Minimal JSON skin with a custom file definition.
+        let skin_json = r#"{
+            "type": 5,
+            "name": "test",
+            "w": 1920, "h": 1080,
+            "filepath": [
+                {"name": "Background", "path": "img/bg*.png", "def": ""}
+            ],
+            "source": [],
+            "image": [],
+            "destination": []
+        }"#;
+        let skin_path = tmp.join("test.json");
+        std::fs::write(&skin_path, skin_json).unwrap();
+
+        let mut loader = JSONSkinLoader::new();
+        let property = SkinConfigProperty {
+            option: vec![],
+            file: vec![SkinConfigFileEntry {
+                name: "Background".to_string(),
+                path: "custom_bg.png".to_string(),
+            }],
+            offset: vec![],
+        };
+
+        // load() should populate filemap from custom_files after apply_skin_config_property.
+        let _skin_data = loader.load(
+            &skin_path,
+            &crate::skin::skin_type::SkinType::Decide,
+            &property,
+        );
+
+        // Verify filemap was populated with the custom file selection.
+        assert_eq!(
+            loader.filemap.get("img/bg*.png"),
+            Some(&"custom_bg.png".to_string()),
+            "filemap should contain the custom file selection after load"
+        );
+
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn skin_header_data_apply_config_property_sets_selected_filename() {
+        // Verify the building block: apply_skin_config_property correctly
+        // updates custom_files.selected_filename.
+        let mut header = SkinHeaderData {
+            custom_files: vec![CustomFileData {
+                name: "Wallpaper".to_string(),
+                path: "theme/wall*.png".to_string(),
+                def: None,
+                selected_filename: None,
+            }],
+            ..Default::default()
+        };
+
+        let property = SkinConfigProperty {
+            option: vec![],
+            file: vec![SkinConfigFileEntry {
+                name: "Wallpaper".to_string(),
+                path: "/my/wall.png".to_string(),
+            }],
+            offset: vec![],
+        };
+
+        header.apply_skin_config_property(&property);
+
+        assert_eq!(
+            header.custom_files[0].selected_filename,
+            Some("/my/wall.png".to_string()),
+            "selected_filename should be set from property"
+        );
+
+        // Verify filemap can be built from the updated header.
+        let mut filemap = HashMap::new();
+        for file in &header.custom_files {
+            if let Some(ref selected) = file.selected_filename {
+                filemap.insert(file.path.clone(), selected.clone());
+            }
+        }
+        assert_eq!(
+            filemap.get("theme/wall*.png"),
+            Some(&"/my/wall.png".to_string()),
+        );
+    }
+}
