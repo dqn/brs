@@ -808,8 +808,12 @@ mod tests {
 
     impl SkinRenderContext for TestContext {
         fn ranking_score_clear_type(&self, slot: i32) -> i32 {
-            let index = (self.ranking_offset + slot) as usize;
-            self.ranking_clear_types.get(index).copied().unwrap_or(-1)
+            // ranking_clear_types is pre-offset-adjusted (mirrors PropertySnapshot),
+            // so index directly by slot without re-applying offset.
+            self.ranking_clear_types
+                .get(slot as usize)
+                .copied()
+                .unwrap_or(-1)
         }
 
         fn ranking_offset(&self) -> i32 {
@@ -842,12 +846,14 @@ mod tests {
 
     #[test]
     fn default_image_index_390_with_offset() {
-        // 3 scores, offset=1 -> slot 0 reads index 1, slot 1 reads index 2, slot 2 -> -1
+        // ranking_clear_types is pre-offset-adjusted (3 scores starting from offset=1),
+        // so slot 0 reads index 0, slot 1 reads index 1, slot 2 reads index 2, slot 3 -> -1
         let ctx = TestContext::with_ranking(vec![8, 6, 5], 1);
 
-        assert_eq!(ctx.default_image_index_value(390), 6);
-        assert_eq!(ctx.default_image_index_value(391), 5);
-        assert_eq!(ctx.default_image_index_value(392), -1);
+        assert_eq!(ctx.default_image_index_value(390), 8);
+        assert_eq!(ctx.default_image_index_value(391), 6);
+        assert_eq!(ctx.default_image_index_value(392), 5);
+        assert_eq!(ctx.default_image_index_value(393), -1);
     }
 
     #[test]

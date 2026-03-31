@@ -694,8 +694,10 @@ impl crate::skin::skin_render_context::SkinRenderContext for PropertySnapshot {
     }
 
     fn ranking_score_clear_type(&self, slot: i32) -> i32 {
-        let index = (self.ranking_offset + slot) as usize;
-        self.ranking_clear_types.get(index).copied().unwrap_or(-1)
+        self.ranking_clear_types
+            .get(slot as usize)
+            .copied()
+            .unwrap_or(-1)
     }
 
     fn ranking_offset(&self) -> i32 {
@@ -1047,16 +1049,24 @@ mod tests {
 
     #[test]
     fn ranking_score_clear_type_with_offset() {
+        // build_snapshot() pre-applies ranking_offset when populating
+        // ranking_clear_types, so the Vec always has 10 elements where
+        // index i corresponds to the score at (ranking_offset + i).
+        // The accessor must NOT re-apply the offset.
         let mut snapshot = PropertySnapshot::new();
-        snapshot.ranking_clear_types = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+        // Simulate build_snapshot with ranking_offset=3:
+        // slot 0 → ranking.score(3), slot 1 → ranking.score(4), ...
+        snapshot.ranking_clear_types = vec![30, 31, 32, 33, 34, 35, 36, 37, 38, 39];
         snapshot.ranking_offset = 3;
 
-        // slot 0 → index 3
-        assert_eq!(snapshot.ranking_score_clear_type(0), 3);
-        // slot 5 → index 8
-        assert_eq!(snapshot.ranking_score_clear_type(5), 8);
-        // slot 8 → index 11 → out of range
-        assert_eq!(snapshot.ranking_score_clear_type(8), -1);
+        // slot 0 → ranking_clear_types[0] (pre-offset-adjusted to ranking.score(3))
+        assert_eq!(snapshot.ranking_score_clear_type(0), 30);
+        // slot 5 → ranking_clear_types[5] (pre-offset-adjusted to ranking.score(8))
+        assert_eq!(snapshot.ranking_score_clear_type(5), 35);
+        // slot 9 → ranking_clear_types[9] (last valid element)
+        assert_eq!(snapshot.ranking_score_clear_type(9), 39);
+        // slot 10 → out of range
+        assert_eq!(snapshot.ranking_score_clear_type(10), -1);
     }
 
     #[test]
