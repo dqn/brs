@@ -221,6 +221,17 @@ impl MainController {
         // Drop the old state now that it has been shut down
         self.current = None;
 
+        // Clear the preloaded play skin when transitioning to a state that will
+        // not consume it (anything other than Play). Without this, cancelling out
+        // of Decide (back to Select) leaves the background thread running and its
+        // Skin result is never consumed. Repeated Decide-cancel cycles would leak
+        // threads and accumulated Skin data.
+        if new_state.state_type() != Some(MainStateType::Play) {
+            // Dropping the JoinHandle detaches the thread (intentional: the thread
+            // will finish on its own and its result is simply discarded).
+            self.preloaded_play_skin = None;
+        }
+
         // Invalidate decide skin cache and pre-load when entering config screens
         // (user may change the decide skin path).
         if matches!(

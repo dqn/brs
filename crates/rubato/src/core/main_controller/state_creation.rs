@@ -125,6 +125,17 @@ impl MainController {
                         // Pre-load the play skin on a background thread while the decide
                         // screen is displayed. By the time the user finishes viewing decide
                         // (typically 3+ seconds), the play skin is already loaded.
+                        //
+                        // Drop any leftover preloaded skin handle first. This is a safety
+                        // net: normally transition_to_state() clears it when leaving Decide
+                        // to a non-Play state, but we guard here defensively to avoid
+                        // silently leaking a background thread if the old handle survives.
+                        if self.preloaded_play_skin.is_some() {
+                            log::debug!(
+                                "Dropping unconsumed preloaded play skin before spawning new one"
+                            );
+                            self.preloaded_play_skin = None;
+                        }
                         let model_mode = resource
                             .bms_model()
                             .and_then(|m| m.mode().copied())
