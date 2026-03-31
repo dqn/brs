@@ -120,9 +120,16 @@ impl UpdateBar {
     }
 
     fn update(&mut self) {
-        // Only update if on music select screen
-        // In Java: if (selector.main.getCurrentState() instanceof MusicSelector)
-        // For now, we proceed (the instanceof check is a runtime type check)
+        // Only update if on music select screen.
+        // Java: if (selector.main.getCurrentState() instanceof MusicSelector)
+        {
+            let selector = lock_or_recover(&self.selector);
+            if !selector.is_active {
+                // Not on the select screen; leave hashes in `stack` so they are
+                // processed the next time update() runs while MusicSelector is active.
+                return;
+            }
+        }
 
         // Process accumulated stack items
         while let Some(sha256) = self.stack.pop() {
@@ -249,6 +256,7 @@ mod tests {
                 .with_hash_filtering(true),
         );
         selector.config.max_request_count = max_request_count;
+        selector.is_active = true;
         Arc::new(Mutex::new(selector))
     }
 
@@ -428,5 +436,54 @@ mod tests {
         // Verify try_recv returns Empty (not blocking) when no messages pending
         let (_tx, rx) = mpsc::channel::<String>();
         assert!(matches!(rx.try_recv(), Err(mpsc::TryRecvError::Empty)));
+    }
+
+    #[test]
+    fn update_skips_when_selector_is_not_active() {
+        // Java: update() is gated by `selector.main.getCurrentState() instanceof MusicSelector`.
+        // When the selector is not active (e.g. during play/decide screen), update() should
+        // leave hashes in the stack for later processing.
+        let song_a = make_song("aaaa");
+        let selector = {
+            let mut sel = MusicSelector::new();
+            sel.songdb = Box::new(
+                TestSongDb::new()
+                    .with_songs_by_hashes(vec![song_a.clone()])
+                    .with_hash_filtering(true),
+            );
+            sel.config.max_request_count = 10;
+            // is_active defaults to false (not on select screen)
+            Arc::new(Mutex::new(sel))
+        };
+
+        let mut updater = UpdateBar::new(Arc::clone(&selector));
+        updater.stack.push("aaaa".to_string());
+
+        // update() should early-return without processing the stack
+        updater.update();
+        assert!(
+            updater.song_datas.is_empty(),
+            "should not process stack when selector is inactive"
+        );
+        assert_eq!(
+            updater.stack.len(),
+            1,
+            "stack should be preserved for later processing"
+        );
+
+        // Activate the selector (simulating return to select screen)
+        lock_or_recover(&selector).is_active = true;
+
+        // Now update() should process the stack
+        updater.update();
+        assert_eq!(
+            updater.song_datas.len(),
+            1,
+            "should process stack when selector becomes active"
+        );
+        assert!(
+            updater.stack.is_empty(),
+            "stack should be drained after processing"
+        );
     }
 }

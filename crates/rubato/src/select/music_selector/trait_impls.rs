@@ -199,6 +199,8 @@ impl MainState for MusicSelector {
     /// Create state — initialize DB access, song list, bar manager.
     /// Corresponds to Java MusicSelector.create()
     fn create(&mut self) {
+        self.is_active = true;
+
         if self.play_data_accessor.is_none() {
             log::warn!(
                 "MusicSelector::create(): dependencies not set - state transitions, sounds, and score access will be disabled"
@@ -1114,6 +1116,8 @@ impl MainState for MusicSelector {
     /// Shutdown — stop preview, unfocus search.
     /// Corresponds to Java MusicSelector.shutdown()
     fn shutdown(&mut self) {
+        self.is_active = false;
+
         if let Some(preview) = &mut self.preview_state.preview {
             preview.stop();
         }

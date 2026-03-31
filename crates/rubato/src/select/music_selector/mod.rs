@@ -873,6 +873,12 @@ pub struct MusicSelector {
     /// JoinHandles for background threads (BMS parse, IR song/course fetch).
     /// Joined on dispose() to ensure clean shutdown.
     background_threads: Vec<std::thread::JoinHandle<()>>,
+
+    /// Whether this MusicSelector is the currently active state on screen.
+    /// Set to `true` in `create()`, cleared in `shutdown()`.
+    /// Used by `StreamRequestCommand::UpdateBar` to gate bar mutations:
+    /// Java gates `update()` with `selector.main.getCurrentState() instanceof MusicSelector`.
+    pub is_active: bool,
 }
 
 pub static MODE: [Option<bms_model::Mode>; 8] = [

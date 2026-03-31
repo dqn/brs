@@ -57,6 +57,7 @@ impl MusicSelector {
             pending_ir_course_fetch: None,
             pending_note_graph: None,
             background_threads: Vec::new(),
+            is_active: false,
         }
     }
 
