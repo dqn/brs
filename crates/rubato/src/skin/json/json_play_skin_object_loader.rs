@@ -596,7 +596,7 @@ mod tests {
                 &header,
                 &sk,
                 &SkinType::Play7Keys,
-                &SkinConfigProperty,
+                &SkinConfigProperty::default(),
                 &skin_path,
             )
             .expect("play skin should load");

@@ -38,7 +38,7 @@ fn load_json_header(filename: &str) -> SkinHeaderData {
 fn load_json_skin(filename: &str) -> SkinData {
     let path = test_bms_dir().join(filename);
     let skin_type = SkinType::Decide;
-    let property = SkinConfigProperty;
+    let property = SkinConfigProperty::default();
     let mut loader = JSONSkinLoader::new();
     loader
         .load(&path, &skin_type, &property)

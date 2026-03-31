@@ -89,6 +89,21 @@ pub fn load_lr2_skin(
     skin_type: &crate::skin::skin_type::SkinType,
     dst: Resolution,
 ) -> Option<crate::skin::skin::Skin> {
+    load_lr2_skin_with_property(
+        path,
+        skin_type,
+        dst,
+        &crate::skin::skin_header::SkinConfigProperty::default(),
+    )
+}
+
+/// Load an LR2 skin with user-saved config property applied.
+pub fn load_lr2_skin_with_property(
+    path: &std::path::Path,
+    skin_type: &crate::skin::skin_type::SkinType,
+    dst: Resolution,
+    property: &crate::skin::skin_header::SkinConfigProperty,
+) -> Option<crate::skin::skin::Skin> {
     use crate::skin::skin_header::{self, SkinHeader};
 
     let skinpath = path.parent()?.to_str()?.to_string();
@@ -131,6 +146,9 @@ pub fn load_lr2_skin(
         .map(|o| skin_header::CustomOffset::new(o.name.clone(), o.id, o.caps))
         .collect();
     skin_header.offsets = offsets;
+
+    // Apply user's saved option/file selections before creating the skin.
+    skin_header.set_skin_config_property(property);
 
     // 3. Create Skin
     let mut skin = crate::skin::skin::Skin::new(skin_header);

@@ -359,7 +359,11 @@ fn test_bar_renderer_render_draws_ecfn_loaded_songlist_bitmap_bartext_quads() {
         .load_header(&path)
         .expect("ECFN select Lua skin header should load");
     let data = loader
-        .load(&path, &SkinType::MusicSelect, &SkinConfigProperty)
+        .load(
+            &path,
+            &SkinType::MusicSelect,
+            &SkinConfigProperty::default(),
+        )
         .expect("ECFN select Lua skin should load into SkinData");
     let mut skin = skin_data_converter::convert_skin_data(
         &header,
@@ -440,7 +444,11 @@ fn test_bar_renderer_centers_ecfn_loaded_songlist_bitmap_bartext_vertically() {
         .load_header(&path)
         .expect("ECFN select Lua skin header should load");
     let data = loader
-        .load(&path, &SkinType::MusicSelect, &SkinConfigProperty)
+        .load(
+            &path,
+            &SkinType::MusicSelect,
+            &SkinConfigProperty::default(),
+        )
         .expect("ECFN select Lua skin should load into SkinData");
     let mut skin = skin_data_converter::convert_skin_data(
         &header,

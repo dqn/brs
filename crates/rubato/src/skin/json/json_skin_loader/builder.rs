@@ -380,11 +380,14 @@ impl JSONSkinLoader {
         &mut self,
         p: &Path,
         skin_type: &crate::skin::skin_type::SkinType,
-        _property: &SkinConfigProperty,
+        property: &SkinConfigProperty,
     ) -> Option<SkinData> {
         self.serializer = Some(JsonSkinSerializer::new());
 
-        let header = self.load_header(p)?;
+        let mut header = self.load_header(p)?;
+
+        // Apply user's saved option/file selections before computing enabled options.
+        header.apply_skin_config_property(property);
 
         // Set enabled options so conditional blocks are evaluated during deserialization.
         let enabled_options = self.get_enabled_options(&header);
@@ -432,7 +435,7 @@ impl JSONSkinLoader {
         json_skin::set_enabled_options(None);
         self.sk = Some(sk.clone());
 
-        self.load_json_skin(&header, &sk, skin_type, _property, p)
+        self.load_json_skin(&header, &sk, skin_type, property, p)
     }
 
     fn get_enabled_options(&self, header: &SkinHeaderData) -> HashSet<i32> {

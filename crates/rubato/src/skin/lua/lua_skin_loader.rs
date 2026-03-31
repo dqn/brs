@@ -99,7 +99,10 @@ impl LuaSkinLoader {
         property: &SkinConfigProperty,
     ) -> Option<SkinData> {
         // 1. Load header
-        let header = self.load_header(p)?;
+        let mut header = self.load_header(p)?;
+
+        // Apply user's saved option/file selections before building filemap.
+        header.apply_skin_config_property(property);
 
         // 2. Set up file map from custom files
         let mut filemap: HashMap<String, String> = HashMap::new();
@@ -495,7 +498,7 @@ mod tests {
         let skin = loader.load(
             &path,
             &crate::skin::skin_type::SkinType::Decide,
-            &SkinConfigProperty,
+            &SkinConfigProperty::default(),
         );
         assert!(
             skin.is_some(),
@@ -519,7 +522,7 @@ mod tests {
         let skin = loader.load(
             &path,
             &crate::skin::skin_type::SkinType::Play7Keys,
-            &SkinConfigProperty,
+            &SkinConfigProperty::default(),
         );
         assert!(
             skin.is_some(),
@@ -564,7 +567,7 @@ mod tests {
         let skin = loader.load(
             &path,
             &crate::skin::skin_type::SkinType::Result,
-            &SkinConfigProperty,
+            &SkinConfigProperty::default(),
         );
         assert!(
             skin.is_some(),
@@ -581,7 +584,7 @@ mod tests {
             .load_header(&path)
             .expect("ECFN play Lua skin header should load");
         let data = loader
-            .load(&path, &SkinType::Play7Keys, &SkinConfigProperty)
+            .load(&path, &SkinType::Play7Keys, &SkinConfigProperty::default())
             .expect("ECFN play Lua skin should load into SkinData");
         let resolved_judge = data
             .objects
@@ -631,7 +634,11 @@ mod tests {
             .load_header(&path)
             .expect("ECFN select Lua skin header should load");
         let data = loader
-            .load(&path, &SkinType::MusicSelect, &SkinConfigProperty)
+            .load(
+                &path,
+                &SkinType::MusicSelect,
+                &SkinConfigProperty::default(),
+            )
             .expect("ECFN select Lua skin should load into SkinData");
         let skin = crate::skin::skin_data_converter::convert_skin_data(
             &header,
@@ -666,7 +673,11 @@ mod tests {
             .load_header(&path)
             .expect("ECFN select Lua skin header should load");
         let data = loader
-            .load(&path, &SkinType::MusicSelect, &SkinConfigProperty)
+            .load(
+                &path,
+                &SkinType::MusicSelect,
+                &SkinConfigProperty::default(),
+            )
             .expect("ECFN select Lua skin should load into SkinData");
         let mut skin = crate::skin::skin_data_converter::convert_skin_data(
             &header,
@@ -709,7 +720,11 @@ mod tests {
             .load_header(&path)
             .expect("ECFN select Lua skin header should load");
         let data = loader
-            .load(&path, &SkinType::MusicSelect, &SkinConfigProperty)
+            .load(
+                &path,
+                &SkinType::MusicSelect,
+                &SkinConfigProperty::default(),
+            )
             .expect("ECFN select Lua skin should load into SkinData with state");
         let mut skin = crate::skin::skin_data_converter::convert_skin_data(
             &header,

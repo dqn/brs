@@ -242,7 +242,8 @@ impl SkinHeader {
 // Inner types for SkinHeader
 // ============================================================
 
-/// SkinConfig.Property stub (used for setSkinConfigProperty)
+/// SkinConfig.Property (used for setSkinConfigProperty)
+#[derive(Default)]
 pub struct SkinConfigProperty {
     pub option: Vec<SkinConfigOptionEntry>,
     pub file: Vec<SkinConfigFileEntry>,
@@ -432,7 +433,7 @@ pub enum CustomItemEnum {
 
 /// Extract filename pattern from a custom file path spec (handles `|` separator).
 /// For `bg/*.png` returns `*.png`; for `bg/bg*|.png|.bmp` returns `bg*.png.bmp`.
-fn extract_file_pattern(path: &str) -> String {
+pub(crate) fn extract_file_pattern(path: &str) -> String {
     let after_slash = if let Some(idx) = path.rfind('/') {
         &path[idx + 1..]
     } else {
@@ -454,7 +455,7 @@ fn extract_file_pattern(path: &str) -> String {
 }
 
 /// Case-insensitive wildcard matching for skin file patterns (e.g., `*.png`, `bg*.png`).
-fn matches_wildcard_case_insensitive(filename: &str, pattern: &str) -> bool {
+pub(crate) fn matches_wildcard_case_insensitive(filename: &str, pattern: &str) -> bool {
     let filename_lower = filename.to_ascii_lowercase();
     let pattern_lower = pattern.to_ascii_lowercase();
 

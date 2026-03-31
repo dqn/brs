@@ -13,6 +13,8 @@ use crate::skin::sync_utils::lock_or_recover;
 use crate::skin::types::skin::Skin;
 use crate::skin::types::skin_type::SkinType;
 
+use crate::skin::skin_header::SkinConfigProperty;
+
 /// Skin image resource pool
 /// Translated from SkinLoader.java
 ///
@@ -143,6 +145,77 @@ pub fn apply_player_config_offsets(
     }
 }
 
+/// Build a `SkinConfigProperty` from the user's saved skin config in `PlayerConfig`.
+fn build_skin_config_property(
+    player_config: &PlayerConfig,
+    skin_type_id: i32,
+) -> SkinConfigProperty {
+    use crate::skin::skin_header::{
+        SkinConfigFileEntry, SkinConfigOffsetEntry, SkinConfigOptionEntry,
+    };
+
+    let properties = player_config
+        .skin
+        .get(skin_type_id as usize)
+        .and_then(|s| s.as_ref())
+        .and_then(|s| s.properties.as_ref());
+
+    let Some(props) = properties else {
+        return SkinConfigProperty::default();
+    };
+
+    let option = props
+        .option
+        .iter()
+        .filter_map(|o| {
+            let o = o.as_ref()?;
+            let name = o.name.as_ref()?;
+            Some(SkinConfigOptionEntry {
+                name: name.clone(),
+                value: o.value,
+            })
+        })
+        .collect();
+
+    let file = props
+        .file
+        .iter()
+        .filter_map(|f| {
+            let f = f.as_ref()?;
+            let name = f.name.as_ref()?;
+            let path = f.path.as_ref()?;
+            Some(SkinConfigFileEntry {
+                name: name.clone(),
+                path: path.clone(),
+            })
+        })
+        .collect();
+
+    let offset = props
+        .offset
+        .iter()
+        .filter_map(|o| {
+            let o = o.as_ref()?;
+            let name = o.name.as_ref()?;
+            Some(SkinConfigOffsetEntry {
+                name: name.clone(),
+                x: o.x,
+                y: o.y,
+                w: o.w,
+                h: o.h,
+                r: o.r,
+                a: o.a,
+            })
+        })
+        .collect();
+
+    SkinConfigProperty {
+        option,
+        file,
+        offset,
+    }
+}
+
 /// Loads a skin from config parameters without requiring a MainState reference.
 ///
 /// Resolves the skin path from PlayerConfig (with fallback to SkinConfig default),
@@ -186,11 +259,7 @@ pub fn load_skin_from_config(
             return None;
         }
     };
-    // TODO: Pass the user's saved skin config (option selections, file paths,
-    // offsets) here. Java's setSkinConfigProperty() applies these to the header
-    // before loading, enabling skin variant switching. Currently a unit struct,
-    // so all skins load with default options/filemaps.
-    let property = crate::skin::json::json_skin_loader::SkinConfigProperty;
+    let property = build_skin_config_property(player_config, skin_type_id);
 
     let mut skin = if skin_path.ends_with(".json") {
         let mut loader = crate::skin::json::json_skin_loader::JSONSkinLoader::with_config(config);
@@ -243,7 +312,9 @@ pub fn load_skin_from_config(
             width: config.display.window_width as f32,
             height: config.display.window_height as f32,
         };
-        let skin = crate::skin::lr2::lr2_skin_csv_loader::load_lr2_skin(&path, &skin_type, dst);
+        let skin = crate::skin::lr2::lr2_skin_csv_loader::load_lr2_skin_with_property(
+            &path, &skin_type, dst, &property,
+        );
 
         {
             let guard = lock_or_recover(&RESOURCE);
@@ -276,7 +347,8 @@ pub fn load_skin_from_path_with_state(
         .cloned()
         .expect("config required for skin loading");
     let path = resolve_skin_path(&config, skin_path)?;
-    let property = crate::skin::json::json_skin_loader::SkinConfigProperty;
+    let player_config = state.player_config_ref().cloned().unwrap_or_default();
+    let property = build_skin_config_property(&player_config, skin_type_id);
 
     let mut skin = if skin_path.ends_with(".json") {
         let mut loader = crate::skin::json::json_skin_loader::JSONSkinLoader::with_config(&config);
@@ -310,7 +382,9 @@ pub fn load_skin_from_path_with_state(
             width: config.display.window_width as f32,
             height: config.display.window_height as f32,
         };
-        crate::skin::lr2::lr2_skin_csv_loader::load_lr2_skin(&path, &skin_type, dst)
+        crate::skin::lr2::lr2_skin_csv_loader::load_lr2_skin_with_property(
+            &path, &skin_type, dst, &property,
+        )
     };
 
     {
@@ -358,7 +432,8 @@ pub fn load_with_config(
     skin_type: &crate::skin::skin_type::SkinType,
     skin_config_path: &str,
 ) -> Option<crate::skin::json::json_skin_loader::SkinData> {
-    let property = crate::skin::json::json_skin_loader::SkinConfigProperty;
+    let player_config = _state.player_config_ref().cloned().unwrap_or_default();
+    let property = build_skin_config_property(&player_config, skin_type.id());
 
     if skin_config_path.ends_with(".json") {
         // JSONSkinLoader

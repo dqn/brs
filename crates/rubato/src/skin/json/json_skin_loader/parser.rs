@@ -240,12 +240,81 @@ pub struct CustomCategoryData {
     pub items: Vec<CustomItemData>,
 }
 
-// Accepted trade-off: SkinConfigProperty is currently a stub (empty struct).
-// In Java, this carries user-saved option/file selections for custom skin config.
-// The default option values from the skin JSON header are used instead. User
-// customization overrides are not yet implemented.
-#[derive(Clone, Debug, Default)]
-pub struct SkinConfigProperty;
+pub use crate::skin::skin_header::SkinConfigProperty;
+
+impl SkinHeaderData {
+    /// Apply user-saved skin config selections to the header data.
+    /// Mirrors `SkinHeader::set_skin_config_property()` but operates on the
+    /// intermediate `SkinHeaderData` representation used during JSON/Lua loading.
+    pub fn apply_skin_config_property(&mut self, property: &SkinConfigProperty) {
+        use crate::skin::skin_property::OPTION_RANDOM_VALUE;
+
+        for custom_option in &mut self.custom_options {
+            let mut op = custom_option.selected_option;
+            for opt in &property.option {
+                if opt.name == custom_option.name {
+                    if opt.value != OPTION_RANDOM_VALUE {
+                        op = opt.value;
+                    } else if !custom_option.option.is_empty() {
+                        let idx =
+                            (rand::random::<f64>() * custom_option.option.len() as f64) as usize;
+                        let idx = idx.min(custom_option.option.len() - 1);
+                        op = custom_option.option[idx];
+                    }
+                    break;
+                }
+            }
+            // Only apply if it's a valid option value
+            if custom_option.option.contains(&op) {
+                custom_option.selected_option = op;
+            }
+        }
+
+        for custom_file in &mut self.custom_files {
+            for file in &property.file {
+                if custom_file.name == file.name {
+                    if file.path != "Random" {
+                        custom_file.selected_filename = Some(file.path.clone());
+                    } else {
+                        let file_pattern =
+                            crate::skin::skin_header::extract_file_pattern(&custom_file.path);
+                        let dir_path = if let Some(idx) = custom_file.path.rfind('/') {
+                            &custom_file.path[..idx]
+                        } else {
+                            "."
+                        };
+                        let dir = std::path::Path::new(dir_path);
+                        if dir.exists() && dir.is_dir() {
+                            let mut l: Vec<std::path::PathBuf> = Vec::new();
+                            if let Ok(entries) = std::fs::read_dir(dir) {
+                                for entry in entries.flatten() {
+                                    let path = entry.path();
+                                    if let Some(fname) = path.file_name()
+                                        && crate::skin::skin_header::matches_wildcard_case_insensitive(
+                                            &fname.to_string_lossy(),
+                                            &file_pattern,
+                                        )
+                                    {
+                                        l.push(path);
+                                    }
+                                }
+                            }
+                            if !l.is_empty() {
+                                let idx = (rand::random::<f64>() * l.len() as f64) as usize;
+                                let idx = idx.min(l.len() - 1);
+                                if let Some(filename) = l[idx].file_name() {
+                                    custom_file.selected_filename =
+                                        Some(filename.to_string_lossy().into_owned());
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+    }
+}
 
 #[derive(Clone, Debug, Default)]
 pub struct SkinData {
