@@ -207,6 +207,10 @@ impl MSADPCMDecoder {
 
             // while blockData.hasRemaining()
             while block_pos < block_data.len() {
+                if out_short_pos + 4 > out.len() {
+                    break;
+                }
+
                 let current_byte = block_data[block_pos] as u32 as i32;
                 block_pos += 1;
 
@@ -319,5 +323,84 @@ mod tests {
         assert_eq!(buf[2], 0xFF);
         assert_eq!(buf[3], 0xFF);
         assert_eq!(read_i16_le(&buf, 2), -1);
+    }
+
+    /// Regression test: corrupted ADPCM block with extra data bytes beyond what
+    /// the output buffer can hold must not panic on out-of-bounds write.
+    #[test]
+    fn test_decode_block_mono_corrupted_extra_data_no_panic() {
+        // Mono, block_size=8: samples_per_block = (8-6)*2 = 4
+        // Header = 7 bytes, data section = 1 byte (2 samples, 4 output bytes).
+        // Header samples (sample2 + sample1) write 4 output bytes.
+        // Total output = 8 bytes, matching samples_per_block * channels * 2.
+        let mut decoder = MSADPCMDecoder::new(1, 44100, 8).unwrap();
+
+        // Build a block_data with valid 7-byte header + 5 extra data bytes
+        // (4 more than the expected 1 byte), simulating internal corruption.
+        let mut block_data = vec![0u8; 12];
+        // predictor = 0 (valid, range 0..6)
+        block_data[0] = 0;
+        // initial_delta (i16 LE) = 16
+        block_data[1] = 16;
+        block_data[2] = 0;
+        // sample1 (i16 LE) = 0
+        block_data[3] = 0;
+        block_data[4] = 0;
+        // sample2 (i16 LE) = 0
+        block_data[5] = 0;
+        block_data[6] = 0;
+        // data bytes: 5 bytes (would produce 10 samples = 20 output bytes)
+        // but output buffer only has 8 bytes total, 4 already used by header.
+
+        // Output buffer sized for the declared samples_per_block (8 bytes).
+        let mut out = vec![0u8; 8];
+
+        // Without the bounds check, this panics on write_i16_le out of bounds.
+        let result = decoder.decode_block(&mut out, &block_data);
+        assert!(result.is_ok());
+    }
+
+    /// Regression test: corrupted stereo ADPCM block with extra data bytes.
+    #[test]
+    fn test_decode_block_stereo_corrupted_extra_data_no_panic() {
+        // Stereo, block_size=16: samples_per_block = (16-12)*2/2 = 4
+        // Header = 14 bytes, data section = 2 bytes (4 samples, 8 output bytes).
+        // Header samples (2 x sample2 + 2 x sample1) write 8 output bytes.
+        // Total output = 16 bytes, matching samples_per_block * channels * 2.
+        let mut decoder = MSADPCMDecoder::new(2, 44100, 16).unwrap();
+
+        // Build a block_data with valid 14-byte header + 6 extra data bytes
+        // (4 more than the expected 2 bytes).
+        let mut block_data = vec![0u8; 20];
+        // predictors (1 byte each, both = 0)
+        block_data[0] = 0;
+        block_data[1] = 0;
+        // initial_delta ch0 (i16 LE) = 16
+        block_data[2] = 16;
+        block_data[3] = 0;
+        // initial_delta ch1 (i16 LE) = 16
+        block_data[4] = 16;
+        block_data[5] = 0;
+        // sample1 ch0 = 0
+        block_data[6] = 0;
+        block_data[7] = 0;
+        // sample1 ch1 = 0
+        block_data[8] = 0;
+        block_data[9] = 0;
+        // sample2 ch0 = 0
+        block_data[10] = 0;
+        block_data[11] = 0;
+        // sample2 ch1 = 0
+        block_data[12] = 0;
+        block_data[13] = 0;
+        // data bytes: 6 bytes (would produce 12 samples = 24 output bytes)
+        // but output buffer only has 16 bytes total, 8 already used by header.
+
+        // Output buffer sized for the declared samples_per_block (16 bytes).
+        let mut out = vec![0u8; 16];
+
+        // Without the bounds check, this panics on write_i16_le out of bounds.
+        let result = decoder.decode_block(&mut out, &block_data);
+        assert!(result.is_ok());
     }
 }
